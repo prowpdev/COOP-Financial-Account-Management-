@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers } from 'lucide-react';
+import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User } from '../../types';
@@ -8,23 +8,41 @@ interface AccountingModuleProps {
   accounts: Account[];
   branches: Branch[];
   currentUser: User;
+  selectedBranchId?: string;
+  onSelectBranch?: (id: string) => void;
 }
 
 export const AccountingModule: React.FC<AccountingModuleProps> = ({
   accounts,
   branches,
-  currentUser
+  currentUser,
+  selectedBranchId,
+  onSelectBranch
 }) => {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingJV, setIsCreatingJV] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards'>('vouchers');
 
+  useEffect(() => {
+    if (selectedBranchId !== undefined) {
+      setSelectedBranch(selectedBranchId);
+    }
+  }, [selectedBranchId]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranch(newBranchId);
+    if (onSelectBranch) {
+      onSelectBranch(newBranchId);
+    }
+  };
+
   const [jvForm, setJvForm] = useState({
     posting_date: new Date().toISOString().split('T')[0],
-    branch_id: branches[0]?.id || 'branch_tar',
+    branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar'),
     description: '',
     lines: [
       { account_id: 'acc_5110', debit: 1500, credit: 0 }, // Salaries
@@ -59,6 +77,14 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       sortable: true,
       badgeColor: () => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
     },
+    {
+      key: 'branch_id',
+      header: 'Branch',
+      width: '160px',
+      type: 'text',
+      sortable: true,
+      render: (val) => branches.find(b => b.id === val)?.name || 'Main Branch'
+    },
     { key: 'posting_date', header: 'Posting Date', width: '120px', type: 'date', align: 'center', sortable: true },
     {
       key: 'reference_type',
@@ -92,10 +118,15 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
   ];
 
+  const filteredJournals = useMemo(() => {
+    if (selectedBranch === 'all') return journals;
+    return journals.filter(j => j.branch_id === selectedBranch);
+  }, [journals, selectedBranch]);
+
   // Flattened General Ledger Line Items
   const flattenedLedgerLines = useMemo(() => {
     const lines: any[] = [];
-    journals.forEach(j => {
+    filteredJournals.forEach(j => {
       (j.lines || []).forEach((l, idx) => {
         lines.push({
           id: `${j.id}_${l.id || idx}`,
@@ -107,12 +138,13 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           account_name: l.account_name,
           debit: l.debit,
           credit: l.credit,
-          created_by: j.created_by
+          created_by: j.created_by,
+          branch_name: branches.find(b => b.id === j.branch_id)?.name || 'Main Branch'
         });
       });
     });
     return lines;
-  }, [journals]);
+  }, [filteredJournals, branches]);
 
   const ledgerCols: ExcelColumn<any>[] = [
     {
@@ -215,7 +247,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch Filter Selector */}
+          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+            <select
+              value={selectedBranch}
+              onChange={e => handleBranchChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="all" className="bg-slate-900 text-white">All Branches</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Mode Switcher */}
           <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
             <button
@@ -257,6 +306,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             id="btn-new-jv"
             onClick={() => {
               setErrorMsg(null);
+              setJvForm(prev => ({
+                ...prev,
+                branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar')
+              }));
               setIsCreatingJV(true);
             }}
             className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition cursor-pointer self-start sm:self-auto"
@@ -341,7 +394,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                     onClick={handleAddLine}
                     className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
                   >
-                    + Add Account Line
+                    + Add Debit / Credit Entry Line
                   </button>
                 </div>
 
@@ -441,7 +494,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           title="General Journal Voucher Grid"
           subtitle="Interactive spreadsheet grid of all posted journal vouchers. Easily filter by source module, sort by posting date, and export to Excel."
           exportFileName="general_journal_vouchers"
-          data={journals}
+          data={filteredJournals}
           columns={voucherCols}
           defaultSortKey="voucher_number"
         />
@@ -460,7 +513,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
       {viewMode === 'cards' && (
         <div className="space-y-4">
-          {journals.map(j => (
+          {filteredJournals.map(j => (
             <div key={j.id} className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">

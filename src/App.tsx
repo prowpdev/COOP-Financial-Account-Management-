@@ -32,17 +32,62 @@ export default function App() {
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
-    name: 'CoopFlex Multi-Purpose Cooperative',
+    name: 'Mayap Care Agriculture Coop.',
     registration_no: 'CDA-REG-9502-100234',
     currency_code: 'PHP',
     currency_symbol: '₱',
     operating_mode: 'multi_branch',
     tax_exempt: true,
     fiscal_year_start_month: 1,
-    contact_email: 'compliance@coopflex.ph',
-    contact_phone: '+63 917 800 2345',
-    address: 'National Highway, San Fernando, Pampanga'
+    contact_email: 'contact@mayapcare.coop',
+    contact_phone: '+63 (045) 982-1200',
+    address: 'Poblacion Plaza, Tarlac City, Philippines'
   });
+
+  // UI Settings (Theme, Sidebar, Typography)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('mayap_theme') as 'dark' | 'light') || 'dark';
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('mayap_sidebar_collapsed') === 'true';
+  });
+  const [isLargeText, setIsLargeText] = useState<boolean>(() => {
+    return localStorage.getItem('mayap_large_text') === 'true';
+  });
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('mayap_theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (isLargeText) {
+      document.documentElement.classList.add('large-text');
+    } else {
+      document.documentElement.classList.remove('large-text');
+    }
+    localStorage.setItem('mayap_large_text', String(isLargeText));
+  }, [isLargeText]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('mayap_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
+  const toggleTextSize = () => {
+    setIsLargeText(prev => !prev);
+  };
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
@@ -152,20 +197,29 @@ export default function App() {
         onOpenVerification={() => setActiveTab('verification')}
         onResetSeed={handleResetSeed}
         isResetting={isResetting}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={toggleSidebar}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        isLargeText={isLargeText}
+        onToggleTextSize={toggleTextSize}
       />
 
-      {/* Main View Area with Persistent Sidebar */}
+      {/* Main View Area with Persistent Collapsible Sidebar */}
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
         <Sidebar
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           featureToggles={featureToggles}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
 
         <main className="flex-1 p-6 overflow-x-hidden min-w-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               selectedBranchId={selectedBranchId}
+              branches={branches}
               onNavigate={setActiveTab}
             />
           )}
@@ -191,6 +245,8 @@ export default function App() {
               memberTypes={memberTypes}
               customFields={customFields}
               currentUser={currentUser}
+              selectedBranchId={selectedBranchId}
+              onSelectBranch={setSelectedBranchId}
             />
           )}
 
@@ -200,20 +256,28 @@ export default function App() {
               loanProducts={loanProducts}
               cashAccounts={cashAccounts}
               currentUser={currentUser}
+              selectedBranchId={selectedBranchId}
+              onSelectBranch={setSelectedBranchId}
             />
           )}
 
           {activeTab === 'savings' && (
             <SavingsModule
+              branches={branches}
               cashAccounts={cashAccounts}
               currentUser={currentUser}
+              selectedBranchId={selectedBranchId}
+              onSelectBranch={setSelectedBranchId}
             />
           )}
 
           {activeTab === 'share_capital' && (
             <ShareCapitalModule
+              branches={branches}
               cashAccounts={cashAccounts}
               currentUser={currentUser}
+              selectedBranchId={selectedBranchId}
+              onSelectBranch={setSelectedBranchId}
             />
           )}
 
@@ -222,10 +286,18 @@ export default function App() {
               accounts={accounts}
               branches={branches}
               currentUser={currentUser}
+              selectedBranchId={selectedBranchId}
+              onSelectBranch={setSelectedBranchId}
             />
           )}
 
-          {activeTab === 'reports' && <FinancialReportsView />}
+          {activeTab === 'reports' && (
+            <FinancialReportsView
+              selectedBranchId={selectedBranchId}
+              branches={branches}
+              onSelectBranch={setSelectedBranchId}
+            />
+          )}
 
           {activeTab === 'verification' && <FlexibilityTestSuite />}
         </main>

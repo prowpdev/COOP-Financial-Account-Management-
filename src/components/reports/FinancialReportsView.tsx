@@ -1,16 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, FileSpreadsheet, Download, RefreshCw, Printer } from 'lucide-react';
+import { BarChart3, FileSpreadsheet, Download, RefreshCw, Printer, Building2 } from 'lucide-react';
+import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
+import { Branch } from '../../types';
 
-export const FinancialReportsView: React.FC = () => {
+interface FinancialReportsViewProps {
+  branches?: Branch[];
+  selectedBranchId?: string;
+  onSelectBranch?: (id: string) => void;
+}
+
+export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
+  branches = [],
+  selectedBranchId,
+  onSelectBranch
+}) => {
   const [reportType, setReportType] = useState<'trial_balance' | 'balance_sheet' | 'income_statement' | 'cda_statutory'>('trial_balance');
+  const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (selectedBranchId !== undefined) {
+      setSelectedBranch(selectedBranchId);
+    }
+  }, [selectedBranchId]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranch(newBranchId);
+    if (onSelectBranch) {
+      onSelectBranch(newBranchId);
+    }
+  };
 
   const loadReport = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getFinancialReport(reportType);
+      const branchParam = selectedBranch !== 'all' ? selectedBranch : undefined;
+      const res = await api.getFinancialReport(reportType, branchParam);
       setData(res.data);
     } catch (err) {
       console.error(err);
@@ -21,10 +48,121 @@ export const FinancialReportsView: React.FC = () => {
 
   useEffect(() => {
     loadReport();
-  }, [reportType]);
+  }, [reportType, selectedBranch]);
 
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
+
+  const downloadStatementCSV = () => {
+    if (!data) return;
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    const branchName = selectedBranch === 'all' ? 'Consolidated All Branches' : branches.find(b => b.id === selectedBranch)?.name || 'Branch';
+
+    if (reportType === 'trial_balance') {
+      csvContent += `"Trial Balance - ${branchName}"\r\n`;
+      csvContent += `"Account Code","Account Name","Classification","Debit","Credit"\r\n`;
+      data.accounts?.forEach((a: any) => {
+        csvContent += `"${a.code}","${a.name}","${a.type}",${a.debit || 0},${a.credit || 0}\r\n`;
+      });
+      csvContent += `"TOTALS","","Balanced Equilibrium",${data.total_debit || 0},${data.total_credit || 0}\r\n`;
+    } else if (reportType === 'balance_sheet') {
+      csvContent += `"Statement of Financial Condition (Balance Sheet) - ${branchName}"\r\n`;
+      csvContent += `"Category","Account Name","Amount"\r\n`;
+      data.assets?.forEach((a: any) => {
+        csvContent += `"Asset","${a.name}",${a.balance || 0}\r\n`;
+      });
+      csvContent += `"Total Assets","Total Assets",${data.total_assets || 0}\r\n`;
+      data.liabilities?.forEach((l: any) => {
+        csvContent += `"Liability","${l.name}",${l.balance || 0}\r\n`;
+      });
+      csvContent += `"Total Liabilities","Total Liabilities",${data.total_liabilities || 0}\r\n`;
+      data.equity?.forEach((e: any) => {
+        csvContent += `"Equity","${e.name}",${e.balance || 0}\r\n`;
+      });
+      csvContent += `"Total Equity","Total Equity",${data.total_equity || 0}\r\n`;
+    } else if (reportType === 'income_statement') {
+      csvContent += `"Statement of Operations - ${branchName}"\r\n`;
+      csvContent += `"Type","Account Name","Amount"\r\n`;
+      data.revenues?.forEach((r: any) => {
+        csvContent += `"Revenue","${r.name}",${r.balance || 0}\r\n`;
+      });
+      csvContent += `"Total Revenue","Total Gross Revenue",${data.total_revenue || 0}\r\n`;
+      data.expenses?.forEach((e: any) => {
+        csvContent += `"Expense","${e.name}",${e.balance || 0}\r\n`;
+      });
+      csvContent += `"Total Expense","Total Operating Expenses",${data.total_expense || 0}\r\n`;
+      csvContent += `"Net Surplus","Net Surplus for Allocation",${data.net_surplus || 0}\r\n`;
+    } else if (reportType === 'cda_statutory') {
+      const net = data.net_surplus || 150000;
+      csvContent += `"CDA Statutory Reserve Allocation - ${branchName}"\r\n`;
+      csvContent += `"Fund / Statutory Reserve","Percentage","Allocated Amount"\r\n`;
+      csvContent += `"General Reserve Fund","10%",${net * 0.10}\r\n`;
+      csvContent += `"Cooperative Education & Training Fund (CETF)","10%",${net * 0.10}\r\n`;
+      csvContent += `"Community Development Fund","3%",${net * 0.03}\r\n`;
+      csvContent += `"Optional Fund","7%",${net * 0.07}\r\n`;
+      csvContent += `"Interest on Share Capital & Patronage Refund","70%",${net * 0.70}\r\n`;
+      csvContent += `"Total Distributable Net Surplus","100%",${net}\r\n`;
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${reportType}_${selectedBranch}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const trialBalanceCols: ExcelColumn<any>[] = [
+    {
+      key: 'code',
+      header: 'Account Code',
+      width: '140px',
+      type: 'text',
+      align: 'center',
+      sortable: true,
+      render: (val) => <span className="font-mono font-bold text-emerald-400">{val}</span>
+    },
+    {
+      key: 'name',
+      header: 'Account Name',
+      width: '280px',
+      type: 'text',
+      sortable: true,
+      render: (val) => <span className="font-medium text-white">{val}</span>
+    },
+    {
+      key: 'type',
+      header: 'Classification',
+      width: '140px',
+      type: 'badge',
+      align: 'center',
+      sortable: true,
+      badgeColor: (val) => {
+        if (val === 'ASSET') return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+        if (val === 'LIABILITY') return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+        if (val === 'EQUITY') return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        if (val === 'REVENUE') return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+        return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+      }
+    },
+    {
+      key: 'debit',
+      header: 'Debit Balance (₱)',
+      width: '160px',
+      type: 'currency',
+      align: 'right',
+      sortable: true
+    },
+    {
+      key: 'credit',
+      header: 'Credit Balance (₱)',
+      width: '160px',
+      type: 'currency',
+      align: 'right',
+      sortable: true
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -44,17 +182,43 @@ export const FinancialReportsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch Filter Selector */}
+          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+            <select
+              value={selectedBranch}
+              onChange={e => handleBranchChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="all" className="bg-slate-900 text-white">All Branches (Consolidated)</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={downloadStatementCSV}
+            className="flex items-center space-x-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 cursor-pointer"
+            title="Download active report as CSV spreadsheet"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center space-x-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Report</span>
+            <span>Print</span>
           </button>
           <button
             onClick={loadReport}
             className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 cursor-pointer"
+            title="Refresh Report"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -62,7 +226,7 @@ export const FinancialReportsView: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-2 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => setReportType('trial_balance')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
@@ -71,7 +235,7 @@ export const FinancialReportsView: React.FC = () => {
               : 'bg-slate-900 text-slate-400 hover:text-white'
           }`}
         >
-          Trial Balance
+          Trial Balance Grid
         </button>
         <button
           onClick={() => setReportType('balance_sheet')}
@@ -116,55 +280,27 @@ export const FinancialReportsView: React.FC = () => {
 
         {!isLoading && data && reportType === 'trial_balance' && (
           <div className="space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Consolidated Trial Balance</h3>
-              <p className="text-xs text-slate-400">As of {new Date().toLocaleDateString()}</p>
-            </div>
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-800/80 text-slate-400 uppercase font-semibold text-[10px]">
-                <tr>
-                  <th className="py-2 px-3">Account Code</th>
-                  <th className="py-2 px-3">Account Name</th>
-                  <th className="py-2 px-3">Classification</th>
-                  <th className="py-2 px-3 text-right">Debit Balance</th>
-                  <th className="py-2 px-3 text-right">Credit Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {data.accounts?.map((acc: any) => (
-                  <tr key={acc.code} className="hover:bg-slate-800/40">
-                    <td className="py-2 px-3 font-mono font-bold text-white">{acc.code}</td>
-                    <td className="py-2 px-3 text-slate-200">{acc.name}</td>
-                    <td className="py-2 px-3 text-slate-400">{acc.type}</td>
-                    <td className="py-2 px-3 text-right font-mono text-emerald-400">
-                      {acc.debit > 0 ? formatMoney(acc.debit) : '-'}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono text-blue-400">
-                      {acc.credit > 0 ? formatMoney(acc.credit) : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-slate-950 font-bold border-t border-slate-700 text-xs">
-                <tr>
-                  <td colSpan={3} className="py-3 px-3 text-white">TOTALS (Enforced Equilibrium)</td>
-                  <td className="py-3 px-3 text-right font-mono text-emerald-400">
-                    {formatMoney(data.total_debit)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-blue-400">
-                    {formatMoney(data.total_credit)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+            <ExcelGridTable
+              title="Consolidated General Ledger Trial Balance"
+              subtitle={`Live balance summary across all CDA chart of accounts for ${selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name || 'Branch'}. Enforces mathematical debit/credit equilibrium.`}
+              exportFileName={`trial_balance_${selectedBranch}`}
+              data={data.accounts || []}
+              columns={trialBalanceCols}
+              defaultSortKey="code"
+            />
           </div>
         )}
 
         {!isLoading && data && reportType === 'balance_sheet' && (
           <div className="space-y-6">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Statement of Financial Condition</h3>
-              <p className="text-xs text-slate-400">Total Assets = Total Liabilities + Equity</p>
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">Statement of Financial Condition</h3>
+                <p className="text-xs text-slate-400">Total Assets = Total Liabilities + Equity</p>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg font-mono">
+                {selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -230,9 +366,14 @@ export const FinancialReportsView: React.FC = () => {
 
         {!isLoading && data && reportType === 'income_statement' && (
           <div className="space-y-4 max-w-2xl">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Statement of Operations</h3>
-              <p className="text-xs text-slate-400">Revenue, Operating Expenses, and Net Surplus</p>
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">Statement of Operations</h3>
+                <p className="text-xs text-slate-400">Revenue, Operating Expenses, and Net Surplus</p>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg font-mono">
+                {selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name}
+              </span>
             </div>
 
             <div className="space-y-3">
@@ -274,11 +415,16 @@ export const FinancialReportsView: React.FC = () => {
 
         {!isLoading && data && reportType === 'cda_statutory' && (
           <div className="space-y-4 max-w-2xl">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">CDA Statutory Reserve Distribution</h3>
-              <p className="text-xs text-slate-400">
-                Automatic allocation of Net Surplus based on configured cooperative statutory percentages.
-              </p>
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">CDA Statutory Reserve Distribution</h3>
+                <p className="text-xs text-slate-400">
+                  Automatic allocation of Net Surplus based on configured cooperative statutory percentages.
+                </p>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-slate-800 text-emerald-400 rounded-lg font-mono">
+                {selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name}
+              </span>
             </div>
 
             <div className="bg-slate-800/40 p-5 rounded-2xl border border-slate-800 space-y-3">

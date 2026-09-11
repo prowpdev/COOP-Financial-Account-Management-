@@ -24,10 +24,12 @@ import {
   Save,
   Trash2,
   RefreshCw,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExcelWorkbench } from './ExcelWorkbench';
+import { AccountingMappingsView } from './AccountingMappingsView';
 import {
   Account,
   AccountingMapping,
@@ -165,71 +167,156 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
     configuration_audit_trails: internalData?.configuration_audit_trails || []
   };
 
-  // Section nav items
-  const sections = [
-    { id: 'loan_products' as ConfigSection, label: 'Loan Products & Versioning', icon: CreditCard },
-    { id: 'chart_of_accounts' as ConfigSection, label: 'Chart of Accounts', icon: BookOpen },
-    { id: 'accounting_mappings' as ConfigSection, label: 'Accounting Mappings', icon: ArrowLeftRight },
-    { id: 'interest_engine' as ConfigSection, label: 'Interest Engine & Amortization', icon: Calculator },
-    { id: 'fees_penalties' as ConfigSection, label: 'Fees & Penalty Rules', icon: Percent },
-    { id: 'payment_allocations' as ConfigSection, label: 'Payment Allocations', icon: ListOrdered },
-    { id: 'approvals' as ConfigSection, label: 'Approval Workflows & Rules', icon: Workflow },
-    { id: 'custom_fields' as ConfigSection, label: 'Member Custom Fields & Types', icon: Sliders },
-    { id: 'savings_cbu' as ConfigSection, label: 'Savings & Share Capital', icon: PiggyBank },
-    { id: 'cash_accounts' as ConfigSection, label: 'Cash & Bank Accounts', icon: Building2 },
-    { id: 'numbering' as ConfigSection, label: 'Document Numbering', icon: Binary },
-    { id: 'branches' as ConfigSection, label: 'Branch Network', icon: GitBranch },
-    { id: 'accounting_periods' as ConfigSection, label: 'Accounting Periods', icon: Calendar },
-    { id: 'feature_toggles' as ConfigSection, label: 'Feature Toggles', icon: ToggleLeft },
-    { id: 'cooperative' as ConfigSection, label: 'Cooperative Profile', icon: Settings },
-    { id: 'audit_trail' as ConfigSection, label: 'Configuration Audit Trail', icon: History }
+  const [configSearch, setConfigSearch] = useState('');
+  const [configCategory, setConfigCategory] = useState<'all' | 'lending' | 'accounting' | 'members' | 'governance' | 'network'>('all');
+
+  // Categorized Section Groups
+  const sectionGroups = [
+    {
+      category: 'lending' as const,
+      categoryName: 'Lending & Credit Engine',
+      items: [
+        { id: 'loan_products' as ConfigSection, label: 'Loan Products & Versions', icon: CreditCard, count: configData.loan_products.length },
+        { id: 'interest_engine' as ConfigSection, label: 'Interest & Amortization', icon: Calculator },
+        { id: 'fees_penalties' as ConfigSection, label: 'Fees & Penalty Rules', icon: Percent, count: configData.fees.length },
+        { id: 'payment_allocations' as ConfigSection, label: 'Payment Allocations', icon: ListOrdered }
+      ]
+    },
+    {
+      category: 'accounting' as const,
+      categoryName: 'Accounting & General Ledger',
+      items: [
+        { id: 'chart_of_accounts' as ConfigSection, label: 'Chart of Accounts (COA)', icon: BookOpen, count: configData.chart_of_accounts.length },
+        { id: 'accounting_mappings' as ConfigSection, label: 'Accounting Mappings (GL)', icon: ArrowLeftRight, count: configData.accounting_mappings.length },
+        { id: 'cash_accounts' as ConfigSection, label: 'Cash & Bank Accounts', icon: Building2, count: configData.cash_accounts.length },
+        { id: 'accounting_periods' as ConfigSection, label: 'Accounting Periods', icon: Calendar, count: configData.accounting_periods.length }
+      ]
+    },
+    {
+      category: 'members' as const,
+      categoryName: 'Membership & Capital',
+      items: [
+        { id: 'custom_fields' as ConfigSection, label: 'Member Fields & Types', icon: Sliders, count: configData.custom_fields.length },
+        { id: 'savings_cbu' as ConfigSection, label: 'Savings & Share Capital', icon: PiggyBank, count: configData.savings_products.length }
+      ]
+    },
+    {
+      category: 'governance' as const,
+      categoryName: 'Governance & Workflows',
+      items: [
+        { id: 'approvals' as ConfigSection, label: 'Approval Workflows & Rules', icon: Workflow, count: configData.approval_workflows.length },
+        { id: 'numbering' as ConfigSection, label: 'Document Numbering', icon: Binary, count: configData.numbering_formats.length },
+        { id: 'feature_toggles' as ConfigSection, label: 'Feature Toggles', icon: ToggleLeft, count: configData.feature_toggles.length },
+        { id: 'audit_trail' as ConfigSection, label: 'Configuration Audit Trail', icon: History }
+      ]
+    },
+    {
+      category: 'network' as const,
+      categoryName: 'Organization & Network',
+      items: [
+        { id: 'cooperative' as ConfigSection, label: 'Cooperative Profile', icon: Settings },
+        { id: 'branches' as ConfigSection, label: 'Branch Network', icon: GitBranch, count: configData.branches.length }
+      ]
+    }
   ];
+
+  const filteredGroups = sectionGroups
+    .filter(grp => configCategory === 'all' || grp.category === configCategory)
+    .map(grp => ({
+      ...grp,
+      items: grp.items.filter(item =>
+        item.label.toLowerCase().includes(configSearch.toLowerCase())
+      )
+    }))
+    .filter(grp => grp.items.length > 0);
 
   return (
     <div className="space-y-6">
-      {/* Title */}
-      <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
-            <span>Centralized Configuration Engine</span>
-            <span>•</span>
-            <span className="text-slate-400">Zero Code Deployment</span>
+      {/* Title & Overview Banner */}
+      <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              <span>Centralized Configuration Engine</span>
+              <span>•</span>
+              <span className="text-slate-400">Zero Code Deployment</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight mt-1">
+              System Configuration Center
+            </h1>
+            <p className="text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Every business rule, interest rate, GL account mapping, workflow threshold, and numbering format is dynamically stored and managed in the database.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight mt-1">
-            System Configuration Center
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Every business rule, interest rate, GL account, workflow threshold, and numbering rule is dynamically stored in the database.
-          </p>
+
+          {/* View Mode Switcher: Form Studio vs Excel Spreadsheet Grid */}
+          <div className="flex items-center bg-slate-950 p-1.5 rounded-xl border border-slate-800 shadow-inner self-start sm:self-auto">
+            <button
+              onClick={() => setCenterMode('form')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                centerMode === 'form'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Form Studio</span>
+            </button>
+            <button
+              onClick={() => setCenterMode('excel')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                centerMode === 'excel'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Excel Workbench</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-700/80 text-emerald-100 font-mono">
+                Grid
+              </span>
+            </button>
+          </div>
         </div>
 
-        {/* View Mode Switcher: Form Studio vs Excel Spreadsheet Grid */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
-          <button
-            onClick={() => setCenterMode('form')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              centerMode === 'form'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Form Studio</span>
-          </button>
-          <button
-            onClick={() => setCenterMode('excel')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              centerMode === 'excel'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Excel Workbench</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-700/80 text-emerald-100 font-mono">
-              Spreadsheet
-            </span>
-          </button>
+        {/* Quick Configuration Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800/80">
+          <div className="bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">{configData.loan_products.length} Products</div>
+              <div className="text-xs text-slate-400 font-medium">Loan Facilities</div>
+            </div>
+          </div>
+          <div className="bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-xs">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">{configData.chart_of_accounts.length} Accounts</div>
+              <div className="text-xs text-slate-400 font-medium">General Ledger COA</div>
+            </div>
+          </div>
+          <div className="bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center font-bold text-xs">
+              <ArrowLeftRight className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">{configData.accounting_mappings.length} Auto Rules</div>
+              <div className="text-xs text-slate-400 font-medium">GL Event Mappings</div>
+            </div>
+          </div>
+          <div className="bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+              <GitBranch className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">{configData.branches.length} Branches</div>
+              <div className="text-xs text-slate-400 font-medium">Operating Network</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -246,7 +333,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
         </div>
       )}
 
-      {/* Main Container with Left Vertical Tabs and Right Content */}
+      {/* Main Container with Left Categorized Navigation and Right Content */}
       {centerMode === 'excel' ? (
         <ExcelWorkbench
           configData={configData}
@@ -256,36 +343,128 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Sub-Navigation */}
-        <div className="lg:col-span-3 bg-slate-900 rounded-2xl p-3 border border-slate-800 space-y-1 h-fit">
-          <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
-            Configuration Sections
-          </p>
-          <div className="space-y-0.5 pt-1">
-            {sections.map(sec => {
-              const Icon = sec.icon;
-              const isSelected = activeSection === sec.id;
-              return (
-                <button
-                  key={sec.id}
-                  id={`config-tab-${sec.id}`}
-                  onClick={() => setActiveSection(sec.id)}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-emerald-600 text-white font-semibold shadow-sm'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
-                  <span className="truncate">{sec.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          {/* Left Categorized Sub-Navigation */}
+          <div className="lg:col-span-3 bg-slate-900 rounded-2xl p-4 border border-slate-800 space-y-4 h-fit">
+            {/* Search Box for Configuration Topics */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search config topics..."
+                value={configSearch}
+                onChange={(e) => setConfigSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
 
-        {/* Right Active Panel */}
-        <div className="lg:col-span-9 bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-sm min-h-[500px]">
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => setConfigCategory('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  configCategory === 'all'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setConfigCategory('lending')}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  configCategory === 'lending'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                }`}
+              >
+                Lending
+              </button>
+              <button
+                onClick={() => setConfigCategory('accounting')}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  configCategory === 'accounting'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                }`}
+              >
+                GL
+              </button>
+              <button
+                onClick={() => setConfigCategory('members')}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  configCategory === 'members'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                }`}
+              >
+                Members
+              </button>
+              <button
+                onClick={() => setConfigCategory('governance')}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  configCategory === 'governance'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                }`}
+              >
+                Rules
+              </button>
+            </div>
+
+            {/* Grouped Section Buttons */}
+            <div className="space-y-4 pt-1">
+              {filteredGroups.map(group => (
+                <div key={group.category} className="space-y-1">
+                  <p className="px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/60 pb-1">
+                    {group.categoryName}
+                  </p>
+                  <div className="space-y-0.5 pt-1">
+                    {group.items.map(item => {
+                      const Icon = item.icon;
+                      const isSelected = activeSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          id={`config-tab-${item.id}`}
+                          onClick={() => setActiveSection(item.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer text-left ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 truncate">
+                            <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.count !== undefined && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+                                isSelected
+                                  ? 'bg-emerald-700 text-white'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {item.count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {filteredGroups.length === 0 && (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No configuration sections match your search.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Active Panel */}
+          <div className="lg:col-span-9 bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-sm min-h-[500px]">
           {isLoading && !internalData ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
@@ -315,7 +494,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
               )}
 
               {activeSection === 'accounting_mappings' && (
-                <AccountingMappingsConfig
+                <AccountingMappingsView
                   mappings={configData.accounting_mappings}
                   accounts={configData.chart_of_accounts}
                   currentUser={currentUser}
@@ -550,7 +729,7 @@ function LoanProductsConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>New Loan Product</span>
+          <span>+ Create Loan Product</span>
         </button>
       </div>
 
@@ -909,7 +1088,7 @@ function ChartOfAccountsConfig({
             className="flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Account</span>
+            <span>+ Add GL Account</span>
           </button>
         </div>
       </div>
@@ -1402,7 +1581,7 @@ function FeesAndPenaltiesConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>New Fee Rule</span>
+          <span>+ Add Fee Rule</span>
         </button>
       </div>
 
@@ -1846,7 +2025,7 @@ function CustomFieldsConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>New Custom Field</span>
+          <span>+ Add Custom Field</span>
         </button>
       </div>
 
@@ -2050,7 +2229,7 @@ function SavingsAndCbuConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>New Savings Product</span>
+          <span>+ Create Savings Product</span>
         </button>
       </div>
 
@@ -2228,7 +2407,7 @@ function CashAccountsConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>New Cash/Bank Account</span>
+          <span>+ Open Cash/Bank Account</span>
         </button>
       </div>
 
@@ -2529,7 +2708,7 @@ function BranchesConfig({
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Add New Branch</span>
+          <span>+ Register New Branch</span>
         </button>
       </div>
 

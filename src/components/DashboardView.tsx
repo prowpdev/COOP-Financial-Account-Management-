@@ -16,13 +16,13 @@ import { Branch } from '../types';
 
 interface DashboardViewProps {
   selectedBranchId: string;
-  branches: Branch[];
+  branches?: Branch[];
   onNavigate: (tab: any) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   selectedBranchId,
-  branches,
+  branches = [],
   onNavigate
 }) => {
   const [stats, setStats] = useState<any>(null);
@@ -48,7 +48,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const activeBranchName =
     selectedBranchId === 'all'
       ? 'All Branches (Consolidated)'
-      : branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch';
+      : (branches || []).find(b => b.id === selectedBranchId)?.name || 'Selected Branch';
 
   const formatMoney = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {

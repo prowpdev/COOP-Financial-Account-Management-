@@ -205,20 +205,73 @@ export const api = {
     }),
 
   // Reports
-  getTrialBalance: () => fetchApi<{ success: boolean; data: any }>('/reports/trial-balance'),
-  getFinancialStatements: () => fetchApi<{ success: boolean; data: any }>('/reports/financial-statements'),
-  getFinancialReport: async (type: string) => {
+  getTrialBalance: (branch_id?: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/reports/trial-balance${branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : ''}`),
+  getFinancialStatements: (branch_id?: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/reports/financial-statements${branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : ''}`),
+  getFinancialReport: async (type: string, branch_id?: string) => {
+    const q = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
     if (type === 'trial_balance') {
-      return fetchApi<{ success: boolean; data: any }>('/reports/trial-balance');
+      const res = await fetchApi<{ success: boolean; data: any }>(`/reports/trial-balance${q}`);
+      return {
+        success: true,
+        data: {
+          accounts: res.data?.balances || [],
+          total_debit: res.data?.total_debit || 0,
+          total_credit: res.data?.total_credit || 0
+        }
+      };
     }
-    const res = await fetchApi<{ success: boolean; data: any }>('/reports/financial-statements');
+    const res = await fetchApi<{ success: boolean; data: any }>(`/reports/financial-statements${q}`);
+    const pos = res.data?.statement_of_financial_position;
+    const ops = res.data?.statement_of_operations;
+
     if (type === 'balance_sheet') {
-      return { success: true, data: res.data.balance_sheet };
+      const assets = pos?.categories?.filter((c: any) => c.category.includes('Asset')).flatMap((c: any) => c.accounts) || [];
+      const liab = pos?.categories?.filter((c: any) => c.category.includes('Liabilit')).flatMap((c: any) => c.accounts) || [];
+      const eq = pos?.categories?.filter((c: any) => c.category === 'Equity').flatMap((c: any) => c.accounts) || [];
+      return {
+        success: true,
+        data: {
+          assets,
+          total_assets: pos?.total_assets || 0,
+          liabilities: liab,
+          total_liabilities: pos?.total_liabilities || 0,
+          equity: eq,
+          total_equity: pos?.total_equity || 0,
+          total_liabilities_and_equity: pos?.total_liabilities_and_equity || 0
+        }
+      };
     }
     if (type === 'income_statement') {
-      return { success: true, data: res.data.income_statement };
+      const rev = pos?.categories?.find((c: any) => c.category === 'Income')?.accounts || [];
+      const exp = pos?.categories?.find((c: any) => c.category === 'Expenses')?.accounts || [];
+      return {
+        success: true,
+        data: {
+          revenues: rev,
+          total_income: ops?.total_income || 0,
+          expenses: exp,
+          total_expenses: ops?.total_expenses || 0,
+          net_surplus: ops?.net_surplus || 0
+        }
+      };
     }
-    return { success: true, data: res.data.income_statement };
+    if (type === 'cda_statutory') {
+      const net = ops?.net_surplus || 0;
+      return {
+        success: true,
+        data: {
+          net_surplus: net,
+          reserve_fund: Number((net * 0.10).toFixed(2)),
+          education_training_fund: Number((net * 0.05).toFixed(2)),
+          community_dev_fund: Number((net * 0.03).toFixed(2)),
+          optional_fund: Number((net * 0.07).toFixed(2)),
+          interest_on_share_capital: Number((net * 0.75).toFixed(2))
+        }
+      };
+    }
+    return { success: true, data: null };
   },
 
   // Dashboard Stats

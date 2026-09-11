@@ -9,21 +9,38 @@ interface MembersModuleProps {
   memberTypes: MemberType[];
   customFields: CustomField[];
   currentUser: User;
+  selectedBranchId?: string;
+  onSelectBranch?: (id: string) => void;
 }
 
 export const MembersModule: React.FC<MembersModuleProps> = ({
   branches,
   memberTypes,
   customFields,
-  currentUser
+  currentUser,
+  selectedBranchId,
+  onSelectBranch
 }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('all');
+  const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'excel' | 'cards'>('excel');
+
+  useEffect(() => {
+    if (selectedBranchId !== undefined) {
+      setSelectedBranch(selectedBranchId);
+    }
+  }, [selectedBranchId]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranch(newBranchId);
+    if (onSelectBranch) {
+      onSelectBranch(newBranchId);
+    }
+  };
 
   const memberCols: ExcelColumn<Member>[] = [
     {
@@ -134,7 +151,24 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch Filter Selector */}
+          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+            <select
+              value={selectedBranch}
+              onChange={e => handleBranchChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="all" className="bg-slate-900 text-white">All Branches</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* View Switcher: Excel vs Cards */}
           <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
             <button
@@ -165,7 +199,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
             id="btn-register-member"
             onClick={() => {
               setForm({
-                branch_id: branches[0]?.id || 'branch_tar',
+                branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar'),
                 member_type_id: memberTypes[0]?.id || 'mt_regular',
                 first_name: '',
                 last_name: '',
@@ -182,7 +216,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
             className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition cursor-pointer self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
-            <span>Register Member</span>
+            <span>+ Register New Member</span>
           </button>
         </div>
       </div>

@@ -4,11 +4,11 @@ export const initialSeedData: DatabaseSchema = {
   cooperatives: [
     {
       id: 'coop_01',
-      name: 'St. Isidore Multi-Purpose Cooperative',
+      name: 'Mayap Care Agriculture Coop.',
       registration_no: 'CDA-REG-9502-100234',
       tax_identification_number: '005-891-234-000',
       address: 'Poblacion Plaza, Tarlac City, Philippines',
-      email: 'admin@stisidorecoop.org',
+      email: 'admin@mayapcare.coop',
       phone: '+63 (045) 982-1200',
       currency: 'PHP',
       currency_symbol: '₱',
@@ -55,7 +55,7 @@ export const initialSeedData: DatabaseSchema = {
   ],
 
   system_settings: [
-    { key: 'cooperative_name', value: 'St. Isidore Multi-Purpose Cooperative', category: 'Cooperative' },
+    { key: 'cooperative_name', value: 'Mayap Care Agriculture Coop.', category: 'Cooperative' },
     { key: 'currency', value: 'PHP', category: 'Accounting' },
     { key: 'currency_symbol', value: '₱', category: 'Accounting' },
     { key: 'decimal_precision', value: '2', category: 'Accounting' },
@@ -436,6 +436,28 @@ export const initialSeedData: DatabaseSchema = {
         monthly_income: '42000',
         tin_number: '312-990-441-000'
       }
+    },
+    {
+      id: 'mem_004',
+      member_no: 'MEM-2026-00004',
+      branch_id: 'branch_sfe',
+      member_type_id: 'mt_regular',
+      first_name: 'Rowena',
+      last_name: 'Tolentino',
+      middle_name: 'Santos',
+      gender: 'Female',
+      birthdate: '1991-04-18',
+      email: 'rowena.tolentino@gmail.com',
+      phone: '+63 918 772 3311',
+      address: 'Brgy. Catbangen, City of San Fernando',
+      status: 'Active',
+      joined_date: '2025-09-10',
+      custom_field_values: {
+        occupation: 'Healthcare Professional',
+        barangay: 'Catbangen',
+        monthly_income: '55000',
+        tin_number: '419-882-109-000'
+      }
     }
   ],
 
@@ -560,6 +582,62 @@ export const initialSeedData: DatabaseSchema = {
       total_fees_paid: 1850,
       approved_by: 'Elena Rostro',
       approved_date: '2026-01-14'
+    },
+    {
+      id: 'loan_002',
+      loan_account_no: 'URD-LN-2026-00004',
+      member_id: 'mem_003',
+      loan_product_id: 'lp_regular',
+      product_version: 1,
+      branch_id: 'branch_urd',
+      principal_amount: 50000,
+      annual_interest_rate: 10.0,
+      interest_calculation_method: 'Diminishing Balance',
+      term_months: 12,
+      payment_frequency: 'Monthly',
+      disbursement_date: '2026-01-20',
+      first_due_date: '2026-02-20',
+      maturity_date: '2027-01-20',
+      processing_fee: 1000,
+      service_fee: 250,
+      net_disbursed: 48750,
+      disbursed_from_cash_account_id: 'cash_05',
+      status: 'Active',
+      current_balance: 44500.00,
+      total_principal_paid: 5500.00,
+      total_interest_paid: 812.50,
+      total_penalty_paid: 0,
+      total_fees_paid: 1250,
+      approved_by: 'Elena Rostro',
+      approved_date: '2026-01-19'
+    },
+    {
+      id: 'loan_003',
+      loan_account_no: 'SFE-LN-2026-00001',
+      member_id: 'mem_004',
+      loan_product_id: 'lp_emergency',
+      product_version: 1,
+      branch_id: 'branch_sfe',
+      principal_amount: 25000,
+      annual_interest_rate: 6.0,
+      interest_calculation_method: 'Flat Rate',
+      term_months: 6,
+      payment_frequency: 'Semi-monthly',
+      disbursement_date: '2026-02-01',
+      first_due_date: '2026-02-16',
+      maturity_date: '2026-08-01',
+      processing_fee: 250,
+      service_fee: 100,
+      net_disbursed: 24650,
+      disbursed_from_cash_account_id: 'cash_06',
+      status: 'Active',
+      current_balance: 20833.33,
+      total_principal_paid: 4166.67,
+      total_interest_paid: 250.00,
+      total_penalty_paid: 0,
+      total_fees_paid: 350,
+      approved_by: 'Elena Rostro',
+      approved_date: '2026-01-30'
     }
   ],
 
@@ -707,6 +785,26 @@ export const initialSeedData: DatabaseSchema = {
       balance: 38200.00,
       opened_date: '2024-02-10',
       status: 'Active'
+    },
+    {
+      id: 'sa_003',
+      account_number: 'URD-SA-2026-0001',
+      member_id: 'mem_003',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_urd',
+      balance: 21500.00,
+      opened_date: '2025-06-25',
+      status: 'Active'
+    },
+    {
+      id: 'sa_004',
+      account_number: 'SFE-SA-2026-0001',
+      member_id: 'mem_004',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_sfe',
+      balance: 16800.00,
+      opened_date: '2025-09-15',
+      status: 'Active'
     }
   ],
 
@@ -758,6 +856,26 @@ export const initialSeedData: DatabaseSchema = {
       subscribed_amount: 30000,
       paid_up_shares: 250,
       paid_up_amount: 25000,
+      status: 'Active'
+    },
+    {
+      id: 'sca_003',
+      account_number: 'URD-CBU-2026-0001',
+      member_id: 'mem_003',
+      subscribed_shares: 200,
+      subscribed_amount: 20000,
+      paid_up_shares: 180,
+      paid_up_amount: 18000,
+      status: 'Active'
+    },
+    {
+      id: 'sca_004',
+      account_number: 'SFE-CBU-2026-0001',
+      member_id: 'mem_004',
+      subscribed_shares: 200,
+      subscribed_amount: 20000,
+      paid_up_shares: 150,
+      paid_up_amount: 15000,
       status: 'Active'
     }
   ],
@@ -834,6 +952,18 @@ export const initialSeedData: DatabaseSchema = {
       gl_account_id: 'acc_1110',
       opening_balance: 150000,
       current_balance: 150000,
+      currency: 'PHP',
+      active: true
+    },
+    {
+      id: 'cash_06',
+      name: 'San Fernando Branch Teller Cash',
+      account_number: 'COH-SFE-01',
+      bank_name: 'Cash Drawer San Fernando',
+      branch_id: 'branch_sfe',
+      gl_account_id: 'acc_1110',
+      opening_balance: 120000,
+      current_balance: 120000,
       currency: 'PHP',
       active: true
     }
@@ -1058,6 +1188,21 @@ export const initialSeedData: DatabaseSchema = {
       status: 'Posted',
       created_by: 'Cashier Maria Gomez',
       posted_at: '2026-03-12T14:40:00Z'
+    },
+    {
+      id: 'jv_urd_open_2026',
+      voucher_number: 'URD-JV-2026-000001',
+      branch_id: 'branch_urd',
+      posting_date: '2026-01-01',
+      reference_type: 'OPENING_BALANCE',
+      reference_id: 'op_bal_urd',
+      description: 'Fiscal Year 2026 Opening Balances - Urdaneta Branch',
+      total_debit: 150000,
+      total_credit: 150000,
+      period_id: 'period_2026_01',
+      status: 'Posted',
+      created_by: 'Branch Accountant',
+      posted_at: '2026-01-01T08:00:00Z'
     }
   ],
 
@@ -1070,6 +1215,10 @@ export const initialSeedData: DatabaseSchema = {
     { id: 'jl_05', journal_entry_id: 'jv_open_2026', account_id: 'acc_3110', debit: 0, credit: 35000, subsidiary_type: null, subsidiary_id: null },
     { id: 'jl_06', journal_entry_id: 'jv_open_2026', account_id: 'acc_3210', debit: 0, credit: 200000, subsidiary_type: null, subsidiary_id: null },
     { id: 'jl_07', journal_entry_id: 'jv_open_2026', account_id: 'acc_3900', debit: 0, credit: 2367300, subsidiary_type: null, subsidiary_id: null },
+
+    // Opening balance lines - Urdaneta Branch
+    { id: 'jl_urd_01', journal_entry_id: 'jv_urd_open_2026', account_id: 'acc_1110', debit: 150000, credit: 0, subsidiary_type: 'Cash', subsidiary_id: 'cash_05' },
+    { id: 'jl_urd_02', journal_entry_id: 'jv_urd_open_2026', account_id: 'acc_3110', debit: 0, credit: 150000, subsidiary_type: null, subsidiary_id: null },
 
     // Loan release lines
     { id: 'jl_10', journal_entry_id: 'jv_loan_rel_01', account_id: 'acc_1210', debit: 80000, credit: 0, subsidiary_type: 'Loan', subsidiary_id: 'loan_001' },

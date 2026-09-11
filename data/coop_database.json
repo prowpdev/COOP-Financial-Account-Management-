@@ -2,7 +2,7 @@
   "cooperatives": [
     {
       "id": "coop_01",
-      "name": "St. Isidore Multi-Purpose Cooperative",
+      "name": "Mayap Care Agriculture Coop.",
       "registration_no": "CDA-REG-9502-100234",
       "tax_identification_number": "005-891-234-000",
       "address": "Poblacion Plaza, Tarlac City, Philippines",
@@ -93,7 +93,7 @@
   "system_settings": [
     {
       "key": "cooperative_name",
-      "value": "St. Isidore Multi-Purpose Cooperative",
+      "value": "Mayap Care Agriculture Coop.",
       "category": "Cooperative"
     },
     {

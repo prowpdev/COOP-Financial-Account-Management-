@@ -1138,12 +1138,16 @@ router.get('/savings/accounts', (req: Request, res: Response) => {
   const accounts = db.getTable('savings_accounts');
   const members = db.getTable('members');
   const products = db.getTable('savings_products');
+  const branches = db.getTable('branches');
 
   const enriched = accounts.map(a => {
     const mem = members.find(m => m.id === a.member_id);
     const prod = products.find(p => p.id === a.savings_product_id);
+    const br = branches.find(b => b.id === (a.branch_id || mem?.branch_id));
     return {
       ...a,
+      branch_id: a.branch_id || mem?.branch_id || 'branch_tar',
+      branch_name: br ? br.name : 'Main Branch',
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown',
       product_name: prod ? prod.name : 'Savings'
     };
@@ -1232,10 +1236,15 @@ router.post('/savings/transact', (req: Request, res: Response) => {
 router.get('/share-capital/accounts', (req: Request, res: Response) => {
   const accounts = db.getTable('share_capital_accounts');
   const members = db.getTable('members');
+  const branches = db.getTable('branches');
+
   const enriched = accounts.map(a => {
     const mem = members.find(m => m.id === a.member_id);
+    const br = branches.find(b => b.id === mem?.branch_id);
     return {
       ...a,
+      branch_id: mem?.branch_id || 'branch_tar',
+      branch_name: br ? br.name : 'Main Branch',
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown'
     };
   });
@@ -1400,8 +1409,15 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
 
 // Trial Balance generated dynamically from General Ledger journal lines
 router.get('/reports/trial-balance', (req: Request, res: Response) => {
+  const { branch_id } = req.query;
   const accounts = db.getTable('chart_of_accounts');
-  const journalLines = db.getTable('journal_lines');
+  let journalLines = db.getTable('journal_lines');
+
+  if (branch_id && branch_id !== 'all') {
+    const journalEntries = db.getTable('journal_entries').filter(j => j.branch_id === branch_id);
+    const jEntryIds = new Set(journalEntries.map(j => j.id));
+    journalLines = journalLines.filter(l => jEntryIds.has(l.journal_entry_id));
+  }
 
   const balances = accounts.map(acc => {
     const lines = journalLines.filter(l => l.account_id === acc.id);
@@ -1449,9 +1465,16 @@ router.get('/reports/trial-balance', (req: Request, res: Response) => {
 
 // Dynamic Financial Statements (Statement of Financial Position & Statement of Operations)
 router.get('/reports/financial-statements', (req: Request, res: Response) => {
+  const { branch_id } = req.query;
   const accounts = db.getTable('chart_of_accounts');
   const mappings = db.getTable('financial_statement_mappings');
-  const journalLines = db.getTable('journal_lines');
+  let journalLines = db.getTable('journal_lines');
+
+  if (branch_id && branch_id !== 'all') {
+    const journalEntries = db.getTable('journal_entries').filter(j => j.branch_id === branch_id);
+    const jEntryIds = new Set(journalEntries.map(j => j.id));
+    journalLines = journalLines.filter(l => jEntryIds.has(l.journal_entry_id));
+  }
 
   // Compute balance for every account
   const accountBalances = accounts.map(acc => {
@@ -1527,8 +1550,10 @@ router.get('/dashboard/stats', (req: Request, res: Response) => {
 
   if (branch_id && branch_id !== 'all') {
     members = members.filter(m => m.branch_id === branch_id);
+    const memberIds = new Set(members.map(m => m.id));
     loans = loans.filter(l => l.branch_id === branch_id);
     savings = savings.filter(s => s.branch_id === branch_id);
+    shareCapital = shareCapital.filter(s => memberIds.has(s.member_id));
     cashAccounts = cashAccounts.filter(c => c.branch_id === branch_id);
     journalEntries = journalEntries.filter(j => j.branch_id === branch_id);
   }

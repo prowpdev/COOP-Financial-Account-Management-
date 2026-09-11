@@ -20,18 +20,36 @@ interface LoansModuleProps {
   loanProducts: LoanProduct[];
   cashAccounts: CashAccount[];
   currentUser: User;
+  selectedBranchId?: string;
+  onSelectBranch?: (id: string) => void;
 }
 
 export const LoansModule: React.FC<LoansModuleProps> = ({
   branches = [],
   loanProducts = [],
   cashAccounts = [],
-  currentUser
+  currentUser,
+  selectedBranchId,
+  onSelectBranch
 }) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedBranchId !== undefined) {
+      setSelectedBranch(selectedBranchId);
+    }
+  }, [selectedBranchId]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranch(newBranchId);
+    if (onSelectBranch) {
+      onSelectBranch(newBranchId);
+    }
+  };
 
   // Originate Modal
   const [isOriginating, setIsOriginating] = useState(false);
@@ -248,6 +266,14 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     }
   ];
 
+  const filteredLoans = selectedBranch === 'all'
+    ? loans
+    : loans.filter(l => l.branch_id === selectedBranch);
+
+  const branchMembers = selectedBranch === 'all'
+    ? members
+    : members.filter(m => m.branch_id === selectedBranch);
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -266,16 +292,40 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
           </p>
         </div>
 
-        <button
-          id="btn-originate-loan"
-          onClick={() => {
-            setIsOriginating(true);
-          }}
-          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Originate New Loan</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch Filter Selector */}
+          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+            <select
+              value={selectedBranch}
+              onChange={e => handleBranchChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="all" className="bg-slate-900 text-white">All Branches</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            id="btn-originate-loan"
+            onClick={() => {
+              setOrigForm(prev => ({
+                ...prev,
+                branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar'),
+                member_id: branchMembers[0]?.id || members[0]?.id || ''
+              }));
+              setIsOriginating(true);
+            }}
+            className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Apply for New Loan</span>
+          </button>
+        </div>
       </div>
 
       {notice && (
@@ -566,7 +616,7 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
         title="Credit & Loan Facilities Registry"
         subtitle="Live spreadsheet of all originated loans and credit accounts. Supports multi-column sorting, search filtering, formula summary bar, TSV clipboard copy, and CSV export."
         exportFileName="cooperative_loans_ledger"
-        data={loans}
+        data={filteredLoans}
         columns={loanCols}
         defaultSortKey="loan_account_no"
       />

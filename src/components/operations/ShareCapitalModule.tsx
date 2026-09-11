@@ -1,35 +1,74 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Plus, X } from 'lucide-react';
+import { Coins, Plus, X, Building2 } from 'lucide-react';
+import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
-import { CashAccount, ShareCapitalAccount, User } from '../../types';
+import { Branch, CashAccount, ShareCapitalAccount, User } from '../../types';
 
 interface ShareCapitalModuleProps {
+  branches?: Branch[];
   cashAccounts: CashAccount[];
   currentUser: User;
+  selectedBranchId?: string;
+  onSelectBranch?: (id: string) => void;
 }
 
 export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
-  cashAccounts,
-  currentUser
+  branches = [],
+  cashAccounts = [],
+  currentUser,
+  selectedBranchId,
+  onSelectBranch
 }) => {
   const [accounts, setAccounts] = useState<ShareCapitalAccount[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
+  const [isLoading, setIsLoading] = useState(true);
   const [activeAccount, setActiveAccount] = useState<ShareCapitalAccount | null>(null);
   const [payAmount, setPayAmount] = useState(1000);
   const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id || 'cash_01');
   const [notice, setNotice] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (selectedBranchId !== undefined) {
+      setSelectedBranch(selectedBranchId);
+    }
+  }, [selectedBranchId]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranch(newBranchId);
+    if (onSelectBranch) {
+      onSelectBranch(newBranchId);
+    }
+  };
+
   const loadAccounts = async () => {
+    setIsLoading(true);
     try {
       const res = await api.getShareCapitalAccounts();
       setAccounts(res.data);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadAccounts();
   }, []);
+
+  const filteredAccounts = selectedBranch === 'all'
+    ? accounts
+    : accounts.filter(a => (a as any).branch_id === selectedBranch);
+
+  const availableCashAccounts = selectedBranch === 'all'
+    ? cashAccounts
+    : cashAccounts.filter(c => c.branch_id === selectedBranch);
+
+  useEffect(() => {
+    if (availableCashAccounts.length > 0 && !availableCashAccounts.some(c => c.id === cashAccountId)) {
+      setCashAccountId(availableCashAccounts[0].id);
+    }
+  }, [selectedBranch, cashAccounts]);
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +95,87 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
 
+  const shareCols: ExcelColumn<ShareCapitalAccount>[] = [
+    {
+      key: 'account_number',
+      header: 'CBU Account',
+      width: '150px',
+      type: 'badge',
+      align: 'center',
+      sortable: true,
+      badgeColor: () => 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+    },
+    {
+      key: 'member_name',
+      header: 'Member Owner',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (_, row) => (
+        <span className="font-semibold text-white">{row.member_name}</span>
+      )
+    },
+    {
+      key: 'subscribed_amount',
+      header: 'Subscribed Amount',
+      width: '160px',
+      type: 'currency',
+      align: 'right',
+      sortable: true
+    },
+    {
+      key: 'paid_up_shares',
+      header: 'Paid-Up Shares',
+      width: '130px',
+      type: 'number',
+      align: 'center',
+      sortable: true,
+      render: (val) => `${val || 0} sh`
+    },
+    {
+      key: 'paid_up_amount',
+      header: 'Paid-Up Amount',
+      width: '160px',
+      type: 'currency',
+      align: 'right',
+      sortable: true
+    },
+    {
+      key: 'branch_name',
+      header: 'Branch',
+      width: '150px',
+      type: 'text',
+      sortable: true,
+      render: (_, row: any) => row.branch_name || 'Tarlac Main Branch'
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '100px',
+      type: 'badge',
+      align: 'center',
+      sortable: true,
+      badgeColor: () => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    },
+    {
+      key: 'id',
+      header: 'Actions',
+      width: '140px',
+      align: 'center',
+      render: (_, row) => (
+        <button
+          onClick={() => {
+            setActiveAccount(row);
+            setPayAmount(1000);
+          }}
+          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow transition"
+        >
+          + Deposit Share Capital
+        </button>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-6">
       <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -71,6 +191,23 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
           <p className="text-xs text-slate-400 mt-1">
             Manage member subscribed and paid-up shares. Contributions automatically post to Cooperative Equity accounts.
           </p>
+        </div>
+
+        {/* Branch Filter Selector */}
+        <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
+          <Building2 className="w-3.5 h-3.5 text-amber-400" />
+          <select
+            value={selectedBranch}
+            onChange={e => handleBranchChange(e.target.value)}
+            className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
+          >
+            <option value="all" className="bg-slate-900 text-white">All Branches</option>
+            {branches.map(b => (
+              <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                {b.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -130,7 +267,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                   onChange={e => setCashAccountId(e.target.value)}
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
                 >
-                  {cashAccounts.map(c => (
+                  {(availableCashAccounts.length > 0 ? availableCashAccounts : cashAccounts).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
@@ -156,53 +293,15 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
         </div>
       )}
 
-      {/* Share Capital Accounts Table */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-sm">
-        <table className="w-full text-left text-xs text-slate-300">
-          <thead className="bg-slate-800 text-slate-400 font-semibold border-b border-slate-700">
-            <tr>
-              <th className="py-3 px-4">CBU Account</th>
-              <th className="py-3 px-4">Member Name</th>
-              <th className="py-3 px-4">Subscribed Amount</th>
-              <th className="py-3 px-4">Paid-Up Shares</th>
-              <th className="py-3 px-4">Paid-Up Amount</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/80">
-            {accounts.map(a => (
-              <tr key={a.id} className="hover:bg-slate-800/40 transition">
-                <td className="py-3 px-4 font-mono font-bold text-white">{a.account_number}</td>
-                <td className="py-3 px-4 font-medium text-slate-200">{a.member_name}</td>
-                <td className="py-3 px-4 text-slate-400">
-                  {formatMoney(a.subscribed_amount)} ({a.subscribed_shares} sh)
-                </td>
-                <td className="py-3 px-4 text-slate-200">{a.paid_up_shares} sh</td>
-                <td className="py-3 px-4 font-bold text-amber-400 text-sm">
-                  {formatMoney(a.paid_up_amount)}
-                </td>
-                <td className="py-3 px-4">
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold">
-                    {a.status}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-right">
-                  <button
-                    onClick={() => {
-                      setActiveAccount(a);
-                      setPayAmount(1000);
-                    }}
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow"
-                  >
-                    Add Capital
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Share Capital Excel Table */}
+      <ExcelGridTable
+        title="Member Share Capital (CBU) Subscriptions Ledger"
+        subtitle="Spreadsheet overview of member equity subscriptions, paid-up capital, formula summary bar, and CSV export."
+        exportFileName="share_capital_ledger"
+        data={filteredAccounts}
+        columns={shareCols}
+        defaultSortKey="account_number"
+      />
     </div>
   );
 };
