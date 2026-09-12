@@ -16,10 +16,10 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [] }) => {
   const [to, setTo] = useState('');
 
   useEffect(() => {
-    if (!memberId && safeMembers.length > 0) {
-      setMemberId(safeMembers[0].id);
+    if (!memberId && members.length > 0) {
+      setMemberId(members[0].id);
     }
-  }, [safeMembers, memberId]);
+  }, [members, memberId]);
 
   const load = async () => {
     if (!memberId) return;
@@ -40,7 +40,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [] }) => {
     const link = document.createElement('a'); link.href = url; link.download = `member_report_${member?.member_no || 'report'}.csv`; link.click(); URL.revokeObjectURL(url);
   };
 
-  if (!safeMembers || safeMembers.length === 0) {
+  if (!members || members.length === 0) {
     return (
       <div className="bg-slate-900 rounded-2xl p-12 border border-slate-800 text-center space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">

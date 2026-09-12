@@ -118,25 +118,9 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getMembers();
-      const raw = (res as any)?.data !== undefined ? (res as any).data : res;
-      let list: Member[] = [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else if (raw && typeof raw === 'object') {
-        if (Array.isArray((raw as any).members)) {
-          list = (raw as any).members;
-        } else if (Array.isArray((raw as any).data)) {
-          list = (raw as any).data;
-        } else {
-          const values = Object.values(raw);
-          if (values.length > 0 && values.every(v => v && typeof v === 'object')) {
-            list = values as Member[];
-          }
-        }
-      }
-      setMembers(list);
+      setMembers(res.data || []);
     } catch (err) {
-      console.error('Failed to load members:', err);
+      console.error(err);
       setMembers([]);
     } finally {
       setIsLoading(false);
@@ -472,8 +456,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
 
       {/* Main View Area */}
       {viewMode === 'report' ? (
-        <MemberTransactionReport members={safeMembers.filter(m => selectedBranch === 'all' || m.branch_id === selectedBranch)} />
-      ) : !isLoading && safeMembers.length === 0 ? (
+        <MemberTransactionReport members={members.filter(m => selectedBranch === 'all' || m.branch_id === selectedBranch)} />
+      ) : !isLoading && members.length === 0 ? (
         <div className="bg-slate-900/90 rounded-2xl p-10 sm:p-14 border border-slate-800 text-center shadow-xl space-y-6 max-w-2xl mx-auto my-6">
           <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
             <Users className="w-8 h-8" />
