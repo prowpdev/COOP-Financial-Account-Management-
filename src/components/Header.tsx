@@ -13,10 +13,12 @@ import {
   Server,
   ExternalLink,
   Check,
-  X
+  X,
+  Database
 } from 'lucide-react';
 import { Branch, User } from '../types';
 import { getApiBase, setApiBase, DEFAULT_API_BASE } from '../services/api';
+import { SqlSchemaModal } from './common/SqlSchemaModal';
 
 interface HeaderProps {
   cooperativeName: string;
@@ -57,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [apiEndpoint, setApiEndpointState] = useState(getApiBase());
   const [showApiModal, setShowApiModal] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
   const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
   const [isSavedNotice, setIsSavedNotice] = useState(false);
 
@@ -171,6 +174,17 @@ export const Header: React.FC<HeaderProps> = ({
                 {apiEndpoint.replace(/^https?:\/\//, '')}
               </span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </button>
+
+            {/* SQL Schema & PHP MVC Guide Button */}
+            <button
+              id="btn-sql-schema"
+              onClick={() => setShowSqlModal(true)}
+              title="View SQL Schema & PHP MVC Backend Guide"
+              className="hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+            >
+              <Database className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-semibold text-[11px] text-slate-200">Database (SQL)</span>
             </button>
 
             {/* Text Size Accessibility Toggle (Feature 3) */}
@@ -315,6 +329,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
+      {/* SQL Schema & PHP MVC Guide Modal */}
+      <SqlSchemaModal
+        isOpen={showSqlModal}
+        onClose={() => setShowSqlModal(false)}
+      />
     </header>
   );
 };
