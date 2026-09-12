@@ -13,6 +13,11 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
   if (!response.ok || data.success === false) {
     throw new Error(data.error || 'API Request failed');
   }
+  // Let open reports re-query immediately after any successful create, edit, or posting.
+  // This avoids making users refresh the browser to see saved data.
+  if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('coop:data-changed'));
+  }
   return data;
 }
 
@@ -156,6 +161,7 @@ export const api = {
 
   // Operations: Members
   getMembers: () => fetchApi<{ success: boolean; data: any[] }>('/members'),
+  getMemberReport: (memberId: string) => fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`),
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
       method: 'POST',

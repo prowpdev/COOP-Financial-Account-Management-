@@ -729,6 +729,52 @@ router.get('/members', (req: Request, res: Response) => {
   res.json({ success: true, data: enriched });
 });
 
+// Complete member/subsidiary ledger.  Relationships are resolved server-side so the
+// report remains correct for every member as new operational transactions are posted.
+router.get('/members/:memberId/report', (req: Request, res: Response) => {
+  const member = db.getTable('members').find(item => item.id === req.params.memberId);
+  if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
+
+  const branches = db.getTable('branches');
+  const products = db.getTable('loan_products');
+  const loans = db.getTable('loans').filter(item => item.member_id === member.id);
+  const savingsAccounts = db.getTable('savings_accounts').filter(item => item.member_id === member.id);
+  const shareAccounts = db.getTable('share_capital_accounts').filter(item => item.member_id === member.id);
+  const loanIds = new Set(loans.map(item => item.id));
+  const savingsIds = new Set(savingsAccounts.map(item => item.id));
+  const shareIds = new Set(shareAccounts.map(item => item.id));
+  const payments = db.getTable('loan_payments').filter(item => loanIds.has(item.loan_id));
+  const paymentIds = new Set(payments.map(item => item.id));
+  const savingsTransactions = db.getTable('savings_transactions').filter(item => savingsIds.has(item.savings_account_id));
+  const shareTransactions = db.getTable('share_capital_transactions').filter(item => shareIds.has(item.share_account_id));
+  const transactionIds = new Set([...loanIds, ...paymentIds, ...savingsIds, ...shareIds, ...savingsTransactions.map(item => item.id), ...shareTransactions.map(item => item.id)]);
+
+  const transactions = [
+    ...loans.map(item => ({ id: `loan-${item.id}`, date: item.disbursement_date, type: 'Loan released', reference: item.loan_account_no, description: `${products.find(p => p.id === item.loan_product_id)?.name || 'Loan'} approved/released`, amount: item.net_disbursed || item.principal_amount, debit: item.principal_amount || 0, credit: 0 })),
+    ...payments.map(item => ({ id: `payment-${item.id}`, date: item.payment_date || item.transaction_date, type: 'Loan payment', reference: item.receipt_no || item.id, description: `Principal ${Number(item.principal_amount || 0).toFixed(2)}, interest ${Number(item.interest_amount || 0).toFixed(2)}`, amount: item.amount || item.total_amount || 0, debit: 0, credit: item.amount || item.total_amount || 0 })),
+    ...savingsTransactions.map(item => ({ id: `saving-${item.id}`, date: item.transaction_date, type: `Savings ${String(item.type || 'transaction').toLowerCase()}`, reference: item.transaction_no || item.id, description: savingsAccounts.find(account => account.id === item.savings_account_id)?.account_number || 'Savings account', amount: item.amount || 0, debit: item.type === 'WITHDRAWAL' ? item.amount || 0 : 0, credit: item.type === 'WITHDRAWAL' ? 0 : item.amount || 0 })),
+    ...shareTransactions.map(item => ({ id: `share-${item.id}`, date: item.transaction_date, type: 'Share capital payment', reference: item.receipt_no || item.id, description: shareAccounts.find(account => account.id === item.share_account_id)?.account_number || 'Share capital account', amount: item.amount || 0, debit: 0, credit: item.amount || 0 }))
+  ];
+
+  const journalEntries = db.getTable('journal_entries');
+  const journalLines = db.getTable('journal_lines');
+  const accountMap = new Map(db.getTable('chart_of_accounts').map(account => [account.id, account]));
+  const journalTransactions = journalEntries.flatMap(entry => {
+    const relevantLines = journalLines.filter(line => line.journal_entry_id === entry.id && (
+      line.subsidiary_id === member.id || loanIds.has(line.subsidiary_id) || savingsIds.has(line.subsidiary_id) || shareIds.has(line.subsidiary_id)
+    ));
+    if (!relevantLines.length && !transactionIds.has(entry.reference_id)) return [];
+    const lines = relevantLines.length ? relevantLines : journalLines.filter(line => line.journal_entry_id === entry.id);
+    return [{ id: `journal-${entry.id}`, date: entry.posting_date, type: 'Accounting posting', reference: entry.voucher_number, description: entry.description, amount: entry.total_debit || 0, debit: lines.reduce((sum, line) => sum + (Number(line.debit) || 0), 0), credit: lines.reduce((sum, line) => sum + (Number(line.credit) || 0), 0), accounts: lines.map(line => `${accountMap.get(line.account_id)?.code || ''} ${accountMap.get(line.account_id)?.name || 'Account'}`).join('; ') }];
+  });
+
+  res.json({ success: true, data: {
+    member: { ...member, branch_name: branches.find(branch => branch.id === member.branch_id)?.name || 'Main Branch' },
+    summary: { loan_balance: loans.reduce((sum, item) => sum + (Number(item.current_balance) || 0), 0), savings_balance: savingsAccounts.reduce((sum, item) => sum + (Number(item.balance) || 0), 0), share_capital: shareAccounts.reduce((sum, item) => sum + (Number(item.paid_up_amount) || 0), 0) },
+    transactions: [...transactions, ...journalTransactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  }});
+});
+
 router.post('/members', (req: Request, res: Response) => {
   const {
     branch_id,

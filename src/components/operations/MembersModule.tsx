@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Search, Filter, X, Check, Building2, Phone, Mail, MapPin, FileSpreadsheet, LayoutGrid } from 'lucide-react';
+import { Users, Plus, Search, Filter, X, Check, Building2, Phone, Mail, MapPin, FileSpreadsheet, LayoutGrid, FileText } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
+import { MemberTransactionReport } from '../reports/MemberTransactionReport';
 import { api } from '../../services/api';
 import { Branch, CustomField, Member, MemberType, User } from '../../types';
 
@@ -27,7 +28,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'excel' | 'cards'>('excel');
+  const [viewMode, setViewMode] = useState<'excel' | 'cards' | 'report'>('excel');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -192,6 +193,9 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span>Cards View</span>
+            </button>
+            <button onClick={() => setViewMode('report')} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${viewMode === 'report' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+              <FileText className="w-3.5 h-3.5" /><span>Member Report</span>
             </button>
           </div>
 
@@ -411,7 +415,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
       )}
 
       {/* Main View Area: Excel Grid vs Cards */}
-      {viewMode === 'excel' ? (
+      {viewMode === 'report' ? <MemberTransactionReport members={members.filter(m => selectedBranch === 'all' || m.branch_id === selectedBranch)} /> : viewMode === 'excel' ? (
         <ExcelGridTable
           title="Member Registry Spreadsheet Grid"
           subtitle="Comprehensive directory of registered cooperative members. Includes real-time search, multi-column sorting, formula summary bar, and 1-click Excel export."
