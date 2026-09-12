@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   RefreshCw,
@@ -9,9 +9,14 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  Type
+  Type,
+  Server,
+  ExternalLink,
+  Check,
+  X
 } from 'lucide-react';
 import { Branch, User } from '../types';
+import { getApiBase, setApiBase, DEFAULT_API_BASE } from '../services/api';
 
 interface HeaderProps {
   cooperativeName: string;
@@ -50,6 +55,28 @@ export const Header: React.FC<HeaderProps> = ({
   isLargeText = false,
   onToggleTextSize
 }) => {
+  const [apiEndpoint, setApiEndpointState] = useState(getApiBase());
+  const [showApiModal, setShowApiModal] = useState(false);
+  const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
+  const [isSavedNotice, setIsSavedNotice] = useState(false);
+
+  useEffect(() => {
+    const handleEndpointChange = (e: any) => {
+      setApiEndpointState(e.detail || getApiBase());
+    };
+    window.addEventListener('coop:api-endpoint-changed', handleEndpointChange);
+    return () => window.removeEventListener('coop:api-endpoint-changed', handleEndpointChange);
+  }, []);
+
+  const handleSaveEndpoint = () => {
+    setApiBase(customEndpointInput);
+    setApiEndpointState(customEndpointInput);
+    setIsSavedNotice(true);
+    setTimeout(() => {
+      setIsSavedNotice(false);
+      setShowApiModal(false);
+    }, 1500);
+  };
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-sm">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -129,6 +156,23 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
+            {/* PHP MVC API Endpoint Pill */}
+            <button
+              id="api-endpoint-pill"
+              onClick={() => {
+                setCustomEndpointInput(apiEndpoint);
+                setShowApiModal(true);
+              }}
+              title="Click to view or edit API endpoint"
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+            >
+              <Server className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-mono text-[11px] text-emerald-300 truncate max-w-[130px]">
+                {apiEndpoint.replace(/^https?:\/\//, '')}
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </button>
+
             {/* Text Size Accessibility Toggle (Feature 3) */}
             {onToggleTextSize && (
               <button
@@ -182,6 +226,95 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* API Endpoint Configuration Modal */}
+      {showApiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <Server className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">PHP MVC Backend Endpoint</h3>
+                  <p className="text-xs text-slate-400">Cooperative API Connection Manager</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowApiModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <p>
+                Your cooperative data layer is configured to communicate with the PHP MVC backend:
+              </p>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Active API Endpoint URL
+                </label>
+                <input
+                  type="text"
+                  value={customEndpointInput}
+                  onChange={(e) => setCustomEndpointInput(e.target.value)}
+                  placeholder="http://cooperative-api.test/api"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="bg-slate-800/70 p-3 rounded-xl border border-slate-700/60 space-y-1.5 text-[11px] text-slate-400">
+                <div className="flex items-center space-x-1.5 text-emerald-400 font-semibold">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Configured Target: http://cooperative-api.test/api</span>
+                </div>
+                <p>
+                  • In local dev (Laragon/Valet/Apache), calls connect directly to your PHP MVC server.
+                </p>
+                <p>
+                  • In Cloud Sandbox preview where local domains cannot be routed, seamless fallback keeps all views operational.
+                </p>
+              </div>
+
+              {isSavedNotice && (
+                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center space-x-2 text-xs">
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>API endpoint updated successfully!</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setCustomEndpointInput(DEFAULT_API_BASE)}
+                className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                Reset to Default ({DEFAULT_API_BASE})
+              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowApiModal(false)}
+                  className="px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEndpoint}
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow transition cursor-pointer"
+                >
+                  Save Endpoint
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

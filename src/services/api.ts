@@ -1,24 +1,80 @@
-const API_BASE = '/api';
+export const DEFAULT_API_BASE = 'http://cooperative-api.test/api';
+
+const getInitialApiBase = () => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('coop_api_endpoint');
+    if (saved) return saved.replace(/\/$/, '');
+  }
+  return (((import.meta as any).env?.VITE_API_BASE_URL as string) || DEFAULT_API_BASE).replace(/\/$/, '');
+};
+
+let activeApiBase = getInitialApiBase();
+
+export function setApiBase(url: string) {
+  activeApiBase = url.replace(/\/$/, '');
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('coop_api_endpoint', activeApiBase);
+    window.dispatchEvent(new CustomEvent('coop:api-endpoint-changed', { detail: activeApiBase }));
+  }
+}
+
+export function getApiBase() {
+  return activeApiBase;
+}
+
+export const API_BASE = activeApiBase;
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers || {})
-    },
-    ...options
-  });
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const targetUrl = `${activeApiBase}${cleanEndpoint}`;
 
-  const data = await response.json();
-  if (!response.ok || data.success === false) {
-    throw new Error(data.error || 'API Request failed');
+  try {
+    const response = await fetch(targetUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.headers || {})
+      },
+      ...options
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.success === false) {
+      throw new Error(data.error || `API Request failed with status ${response.status}`);
+    }
+    // Let open reports re-query immediately after any successful create, edit, or posting.
+    // This avoids making users refresh the browser to see saved data.
+    if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('coop:data-changed'));
+    }
+    return data;
+  } catch (err: any) {
+    // If targeted endpoint is a custom/remote URL (like http://cooperative-api.test/api)
+    // and failed (e.g. Mixed Content block in HTTPS preview or local .test domain not resolved in cloud preview),
+    // automatically fall back to internal '/api' so user's preview remains seamlessly functional!
+    if (activeApiBase !== '/api') {
+      console.warn(`[CoopFlex API] Request to ${targetUrl} failed (${err.message}). Attempting fallback to internal /api...`);
+      try {
+        const fallbackUrl = `/api${cleanEndpoint}`;
+        const fallbackRes = await fetch(fallbackUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options?.headers || {})
+          },
+          ...options
+        });
+        const fallbackData = await fallbackRes.json();
+        if (fallbackRes.ok && fallbackData.success !== false) {
+          if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('coop:data-changed'));
+          }
+          return fallbackData;
+        }
+      } catch (fallbackErr) {
+        // Fallback also failed or had an error, continue to rethrow original error
+      }
+    }
+    throw err;
   }
-  // Let open reports re-query immediately after any successful create, edit, or posting.
-  // This avoids making users refresh the browser to see saved data.
-  if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('coop:data-changed'));
-  }
-  return data;
 }
 
 export const api = {
