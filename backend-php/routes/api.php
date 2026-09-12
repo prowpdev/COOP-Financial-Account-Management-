@@ -12,8 +12,17 @@ use App\Controllers\AccountingController;
 use App\Controllers\ConfigController;
 use App\Controllers\CashController;
 use App\Controllers\ReportController;
+use App\Controllers\UserController;
 
 /** @var Router $router */
+
+// Authentication & Users
+$router->post('/api/auth/login', [UserController::class, 'login']);
+$router->post('/api/auth/register', [UserController::class, 'register']);
+$router->get('/api/users', [UserController::class, 'index']);
+$router->get('/api/user-roles', [UserController::class, 'roles']);
+$router->get('/api/users/:id', [UserController::class, 'show']);
+$router->delete('/api/users/:id', [UserController::class, 'destroy']);
 
 // System & Home
 $router->get('/', [HomeController::class, 'index']);

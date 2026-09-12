@@ -378,9 +378,29 @@ export const api = {
     return { success: true, data: res.data?.custom_fields || [] };
   },
 
+  // Authentication & Users
+  login: (credentials: { username?: string; email?: string; password: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: { user: any; token: string } }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    }),
+  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    }),
+  getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
+  getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
+
   // Verification & Reset
   resetSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),
   resetToSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),
+  purgeOperationalData: (performed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>('/system/purge-operational-data', {
+      method: 'POST',
+      body: JSON.stringify({ performed_by })
+    }),
+  seedSampleMembers: () => fetchApi<{ success: boolean; message: string; data?: any }>('/system/seed-sample-data', { method: 'POST' }),
   runVerificationTests: () =>
     fetchApi<{ success: boolean; total_tests: number; passed_count: number; all_passed: boolean; results: any[] }>('/system/run-verification-tests', {
       method: 'POST'

@@ -13,6 +13,13 @@ export const MemberTransactionReport: React.FC<Props> = ({ members }) => {
   const [loading, setLoading] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+
+  useEffect(() => {
+    if (!memberId && members.length > 0) {
+      setMemberId(members[0].id);
+    }
+  }, [members, memberId]);
+
   const load = async () => {
     if (!memberId) return;
     setLoading(true);
@@ -31,6 +38,22 @@ export const MemberTransactionReport: React.FC<Props> = ({ members }) => {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a'); link.href = url; link.download = `member_report_${member?.member_no || 'report'}.csv`; link.click(); URL.revokeObjectURL(url);
   };
+
+  if (!members || members.length === 0) {
+    return (
+      <div className="bg-slate-900 rounded-2xl p-12 border border-slate-800 text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+          <Printer className="w-7 h-7" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-white">No Members Available for Reporting</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+            The member registry currently has no enrolled cooperative members. Register a member in the registry to generate individual account statements and transaction histories.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return <section className="space-y-4">
     <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 print:hidden flex flex-col lg:flex-row lg:items-end gap-3">
       <div className="flex-1"><label className="block text-xs font-semibold text-slate-300 mb-1">Member / Organization</label><select value={memberId} onChange={e => setMemberId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">{members.map(m => <option key={m.id} value={m.id}>{m.member_no} — {m.first_name} {m.last_name}</option>)}</select></div>

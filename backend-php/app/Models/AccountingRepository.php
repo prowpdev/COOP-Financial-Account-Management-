@@ -101,7 +101,7 @@ class AccountingRepository
             $params['end_date'] = $endDate;
         }
 
-        $sql .= " ORDER BY je.posting_date DESC, je.created_at DESC";
+        $sql .= " ORDER BY je.posting_date DESC, je.id DESC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);

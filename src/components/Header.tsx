@@ -14,7 +14,9 @@ import {
   ExternalLink,
   Check,
   X,
-  Database
+  Database,
+  Wand2,
+  LogIn
 } from 'lucide-react';
 import { Branch, User } from '../types';
 import { getApiBase, setApiBase, DEFAULT_API_BASE } from '../services/api';
@@ -37,6 +39,8 @@ interface HeaderProps {
   onToggleTheme?: () => void;
   isLargeText?: boolean;
   onToggleTextSize?: () => void;
+  onOpenSetupWizard?: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,7 +59,9 @@ export const Header: React.FC<HeaderProps> = ({
   theme = 'dark',
   onToggleTheme,
   isLargeText = false,
-  onToggleTextSize
+  onToggleTextSize,
+  onOpenSetupWizard,
+  onOpenAuthModal
 }) => {
   const [apiEndpoint, setApiEndpointState] = useState(getApiBase());
   const [showApiModal, setShowApiModal] = useState(false);
@@ -159,6 +165,19 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
+            {/* Auth Modal Trigger / Sign In */}
+            {onOpenAuthModal && (
+              <button
+                id="btn-open-auth-modal"
+                onClick={onOpenAuthModal}
+                title="Sign in or Register new user account"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+              >
+                <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden xl:inline">Login / Register</span>
+              </button>
+            )}
+
             {/* PHP MVC API Endpoint Pill */}
             <button
               id="api-endpoint-pill"
@@ -213,6 +232,19 @@ export const Header: React.FC<HeaderProps> = ({
                 ) : (
                   <Moon className="w-4 h-4 text-blue-400" />
                 )}
+              </button>
+            )}
+
+            {/* Setup Wizard Button */}
+            {onOpenSetupWizard && (
+              <button
+                id="open-setup-wizard-btn"
+                onClick={onOpenSetupWizard}
+                title="System Setup Wizard & Data Reset Center"
+                className="flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-emerald-200" />
+                <span className="hidden sm:inline">Setup Wizard</span>
               </button>
             )}
 
