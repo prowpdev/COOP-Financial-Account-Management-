@@ -1,0 +1,6 @@
+{
+  "name": "Mayap Care Agriculture Coop.",
+  "description": "Dynamic agriculture cooperative management, financing, accounting, and CDA-compliant reporting platform for Mayap Care Agriculture Coop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

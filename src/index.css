@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+/* ----------------------------------------------------
+   Base Font & Accessibility Sizing
+   ---------------------------------------------------- */
+html {
+  font-size: 15.5px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.large-text {
+  font-size: 17px;
+}
+
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ----------------------------------------------------
+   Light Mode Color Theme
+   ---------------------------------------------------- */
+html.light {
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Background conversions */
+html.light .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-slate-900\/95,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-slate-800\/90,
+html.light .bg-slate-800\/80,
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/40,
+html.light .bg-slate-800\/30 {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-slate-700,
+html.light .bg-slate-700\/60 {
+  background-color: #e2e8f0 !important;
+}
+
+/* Text color conversions */
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-100 {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-200 {
+  color: #334155 !important;
+}
+
+html.light .text-slate-300 {
+  color: #475569 !important;
+}
+
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Border & Divider conversions */
+html.light .border-slate-800,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60,
+html.light .border-slate-800\/50,
+html.light .border-slate-700,
+html.light .border-slate-700\/80,
+html.light .border-slate-700\/60 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .divide-slate-800,
+html.light .divide-slate-800\/60,
+html.light .divide-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Ensure vibrant colored badges and buttons retain clean contrast */
+html.light .bg-emerald-600,
+html.light .bg-emerald-500,
+html.light .bg-blue-600,
+html.light .bg-rose-600,
+html.light button.bg-emerald-600,
+html.light button.bg-emerald-500,
+html.light button.bg-blue-600,
+html.light button.bg-rose-600 {
+  color: #ffffff !important;
+}
+
+html.light .bg-emerald-600 .text-white,
+html.light .bg-blue-600 .text-white,
+html.light .bg-rose-600 .text-white {
+  color: #ffffff !important;
+}
+
+/* Form controls in light mode */
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Table hover in light mode */
+html.light tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Spreadsheet grid in light mode */
+html.light .ag-grid-cell,
+html.light td {
+  border-color: #e2e8f0 !important;
+}
