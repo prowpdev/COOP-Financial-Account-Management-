@@ -78,13 +78,17 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     setIsLoading(true);
     try {
       const [lRes, mRes] = await Promise.all([api.getLoans(), api.getMembers()]);
-      setLoans(lRes.data);
-      setMembers(mRes.data);
-      if (mRes.data.length > 0 && !origForm.member_id) {
-        setOrigForm(prev => ({ ...prev, member_id: mRes.data[0].id }));
+      const safeLoans = Array.isArray(lRes.data) ? lRes.data : [];
+      const safeMembers = Array.isArray(mRes.data) ? mRes.data : [];
+      setLoans(safeLoans);
+      setMembers(safeMembers);
+      if (safeMembers.length > 0 && !origForm.member_id) {
+        setOrigForm(prev => ({ ...prev, member_id: safeMembers[0].id }));
       }
     } catch (err) {
       console.error(err);
+      setLoans([]);
+      setMembers([]);
     } finally {
       setIsLoading(false);
     }
@@ -266,13 +270,16 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     }
   ];
 
+  const safeLoansList = Array.isArray(loans) ? loans : [];
+  const safeMembersList = Array.isArray(members) ? members : [];
+
   const filteredLoans = selectedBranch === 'all'
-    ? loans
-    : loans.filter(l => l.branch_id === selectedBranch);
+    ? safeLoansList
+    : safeLoansList.filter(l => l && l.branch_id === selectedBranch);
 
   const branchMembers = selectedBranch === 'all'
-    ? members
-    : members.filter(m => m.branch_id === selectedBranch);
+    ? safeMembersList
+    : safeMembersList.filter(m => m && m.branch_id === selectedBranch);
 
   return (
     <div className="space-y-6">

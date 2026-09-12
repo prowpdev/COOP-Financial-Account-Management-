@@ -24,6 +24,34 @@ export function getApiBase() {
 
 export const API_BASE = activeApiBase;
 
+export function safeArray<T = any>(payload: any): T[] {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (payload.data !== undefined) {
+    if (Array.isArray(payload.data)) return payload.data;
+    if (payload.data && typeof payload.data === 'object') {
+      if (Array.isArray(payload.data.data)) return payload.data.data;
+      if (Array.isArray(payload.data.members)) return payload.data.members;
+      if (Array.isArray(payload.data.loans)) return payload.data.loans;
+      if (Array.isArray(payload.data.accounts)) return payload.data.accounts;
+      const vals = Object.values(payload.data);
+      if (vals.length > 0 && typeof vals[0] === 'object' && vals[0] !== null) {
+        return vals as T[];
+      }
+    }
+  }
+  if (Array.isArray(payload.members)) return payload.members;
+  if (Array.isArray(payload.loans)) return payload.loans;
+  if (Array.isArray(payload.accounts)) return payload.accounts;
+  if (typeof payload === 'object') {
+    const vals = Object.values(payload);
+    if (vals.length > 0 && typeof vals[0] === 'object' && vals[0] !== null && ('id' in vals[0] || 'member_no' in vals[0] || 'code' in vals[0])) {
+      return vals as T[];
+    }
+  }
+  return [];
+}
+
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const targetUrl = `${activeApiBase}${cleanEndpoint}`;
@@ -216,7 +244,15 @@ export const api = {
     }),
 
   // Operations: Members
-  getMembers: () => fetchApi<{ success: boolean; data: any[] }>('/members'),
+  getMembers: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/members');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getMembers fallback to empty array:', err);
+      return { success: false, data: [] };
+    }
+  },
   getMemberReport: (memberId: string) => fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`),
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
@@ -225,7 +261,15 @@ export const api = {
     }),
 
   // Operations: Loans
-  getLoans: () => fetchApi<{ success: boolean; data: any[] }>('/loans'),
+  getLoans: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/loans');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getLoans fallback to empty array:', err);
+      return { success: false, data: [] };
+    }
+  },
   calculateSchedule: (params: any) =>
     fetchApi<{ success: boolean; data: any }>('/loans/calculate-schedule', {
       method: 'POST',
@@ -243,7 +287,15 @@ export const api = {
     }),
 
   // Operations: Savings
-  getSavingsAccounts: () => fetchApi<{ success: boolean; data: any[] }>('/savings/accounts'),
+  getSavingsAccounts: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/savings/accounts');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getSavingsAccounts fallback to empty array:', err);
+      return { success: false, data: [] };
+    }
+  },
   transactSavings: (params: any) =>
     fetchApi<{ success: boolean; data: any; account_updated: any }>('/savings/transact', {
       method: 'POST',
@@ -251,7 +303,15 @@ export const api = {
     }),
 
   // Operations: Share Capital
-  getShareCapitalAccounts: () => fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts'),
+  getShareCapitalAccounts: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getShareCapitalAccounts fallback to empty array:', err);
+      return { success: false, data: [] };
+    }
+  },
   payShareCapital: (params: any) =>
     fetchApi<{ success: boolean; data: any; account: any }>('/share-capital/pay', {
       method: 'POST',
@@ -259,7 +319,15 @@ export const api = {
     }),
 
   // Operations: General Accounting
-  getJournals: () => fetchApi<{ success: boolean; data: any[] }>('/accounting/journals'),
+  getJournals: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/journals');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getJournals fallback to empty array:', err);
+      return { success: false, data: [] };
+    }
+  },
   createManualJournal: (params: any) =>
     fetchApi<{ success: boolean; data: any }>('/accounting/manual-journal', {
       method: 'POST',

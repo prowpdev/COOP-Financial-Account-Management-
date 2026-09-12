@@ -55,9 +55,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getJournals();
-      setJournals(res.data);
+      setJournals(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
+      setJournals([]);
     } finally {
       setIsLoading(false);
     }
@@ -121,10 +122,12 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
   ];
 
+  const safeJournals = Array.isArray(journals) ? journals : [];
+
   const filteredJournals = useMemo(() => {
-    if (selectedBranch === 'all') return journals;
-    return journals.filter(j => j.branch_id === selectedBranch);
-  }, [journals, selectedBranch]);
+    if (selectedBranch === 'all') return safeJournals;
+    return safeJournals.filter(j => j && j.branch_id === selectedBranch);
+  }, [safeJournals, selectedBranch]);
 
   // Flattened General Ledger Line Items
   const flattenedLedgerLines = useMemo(() => {

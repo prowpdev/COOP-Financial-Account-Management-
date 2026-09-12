@@ -7,18 +7,19 @@ interface Props { members: Member[]; }
 const money = (n: number) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n || 0);
 const cell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
-export const MemberTransactionReport: React.FC<Props> = ({ members }) => {
-  const [memberId, setMemberId] = useState(members[0]?.id || '');
+export const MemberTransactionReport: React.FC<Props> = ({ members = [] }) => {
+  const safeMembers = Array.isArray(members) ? members : [];
+  const [memberId, setMemberId] = useState(safeMembers[0]?.id || '');
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
   useEffect(() => {
-    if (!memberId && members.length > 0) {
-      setMemberId(members[0].id);
+    if (!memberId && safeMembers.length > 0) {
+      setMemberId(safeMembers[0].id);
     }
-  }, [members, memberId]);
+  }, [safeMembers, memberId]);
 
   const load = async () => {
     if (!memberId) return;
@@ -32,14 +33,14 @@ export const MemberTransactionReport: React.FC<Props> = ({ members }) => {
     return () => window.removeEventListener('coop:data-changed', refreshReport);
   }, [memberId]);
   const rows = useMemo(() => (report?.transactions || []).filter((row: any) => (!from || row.date >= from) && (!to || row.date <= to)), [report, from, to]);
-  const member = report?.member || members.find(item => item.id === memberId);
+  const member = report?.member || safeMembers.find(item => item.id === memberId);
   const exportCsv = () => {
     const csv = [['Member transaction report', `${member?.first_name || ''} ${member?.last_name || ''}`], ['Date', 'Type', 'Reference', 'Description', 'Accounts', 'Debit', 'Credit', 'Amount'], ...rows.map((row: any) => [row.date, row.type, row.reference, row.description, row.accounts || '', row.debit, row.credit, row.amount])].map(row => row.map(cell).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a'); link.href = url; link.download = `member_report_${member?.member_no || 'report'}.csv`; link.click(); URL.revokeObjectURL(url);
   };
 
-  if (!members || members.length === 0) {
+  if (!safeMembers || safeMembers.length === 0) {
     return (
       <div className="bg-slate-900 rounded-2xl p-12 border border-slate-800 text-center space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
@@ -56,7 +57,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members }) => {
   }
   return <section className="space-y-4">
     <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 print:hidden flex flex-col lg:flex-row lg:items-end gap-3">
-      <div className="flex-1"><label className="block text-xs font-semibold text-slate-300 mb-1">Member / Organization</label><select value={memberId} onChange={e => setMemberId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">{members.map(m => <option key={m.id} value={m.id}>{m.member_no} — {m.first_name} {m.last_name}</option>)}</select></div>
+      <div className="flex-1"><label className="block text-xs font-semibold text-slate-300 mb-1">Member / Organization</label><select value={memberId} onChange={e => setMemberId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">{safeMembers.map(m => <option key={m.id} value={m.id}>{m.member_no} — {m.first_name} {m.last_name}</option>)}</select></div>
       <div><label className="block text-xs text-slate-300 mb-1">From</label><input type="date" value={from} onChange={e => setFrom(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" /></div>
       <div><label className="block text-xs text-slate-300 mb-1">To</label><input type="date" value={to} onChange={e => setTo(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" /></div>
       <button onClick={load} className="p-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></button><button onClick={exportCsv} className="flex gap-1 px-3 py-2 bg-slate-800 rounded-xl text-xs text-white"><Download className="w-3.5 h-3.5" />CSV</button><button onClick={() => window.print()} className="flex gap-1 px-3 py-2 bg-emerald-600 rounded-xl text-xs text-white"><Printer className="w-3.5 h-3.5" />Print / PDF</button>

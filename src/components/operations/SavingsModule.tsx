@@ -45,9 +45,10 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getSavingsAccounts();
-      setAccounts(res.data);
+      setAccounts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
+      setAccounts([]);
     } finally {
       setIsLoading(false);
     }
@@ -57,13 +58,16 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
     loadAccounts();
   }, []);
 
+  const safeAccounts = Array.isArray(accounts) ? accounts : [];
+  const safeCashAccounts = Array.isArray(cashAccounts) ? cashAccounts : [];
+
   const filteredAccounts = selectedBranch === 'all'
-    ? accounts
-    : accounts.filter(a => (a as any).branch_id === selectedBranch);
+    ? safeAccounts
+    : safeAccounts.filter(a => a && (a as any).branch_id === selectedBranch);
 
   const availableCashAccounts = selectedBranch === 'all'
-    ? cashAccounts
-    : cashAccounts.filter(c => c.branch_id === selectedBranch);
+    ? safeCashAccounts
+    : safeCashAccounts.filter(c => c && c.branch_id === selectedBranch);
 
   useEffect(() => {
     if (availableCashAccounts.length > 0 && !availableCashAccounts.some(c => c.id === cashAccountId)) {
