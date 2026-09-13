@@ -45,6 +45,25 @@ if (!currentData.cooperatives || currentData.cooperatives.length === 0) {
       is_active: a.is_active !== undefined ? a.is_active : (a.active !== undefined ? a.active : true)
     };
   });
+  // Synchronize fees with defaults
+  if (currentData.fees) {
+    let feesUpdated = false;
+    currentData.fees = currentData.fees.map(f => {
+      const fixed_amount = f.fixed_amount !== undefined ? f.fixed_amount : (f.amount !== undefined ? Number(f.amount) : 0);
+      const percentage = f.percentage !== undefined ? f.percentage : (f.rate !== undefined ? Number(f.rate) : 0);
+      if (f.fixed_amount === undefined || f.percentage === undefined) {
+        feesUpdated = true;
+      }
+      return {
+        ...f,
+        fixed_amount,
+        percentage
+      };
+    });
+    if (feesUpdated) {
+      db.save();
+    }
+  }
   if (coaUpdated) {
     db.save();
   }

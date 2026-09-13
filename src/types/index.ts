@@ -264,13 +264,17 @@ export interface Fee {
   name: string;
   code: string;
   calculation_type: string;
-  fixed_amount: number;
-  percentage: number;
-  min_amount: number;
-  max_amount: number;
-  applicable_module: string;
-  accounting_account_id: string;
-  active: boolean;
+  fixed_amount?: number;
+  amount?: number;
+  percentage?: number;
+  rate?: number;
+  min_amount?: number;
+  max_amount?: number;
+  applicable_module?: string;
+  applies_to?: string;
+  accounting_account_id?: string;
+  gl_account_id?: string;
+  active?: boolean;
 }
 
 export interface PenaltyRule {

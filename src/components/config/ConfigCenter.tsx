@@ -1757,11 +1757,13 @@ function FeesAndPenaltiesConfig({
                 onChange={e => setNewFee({ ...newFee, accounting_account_id: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
-                {accounts.filter(a => a.type === 'Income').map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.code} - {a.name}
-                  </option>
-                ))}
+                {accounts
+                  .filter(a => a.category === 'Revenue' || a.category === 'Income' || a.type === 'Income' || a.type === 'Revenue')
+                  .map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.account_code || a.code} - {a.name}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
@@ -1787,20 +1789,25 @@ function FeesAndPenaltiesConfig({
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Configured Fee Schedule</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {fees.map(f => (
-            <div key={f.id} className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700 flex justify-between items-start">
-              <div>
-                <div className="text-xs font-bold text-white">{f.name}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">Model: {f.calculation_type}</div>
-                <div className="text-xs font-semibold text-emerald-400 mt-1">
-                  {f.calculation_type === 'Fixed' ? `₱${f.fixed_amount.toLocaleString()}` : `${f.percentage}% of principal`}
+          {fees.map(f => {
+            const fixedAmt = f.fixed_amount !== undefined ? f.fixed_amount : (f.amount !== undefined ? f.amount : 0);
+            const pct = f.percentage !== undefined ? f.percentage : (f.rate !== undefined ? f.rate : 0);
+            const isFixed = f.calculation_type === 'Fixed';
+            return (
+              <div key={f.id} className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700 flex justify-between items-start">
+                <div>
+                  <div className="text-xs font-bold text-white">{f.name}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Model: {f.calculation_type}</div>
+                  <div className="text-xs font-semibold text-emerald-400 mt-1">
+                    {isFixed ? `₱${Number(fixedAmt || 0).toLocaleString()}` : `${pct}% of principal`}
+                  </div>
                 </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+                  {f.code}
+                </span>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-                {f.code}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

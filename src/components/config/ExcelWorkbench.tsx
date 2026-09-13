@@ -299,7 +299,8 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       type: 'currency',
       align: 'right',
       sortable: true,
-      editable: true
+      editable: true,
+      accessor: f => (f.fixed_amount !== undefined ? f.fixed_amount : (f.amount !== undefined ? f.amount : 0))
     },
     {
       key: 'percentage',
@@ -308,10 +309,25 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       type: 'percent',
       align: 'right',
       sortable: true,
-      editable: true
+      editable: true,
+      accessor: f => (f.percentage !== undefined ? f.percentage : (f.rate !== undefined ? f.rate : 0))
     },
-    { key: 'applicable_module', header: 'Module', width: '120px', type: 'text', sortable: true },
-    { key: 'accounting_account_id', header: 'GL Account ID', width: '140px', type: 'text', sortable: true },
+    {
+      key: 'applicable_module',
+      header: 'Module',
+      width: '120px',
+      type: 'text',
+      sortable: true,
+      accessor: f => f.applicable_module || f.applies_to || 'Loans'
+    },
+    {
+      key: 'accounting_account_id',
+      header: 'GL Account ID',
+      width: '140px',
+      type: 'text',
+      sortable: true,
+      accessor: f => f.accounting_account_id || f.gl_account_id || '—'
+    },
     { key: 'active', header: 'Active', width: '90px', type: 'boolean', align: 'center', sortable: true }
   ];
 
