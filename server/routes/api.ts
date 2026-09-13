@@ -93,47 +93,65 @@ router.post('/config/feature-toggles/toggle', (req: Request, res: Response) => {
 // ==========================================
 
 router.get('/config/chart-of-accounts', (req: Request, res: Response) => {
-  res.json({ success: true, data: db.getTable('chart_of_accounts') });
+  const accounts = db.getTable('chart_of_accounts').map(a => ({
+    ...a,
+    account_code: a.account_code || a.code || '',
+    code: a.code || a.account_code || '',
+    category: a.category || a.type || 'Asset',
+    type: a.type || (a.category === 'Revenue' ? 'Income' : a.category) || 'Asset',
+    report_group: a.report_group || (a.category === 'Asset' ? 'Current Assets' : a.category === 'Liability' ? 'Current Liabilities' : a.category) || 'Operating',
+    normal_balance: a.normal_balance || ((a.category === 'Asset' || a.category === 'Expense' || a.type === 'Asset' || a.type === 'Expense') ? 'Debit' : 'Credit'),
+    parent_account_id: a.parent_account_id ?? a.parent_id ?? null,
+    parent_id: a.parent_id ?? a.parent_account_id ?? null,
+    description: a.description || '',
+    is_active: a.is_active !== undefined ? Boolean(a.is_active) : (a.active !== undefined ? Boolean(a.active) : true),
+    active: a.active !== undefined ? Boolean(a.active) : (a.is_active !== undefined ? Boolean(a.is_active) : true)
+  }));
+  res.json({ success: true, data: accounts });
 });
 
 router.post('/config/chart-of-accounts', (req: Request, res: Response) => {
-  const {
-    code,
-    name,
-    type,
-    category,
-    normal_balance,
-    parent_id,
-    is_control,
-    has_subsidiary,
-    changed_by,
-    reason
-  } = req.body;
+  const code = req.body.account_code || req.body.code;
+  const name = req.body.name;
+  const category = req.body.category || req.body.type || 'Asset';
+  const type = req.body.type || (category === 'Revenue' ? 'Income' : category);
+  const report_group = req.body.report_group || (category === 'Asset' ? 'Current Assets' : category === 'Liability' ? 'Current Liabilities' : category);
+  const normal_balance = req.body.normal_balance || ((category === 'Asset' || category === 'Expense') ? 'Debit' : 'Credit');
+  const parent_account_id = req.body.parent_account_id ?? req.body.parent_id ?? null;
+  const description = req.body.description || '';
+  const is_active = req.body.is_active !== undefined ? Boolean(req.body.is_active) : true;
+  const { is_control, has_subsidiary, changed_by, reason } = req.body;
 
-  if (!code || !name || !type) {
-    return res.status(400).json({ success: false, error: 'Code, name, and account type are required' });
+  if (!code || !name) {
+    return res.status(400).json({ success: false, error: 'Account code and name are required' });
   }
 
-  const existing = db.getTable('chart_of_accounts').find(a => a.code === code);
+  const existing = db.getTable('chart_of_accounts').find(a => (a.account_code === code || a.code === code));
   if (existing) {
     return res.status(400).json({ success: false, error: `Account code "${code}" already exists` });
   }
 
   const newAccount = {
     id: `acc_${Date.now()}`,
+    account_code: code,
     code,
     name,
+    category,
     type,
-    category: category || (type === 'Asset' ? 'Current Assets' : type === 'Liability' ? 'Current Liabilities' : type),
-    normal_balance: normal_balance || (type === 'Asset' || type === 'Expense' ? 'Debit' : 'Credit'),
-    parent_id: parent_id || null,
+    report_group,
+    normal_balance,
+    parent_account_id,
+    parent_id: parent_account_id,
+    description,
+    is_active,
+    active: is_active,
     is_control: Boolean(is_control),
     has_subsidiary: Boolean(has_subsidiary),
-    active: true
+    created_at: new Date().toISOString()
   };
 
   db.insert('chart_of_accounts', newAccount);
-  db.recordAudit(`Chart of Accounts: ${code} ${name}`, 'None', newAccount, changed_by || 'Accountant', reason || 'Created new account');
+  db.recordAudit(`Chart of Accounts: ${code} ${name}`, 'None', newAccount, changed_by || 'Accountant', reason || 'Created new account matching SQL schema');
 
   res.json({ success: true, data: newAccount });
 });
@@ -148,14 +166,27 @@ router.put('/config/chart-of-accounts/:id', (req: Request, res: Response) => {
   }
 
   const oldSnapshot = { ...account };
+  const code = req.body.account_code || req.body.code || account.account_code || account.code;
+  const category = req.body.category || req.body.type || account.category || account.type;
   const updated = {
     ...account,
     ...req.body,
-    id: account.id
+    id: account.id,
+    account_code: code,
+    code,
+    category,
+    type: req.body.type || (category === 'Revenue' ? 'Income' : category),
+    report_group: req.body.report_group || account.report_group || (category === 'Asset' ? 'Current Assets' : category === 'Liability' ? 'Current Liabilities' : category),
+    normal_balance: req.body.normal_balance || account.normal_balance,
+    parent_account_id: req.body.parent_account_id !== undefined ? req.body.parent_account_id : (req.body.parent_id !== undefined ? req.body.parent_id : account.parent_account_id),
+    parent_id: req.body.parent_id !== undefined ? req.body.parent_id : (req.body.parent_account_id !== undefined ? req.body.parent_account_id : account.parent_id),
+    description: req.body.description !== undefined ? req.body.description : account.description,
+    is_active: req.body.is_active !== undefined ? Boolean(req.body.is_active) : (req.body.active !== undefined ? Boolean(req.body.active) : account.is_active),
+    active: req.body.active !== undefined ? Boolean(req.body.active) : (req.body.is_active !== undefined ? Boolean(req.body.is_active) : account.active)
   };
 
   db.update('chart_of_accounts', a => a.id === id, () => updated);
-  db.recordAudit(`Chart of Accounts Updated: ${account.code}`, oldSnapshot, updated, req.body.changed_by || 'Accountant', req.body.reason || 'Account details edited');
+  db.recordAudit(`Chart of Accounts Updated: ${code}`, oldSnapshot, updated, req.body.changed_by || 'Accountant', req.body.reason || 'Account details edited');
 
   res.json({ success: true, data: updated });
 });

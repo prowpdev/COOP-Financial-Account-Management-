@@ -1032,41 +1032,69 @@ function ChartOfAccountsConfig({
   const [isAdding, setIsAdding] = useState(false);
   const [filterType, setFilterType] = useState('All');
   const [newAcc, setNewAcc] = useState({
-    code: '',
+    account_code: '',
     name: '',
-    type: 'Asset',
-    category: 'Current Assets',
-    normal_balance: 'Debit',
-    parent_id: '',
-    is_control: false,
-    has_subsidiary: false
+    category: 'Asset',
+    report_group: 'Current Assets',
+    normal_balance: 'Debit' as 'Debit' | 'Credit',
+    parent_account_id: '',
+    description: '',
+    is_active: true
   });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const code = newAcc.account_code.trim();
       await api.createAccount({
-        ...newAcc,
+        account_code: code,
+        code,
+        name: newAcc.name.trim(),
+        category: newAcc.category,
+        type: newAcc.category === 'Revenue' ? 'Income' : newAcc.category,
+        report_group: newAcc.report_group.trim() || (newAcc.category === 'Asset' ? 'Current Assets' : newAcc.category === 'Liability' ? 'Current Liabilities' : newAcc.category),
+        normal_balance: newAcc.normal_balance,
+        parent_account_id: newAcc.parent_account_id || null,
+        parent_id: newAcc.parent_account_id || null,
+        description: newAcc.description.trim() || null,
+        is_active: newAcc.is_active,
+        active: newAcc.is_active,
         changed_by: currentUser.name,
-        reason: 'New account created in Chart of Accounts'
+        reason: 'New account created in Chart of Accounts (CDA aligned)'
       });
       setIsAdding(false);
-      showNotice('success', `Account ${newAcc.code} - ${newAcc.name} added.`);
+      setNewAcc({
+        account_code: '',
+        name: '',
+        category: 'Asset',
+        report_group: 'Current Assets',
+        normal_balance: 'Debit',
+        parent_account_id: '',
+        description: '',
+        is_active: true
+      });
+      showNotice('success', `Account ${code} - ${newAcc.name} added.`);
       onRefresh();
     } catch (err: any) {
       showNotice('error', err.message);
     }
   };
 
-  const filtered = filterType === 'All' ? accounts : accounts.filter(a => a.type === filterType);
+  const filtered = filterType === 'All'
+    ? accounts
+    : accounts.filter(a => {
+        const cat = a.category || a.type;
+        if (filterType === 'Revenue') return cat === 'Revenue' || cat === 'Income';
+        return cat === filterType;
+      });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Dynamic Chart of Accounts</h2>
+          <h2 className="text-lg font-bold text-white">Chart of Accounts (CDA Standard COA)</h2>
           <p className="text-xs text-slate-400">
-            Configure GL accounts, parent hierarchies, normal balance, and subsidiary tracking (Req #3, Test #5).
+            Database schema: account_code, name, category, report_group, normal_balance, parent_account_id, description, is_active.
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -1075,11 +1103,11 @@ function ChartOfAccountsConfig({
             onChange={e => setFilterType(e.target.value)}
             className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1.5 cursor-pointer"
           >
-            <option value="All">All Types</option>
-            <option value="Asset">Assets</option>
-            <option value="Liability">Liabilities</option>
+            <option value="All">All Categories</option>
+            <option value="Asset">Asset</option>
+            <option value="Liability">Liability</option>
             <option value="Equity">Equity</option>
-            <option value="Income">Income</option>
+            <option value="Revenue">Revenue</option>
             <option value="Expense">Expense</option>
           </select>
           <button
@@ -1096,25 +1124,25 @@ function ChartOfAccountsConfig({
       {isAdding && (
         <form onSubmit={handleCreate} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-            <h3 className="text-sm font-bold text-emerald-400">New Chart of Accounts Entry</h3>
+            <h3 className="text-sm font-bold text-emerald-400">New Chart of Accounts Entry (SQL Aligned)</h3>
             <button type="button" onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-slate-300 font-medium">Account Code</label>
+              <label className="text-xs text-slate-300 font-medium">Account Code (account_code)</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. 1130"
-                value={newAcc.code}
-                onChange={e => setNewAcc({ ...newAcc, code: e.target.value })}
+                value={newAcc.account_code}
+                onChange={e => setNewAcc({ ...newAcc, account_code: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Account Name</label>
+              <label className="text-xs text-slate-300 font-medium">Account Name (name)</label>
               <input
                 type="text"
                 required
@@ -1125,93 +1153,178 @@ function ChartOfAccountsConfig({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Account Type</label>
+              <label className="text-xs text-slate-300 font-medium">Category (category)</label>
               <select
-                value={newAcc.type}
-                onChange={e => setNewAcc({
-                  ...newAcc,
-                  type: e.target.value as any,
-                  normal_balance: (e.target.value === 'Asset' || e.target.value === 'Expense') ? 'Debit' : 'Credit',
-                  category: e.target.value === 'Asset' ? 'Current Assets' : e.target.value === 'Liability' ? 'Current Liabilities' : e.target.value
-                })}
+                value={newAcc.category}
+                onChange={e => {
+                  const cat = e.target.value;
+                  const defaultGroup =
+                    cat === 'Asset' ? 'Current Assets' :
+                    cat === 'Liability' ? 'Deposit Liabilities' :
+                    cat === 'Equity' ? 'Share Capital' :
+                    cat === 'Revenue' ? 'Operating Revenue' : 'Administrative Expenses';
+                  const defaultBal: 'Debit' | 'Credit' = (cat === 'Asset' || cat === 'Expense') ? 'Debit' : 'Credit';
+                  setNewAcc({
+                    ...newAcc,
+                    category: cat,
+                    report_group: defaultGroup,
+                    normal_balance: defaultBal
+                  });
+                }}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
                 <option value="Asset">Asset</option>
                 <option value="Liability">Liability</option>
                 <option value="Equity">Equity</option>
-                <option value="Income">Income</option>
+                <option value="Revenue">Revenue</option>
                 <option value="Expense">Expense</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Normal Balance</label>
+              <label className="text-xs text-slate-300 font-medium">Report Group (report_group)</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Current Assets"
+                value={newAcc.report_group}
+                onChange={e => setNewAcc({ ...newAcc, report_group: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Normal Balance (normal_balance)</label>
               <select
                 value={newAcc.normal_balance}
-                onChange={e => setNewAcc({ ...newAcc, normal_balance: e.target.value as any })}
+                onChange={e => setNewAcc({ ...newAcc, normal_balance: e.target.value as 'Debit' | 'Credit' })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
                 <option value="Debit">Debit</option>
                 <option value="Credit">Credit</option>
               </select>
             </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Parent Account (parent_account_id)</label>
+              <select
+                value={newAcc.parent_account_id}
+                onChange={e => setNewAcc({ ...newAcc, parent_account_id: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+              >
+                <option value="">None (Top-Level)</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.account_code || acc.code} - {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-slate-300 font-medium">Description (description)</label>
+              <input
+                type="text"
+                placeholder="Account purpose or explanatory remarks"
+                value={newAcc.description}
+                onChange={e => setNewAcc({ ...newAcc, description: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
           </div>
-          <div className="flex justify-end space-x-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAdding(false)}
-              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
-            >
-              Save to Database
-            </button>
+          <div className="flex items-center justify-between pt-2">
+            <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newAcc.is_active}
+                onChange={e => setNewAcc({ ...newAcc, is_active: e.target.checked })}
+                className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-400"
+              />
+              <span>Is Active (is_active)</span>
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
+              >
+                Save Account to DB
+              </button>
+            </div>
           </div>
         </form>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-md">
         <table className="w-full text-left text-xs text-slate-300">
-          <thead className="bg-slate-800 text-slate-400 font-semibold border-b border-slate-700">
+          <thead className="bg-slate-800/90 text-slate-300 font-semibold border-b border-slate-700">
             <tr>
-              <th className="py-2.5 px-3">Code</th>
-              <th className="py-2.5 px-3">Account Title</th>
-              <th className="py-2.5 px-3">Type</th>
-              <th className="py-2.5 px-3">Category</th>
-              <th className="py-2.5 px-3">Normal Balance</th>
-              <th className="py-2.5 px-3">Subsidiary</th>
-              <th className="py-2.5 px-3 text-right">Status</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Account Code</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Account Name</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Category</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Report Group</th>
+              <th className="py-2.5 px-3 whitespace-nowrap text-center">Normal Bal</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Parent Account</th>
+              <th className="py-2.5 px-3 whitespace-nowrap">Description</th>
+              <th className="py-2.5 px-3 whitespace-nowrap text-center">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/80">
-            {filtered.map(a => (
-              <tr key={a.id} className="hover:bg-slate-800/50 transition">
-                <td className="py-2.5 px-3 font-mono font-bold text-white">{a.code}</td>
-                <td className="py-2.5 px-3 font-medium text-slate-200">{a.name}</td>
-                <td className="py-2.5 px-3">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                    a.type === 'Asset' ? 'bg-blue-500/20 text-blue-400' :
-                    a.type === 'Liability' ? 'bg-amber-500/20 text-amber-400' :
-                    a.type === 'Equity' ? 'bg-purple-500/20 text-purple-400' :
-                    a.type === 'Income' ? 'bg-emerald-500/20 text-emerald-400' :
-                    'bg-rose-500/20 text-rose-400'
-                  }`}>
-                    {a.type}
-                  </span>
-                </td>
-                <td className="py-2.5 px-3 text-slate-400">{a.category}</td>
-                <td className="py-2.5 px-3 text-slate-300">{a.normal_balance}</td>
-                <td className="py-2.5 px-3 text-slate-400">{a.has_subsidiary ? 'Yes (Member/Loan)' : 'No'}</td>
-                <td className="py-2.5 px-3 text-right">
-                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-medium">
-                    Active
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {filtered.map(a => {
+              const parent = accounts.find(acc => acc.id === (a.parent_account_id || a.parent_id));
+              const category = a.category || a.type || 'Asset';
+              const isActive = a.is_active !== undefined ? a.is_active : a.active !== false;
+              return (
+                <tr key={a.id} className="hover:bg-slate-800/50 transition">
+                  <td className="py-2.5 px-3 font-mono font-bold text-white whitespace-nowrap">
+                    {a.account_code || a.code}
+                  </td>
+                  <td className="py-2.5 px-3 font-medium text-slate-200">
+                    {a.name}
+                  </td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                      category === 'Asset' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                      category === 'Liability' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                      category === 'Equity' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                      (category === 'Revenue' || category === 'Income') ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                      'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    }`}>
+                      {category}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-300 whitespace-nowrap">
+                    {a.report_group || a.category}
+                  </td>
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <span className={`font-mono text-xs font-semibold ${
+                      a.normal_balance === 'Debit' ? 'text-blue-400' : 'text-purple-400'
+                    }`}>
+                      {a.normal_balance}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-400 whitespace-nowrap">
+                    {parent ? `${parent.account_code || parent.code} - ${parent.name}` : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-400 max-w-[240px] truncate" title={a.description || ''}>
+                    {a.description || '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                      isActive
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                        : 'text-slate-400 bg-slate-500/10 border-slate-500/20'
+                    }`}>
+                      {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

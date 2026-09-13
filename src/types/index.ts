@@ -42,15 +42,21 @@ export interface FeatureToggle {
 
 export interface Account {
   id: string;
-  code: string;
+  account_code: string;
+  code?: string; // compatibility alias for account_code
   name: string;
-  type: 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
-  category: string;
+  category: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense' | string;
+  type?: 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Revenue' | 'Expense' | string; // compatibility alias
+  report_group: string;
   normal_balance: 'Debit' | 'Credit';
-  parent_id: string | null;
-  is_control: boolean;
-  has_subsidiary: boolean;
-  active: boolean;
+  parent_account_id?: string | null;
+  parent_id?: string | null; // compatibility alias
+  description?: string | null;
+  is_active?: boolean;
+  active?: boolean; // compatibility alias
+  is_control?: boolean;
+  has_subsidiary?: boolean;
+  created_at?: string;
 }
 
 export interface AccountingMapping {

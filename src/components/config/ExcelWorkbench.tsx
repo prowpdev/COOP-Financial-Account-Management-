@@ -187,24 +187,34 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
 
   // --- CHART OF ACCOUNTS COLUMNS ---
   const coaCols: ExcelColumn<Account>[] = [
-    { key: 'code', header: 'Account Code', width: '130px', type: 'text', sortable: true },
+    {
+      key: 'account_code',
+      header: 'Account Code',
+      width: '130px',
+      type: 'text',
+      sortable: true,
+      accessor: a => a.account_code || a.code
+    },
     { key: 'name', header: 'Account Name', width: '250px', type: 'text', sortable: true, editable: true },
     {
-      key: 'type',
-      header: 'Account Type',
+      key: 'category',
+      header: 'Category',
       width: '130px',
       type: 'badge',
       sortable: true,
+      editable: true,
+      accessor: a => a.category || a.type,
       badgeColor: val => {
         switch (val) {
           case 'Asset':
-            return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+            return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
           case 'Liability':
             return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
           case 'Equity':
-            return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+            return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+          case 'Revenue':
           case 'Income':
-            return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+            return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
           case 'Expense':
             return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
           default:
@@ -212,7 +222,15 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
         }
       }
     },
-    { key: 'category', header: 'Category', width: '180px', type: 'text', sortable: true, editable: true },
+    {
+      key: 'report_group',
+      header: 'Report Group',
+      width: '180px',
+      type: 'text',
+      sortable: true,
+      editable: true,
+      accessor: a => a.report_group || a.category
+    },
     {
       key: 'normal_balance',
       header: 'Normal Bal',
@@ -220,6 +238,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       type: 'text',
       align: 'center',
       sortable: true,
+      editable: true,
       render: val => (
         <span
           className={`font-mono text-xs font-semibold ${
@@ -231,28 +250,30 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       )
     },
     {
-      key: 'is_control',
-      header: 'Is Control',
-      width: '100px',
-      type: 'boolean',
-      align: 'center',
-      sortable: true
+      key: 'parent_account_id',
+      header: 'Parent Account',
+      width: '140px',
+      type: 'text',
+      sortable: true,
+      accessor: a => a.parent_account_id || a.parent_id || '—'
     },
     {
-      key: 'has_subsidiary',
-      header: 'Subsidiary',
-      width: '100px',
-      type: 'boolean',
-      align: 'center',
-      sortable: true
+      key: 'description',
+      header: 'Description',
+      width: '260px',
+      type: 'text',
+      sortable: true,
+      editable: true,
+      accessor: a => a.description || '—'
     },
     {
-      key: 'active',
-      header: 'Active',
+      key: 'is_active',
+      header: 'Status',
       width: '90px',
       type: 'boolean',
       align: 'center',
-      sortable: true
+      sortable: true,
+      accessor: a => (a.is_active !== undefined ? a.is_active : a.active !== false)
     }
   ];
 
@@ -412,11 +433,15 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
     const updated = {
       ...account,
       [fieldKey]: newVal,
+      ...(fieldKey === 'account_code' ? { code: newVal } : {}),
+      ...(fieldKey === 'code' ? { account_code: newVal } : {}),
+      ...(fieldKey === 'category' ? { type: newVal === 'Revenue' ? 'Income' : newVal } : {}),
+      ...(fieldKey === 'is_active' ? { active: newVal } : {}),
       changed_by: currentUser.name,
       reason: `Excel Spreadsheet direct edit: ${fieldKey}`
     };
     await api.updateAccount(account.id, updated);
-    notify('success', `Account "${account.code} - ${account.name}" updated!`);
+    notify('success', `Account "${account.account_code || account.code} - ${account.name}" updated!`);
     onRefresh();
   };
 
@@ -604,7 +629,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
           exportFileName="coopflex_chart_of_accounts"
           data={configData.chart_of_accounts}
           columns={coaCols}
-          defaultSortKey="code"
+          defaultSortKey="account_code"
           onCellEdit={handleEditAccount}
         />
       )}

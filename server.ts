@@ -17,6 +17,37 @@ const currentData = db.load();
 if (!currentData.cooperatives || currentData.cooperatives.length === 0) {
   console.log('Bootstrapping initial cooperative seed database...');
   db.resetToSeed(initialSeedData);
+} else {
+  // Synchronize chart_of_accounts with SQL baseline schema definitions
+  const seedCoaMap = new Map(initialSeedData.chart_of_accounts.map(a => [a.id, a]));
+  let coaUpdated = false;
+  currentData.chart_of_accounts = (currentData.chart_of_accounts || []).map(a => {
+    const seed = seedCoaMap.get(a.id);
+    if (seed) {
+      coaUpdated = true;
+      return {
+        ...seed,
+        ...a,
+        account_code: a.account_code || seed.account_code || a.code,
+        category: seed.category || a.category,
+        report_group: a.report_group || seed.report_group,
+        description: a.description || seed.description,
+        parent_account_id: a.parent_account_id !== undefined ? a.parent_account_id : seed.parent_account_id,
+        is_active: a.is_active !== undefined ? a.is_active : (a.active !== undefined ? a.active : seed.is_active)
+      };
+    }
+    return {
+      ...a,
+      account_code: a.account_code || a.code,
+      report_group: a.report_group || (a.category === 'Asset' ? 'Current Assets' : a.category === 'Liability' ? 'Current Liabilities' : a.category),
+      category: a.category || a.type || 'Asset',
+      description: a.description || '',
+      is_active: a.is_active !== undefined ? a.is_active : (a.active !== undefined ? a.active : true)
+    };
+  });
+  if (coaUpdated) {
+    db.save();
+  }
 }
 
 // Mount API routes
