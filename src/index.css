@@ -54,8 +54,7 @@ html.light .bg-slate-800\/90,
 html.light .bg-slate-800\/80,
 html.light .bg-slate-800\/60,
 html.light .bg-slate-800\/40,
-html.light .bg-slate-800\/30,
-html.light .bg-slate-800\/50 {
+html.light .bg-slate-800\/30 {
   background-color: #f8fafc !important;
 }
 
@@ -96,157 +95,32 @@ html.light .border-slate-800\/60,
 html.light .border-slate-800\/50,
 html.light .border-slate-700,
 html.light .border-slate-700\/80,
-html.light .border-slate-700\/60,
-html.light .border-slate-700\/50 {
+html.light .border-slate-700\/60 {
   border-color: #e2e8f0 !important;
 }
 
 html.light .divide-slate-800,
-html.light .divide-slate-800\/80,
-html.light .divide-slate-800\/70,
 html.light .divide-slate-800\/60,
 html.light .divide-slate-700 {
   border-color: #e2e8f0 !important;
 }
 
-/* Emerald and Colored Highlights in Light Mode */
-html.light .bg-emerald-950,
-html.light .bg-emerald-950\/40,
-html.light .bg-emerald-950\/30,
-html.light .bg-emerald-950\/20,
-html.light .bg-emerald-900\/30 {
-  background-color: #ecfdf5 !important;
-}
-
-html.light .border-emerald-500\/40,
-html.light .border-emerald-500\/30,
-html.light .border-emerald-500\/20 {
-  border-color: #a7f3d0 !important;
-}
-
-/* Light Mode Accent Text adjustments for high contrast legibility */
-html.light .text-emerald-300 {
-  color: #047857 !important;
-}
-html.light .text-emerald-400 {
-  color: #059669 !important;
-}
-html.light .text-blue-400 {
-  color: #1d4ed8 !important;
-}
-html.light .text-amber-400 {
-  color: #b45309 !important;
-}
-html.light .text-purple-400 {
-  color: #7e22ce !important;
-}
-html.light .text-rose-400 {
-  color: #be123c !important;
-}
-
-/* ----------------------------------------------------
-   Navigation & Menu Hover / Active States in Light Mode
-   ---------------------------------------------------- */
-html.light .sidebar-nav-item,
-html.light .sidebar-menu-btn:not(.sidebar-nav-active) {
-  color: #475569 !important;
-  background-color: transparent !important;
-}
-
-html.light .sidebar-menu-btn:not(.sidebar-nav-active):hover {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
-}
-
-html.light .sidebar-menu-btn:not(.sidebar-nav-active):hover svg,
-html.light .sidebar-menu-btn:not(.sidebar-nav-active):hover .sidebar-icon {
-  color: #059669 !important;
-}
-
-html.light .sidebar-nav-active {
-  background-color: #ecfdf5 !important;
-  color: #065f46 !important;
-  border-color: #a7f3d0 !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
-}
-
-html.light .sidebar-nav-active span,
-html.light .sidebar-nav-active .sidebar-icon-active,
-html.light .sidebar-nav-active svg {
-  color: #047857 !important;
-}
-
-html.light .sidebar-badge-active {
-  background-color: #d1fae5 !important;
-  color: #065f46 !important;
-}
-
-html.light .sidebar-badge {
-  background-color: #f1f5f9 !important;
-  color: #64748b !important;
-  border-color: #cbd5e1 !important;
-}
-
-/* ----------------------------------------------------
-   Universal Hover Corrections in Light Mode
-   (Prevents dark backgrounds and white text on light)
-   ---------------------------------------------------- */
-html.light [class*="hover:bg-slate-800"]:hover,
-html.light [class*="hover:bg-slate-700"]:hover,
-html.light [class*="hover:bg-slate-900"]:hover,
-html.light [class*="hover:bg-slate-950"]:hover {
-  background-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-
-/* Prevent text from becoming white-on-light on hover */
-html.light [class*="hover:text-white"]:hover {
-  color: #0f172a !important;
-}
-
-/* Solid colored primary action buttons keep pure white text */
+/* Ensure vibrant colored badges and buttons retain clean contrast */
+html.light .bg-emerald-600,
+html.light .bg-emerald-500,
+html.light .bg-blue-600,
+html.light .bg-rose-600,
 html.light button.bg-emerald-600,
 html.light button.bg-emerald-500,
-html.light [class*="bg-emerald-600"],
-html.light [class*="bg-emerald-500"],
-html.light [class*="hover:bg-emerald-600"]:hover,
-html.light [class*="hover:bg-emerald-500"]:hover {
-  color: #ffffff !important;
-}
-
-html.light button.bg-emerald-600 *,
-html.light button.bg-emerald-500 *,
-html.light [class*="hover:bg-emerald-600"]:hover *,
-html.light [class*="hover:bg-emerald-500"]:hover * {
-  color: #ffffff !important;
-}
-
 html.light button.bg-blue-600,
-html.light [class*="bg-blue-600"],
-html.light [class*="hover:bg-blue-600"]:hover {
+html.light button.bg-rose-600 {
   color: #ffffff !important;
 }
 
-html.light button.bg-blue-600 *,
-html.light [class*="hover:bg-blue-600"]:hover * {
+html.light .bg-emerald-600 .text-white,
+html.light .bg-blue-600 .text-white,
+html.light .bg-rose-600 .text-white {
   color: #ffffff !important;
-}
-
-html.light button.bg-rose-600,
-html.light [class*="bg-rose-600"],
-html.light [class*="hover:bg-rose-600"]:hover {
-  color: #ffffff !important;
-}
-
-html.light button.bg-rose-600 *,
-html.light [class*="hover:bg-rose-600"]:hover * {
-  color: #ffffff !important;
-}
-
-/* Gradient banners in light mode */
-html.light [class*="from-slate-900"] {
-  background-image: linear-gradient(to right, #ffffff, #f0fdf4, #ffffff) !important;
-  border-color: #e2e8f0 !important;
 }
 
 /* Form controls in light mode */
@@ -263,18 +137,12 @@ html.light select option {
   color: #0f172a !important;
 }
 
-/* Table rows and cells in light mode */
-html.light thead th {
-  background-color: #f8fafc !important;
-  color: #334155 !important;
-  border-color: #e2e8f0 !important;
-}
-
-html.light tbody tr:hover,
-html.light tbody tr:hover td {
+/* Table hover in light mode */
+html.light tr:hover {
   background-color: #f1f5f9 !important;
 }
 
+/* Spreadsheet grid in light mode */
 html.light .ag-grid-cell,
 html.light td {
   border-color: #e2e8f0 !important;

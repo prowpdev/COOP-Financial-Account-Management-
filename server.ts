@@ -26,7 +26,7 @@ app.use('/api', apiRouter);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    cooperative: 'Mayap Care Agriculture Cooperative',
+    cooperative: 'St. Isidore Multi-Purpose Cooperative',
     architecture: 'Configuration-Driven Full-Stack Engine',
     timestamp: new Date().toISOString()
   });

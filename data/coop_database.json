@@ -6,7 +6,7 @@
       "registration_no": "CDA-REG-9502-100234",
       "tax_identification_number": "005-891-234-000",
       "address": "Poblacion Plaza, Tarlac City, Philippines",
-      "email": "admin@mayapcare.coop",
+      "email": "admin@stisidorecoop.org",
       "phone": "+63 (045) 982-1200",
       "currency": "PHP",
       "currency_symbol": "₱",
@@ -50,7 +50,37 @@
       "active": true
     },
     {
-      "id": "branch_test_1789200177600",
+      "id": "branch_test_1789106926637",
+      "cooperative_id": "coop_01",
+      "code": "BAG",
+      "name": "Baguio Highland Branch",
+      "address": "Session Road, Baguio City",
+      "phone": "+63 (074) 442-9981",
+      "manager_name": "Felipe Dizon",
+      "active": true
+    },
+    {
+      "id": "branch_test_1789106930413",
+      "cooperative_id": "coop_01",
+      "code": "BAG",
+      "name": "Baguio Highland Branch",
+      "address": "Session Road, Baguio City",
+      "phone": "+63 (074) 442-9981",
+      "manager_name": "Felipe Dizon",
+      "active": true
+    },
+    {
+      "id": "branch_test_1789107176111",
+      "cooperative_id": "coop_01",
+      "code": "BAG",
+      "name": "Baguio Highland Branch",
+      "address": "Session Road, Baguio City",
+      "phone": "+63 (074) 442-9981",
+      "manager_name": "Felipe Dizon",
+      "active": true
+    },
+    {
+      "id": "branch_test_1789107185023",
       "cooperative_id": "coop_01",
       "code": "BAG",
       "name": "Baguio Highland Branch",
@@ -523,7 +553,43 @@
       "active": true
     },
     {
-      "id": "acc_test_1789200177597",
+      "id": "acc_test_1789106926632",
+      "code": "1130",
+      "name": "Short-Term Marketable Securities",
+      "type": "Asset",
+      "category": "Current Assets",
+      "normal_balance": "Debit",
+      "parent_id": "acc_1100",
+      "is_control": false,
+      "has_subsidiary": false,
+      "active": true
+    },
+    {
+      "id": "acc_test_1789106930409",
+      "code": "1130",
+      "name": "Short-Term Marketable Securities",
+      "type": "Asset",
+      "category": "Current Assets",
+      "normal_balance": "Debit",
+      "parent_id": "acc_1100",
+      "is_control": false,
+      "has_subsidiary": false,
+      "active": true
+    },
+    {
+      "id": "acc_test_1789107176103",
+      "code": "1130",
+      "name": "Short-Term Marketable Securities",
+      "type": "Asset",
+      "category": "Current Assets",
+      "normal_balance": "Debit",
+      "parent_id": "acc_1100",
+      "is_control": false,
+      "has_subsidiary": false,
+      "active": true
+    },
+    {
+      "id": "acc_test_1789107185017",
       "code": "1130",
       "name": "Short-Term Marketable Securities",
       "type": "Asset",
@@ -705,7 +771,7 @@
       "prefix": "JV",
       "pattern": "{BRANCH}-GLV-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 43
+      "current_seq": 48
     },
     {
       "id": "num_cd",
@@ -713,7 +779,7 @@
       "prefix": "CD",
       "pattern": "{BRANCH}-CD-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 39
+      "current_seq": 38
     },
     {
       "id": "num_or",
@@ -721,7 +787,7 @@
       "prefix": "OR",
       "pattern": "{BRANCH}-OR-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 158
+      "current_seq": 154
     },
     {
       "id": "num_ln",
@@ -729,7 +795,7 @@
       "prefix": "LN",
       "pattern": "LN-{YEAR}-{NUMBER}",
       "length": 5,
-      "current_seq": 29
+      "current_seq": 28
     },
     {
       "id": "num_mem",
@@ -737,7 +803,7 @@
       "prefix": "MEM",
       "pattern": "MEM-{YEAR}-{NUMBER}",
       "length": 5,
-      "current_seq": 106
+      "current_seq": 105
     }
   ],
   "approval_workflows": [
@@ -756,7 +822,28 @@
       "active": true
     },
     {
-      "id": "wf_test_1789200177598",
+      "id": "wf_test_1789106926634",
+      "name": "Emergency Micro-Credit Express Approval",
+      "module": "Loans",
+      "description": "Fast single-tier approval for calamity loans",
+      "active": true
+    },
+    {
+      "id": "wf_test_1789106930410",
+      "name": "Emergency Micro-Credit Express Approval",
+      "module": "Loans",
+      "description": "Fast single-tier approval for calamity loans",
+      "active": true
+    },
+    {
+      "id": "wf_test_1789107176104",
+      "name": "Emergency Micro-Credit Express Approval",
+      "module": "Loans",
+      "description": "Fast single-tier approval for calamity loans",
+      "active": true
+    },
+    {
+      "id": "wf_test_1789107185019",
       "name": "Emergency Micro-Credit Express Approval",
       "module": "Loans",
       "description": "Fast single-tier approval for calamity loans",
@@ -863,24 +950,40 @@
       "active": true
     },
     {
-      "id": "cf_1789182295484",
+      "id": "cf_test_1789106926635",
       "entity": "Member",
-      "field_name": "annual_income",
-      "field_label": "Annual Income",
-      "field_type": "Dropdown",
-      "options": [
-        "50000",
-        "100000",
-        "150000",
-        "200000",
-        "250000"
-      ],
-      "required": false,
+      "field_name": "emergency_contact_phone",
+      "field_label": "Emergency Contact Number",
+      "field_type": "Phone",
+      "options": [],
+      "required": true,
       "default_value": "",
       "active": true
     },
     {
-      "id": "cf_test_1789200177598",
+      "id": "cf_test_1789106930410",
+      "entity": "Member",
+      "field_name": "emergency_contact_phone",
+      "field_label": "Emergency Contact Number",
+      "field_type": "Phone",
+      "options": [],
+      "required": true,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_test_1789107176106",
+      "entity": "Member",
+      "field_name": "emergency_contact_phone",
+      "field_label": "Emergency Contact Number",
+      "field_type": "Phone",
+      "options": [],
+      "required": true,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_test_1789107185020",
       "entity": "Member",
       "field_name": "emergency_contact_phone",
       "field_label": "Emergency Contact Number",
@@ -941,14 +1044,81 @@
       "active": true
     }
   ],
-  "members": [],
+  "members": [
+    {
+      "id": "mem_001",
+      "member_no": "MEM-2026-00001",
+      "branch_id": "branch_tar",
+      "member_type_id": "mt_regular",
+      "first_name": "Danilo",
+      "last_name": "Macaraeg",
+      "middle_name": "Santos",
+      "gender": "Male",
+      "birthdate": "1982-05-14",
+      "email": "danilo.macaraeg@gmail.com",
+      "phone": "+63 917 555 1290",
+      "address": "Brgy. San Vicente, Tarlac City",
+      "status": "Active",
+      "joined_date": "2023-03-15",
+      "custom_field_values": {
+        "occupation": "Farmer / Fisherfolk",
+        "barangay": "San Vicente",
+        "monthly_income": "35000",
+        "tin_number": "189-223-901-000"
+      }
+    },
+    {
+      "id": "mem_002",
+      "member_no": "MEM-2026-00002",
+      "branch_id": "branch_tar",
+      "member_type_id": "mt_regular",
+      "first_name": "Maricel",
+      "last_name": "Dizon",
+      "middle_name": "Aquino",
+      "gender": "Female",
+      "birthdate": "1988-11-22",
+      "email": "maricel.dizon@yahoo.com",
+      "phone": "+63 928 441 8872",
+      "address": "Brgy. Matatalaib, Tarlac City",
+      "status": "Active",
+      "joined_date": "2024-01-10",
+      "custom_field_values": {
+        "occupation": "Self-Employed / Entrepreneur",
+        "barangay": "Matatalaib",
+        "monthly_income": "60000",
+        "tin_number": "241-778-100-000"
+      }
+    },
+    {
+      "id": "mem_003",
+      "member_no": "MEM-2026-00003",
+      "branch_id": "branch_urd",
+      "member_type_id": "mt_associate",
+      "first_name": "Arnel",
+      "last_name": "Bautista",
+      "middle_name": "Flores",
+      "gender": "Male",
+      "birthdate": "1995-08-03",
+      "email": "arnel.bautista@gmail.com",
+      "phone": "+63 939 123 4567",
+      "address": "Brgy. Nancayasan, Urdaneta City",
+      "status": "Active",
+      "joined_date": "2025-06-20",
+      "custom_field_values": {
+        "occupation": "Government Employee",
+        "barangay": "Nancayasan",
+        "monthly_income": "42000",
+        "tin_number": "312-990-441-000"
+      }
+    }
+  ],
   "loan_products": [
     {
       "id": "lp_regular",
       "code": "LP-REG",
       "name": "Regular Multi-Purpose Loan",
       "description": "Standard term loan for regular members with 10% annual diminishing balance",
-      "version": 2,
+      "version": 5,
       "min_amount": 10000,
       "max_amount": 300000,
       "annual_interest_rate": 12,
@@ -1030,7 +1200,91 @@
       "effective_until": null
     },
     {
-      "id": "lp_test_1789200177594",
+      "id": "lp_test_1789106926628",
+      "code": "LP-EDU-TEST",
+      "name": "Education Assistance Loan",
+      "description": "Dynamic education financing",
+      "version": 1,
+      "min_amount": 5000,
+      "max_amount": 100000,
+      "annual_interest_rate": 7.5,
+      "interest_calculation_method": "Simple Interest",
+      "default_term_months": 10,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 1,
+      "service_fee_fixed": 150,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": true,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Student ID",
+        "Enrollment Form"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-01-01",
+      "effective_until": null
+    },
+    {
+      "id": "lp_test_1789106930406",
+      "code": "LP-EDU-TEST",
+      "name": "Education Assistance Loan",
+      "description": "Dynamic education financing",
+      "version": 1,
+      "min_amount": 5000,
+      "max_amount": 100000,
+      "annual_interest_rate": 7.5,
+      "interest_calculation_method": "Simple Interest",
+      "default_term_months": 10,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 1,
+      "service_fee_fixed": 150,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": true,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Student ID",
+        "Enrollment Form"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-01-01",
+      "effective_until": null
+    },
+    {
+      "id": "lp_test_1789107176096",
+      "code": "LP-EDU-TEST",
+      "name": "Education Assistance Loan",
+      "description": "Dynamic education financing",
+      "version": 1,
+      "min_amount": 5000,
+      "max_amount": 100000,
+      "annual_interest_rate": 7.5,
+      "interest_calculation_method": "Simple Interest",
+      "default_term_months": 10,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 1,
+      "service_fee_fixed": 150,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": true,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Student ID",
+        "Enrollment Form"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-01-01",
+      "effective_until": null
+    },
+    {
+      "id": "lp_test_1789107185012",
       "code": "LP-EDU-TEST",
       "name": "Education Assistance Loan",
       "description": "Dynamic education financing",
@@ -1071,10 +1325,142 @@
     }
   ],
   "loan_applications": [],
-  "loans": [],
-  "loan_amortization_schedules": [],
-  "loan_payments": [],
-  "loan_payment_allocations": [],
+  "loans": [
+    {
+      "id": "loan_001",
+      "loan_account_no": "LN-2026-00010",
+      "member_id": "mem_001",
+      "loan_product_id": "lp_regular",
+      "product_version": 1,
+      "branch_id": "branch_tar",
+      "principal_amount": 80000,
+      "annual_interest_rate": 10,
+      "interest_calculation_method": "Diminishing Balance",
+      "term_months": 12,
+      "payment_frequency": "Monthly",
+      "disbursement_date": "2026-01-15",
+      "first_due_date": "2026-02-15",
+      "maturity_date": "2027-01-15",
+      "processing_fee": 1600,
+      "service_fee": 250,
+      "net_disbursed": 78150,
+      "disbursed_from_cash_account_id": "cash_01",
+      "status": "Active",
+      "current_balance": 67120.5,
+      "total_principal_paid": 12879.5,
+      "total_interest_paid": 1305.2,
+      "total_penalty_paid": 0,
+      "total_fees_paid": 1850,
+      "approved_by": "Elena Rostro",
+      "approved_date": "2026-01-14"
+    }
+  ],
+  "loan_amortization_schedules": [
+    {
+      "id": "sched_01_01",
+      "loan_id": "loan_001",
+      "installment_no": 1,
+      "due_date": "2026-02-15",
+      "principal": 6415.8,
+      "interest": 666.67,
+      "fee": 0,
+      "total_installment": 7082.47,
+      "principal_balance": 73584.2,
+      "paid_principal": 6415.8,
+      "paid_interest": 666.67,
+      "paid_penalty": 0,
+      "paid_date": "2026-02-14",
+      "status": "Paid"
+    },
+    {
+      "id": "sched_01_02",
+      "loan_id": "loan_001",
+      "installment_no": 2,
+      "due_date": "2026-03-15",
+      "principal": 6463.7,
+      "interest": 613.2,
+      "fee": 0,
+      "total_installment": 7076.9,
+      "principal_balance": 67120.5,
+      "paid_principal": 6463.7,
+      "paid_interest": 613.2,
+      "paid_penalty": 0,
+      "paid_date": "2026-03-12",
+      "status": "Paid"
+    },
+    {
+      "id": "sched_01_03",
+      "loan_id": "loan_001",
+      "installment_no": 3,
+      "due_date": "2026-04-15",
+      "principal": 6517.56,
+      "interest": 559.34,
+      "fee": 0,
+      "total_installment": 7076.9,
+      "principal_balance": 60602.94,
+      "paid_principal": 0,
+      "paid_interest": 0,
+      "paid_penalty": 0,
+      "paid_date": null,
+      "status": "Unpaid"
+    }
+  ],
+  "loan_payments": [
+    {
+      "id": "pmt_001",
+      "receipt_no": "TAR-OR-2026-000101",
+      "loan_id": "loan_001",
+      "member_id": "mem_001",
+      "payment_date": "2026-02-14",
+      "total_amount": 7082.47,
+      "cash_account_id": "cash_01",
+      "received_by": "Cashier Maria Gomez",
+      "journal_entry_id": "jv_pmt_001"
+    },
+    {
+      "id": "pmt_002",
+      "receipt_no": "TAR-OR-2026-000128",
+      "loan_id": "loan_001",
+      "member_id": "mem_001",
+      "payment_date": "2026-03-12",
+      "total_amount": 7076.9,
+      "cash_account_id": "cash_01",
+      "received_by": "Cashier Maria Gomez",
+      "journal_entry_id": "jv_pmt_002"
+    }
+  ],
+  "loan_payment_allocations": [
+    {
+      "id": "alloc_001",
+      "payment_id": "pmt_001",
+      "loan_id": "loan_001",
+      "penalty_amount": 0,
+      "interest_amount": 666.67,
+      "fee_amount": 0,
+      "principal_amount": 6415.8,
+      "allocation_order_applied": [
+        "Penalty",
+        "Interest",
+        "Fees",
+        "Principal"
+      ]
+    },
+    {
+      "id": "alloc_002",
+      "payment_id": "pmt_002",
+      "loan_id": "loan_001",
+      "penalty_amount": 0,
+      "interest_amount": 613.2,
+      "fee_amount": 0,
+      "principal_amount": 6463.7,
+      "allocation_order_applied": [
+        "Penalty",
+        "Interest",
+        "Fees",
+        "Principal"
+      ]
+    }
+  ],
   "savings_products": [
     {
       "id": "sp_regular",
@@ -1099,7 +1485,40 @@
       "active": true
     },
     {
-      "id": "sp_test_1789200177599",
+      "id": "sp_test_1789106926635",
+      "code": "SAV-SENIOR",
+      "name": "Golden Years Senior Savings",
+      "min_balance_to_earn_interest": 5000,
+      "annual_interest_rate": 4,
+      "interest_calculation_method": "Quarterly Compounded",
+      "withdrawal_limit_per_day": 30000,
+      "debit_account_id": "acc_2110",
+      "active": true
+    },
+    {
+      "id": "sp_test_1789106930411",
+      "code": "SAV-SENIOR",
+      "name": "Golden Years Senior Savings",
+      "min_balance_to_earn_interest": 5000,
+      "annual_interest_rate": 4,
+      "interest_calculation_method": "Quarterly Compounded",
+      "withdrawal_limit_per_day": 30000,
+      "debit_account_id": "acc_2110",
+      "active": true
+    },
+    {
+      "id": "sp_test_1789107176107",
+      "code": "SAV-SENIOR",
+      "name": "Golden Years Senior Savings",
+      "min_balance_to_earn_interest": 5000,
+      "annual_interest_rate": 4,
+      "interest_calculation_method": "Quarterly Compounded",
+      "withdrawal_limit_per_day": 30000,
+      "debit_account_id": "acc_2110",
+      "active": true
+    },
+    {
+      "id": "sp_test_1789107185021",
       "code": "SAV-SENIOR",
       "name": "Golden Years Senior Savings",
       "min_balance_to_earn_interest": 5000,
@@ -1110,8 +1529,42 @@
       "active": true
     }
   ],
-  "savings_accounts": [],
-  "savings_transactions": [],
+  "savings_accounts": [
+    {
+      "id": "sa_001",
+      "account_number": "SA-2026-0001",
+      "member_id": "mem_001",
+      "savings_product_id": "sp_regular",
+      "branch_id": "branch_tar",
+      "balance": 14500,
+      "opened_date": "2024-01-15",
+      "status": "Active"
+    },
+    {
+      "id": "sa_002",
+      "account_number": "SA-2026-0002",
+      "member_id": "mem_002",
+      "savings_product_id": "sp_regular",
+      "branch_id": "branch_tar",
+      "balance": 38200,
+      "opened_date": "2024-02-10",
+      "status": "Active"
+    }
+  ],
+  "savings_transactions": [
+    {
+      "id": "st_001",
+      "transaction_no": "TAR-OR-2026-000085",
+      "savings_account_id": "sa_001",
+      "member_id": "mem_001",
+      "type": "DEPOSIT",
+      "amount": 5000,
+      "balance_after": 14500,
+      "cash_account_id": "cash_01",
+      "transaction_date": "2026-02-01",
+      "notes": "Monthly regular savings deposit"
+    }
+  ],
   "share_capital_settings": [
     {
       "id": "sc_setting_01",
@@ -1125,8 +1578,41 @@
       "accounting_account_id": "acc_3110"
     }
   ],
-  "share_capital_accounts": [],
-  "share_capital_transactions": [],
+  "share_capital_accounts": [
+    {
+      "id": "sca_001",
+      "account_number": "CBU-2026-0001",
+      "member_id": "mem_001",
+      "subscribed_shares": 150,
+      "subscribed_amount": 15000,
+      "paid_up_shares": 120,
+      "paid_up_amount": 12000,
+      "status": "Active"
+    },
+    {
+      "id": "sca_002",
+      "account_number": "CBU-2026-0002",
+      "member_id": "mem_002",
+      "subscribed_shares": 300,
+      "subscribed_amount": 30000,
+      "paid_up_shares": 250,
+      "paid_up_amount": 25000,
+      "status": "Active"
+    }
+  ],
+  "share_capital_transactions": [
+    {
+      "id": "sct_001",
+      "receipt_no": "TAR-OR-2026-000012",
+      "share_account_id": "sca_001",
+      "member_id": "mem_001",
+      "type": "PAYMENT",
+      "shares": 20,
+      "amount": 2000,
+      "transaction_date": "2026-01-20",
+      "cash_account_id": "cash_01"
+    }
+  ],
   "cash_accounts": [
     {
       "id": "cash_01",
@@ -1135,8 +1621,8 @@
       "bank_name": "Cash Vault Drawer",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 100000,
+      "current_balance": 145890.47,
       "currency": "PHP",
       "active": true
     },
@@ -1147,8 +1633,8 @@
       "bank_name": "Master Vault Safety Depository",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 500000,
+      "current_balance": 500000,
       "currency": "PHP",
       "active": true
     },
@@ -1159,8 +1645,8 @@
       "bank_name": "Land Bank of the Philippines",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1120",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 1250000,
+      "current_balance": 1250000,
       "currency": "PHP",
       "active": true
     },
@@ -1171,8 +1657,8 @@
       "bank_name": "Development Bank of the Philippines",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1121",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 800000,
+      "current_balance": 800000,
       "currency": "PHP",
       "active": true
     },
@@ -1183,25 +1669,49 @@
       "bank_name": "Cash Drawer Urdaneta",
       "branch_id": "branch_urd",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 150000,
+      "current_balance": 150000,
       "currency": "PHP",
       "active": true
     },
     {
-      "id": "cash_06",
-      "name": "San Fernando Branch Teller Cash",
-      "account_number": "COH-SFE-01",
-      "bank_name": "Cash Drawer San Fernando",
-      "branch_id": "branch_sfe",
+      "id": "cash_test_1789106926632",
+      "name": "GCash / Maya Digital Wallet Clearing",
+      "account_number": "DIGI-EWALLET-01",
+      "bank_name": "Digital Payments Clearing",
+      "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 25000,
+      "current_balance": 25000,
       "currency": "PHP",
       "active": true
     },
     {
-      "id": "cash_test_1789200177596",
+      "id": "cash_test_1789106930409",
+      "name": "GCash / Maya Digital Wallet Clearing",
+      "account_number": "DIGI-EWALLET-01",
+      "bank_name": "Digital Payments Clearing",
+      "branch_id": "branch_tar",
+      "gl_account_id": "acc_1110",
+      "opening_balance": 25000,
+      "current_balance": 25000,
+      "currency": "PHP",
+      "active": true
+    },
+    {
+      "id": "cash_test_1789107176102",
+      "name": "GCash / Maya Digital Wallet Clearing",
+      "account_number": "DIGI-EWALLET-01",
+      "bank_name": "Digital Payments Clearing",
+      "branch_id": "branch_tar",
+      "gl_account_id": "acc_1110",
+      "opening_balance": 25000,
+      "current_balance": 25000,
+      "currency": "PHP",
+      "active": true
+    },
+    {
+      "id": "cash_test_1789107185016",
       "name": "GCash / Maya Digital Wallet Clearing",
       "account_number": "DIGI-EWALLET-01",
       "bank_name": "Digital Payments Clearing",
@@ -1268,7 +1778,46 @@
       "active": true
     },
     {
-      "id": "fee_test_1789200177596",
+      "id": "fee_test_1789106926631",
+      "name": "Notarial & Legal Documentation Fee",
+      "code": "FEE-NOTARIAL",
+      "calculation_type": "Fixed",
+      "fixed_amount": 350,
+      "percentage": 0,
+      "min_amount": 350,
+      "max_amount": 350,
+      "applicable_module": "Loans",
+      "accounting_account_id": "acc_4120",
+      "active": true
+    },
+    {
+      "id": "fee_test_1789106930408",
+      "name": "Notarial & Legal Documentation Fee",
+      "code": "FEE-NOTARIAL",
+      "calculation_type": "Fixed",
+      "fixed_amount": 350,
+      "percentage": 0,
+      "min_amount": 350,
+      "max_amount": 350,
+      "applicable_module": "Loans",
+      "accounting_account_id": "acc_4120",
+      "active": true
+    },
+    {
+      "id": "fee_test_1789107176099",
+      "name": "Notarial & Legal Documentation Fee",
+      "code": "FEE-NOTARIAL",
+      "calculation_type": "Fixed",
+      "fixed_amount": 350,
+      "percentage": 0,
+      "min_amount": 350,
+      "max_amount": 350,
+      "applicable_module": "Loans",
+      "accounting_account_id": "acc_4120",
+      "active": true
+    },
+    {
+      "id": "fee_test_1789107185015",
       "name": "Notarial & Legal Documentation Fee",
       "code": "FEE-NOTARIAL",
       "calculation_type": "Fixed",
@@ -1554,17 +2103,325 @@
       "active": true
     }
   ],
-  "journal_entries": [],
-  "journal_lines": [],
+  "journal_entries": [
+    {
+      "id": "jv_open_2026",
+      "voucher_number": "TAR-JV-2026-000001",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-01-01",
+      "reference_type": "OPENING_BALANCE",
+      "reference_id": "op_bal_01",
+      "description": "Fiscal Year 2026 General Ledger Opening Balances",
+      "total_debit": 2650000,
+      "total_credit": 2650000,
+      "period_id": "period_2026_01",
+      "status": "Posted",
+      "created_by": "Chief Accountant",
+      "posted_at": "2026-01-01T08:00:00Z"
+    },
+    {
+      "id": "jv_loan_rel_01",
+      "voucher_number": "TAR-CD-2026-000014",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-01-15",
+      "reference_type": "LOAN_RELEASE",
+      "reference_id": "loan_001",
+      "description": "Release of Loan LN-2026-00010 Danilo Macaraeg less fees",
+      "total_debit": 80000,
+      "total_credit": 80000,
+      "period_id": "period_2026_01",
+      "status": "Posted",
+      "created_by": "Chief Accountant",
+      "posted_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "id": "jv_pmt_001",
+      "voucher_number": "TAR-OR-2026-000101",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-02-14",
+      "reference_type": "LOAN_PAYMENT",
+      "reference_id": "pmt_001",
+      "description": "Loan payment LN-2026-00010 installment 1 Danilo Macaraeg",
+      "total_debit": 7082.47,
+      "total_credit": 7082.47,
+      "period_id": "period_2026_02",
+      "status": "Posted",
+      "created_by": "Cashier Maria Gomez",
+      "posted_at": "2026-02-14T11:15:00Z"
+    },
+    {
+      "id": "jv_pmt_002",
+      "voucher_number": "TAR-OR-2026-000128",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-03-12",
+      "reference_type": "LOAN_PAYMENT",
+      "reference_id": "pmt_002",
+      "description": "Loan payment LN-2026-00010 installment 2 Danilo Macaraeg",
+      "total_debit": 7076.9,
+      "total_credit": 7076.9,
+      "period_id": "period_2026_03",
+      "status": "Posted",
+      "created_by": "Cashier Maria Gomez",
+      "posted_at": "2026-03-12T14:40:00Z"
+    },
+    {
+      "id": "jv_1789107143748",
+      "voucher_number": "TAR-GLV-2026-000045",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-09-11",
+      "reference_type": "MANUAL_JOURNAL",
+      "reference_id": "jv_1789107143748",
+      "description": "Office Rent",
+      "total_debit": 1500,
+      "total_credit": 1500,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Administrator",
+      "posted_at": "2026-09-11T06:12:23.748Z"
+    },
+    {
+      "id": "jv_1789107143796",
+      "voucher_number": "TAR-GLV-2026-000046",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-09-11",
+      "reference_type": "MANUAL_JOURNAL",
+      "reference_id": "jv_1789107143796",
+      "description": "Office Rent",
+      "total_debit": 1500,
+      "total_credit": 1500,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Administrator",
+      "posted_at": "2026-09-11T06:12:23.796Z"
+    }
+  ],
+  "journal_lines": [
+    {
+      "id": "jl_01",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_1110",
+      "debit": 600000,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_02",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_1120",
+      "debit": 1250000,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_03",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_1121",
+      "debit": 800000,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_04",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_2110",
+      "debit": 0,
+      "credit": 47700,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_05",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_3110",
+      "debit": 0,
+      "credit": 35000,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_06",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_3210",
+      "debit": 0,
+      "credit": 200000,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_07",
+      "journal_entry_id": "jv_open_2026",
+      "account_id": "acc_3900",
+      "debit": 0,
+      "credit": 2367300,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_10",
+      "journal_entry_id": "jv_loan_rel_01",
+      "account_id": "acc_1210",
+      "debit": 80000,
+      "credit": 0,
+      "subsidiary_type": "Loan",
+      "subsidiary_id": "loan_001"
+    },
+    {
+      "id": "jl_11",
+      "journal_entry_id": "jv_loan_rel_01",
+      "account_id": "acc_1110",
+      "debit": 0,
+      "credit": 78150,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01"
+    },
+    {
+      "id": "jl_12",
+      "journal_entry_id": "jv_loan_rel_01",
+      "account_id": "acc_4120",
+      "debit": 0,
+      "credit": 1850,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_20",
+      "journal_entry_id": "jv_pmt_001",
+      "account_id": "acc_1110",
+      "debit": 7082.47,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01"
+    },
+    {
+      "id": "jl_21",
+      "journal_entry_id": "jv_pmt_001",
+      "account_id": "acc_1210",
+      "debit": 0,
+      "credit": 6415.8,
+      "subsidiary_type": "Loan",
+      "subsidiary_id": "loan_001"
+    },
+    {
+      "id": "jl_22",
+      "journal_entry_id": "jv_pmt_001",
+      "account_id": "acc_4110",
+      "debit": 0,
+      "credit": 666.67,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_30",
+      "journal_entry_id": "jv_pmt_002",
+      "account_id": "acc_1110",
+      "debit": 7076.9,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01"
+    },
+    {
+      "id": "jl_31",
+      "journal_entry_id": "jv_pmt_002",
+      "account_id": "acc_1210",
+      "debit": 0,
+      "credit": 6463.7,
+      "subsidiary_type": "Loan",
+      "subsidiary_id": "loan_001"
+    },
+    {
+      "id": "jl_32",
+      "journal_entry_id": "jv_pmt_002",
+      "account_id": "acc_4110",
+      "debit": 0,
+      "credit": 613.2,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789107143749_grxh8",
+      "journal_entry_id": "jv_1789107143748",
+      "account_id": "acc_5110",
+      "debit": 1500,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789107143751_qwjjq",
+      "journal_entry_id": "jv_1789107143748",
+      "account_id": "acc_1110",
+      "debit": 0,
+      "credit": 1500,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789107143796_r8gdd",
+      "journal_entry_id": "jv_1789107143796",
+      "account_id": "acc_5110",
+      "debit": 1500,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789107143797_mlgvf",
+      "journal_entry_id": "jv_1789107143796",
+      "account_id": "acc_1110",
+      "debit": 0,
+      "credit": 1500,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    }
+  ],
   "general_ledger": [],
   "configuration_audit_trails": [
     {
-      "id": "audit_1789200177596_380j3i",
+      "id": "audit_init_01",
+      "setting": "System Initialization",
+      "old_value": "None",
+      "new_value": "CoopFlex Core Active",
+      "changed_by": "System Administrator",
+      "created_at": "2026-01-01T00:00:00Z",
+      "reason": "Initial system deployment and cooperative setup"
+    },
+    {
+      "id": "audit_1789106926630_fdwo8x",
       "setting": "Loan Product Rate Updated",
       "old_value": "10%",
       "new_value": "12.0%",
       "changed_by": "Test Runner",
-      "created_at": "2026-09-12T08:02:57.596Z",
+      "created_at": "2026-09-11T06:08:46.630Z",
+      "reason": "Test 2 policy update"
+    },
+    {
+      "id": "audit_1789106930407_rz23qs",
+      "setting": "Loan Product Rate Updated",
+      "old_value": "12%",
+      "new_value": "12.0%",
+      "changed_by": "Test Runner",
+      "created_at": "2026-09-11T06:08:50.407Z",
+      "reason": "Test 2 policy update"
+    },
+    {
+      "id": "audit_1789107176098_1a9bar",
+      "setting": "Loan Product Rate Updated",
+      "old_value": "12%",
+      "new_value": "12.0%",
+      "changed_by": "Test Runner",
+      "created_at": "2026-09-11T06:12:56.098Z",
+      "reason": "Test 2 policy update"
+    },
+    {
+      "id": "audit_1789107185014_xn263m",
+      "setting": "Loan Product Rate Updated",
+      "old_value": "12%",
+      "new_value": "12.0%",
+      "changed_by": "Test Runner",
+      "created_at": "2026-09-11T06:13:05.014Z",
       "reason": "Test 2 policy update"
     }
   ],

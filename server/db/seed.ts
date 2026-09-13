@@ -370,7 +370,96 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  members: [],
+  members: [
+    {
+      id: 'mem_001',
+      member_no: 'MEM-2026-00001',
+      branch_id: 'branch_tar',
+      member_type_id: 'mt_regular',
+      first_name: 'Danilo',
+      last_name: 'Macaraeg',
+      middle_name: 'Santos',
+      gender: 'Male',
+      birthdate: '1982-05-14',
+      email: 'danilo.macaraeg@gmail.com',
+      phone: '+63 917 555 1290',
+      address: 'Brgy. San Vicente, Tarlac City',
+      status: 'Active',
+      joined_date: '2023-03-15',
+      custom_field_values: {
+        occupation: 'Farmer / Fisherfolk',
+        barangay: 'San Vicente',
+        monthly_income: '35000',
+        tin_number: '189-223-901-000'
+      }
+    },
+    {
+      id: 'mem_002',
+      member_no: 'MEM-2026-00002',
+      branch_id: 'branch_tar',
+      member_type_id: 'mt_regular',
+      first_name: 'Maricel',
+      last_name: 'Dizon',
+      middle_name: 'Aquino',
+      gender: 'Female',
+      birthdate: '1988-11-22',
+      email: 'maricel.dizon@yahoo.com',
+      phone: '+63 928 441 8872',
+      address: 'Brgy. Matatalaib, Tarlac City',
+      status: 'Active',
+      joined_date: '2024-01-10',
+      custom_field_values: {
+        occupation: 'Self-Employed / Entrepreneur',
+        barangay: 'Matatalaib',
+        monthly_income: '60000',
+        tin_number: '241-778-100-000'
+      }
+    },
+    {
+      id: 'mem_003',
+      member_no: 'MEM-2026-00003',
+      branch_id: 'branch_urd',
+      member_type_id: 'mt_associate',
+      first_name: 'Arnel',
+      last_name: 'Bautista',
+      middle_name: 'Flores',
+      gender: 'Male',
+      birthdate: '1995-08-03',
+      email: 'arnel.bautista@gmail.com',
+      phone: '+63 939 123 4567',
+      address: 'Brgy. Nancayasan, Urdaneta City',
+      status: 'Active',
+      joined_date: '2025-06-20',
+      custom_field_values: {
+        occupation: 'Government Employee',
+        barangay: 'Nancayasan',
+        monthly_income: '42000',
+        tin_number: '312-990-441-000'
+      }
+    },
+    {
+      id: 'mem_004',
+      member_no: 'MEM-2026-00004',
+      branch_id: 'branch_sfe',
+      member_type_id: 'mt_regular',
+      first_name: 'Rowena',
+      last_name: 'Tolentino',
+      middle_name: 'Santos',
+      gender: 'Female',
+      birthdate: '1991-04-18',
+      email: 'rowena.tolentino@gmail.com',
+      phone: '+63 918 772 3311',
+      address: 'Brgy. Catbangen, City of San Fernando',
+      status: 'Active',
+      joined_date: '2025-09-10',
+      custom_field_values: {
+        occupation: 'Healthcare Professional',
+        barangay: 'Catbangen',
+        monthly_income: '55000',
+        tin_number: '419-882-109-000'
+      }
+    }
+  ],
 
   loan_products: [
     {
@@ -465,13 +554,191 @@ export const initialSeedData: DatabaseSchema = {
 
   loan_applications: [],
 
-  loans: [],
+  loans: [
+    {
+      id: 'loan_001',
+      loan_account_no: 'LN-2026-00010',
+      member_id: 'mem_001',
+      loan_product_id: 'lp_regular',
+      product_version: 1,
+      branch_id: 'branch_tar',
+      principal_amount: 80000,
+      annual_interest_rate: 10.0,
+      interest_calculation_method: 'Diminishing Balance',
+      term_months: 12,
+      payment_frequency: 'Monthly',
+      disbursement_date: '2026-01-15',
+      first_due_date: '2026-02-15',
+      maturity_date: '2027-01-15',
+      processing_fee: 1600,
+      service_fee: 250,
+      net_disbursed: 78150,
+      disbursed_from_cash_account_id: 'cash_01',
+      status: 'Active', // Draft, Submitted, Approved, Released, Active, Fully Paid, Past Due
+      current_balance: 67120.50,
+      total_principal_paid: 12879.50,
+      total_interest_paid: 1305.20,
+      total_penalty_paid: 0,
+      total_fees_paid: 1850,
+      approved_by: 'Elena Rostro',
+      approved_date: '2026-01-14'
+    },
+    {
+      id: 'loan_002',
+      loan_account_no: 'URD-LN-2026-00004',
+      member_id: 'mem_003',
+      loan_product_id: 'lp_regular',
+      product_version: 1,
+      branch_id: 'branch_urd',
+      principal_amount: 50000,
+      annual_interest_rate: 10.0,
+      interest_calculation_method: 'Diminishing Balance',
+      term_months: 12,
+      payment_frequency: 'Monthly',
+      disbursement_date: '2026-01-20',
+      first_due_date: '2026-02-20',
+      maturity_date: '2027-01-20',
+      processing_fee: 1000,
+      service_fee: 250,
+      net_disbursed: 48750,
+      disbursed_from_cash_account_id: 'cash_05',
+      status: 'Active',
+      current_balance: 44500.00,
+      total_principal_paid: 5500.00,
+      total_interest_paid: 812.50,
+      total_penalty_paid: 0,
+      total_fees_paid: 1250,
+      approved_by: 'Elena Rostro',
+      approved_date: '2026-01-19'
+    },
+    {
+      id: 'loan_003',
+      loan_account_no: 'SFE-LN-2026-00001',
+      member_id: 'mem_004',
+      loan_product_id: 'lp_emergency',
+      product_version: 1,
+      branch_id: 'branch_sfe',
+      principal_amount: 25000,
+      annual_interest_rate: 6.0,
+      interest_calculation_method: 'Flat Rate',
+      term_months: 6,
+      payment_frequency: 'Semi-monthly',
+      disbursement_date: '2026-02-01',
+      first_due_date: '2026-02-16',
+      maturity_date: '2026-08-01',
+      processing_fee: 250,
+      service_fee: 100,
+      net_disbursed: 24650,
+      disbursed_from_cash_account_id: 'cash_06',
+      status: 'Active',
+      current_balance: 20833.33,
+      total_principal_paid: 4166.67,
+      total_interest_paid: 250.00,
+      total_penalty_paid: 0,
+      total_fees_paid: 350,
+      approved_by: 'Elena Rostro',
+      approved_date: '2026-01-30'
+    }
+  ],
 
-  loan_amortization_schedules: [],
+  loan_amortization_schedules: [
+    {
+      id: 'sched_01_01',
+      loan_id: 'loan_001',
+      installment_no: 1,
+      due_date: '2026-02-15',
+      principal: 6415.80,
+      interest: 666.67,
+      fee: 0,
+      total_installment: 7082.47,
+      principal_balance: 73584.20,
+      paid_principal: 6415.80,
+      paid_interest: 666.67,
+      paid_penalty: 0,
+      paid_date: '2026-02-14',
+      status: 'Paid'
+    },
+    {
+      id: 'sched_01_02',
+      loan_id: 'loan_001',
+      installment_no: 2,
+      due_date: '2026-03-15',
+      principal: 6463.70,
+      interest: 613.20,
+      fee: 0,
+      total_installment: 7076.90,
+      principal_balance: 67120.50,
+      paid_principal: 6463.70,
+      paid_interest: 613.20,
+      paid_penalty: 0,
+      paid_date: '2026-03-12',
+      status: 'Paid'
+    },
+    {
+      id: 'sched_01_03',
+      loan_id: 'loan_001',
+      installment_no: 3,
+      due_date: '2026-04-15',
+      principal: 6517.56,
+      interest: 559.34,
+      fee: 0,
+      total_installment: 7076.90,
+      principal_balance: 60602.94,
+      paid_principal: 0,
+      paid_interest: 0,
+      paid_penalty: 0,
+      paid_date: null,
+      status: 'Unpaid'
+    }
+  ],
 
-  loan_payments: [],
+  loan_payments: [
+    {
+      id: 'pmt_001',
+      receipt_no: 'TAR-OR-2026-000101',
+      loan_id: 'loan_001',
+      member_id: 'mem_001',
+      payment_date: '2026-02-14',
+      total_amount: 7082.47,
+      cash_account_id: 'cash_01',
+      received_by: 'Cashier Maria Gomez',
+      journal_entry_id: 'jv_pmt_001'
+    },
+    {
+      id: 'pmt_002',
+      receipt_no: 'TAR-OR-2026-000128',
+      loan_id: 'loan_001',
+      member_id: 'mem_001',
+      payment_date: '2026-03-12',
+      total_amount: 7076.90,
+      cash_account_id: 'cash_01',
+      received_by: 'Cashier Maria Gomez',
+      journal_entry_id: 'jv_pmt_002'
+    }
+  ],
 
-  loan_payment_allocations: [],
+  loan_payment_allocations: [
+    {
+      id: 'alloc_001',
+      payment_id: 'pmt_001',
+      loan_id: 'loan_001',
+      penalty_amount: 0,
+      interest_amount: 666.67,
+      fee_amount: 0,
+      principal_amount: 6415.80,
+      allocation_order_applied: ['Penalty', 'Interest', 'Fees', 'Principal']
+    },
+    {
+      id: 'alloc_002',
+      payment_id: 'pmt_002',
+      loan_id: 'loan_001',
+      penalty_amount: 0,
+      interest_amount: 613.20,
+      fee_amount: 0,
+      principal_amount: 6463.70,
+      allocation_order_applied: ['Penalty', 'Interest', 'Fees', 'Principal']
+    }
+  ],
 
   savings_products: [
     {
@@ -498,9 +765,63 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  savings_accounts: [],
+  savings_accounts: [
+    {
+      id: 'sa_001',
+      account_number: 'SA-2026-0001',
+      member_id: 'mem_001',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_tar',
+      balance: 14500.00,
+      opened_date: '2024-01-15',
+      status: 'Active'
+    },
+    {
+      id: 'sa_002',
+      account_number: 'SA-2026-0002',
+      member_id: 'mem_002',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_tar',
+      balance: 38200.00,
+      opened_date: '2024-02-10',
+      status: 'Active'
+    },
+    {
+      id: 'sa_003',
+      account_number: 'URD-SA-2026-0001',
+      member_id: 'mem_003',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_urd',
+      balance: 21500.00,
+      opened_date: '2025-06-25',
+      status: 'Active'
+    },
+    {
+      id: 'sa_004',
+      account_number: 'SFE-SA-2026-0001',
+      member_id: 'mem_004',
+      savings_product_id: 'sp_regular',
+      branch_id: 'branch_sfe',
+      balance: 16800.00,
+      opened_date: '2025-09-15',
+      status: 'Active'
+    }
+  ],
 
-  savings_transactions: [],
+  savings_transactions: [
+    {
+      id: 'st_001',
+      transaction_no: 'TAR-OR-2026-000085',
+      savings_account_id: 'sa_001',
+      member_id: 'mem_001',
+      type: 'DEPOSIT',
+      amount: 5000,
+      balance_after: 14500,
+      cash_account_id: 'cash_01',
+      transaction_date: '2026-02-01',
+      notes: 'Monthly regular savings deposit'
+    }
+  ],
 
   share_capital_settings: [
     {
@@ -516,9 +837,62 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  share_capital_accounts: [],
+  share_capital_accounts: [
+    {
+      id: 'sca_001',
+      account_number: 'CBU-2026-0001',
+      member_id: 'mem_001',
+      subscribed_shares: 150,
+      subscribed_amount: 15000,
+      paid_up_shares: 120,
+      paid_up_amount: 12000,
+      status: 'Active'
+    },
+    {
+      id: 'sca_002',
+      account_number: 'CBU-2026-0002',
+      member_id: 'mem_002',
+      subscribed_shares: 300,
+      subscribed_amount: 30000,
+      paid_up_shares: 250,
+      paid_up_amount: 25000,
+      status: 'Active'
+    },
+    {
+      id: 'sca_003',
+      account_number: 'URD-CBU-2026-0001',
+      member_id: 'mem_003',
+      subscribed_shares: 200,
+      subscribed_amount: 20000,
+      paid_up_shares: 180,
+      paid_up_amount: 18000,
+      status: 'Active'
+    },
+    {
+      id: 'sca_004',
+      account_number: 'SFE-CBU-2026-0001',
+      member_id: 'mem_004',
+      subscribed_shares: 200,
+      subscribed_amount: 20000,
+      paid_up_shares: 150,
+      paid_up_amount: 15000,
+      status: 'Active'
+    }
+  ],
 
-  share_capital_transactions: [],
+  share_capital_transactions: [
+    {
+      id: 'sct_001',
+      receipt_no: 'TAR-OR-2026-000012',
+      share_account_id: 'sca_001',
+      member_id: 'mem_001',
+      type: 'PAYMENT',
+      shares: 20,
+      amount: 2000,
+      transaction_date: '2026-01-20',
+      cash_account_id: 'cash_01'
+    }
+  ],
 
   cash_accounts: [
     {
@@ -528,8 +902,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Cash Vault Drawer',
       branch_id: 'branch_tar',
       gl_account_id: 'acc_1110',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 100000,
+      current_balance: 145890.47,
       currency: 'PHP',
       active: true
     },
@@ -540,8 +914,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Master Vault Safety Depository',
       branch_id: 'branch_tar',
       gl_account_id: 'acc_1110',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 500000,
+      current_balance: 500000,
       currency: 'PHP',
       active: true
     },
@@ -552,8 +926,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Land Bank of the Philippines',
       branch_id: 'branch_tar',
       gl_account_id: 'acc_1120',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 1250000,
+      current_balance: 1250000,
       currency: 'PHP',
       active: true
     },
@@ -564,8 +938,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Development Bank of the Philippines',
       branch_id: 'branch_tar',
       gl_account_id: 'acc_1121',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 800000,
+      current_balance: 800000,
       currency: 'PHP',
       active: true
     },
@@ -576,8 +950,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Cash Drawer Urdaneta',
       branch_id: 'branch_urd',
       gl_account_id: 'acc_1110',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 150000,
+      current_balance: 150000,
       currency: 'PHP',
       active: true
     },
@@ -588,8 +962,8 @@ export const initialSeedData: DatabaseSchema = {
       bank_name: 'Cash Drawer San Fernando',
       branch_id: 'branch_sfe',
       gl_account_id: 'acc_1110',
-      opening_balance: 0,
-      current_balance: 0,
+      opening_balance: 120000,
+      current_balance: 120000,
       currency: 'PHP',
       active: true
     }
@@ -754,13 +1128,127 @@ export const initialSeedData: DatabaseSchema = {
     { id: 'tx_open_bal', code: 'OPENING_BALANCE', name: 'Opening Balance Journal Entry', module: 'Accounting', requires_approval: true, numbering_format_id: 'num_jv', active: true }
   ],
 
-  journal_entries: [],
+  journal_entries: [
+    {
+      id: 'jv_open_2026',
+      voucher_number: 'TAR-JV-2026-000001',
+      branch_id: 'branch_tar',
+      posting_date: '2026-01-01',
+      reference_type: 'OPENING_BALANCE',
+      reference_id: 'op_bal_01',
+      description: 'Fiscal Year 2026 General Ledger Opening Balances',
+      total_debit: 2650000,
+      total_credit: 2650000,
+      period_id: 'period_2026_01',
+      status: 'Posted',
+      created_by: 'Chief Accountant',
+      posted_at: '2026-01-01T08:00:00Z'
+    },
+    {
+      id: 'jv_loan_rel_01',
+      voucher_number: 'TAR-CD-2026-000014',
+      branch_id: 'branch_tar',
+      posting_date: '2026-01-15',
+      reference_type: 'LOAN_RELEASE',
+      reference_id: 'loan_001',
+      description: 'Release of Loan LN-2026-00010 Danilo Macaraeg less fees',
+      total_debit: 80000,
+      total_credit: 80000,
+      period_id: 'period_2026_01',
+      status: 'Posted',
+      created_by: 'Chief Accountant',
+      posted_at: '2026-01-15T10:30:00Z'
+    },
+    {
+      id: 'jv_pmt_001',
+      voucher_number: 'TAR-OR-2026-000101',
+      branch_id: 'branch_tar',
+      posting_date: '2026-02-14',
+      reference_type: 'LOAN_PAYMENT',
+      reference_id: 'pmt_001',
+      description: 'Loan payment LN-2026-00010 installment 1 Danilo Macaraeg',
+      total_debit: 7082.47,
+      total_credit: 7082.47,
+      period_id: 'period_2026_02',
+      status: 'Posted',
+      created_by: 'Cashier Maria Gomez',
+      posted_at: '2026-02-14T11:15:00Z'
+    },
+    {
+      id: 'jv_pmt_002',
+      voucher_number: 'TAR-OR-2026-000128',
+      branch_id: 'branch_tar',
+      posting_date: '2026-03-12',
+      reference_type: 'LOAN_PAYMENT',
+      reference_id: 'pmt_002',
+      description: 'Loan payment LN-2026-00010 installment 2 Danilo Macaraeg',
+      total_debit: 7076.90,
+      total_credit: 7076.90,
+      period_id: 'period_2026_03',
+      status: 'Posted',
+      created_by: 'Cashier Maria Gomez',
+      posted_at: '2026-03-12T14:40:00Z'
+    },
+    {
+      id: 'jv_urd_open_2026',
+      voucher_number: 'URD-JV-2026-000001',
+      branch_id: 'branch_urd',
+      posting_date: '2026-01-01',
+      reference_type: 'OPENING_BALANCE',
+      reference_id: 'op_bal_urd',
+      description: 'Fiscal Year 2026 Opening Balances - Urdaneta Branch',
+      total_debit: 150000,
+      total_credit: 150000,
+      period_id: 'period_2026_01',
+      status: 'Posted',
+      created_by: 'Branch Accountant',
+      posted_at: '2026-01-01T08:00:00Z'
+    }
+  ],
 
-  journal_lines: [],
+  journal_lines: [
+    // Opening balance lines
+    { id: 'jl_01', journal_entry_id: 'jv_open_2026', account_id: 'acc_1110', debit: 600000, credit: 0, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_02', journal_entry_id: 'jv_open_2026', account_id: 'acc_1120', debit: 1250000, credit: 0, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_03', journal_entry_id: 'jv_open_2026', account_id: 'acc_1121', debit: 800000, credit: 0, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_04', journal_entry_id: 'jv_open_2026', account_id: 'acc_2110', debit: 0, credit: 47700, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_05', journal_entry_id: 'jv_open_2026', account_id: 'acc_3110', debit: 0, credit: 35000, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_06', journal_entry_id: 'jv_open_2026', account_id: 'acc_3210', debit: 0, credit: 200000, subsidiary_type: null, subsidiary_id: null },
+    { id: 'jl_07', journal_entry_id: 'jv_open_2026', account_id: 'acc_3900', debit: 0, credit: 2367300, subsidiary_type: null, subsidiary_id: null },
+
+    // Opening balance lines - Urdaneta Branch
+    { id: 'jl_urd_01', journal_entry_id: 'jv_urd_open_2026', account_id: 'acc_1110', debit: 150000, credit: 0, subsidiary_type: 'Cash', subsidiary_id: 'cash_05' },
+    { id: 'jl_urd_02', journal_entry_id: 'jv_urd_open_2026', account_id: 'acc_3110', debit: 0, credit: 150000, subsidiary_type: null, subsidiary_id: null },
+
+    // Loan release lines
+    { id: 'jl_10', journal_entry_id: 'jv_loan_rel_01', account_id: 'acc_1210', debit: 80000, credit: 0, subsidiary_type: 'Loan', subsidiary_id: 'loan_001' },
+    { id: 'jl_11', journal_entry_id: 'jv_loan_rel_01', account_id: 'acc_1110', debit: 0, credit: 78150, subsidiary_type: 'Cash', subsidiary_id: 'cash_01' },
+    { id: 'jl_12', journal_entry_id: 'jv_loan_rel_01', account_id: 'acc_4120', debit: 0, credit: 1850, subsidiary_type: null, subsidiary_id: null }, // fees deducted
+
+    // Loan payment 1 lines
+    { id: 'jl_20', journal_entry_id: 'jv_pmt_001', account_id: 'acc_1110', debit: 7082.47, credit: 0, subsidiary_type: 'Cash', subsidiary_id: 'cash_01' },
+    { id: 'jl_21', journal_entry_id: 'jv_pmt_001', account_id: 'acc_1210', debit: 0, credit: 6415.80, subsidiary_type: 'Loan', subsidiary_id: 'loan_001' },
+    { id: 'jl_22', journal_entry_id: 'jv_pmt_001', account_id: 'acc_4110', debit: 0, credit: 666.67, subsidiary_type: null, subsidiary_id: null },
+
+    // Loan payment 2 lines
+    { id: 'jl_30', journal_entry_id: 'jv_pmt_002', account_id: 'acc_1110', debit: 7076.90, credit: 0, subsidiary_type: 'Cash', subsidiary_id: 'cash_01' },
+    { id: 'jl_31', journal_entry_id: 'jv_pmt_002', account_id: 'acc_1210', debit: 0, credit: 6463.70, subsidiary_type: 'Loan', subsidiary_id: 'loan_001' },
+    { id: 'jl_32', journal_entry_id: 'jv_pmt_002', account_id: 'acc_4110', debit: 0, credit: 613.20, subsidiary_type: null, subsidiary_id: null }
+  ],
 
   general_ledger: [],
 
-  configuration_audit_trails: [],
+  configuration_audit_trails: [
+    {
+      id: 'audit_init_01',
+      setting: 'System Initialization',
+      old_value: 'None',
+      new_value: 'CoopFlex Core Active',
+      changed_by: 'System Administrator',
+      created_at: '2026-01-01T00:00:00Z',
+      reason: 'Initial system deployment and cooperative setup'
+    }
+  ],
 
   user_roles: [
     {

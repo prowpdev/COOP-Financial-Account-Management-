@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2, FileText } from 'lucide-react';
+import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
-import { AccountLedgerReport } from '../reports/AccountLedgerReport';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User } from '../../types';
 
@@ -26,7 +25,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [isCreatingJV, setIsCreatingJV] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards' | 'account_report'>('vouchers');
+  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards'>('vouchers');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -55,10 +54,9 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getJournals();
-      setJournals(Array.isArray(res.data) ? res.data : []);
+      setJournals(res.data);
     } catch (err) {
       console.error(err);
-      setJournals([]);
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +64,6 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
   useEffect(() => {
     loadJournals();
-    window.addEventListener('coop:data-changed', loadJournals);
-    return () => window.removeEventListener('coop:data-changed', loadJournals);
   }, []);
 
   // Columns for Journal Vouchers Table
@@ -122,12 +118,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
   ];
 
-  const safeJournals = Array.isArray(journals) ? journals : [];
-
   const filteredJournals = useMemo(() => {
-    if (selectedBranch === 'all') return safeJournals;
-    return safeJournals.filter(j => j && j.branch_id === selectedBranch);
-  }, [safeJournals, selectedBranch]);
+    if (selectedBranch === 'all') return journals;
+    return journals.filter(j => j.branch_id === selectedBranch);
+  }, [journals, selectedBranch]);
 
   // Flattened General Ledger Line Items
   const flattenedLedgerLines = useMemo(() => {
@@ -305,15 +299,6 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span>Voucher Cards</span>
-            </button>
-            <button
-              onClick={() => setViewMode('account_report')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                viewMode === 'account_report' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Account Report</span>
             </button>
           </div>
 
@@ -586,15 +571,6 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             </div>
           ))}
         </div>
-      )}
-
-      {viewMode === 'account_report' && (
-        <AccountLedgerReport
-          accounts={accounts}
-          journals={journals}
-          branches={branches}
-          selectedBranch={selectedBranch}
-        />
       )}
     </div>
   );

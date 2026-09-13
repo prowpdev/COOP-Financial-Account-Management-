@@ -44,10 +44,9 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getShareCapitalAccounts();
-      setAccounts(Array.isArray(res.data) ? res.data : []);
+      setAccounts(res.data);
     } catch (err) {
       console.error(err);
-      setAccounts([]);
     } finally {
       setIsLoading(false);
     }
@@ -57,16 +56,13 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     loadAccounts();
   }, []);
 
-  const safeAccounts = Array.isArray(accounts) ? accounts : [];
-  const safeCashAccounts = Array.isArray(cashAccounts) ? cashAccounts : [];
-
   const filteredAccounts = selectedBranch === 'all'
-    ? safeAccounts
-    : safeAccounts.filter(a => a && (a as any).branch_id === selectedBranch);
+    ? accounts
+    : accounts.filter(a => (a as any).branch_id === selectedBranch);
 
   const availableCashAccounts = selectedBranch === 'all'
-    ? safeCashAccounts
-    : safeCashAccounts.filter(c => c && c.branch_id === selectedBranch);
+    ? cashAccounts
+    : cashAccounts.filter(c => c.branch_id === selectedBranch);
 
   useEffect(() => {
     if (availableCashAccounts.length > 0 && !availableCashAccounts.some(c => c.id === cashAccountId)) {

@@ -1,108 +1,19 @@
-export const DEFAULT_API_BASE = 'http://cooperative-api.test/api';
-
-const getInitialApiBase = () => {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('coop_api_endpoint');
-    if (saved) return saved.replace(/\/$/, '');
-  }
-  return (((import.meta as any).env?.VITE_API_BASE_URL as string) || DEFAULT_API_BASE).replace(/\/$/, '');
-};
-
-let activeApiBase = getInitialApiBase();
-
-export function setApiBase(url: string) {
-  activeApiBase = url.replace(/\/$/, '');
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('coop_api_endpoint', activeApiBase);
-    window.dispatchEvent(new CustomEvent('coop:api-endpoint-changed', { detail: activeApiBase }));
-  }
-}
-
-export function getApiBase() {
-  return activeApiBase;
-}
-
-export const API_BASE = activeApiBase;
-
-export function safeArray<T = any>(payload: any): T[] {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  if (payload.data !== undefined) {
-    if (Array.isArray(payload.data)) return payload.data;
-    if (payload.data && typeof payload.data === 'object') {
-      if (Array.isArray(payload.data.data)) return payload.data.data;
-      if (Array.isArray(payload.data.members)) return payload.data.members;
-      if (Array.isArray(payload.data.loans)) return payload.data.loans;
-      if (Array.isArray(payload.data.accounts)) return payload.data.accounts;
-      const vals = Object.values(payload.data);
-      if (vals.length > 0 && typeof vals[0] === 'object' && vals[0] !== null) {
-        return vals as T[];
-      }
-    }
-  }
-  if (Array.isArray(payload.members)) return payload.members;
-  if (Array.isArray(payload.loans)) return payload.loans;
-  if (Array.isArray(payload.accounts)) return payload.accounts;
-  if (typeof payload === 'object') {
-    const vals = Object.values(payload);
-    if (vals.length > 0 && typeof vals[0] === 'object' && vals[0] !== null && ('id' in vals[0] || 'member_no' in vals[0] || 'code' in vals[0])) {
-      return vals as T[];
-    }
-  }
-  return [];
-}
+const API_BASE = '/api';
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const targetUrl = `${activeApiBase}${cleanEndpoint}`;
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers || {})
+    },
+    ...options
+  });
 
-  try {
-    const response = await fetch(targetUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options?.headers || {})
-      },
-      ...options
-    });
-
-    const data = await response.json();
-    if (!response.ok || data.success === false) {
-      throw new Error(data.error || `API Request failed with status ${response.status}`);
-    }
-    // Let open reports re-query immediately after any successful create, edit, or posting.
-    // This avoids making users refresh the browser to see saved data.
-    if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('coop:data-changed'));
-    }
-    return data;
-  } catch (err: any) {
-    // If targeted endpoint is a custom/remote URL (like http://cooperative-api.test/api)
-    // and failed (e.g. Mixed Content block in HTTPS preview or local .test domain not resolved in cloud preview),
-    // automatically fall back to internal '/api' so user's preview remains seamlessly functional!
-    if (activeApiBase !== '/api') {
-      console.warn(`[CoopFlex API] Request to ${targetUrl} failed (${err.message}). Attempting fallback to internal /api...`);
-      try {
-        const fallbackUrl = `/api${cleanEndpoint}`;
-        const fallbackRes = await fetch(fallbackUrl, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(options?.headers || {})
-          },
-          ...options
-        });
-        const fallbackData = await fallbackRes.json();
-        if (fallbackRes.ok && fallbackData.success !== false) {
-          if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('coop:data-changed'));
-          }
-          return fallbackData;
-        }
-      } catch (fallbackErr) {
-        // Fallback also failed or had an error, continue to rethrow original error
-      }
-    }
-    throw err;
+  const data = await response.json();
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || 'API Request failed');
   }
+  return data;
 }
 
 export const api = {
@@ -244,16 +155,7 @@ export const api = {
     }),
 
   // Operations: Members
-  getMembers: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/members');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getMembers fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
-  },
-  getMemberReport: (memberId: string) => fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`),
+  getMembers: () => fetchApi<{ success: boolean; data: any[] }>('/members'),
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
       method: 'POST',
@@ -261,15 +163,7 @@ export const api = {
     }),
 
   // Operations: Loans
-  getLoans: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/loans');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getLoans fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
-  },
+  getLoans: () => fetchApi<{ success: boolean; data: any[] }>('/loans'),
   calculateSchedule: (params: any) =>
     fetchApi<{ success: boolean; data: any }>('/loans/calculate-schedule', {
       method: 'POST',
@@ -287,15 +181,7 @@ export const api = {
     }),
 
   // Operations: Savings
-  getSavingsAccounts: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/savings/accounts');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getSavingsAccounts fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
-  },
+  getSavingsAccounts: () => fetchApi<{ success: boolean; data: any[] }>('/savings/accounts'),
   transactSavings: (params: any) =>
     fetchApi<{ success: boolean; data: any; account_updated: any }>('/savings/transact', {
       method: 'POST',
@@ -303,15 +189,7 @@ export const api = {
     }),
 
   // Operations: Share Capital
-  getShareCapitalAccounts: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getShareCapitalAccounts fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
-  },
+  getShareCapitalAccounts: () => fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts'),
   payShareCapital: (params: any) =>
     fetchApi<{ success: boolean; data: any; account: any }>('/share-capital/pay', {
       method: 'POST',
@@ -319,15 +197,7 @@ export const api = {
     }),
 
   // Operations: General Accounting
-  getJournals: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/journals');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getJournals fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
-  },
+  getJournals: () => fetchApi<{ success: boolean; data: any[] }>('/accounting/journals'),
   createManualJournal: (params: any) =>
     fetchApi<{ success: boolean; data: any }>('/accounting/manual-journal', {
       method: 'POST',
@@ -446,29 +316,9 @@ export const api = {
     return { success: true, data: res.data?.custom_fields || [] };
   },
 
-  // Authentication & Users
-  login: (credentials: { username?: string; email?: string; password: string }) =>
-    fetchApi<{ success: boolean; message?: string; data: { user: any; token: string } }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials)
-    }),
-  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string }) =>
-    fetchApi<{ success: boolean; message?: string; data: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData)
-    }),
-  getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
-  getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
-
   // Verification & Reset
   resetSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),
   resetToSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),
-  purgeOperationalData: (performed_by?: string) =>
-    fetchApi<{ success: boolean; message: string }>('/system/purge-operational-data', {
-      method: 'POST',
-      body: JSON.stringify({ performed_by })
-    }),
-  seedSampleMembers: () => fetchApi<{ success: boolean; message: string; data?: any }>('/system/seed-sample-data', { method: 'POST' }),
   runVerificationTests: () =>
     fetchApi<{ success: boolean; total_tests: number; passed_count: number; all_passed: boolean; results: any[] }>('/system/run-verification-tests', {
       method: 'POST'

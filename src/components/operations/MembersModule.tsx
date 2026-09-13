@@ -1,25 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Users,
-  Plus,
-  Search,
-  Filter,
-  X,
-  Check,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  FileSpreadsheet,
-  LayoutGrid,
-  FileText,
-  UserPlus,
-  Sparkles,
-  Wand2,
-  RefreshCw
-} from 'lucide-react';
+import { Users, Plus, Search, Filter, X, Check, Building2, Phone, Mail, MapPin, FileSpreadsheet, LayoutGrid } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
-import { MemberTransactionReport } from '../reports/MemberTransactionReport';
 import { api } from '../../services/api';
 import { Branch, CustomField, Member, MemberType, User } from '../../types';
 
@@ -45,9 +26,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'excel' | 'cards' | 'report'>('excel');
+  const [viewMode, setViewMode] = useState<'excel' | 'cards'>('excel');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -118,26 +98,9 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     setIsLoading(true);
     try {
       const res = await api.getMembers();
-      const raw = (res as any)?.data !== undefined ? (res as any).data : res;
-      let list: Member[] = [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else if (raw && typeof raw === 'object') {
-        if (Array.isArray((raw as any).members)) {
-          list = (raw as any).members;
-        } else if (Array.isArray((raw as any).data)) {
-          list = (raw as any).data;
-        } else {
-          const values = Object.values(raw);
-          if (values.length > 0 && values.every(v => v && typeof v === 'object')) {
-            list = values as Member[];
-          }
-        }
-      }
-      setMembers(list);
+      setMembers(res.data);
     } catch (err) {
-      console.error('Failed to load members:', err);
-      setMembers([]);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -145,24 +108,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
 
   useEffect(() => {
     loadMembers();
-    const handleDataChanged = () => loadMembers();
-    window.addEventListener('coop:data-changed', handleDataChanged);
-    return () => window.removeEventListener('coop:data-changed', handleDataChanged);
   }, []);
-
-  const handleSeedSample = async () => {
-    setIsSeeding(true);
-    try {
-      await api.seedSampleMembers();
-      setNotice('Sample agricultural cooperative members added successfully.');
-      setTimeout(() => setNotice(null), 4000);
-      loadMembers();
-    } catch (err: any) {
-      alert(err.message || 'Failed to insert sample members');
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,12 +126,9 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     }
   };
 
-  const safeMembers = Array.isArray(members) ? members : [];
-
-  const filtered = safeMembers.filter(m => {
-    if (!m || typeof m !== 'object') return false;
-    const name = `${m.first_name || ''} ${m.last_name || ''} ${m.member_no || ''}`.toLowerCase();
-    const matchesSearch = name.includes((searchTerm || '').toLowerCase());
+  const filtered = members.filter(m => {
+    const matchesSearch =
+      `${m.first_name} ${m.last_name} ${m.member_no}`.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBranch = selectedBranch === 'all' || m.branch_id === selectedBranch;
     return matchesSearch && matchesBranch;
   });
@@ -249,9 +192,6 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span>Cards View</span>
-            </button>
-            <button onClick={() => setViewMode('report')} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${viewMode === 'report' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-              <FileText className="w-3.5 h-3.5" /><span>Member Report</span>
             </button>
           </div>
 
@@ -470,46 +410,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         </div>
       )}
 
-      {/* Main View Area */}
-      {viewMode === 'report' ? (
-        <MemberTransactionReport members={safeMembers.filter(m => selectedBranch === 'all' || m.branch_id === selectedBranch)} />
-      ) : !isLoading && safeMembers.length === 0 ? (
-        <div className="bg-slate-900/90 rounded-2xl p-10 sm:p-14 border border-slate-800 text-center shadow-xl space-y-6 max-w-2xl mx-auto my-6">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
-            <Users className="w-8 h-8" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-white tracking-tight">Cooperative Member Registry is Empty</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              No cooperative members are enrolled yet. Once you register members, the system automatically assigns unique Member IDs, establishes Capital Build-Up (CBU) ledgers, and activates Savings Accounts.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => setIsRegistering(true)}
-              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-lg transition cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Register First Member</span>
-            </button>
-            <button
-              onClick={handleSeedSample}
-              disabled={isSeeding}
-              className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer"
-            >
-              <Sparkles className={`w-4 h-4 text-amber-400 ${isSeeding ? 'animate-spin' : ''}`} />
-              <span>{isSeeding ? 'Inserting Samples...' : 'Load Sample Members'}</span>
-            </button>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('coop:open-setup-wizard'))}
-              className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer"
-            >
-              <Wand2 className="w-4 h-4 text-emerald-400" />
-              <span>Setup Wizard</span>
-            </button>
-          </div>
-        </div>
-      ) : viewMode === 'excel' ? (
+      {/* Main View Area: Excel Grid vs Cards */}
+      {viewMode === 'excel' ? (
         <ExcelGridTable
           title="Member Registry Spreadsheet Grid"
           subtitle="Comprehensive directory of registered cooperative members. Includes real-time search, multi-column sorting, formula summary bar, and 1-click Excel export."
@@ -547,81 +449,67 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           </div>
 
           {/* Member Cards Grid */}
-          {filtered.length === 0 ? (
-            <div className="bg-slate-900/60 rounded-2xl p-10 border border-slate-800 text-center space-y-3">
-              <Search className="w-8 h-8 text-slate-500 mx-auto" />
-              <p className="text-sm font-semibold text-slate-300">No members match your search criteria</p>
-              <p className="text-xs text-slate-500">Try clearing your search query or changing the branch filter.</p>
-              <button
-                onClick={() => { setSearchTerm(''); setSelectedBranch('all'); }}
-                className="px-3.5 py-1.5 bg-slate-800 text-emerald-400 border border-slate-700 rounded-lg text-xs hover:bg-slate-700 cursor-pointer mt-1"
-              >
-                Clear Search & Filters
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map(m => (
-                <div key={m.id} className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">
-                        {m.member_no}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
-                        {m.member_type_name}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-bold text-white mt-2">
-                      {m.first_name} {m.middle_name} {m.last_name}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5 flex items-center">
-                      <Building2 className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                      {m.branch_name}
-                    </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(m => (
+              <div key={m.id} className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">
+                      {m.member_no}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+                      {m.member_type_name}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-white mt-2">
+                    {m.first_name} {m.middle_name} {m.last_name}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5 flex items-center">
+                    <Building2 className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                    {m.branch_name}
+                  </p>
 
-                    <div className="mt-3 pt-3 border-t border-slate-800/80 space-y-1.5 text-xs text-slate-300">
-                      {m.phone && (
-                        <div className="flex items-center text-slate-400">
-                          <Phone className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
-                          <span>{m.phone}</span>
-                        </div>
-                      )}
-                      {m.email && (
-                        <div className="flex items-center text-slate-400">
-                          <Mail className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
-                          <span className="truncate">{m.email}</span>
-                        </div>
-                      )}
-                      {m.address && (
-                        <div className="flex items-center text-slate-400">
-                          <MapPin className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
-                          <span className="truncate">{m.address}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Custom field attributes */}
-                    {m.custom_field_values && Object.keys(m.custom_field_values).length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-slate-800/60 text-[11px] space-y-1">
-                        {Object.entries(m.custom_field_values).map(([k, v]) => (
-                          <div key={k} className="flex justify-between text-slate-400">
-                            <span className="capitalize">{k.replace(/_/g, ' ')}:</span>
-                            <span className="text-slate-200 font-medium">{String(v)}</span>
-                          </div>
-                        ))}
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 space-y-1.5 text-xs text-slate-300">
+                    {m.phone && (
+                      <div className="flex items-center text-slate-400">
+                        <Phone className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
+                        <span>{m.phone}</span>
+                      </div>
+                    )}
+                    {m.email && (
+                      <div className="flex items-center text-slate-400">
+                        <Mail className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
+                        <span className="truncate">{m.email}</span>
+                      </div>
+                    )}
+                    {m.address && (
+                      <div className="flex items-center text-slate-400">
+                        <MapPin className="w-3.5 h-3.5 mr-2 text-slate-500 shrink-0" />
+                        <span className="truncate">{m.address}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
-                    <span>Joined: {m.joined_date}</span>
-                    <span className="text-emerald-400 font-medium">Active Member</span>
-                  </div>
+                  {/* Custom field attributes */}
+                  {m.custom_field_values && Object.keys(m.custom_field_values).length > 0 && (
+                    <div className="mt-3 pt-2 border-t border-slate-800/60 text-[11px] space-y-1">
+                      {Object.entries(m.custom_field_values).map(([k, v]) => (
+                        <div key={k} className="flex justify-between text-slate-400">
+                          <span className="capitalize">{k.replace(/_/g, ' ')}:</span>
+                          <span className="text-slate-200 font-medium">{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
+                  <span>Joined: {m.joined_date}</span>
+                  <span className="text-emerald-400 font-medium">Active Member</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>
