@@ -11,6 +11,8 @@ import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
 import { AccountingModule } from './components/operations/AccountingModule';
 import { FinancialReportsView } from './components/reports/FinancialReportsView';
 import { FlexibilityTestSuite } from './components/verification/FlexibilityTestSuite';
+import { AuthModal } from './components/auth/AuthModal';
+import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
 import {
   Account,
@@ -29,6 +31,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
@@ -156,6 +160,17 @@ export default function App() {
 
   useEffect(() => {
     refreshGlobalState();
+
+    const handleOpenSetup = () => setIsSetupWizardOpen(true);
+    const handleOpenAuth = () => setIsAuthModalOpen(true);
+
+    window.addEventListener('coop:open-setup-wizard', handleOpenSetup);
+    window.addEventListener('coop:open-auth-modal', handleOpenAuth);
+
+    return () => {
+      window.removeEventListener('coop:open-setup-wizard', handleOpenSetup);
+      window.removeEventListener('coop:open-auth-modal', handleOpenAuth);
+    };
   }, []);
 
   const handleResetSeed = async () => {
@@ -203,6 +218,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
         isLargeText={isLargeText}
         onToggleTextSize={toggleTextSize}
+        onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
       {/* Main View Area with Persistent Collapsible Sidebar */}
@@ -302,6 +319,31 @@ export default function App() {
           {activeTab === 'verification' && <FlexibilityTestSuite />}
         </main>
       </div>
+
+      {/* User Login and Registration Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        users={users}
+        branches={branches}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          refreshGlobalState();
+        }}
+        onUserRegistered={(newUser) => {
+          setUsers(prev => [...prev, newUser]);
+          setCurrentUser(newUser);
+        }}
+      />
+
+      {/* Interactive Guided Setup & System Reset Center */}
+      <SetupWizardModal
+        isOpen={isSetupWizardOpen}
+        onClose={() => setIsSetupWizardOpen(false)}
+        onNavigateTab={(tabKey) => setActiveTab(tabKey as TabKey)}
+        onRefreshData={refreshGlobalState}
+      />
     </div>
   );
 }

@@ -170,23 +170,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id={`nav-${item.id}`}
               onClick={() => onSelectTab(item.id)}
               title={isCollapsed ? item.label : undefined}
-              className={`w-full flex items-center rounded-xl text-sm font-medium transition cursor-pointer ${
+              className={`sidebar-menu-btn w-full flex items-center rounded-xl text-sm font-medium transition cursor-pointer ${
                 isCollapsed
                   ? 'justify-center p-3'
                   : 'justify-between px-3 py-2.5'
               } ${
                 isActive
-                  ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  ? 'sidebar-nav-active bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                  : 'sidebar-nav-item text-slate-300 hover:bg-slate-800/80 hover:text-white'
               }`}
             >
               <div className={`flex items-center truncate ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'sidebar-icon-active text-emerald-400' : 'sidebar-icon text-slate-400'}`} />
                 {!isCollapsed && <span className="truncate font-medium">{item.label}</span>}
               </div>
               {!isCollapsed && item.badge && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-tight shrink-0 ${
-                  isActive ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  isActive ? 'sidebar-badge-active bg-emerald-500/30 text-emerald-200' : 'sidebar-badge bg-slate-800 text-slate-400 border border-slate-700'
                 }`}>
                   {item.badge}
                 </span>
