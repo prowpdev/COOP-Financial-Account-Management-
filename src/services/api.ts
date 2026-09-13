@@ -280,6 +280,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(params)
     }),
+  applyLoan: (params: any) =>
+    fetchApi<{ success: boolean; data: any; schedule: any[]; accounting_posting: any }>('/loans/apply', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  getLoan: (loanId: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/loans/${loanId}`),
   repayLoan: (loanId: string, params: any) =>
     fetchApi<{ success: boolean; payment: any; allocation: any; loan_updated: any; journal_entry: any }>(`/loans/${loanId}/repay`, {
       method: 'POST',

@@ -930,8 +930,8 @@ router.get('/loans', (req: Request, res: Response) => {
   res.json({ success: true, data: enriched });
 });
 
-// Originate / Apply for new loan
-router.post('/loans/originate', (req: Request, res: Response) => {
+// Originate / Apply for new loan handler
+const handleLoanOriginate = (req: Request, res: Response) => {
   const {
     member_id,
     loan_product_id,
@@ -939,32 +939,72 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     term_months,
     cash_account_id,
     branch_id,
-    performed_by
+    performed_by,
+    disbursement_date,
+    notes
   } = req.body;
 
+  // 1. Validate Member
+  if (!member_id) {
+    return res.status(400).json({ success: false, error: 'Borrower (member_id) is required. Please select a cooperative member.' });
+  }
+  const members = db.getTable('members');
+  const member = members.find(m => m.id === member_id);
+  if (!member) {
+    return res.status(404).json({ success: false, error: `Borrower not found with ID ${member_id}. Please select a valid cooperative member.` });
+  }
+
+  // 2. Validate Loan Product
+  if (!loan_product_id) {
+    return res.status(400).json({ success: false, error: 'Loan product (loan_product_id) is required.' });
+  }
   const products = db.getTable('loan_products');
   const product = products.find(p => p.id === loan_product_id);
   if (!product) {
-    return res.status(404).json({ success: false, error: 'Loan product not found' });
+    return res.status(404).json({ success: false, error: 'Loan product not found.' });
   }
 
-  const branches = db.getTable('branches');
-  const branch = branches.find(b => b.id === branch_id) || branches[0];
-
+  // 3. Validate Principal Amount
   const principal = Number(principal_amount);
-  const term = Number(term_months || product.default_term_months);
-  const rate = Number(product.annual_interest_rate);
-  const method = product.interest_calculation_method;
-  const freq = product.payment_frequency;
+  if (!principal || isNaN(principal) || principal <= 0) {
+    return res.status(400).json({ success: false, error: 'Principal amount must be a valid number greater than 0.' });
+  }
+  if (product.min_amount && principal < product.min_amount) {
+    return res.status(400).json({
+      success: false,
+      error: `Principal amount (₱${principal.toLocaleString()}) cannot be less than minimum loan amount of ₱${product.min_amount.toLocaleString()} for ${product.name}.`
+    });
+  }
+  if (product.max_amount && principal > product.max_amount) {
+    return res.status(400).json({
+      success: false,
+      error: `Principal amount (₱${principal.toLocaleString()}) cannot exceed maximum loan amount of ₱${product.max_amount.toLocaleString()} for ${product.name}.`
+    });
+  }
 
-  // Calculate fees dynamically from product & fees configuration
+  // 4. Resolve Branch
+  const branches = db.getTable('branches');
+  const branch = branches.find(b => b.id === (branch_id || member.branch_id)) || branches[0];
+
+  // 5. Resolve Cash Account
+  const cashAccounts = db.getTable('cash_accounts');
+  const cashAccount = cashAccounts.find(c => c.id === cash_account_id) || cashAccounts[0];
+  const selectedCashId = cashAccount ? cashAccount.id : (cash_account_id || 'cash_01');
+
+  // 6. Term, Interest Rate, Calculation Method, Payment Frequency
+  const term = Number(term_months || product.default_term_months || 12);
+  const rate = Number(product.annual_interest_rate);
+  const method = product.interest_calculation_method || 'Diminishing Balance';
+  const freq = product.payment_frequency || 'Monthly';
+
+  // 7. Calculate fees dynamically from product configuration
   const procFee = Number(((principal * (product.processing_fee_percentage || 0)) / 100).toFixed(2));
   const servFee = Number(product.service_fee_fixed || 0);
   const totalFees = procFee + servFee;
   const netDisbursed = Number((principal - totalFees).toFixed(2));
 
-  // Dynamic schedule calculation
-  const today = new Date().toISOString().split('T')[0];
+  // 8. Dynamic schedule calculation
+  const today = disbursement_date || new Date().toISOString().split('T')[0];
   const schedResult = InterestCalculationService.calculateSchedule({
     principal,
     annual_rate: rate,
@@ -975,10 +1015,10 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     grace_period_days: product.grace_period_days
   });
 
-  const loanNo = NumberingService.getNextNumber('LN', branch.code);
+  const loanNo = NumberingService.getNextNumber('LN', branch ? branch.code : 'TAR');
   const loanId = `loan_${Date.now()}`;
 
-  // Evaluate Approval Rules dynamically! (Req 1, 11)
+  // 9. Evaluate Approval Rules dynamically
   const approvalRules = db.getTable('approval_rules').filter(r => r.active);
   let requiredRole = 'Loan Officer';
   for (const rule of approvalRules) {
@@ -988,13 +1028,42 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     }
   }
 
+  // 10. Post to Accounting Engine FIRST to guarantee consistency
+  const postResult = AccountingEngine.post({
+    transaction_type: 'LOAN_RELEASE',
+    posting_date: today,
+    branch_id: branch ? branch.id : 'branch_tar',
+    reference_id: loanId,
+    description: `Loan disbursement ${loanNo} for ${member.first_name} ${member.last_name}, less processing fees`,
+    performed_by: performed_by || 'System',
+    custom_debit_account_id: product.debit_account_id,
+    cash_account_id: selectedCashId,
+    amount_breakdown: {
+      principal,
+      fees: totalFees,
+      total: principal
+    },
+    subsidiary: {
+      type: 'Loan',
+      id: loanId
+    }
+  });
+
+  if (!postResult.success) {
+    return res.status(400).json({
+      success: false,
+      error: postResult.error || 'Failed to post loan disbursement journal entry'
+    });
+  }
+
+  // 11. Insert loan record
   const newLoan = {
     id: loanId,
     loan_account_no: loanNo,
-    member_id,
+    member_id: member.id,
     loan_product_id: product.id,
-    product_version: product.version || 1, // Store product version snapshot!
-    branch_id: branch.id,
+    product_version: product.version || 1,
+    branch_id: branch ? branch.id : 'branch_tar',
     principal_amount: principal,
     annual_interest_rate: rate,
     interest_calculation_method: method,
@@ -1006,7 +1075,7 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     processing_fee: procFee,
     service_fee: servFee,
     net_disbursed: netDisbursed,
-    disbursed_from_cash_account_id: cash_account_id || 'cash_01',
+    disbursed_from_cash_account_id: selectedCashId,
     status: 'Active',
     current_balance: principal,
     total_principal_paid: 0,
@@ -1014,7 +1083,8 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     total_penalty_paid: 0,
     total_fees_paid: totalFees,
     approved_by: `${requiredRole} (${performed_by || 'System'})`,
-    approved_date: today
+    approved_date: today,
+    notes: notes || undefined
   };
 
   db.insert('loans', newLoan);
@@ -1039,32 +1109,49 @@ router.post('/loans/originate', (req: Request, res: Response) => {
     });
   }
 
-  // Trigger Dynamic Accounting Engine to post LOAN_RELEASE (Req 27, 28)
-  const postResult = AccountingEngine.post({
-    transaction_type: 'LOAN_RELEASE',
-    posting_date: today,
-    branch_id: branch.id,
-    reference_id: loanId,
-    description: `Loan disbursement ${loanNo} for member, less processing fees`,
-    performed_by: performed_by || 'System',
-    custom_debit_account_id: product.debit_account_id,
-    cash_account_id: cash_account_id || 'cash_01',
-    amount_breakdown: {
-      principal,
-      fees: totalFees,
-      total: principal
-    },
-    subsidiary: {
-      type: 'Loan',
-      id: loanId
-    }
-  });
+  const enrichedLoan = {
+    ...newLoan,
+    member_name: `${member.first_name} ${member.last_name}`,
+    member_no: member.member_no,
+    product_name: product.name,
+    branch_name: branch ? branch.name : 'Main Branch'
+  };
 
   res.json({
     success: true,
-    data: newLoan,
+    data: enrichedLoan,
     schedule: schedResult.schedule,
     accounting_posting: postResult
+  });
+};
+
+router.post('/loans/originate', handleLoanOriginate);
+router.post('/loans/apply', handleLoanOriginate);
+router.post('/loans', handleLoanOriginate);
+
+// Get single loan by ID with schedule and member details
+router.get('/loans/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const loans = db.getTable('loans');
+  const loan = loans.find(l => l.id === id || l.loan_account_no === id);
+  if (!loan) {
+    return res.status(404).json({ success: false, error: 'Loan not found' });
+  }
+  const members = db.getTable('members');
+  const member = members.find(m => m.id === loan.member_id);
+  const products = db.getTable('loan_products');
+  const product = products.find(p => p.id === loan.loan_product_id);
+  const schedules = db.getTable('loan_amortization_schedules').filter(s => s.loan_id === loan.id);
+
+  res.json({
+    success: true,
+    data: {
+      ...loan,
+      member_name: member ? `${member.first_name} ${member.last_name}` : 'Unknown',
+      member_no: member ? member.member_no : '',
+      product_name: product ? product.name : 'Custom Loan',
+      schedule: schedules.sort((a, b) => a.installment_no - b.installment_no)
+    }
   });
 });
 
