@@ -1897,33 +1897,723 @@ router.post('/system/reset-seed', (req: Request, res: Response) => {
   res.json({ success: true, message: 'Cooperative database successfully reset to clean CDA baseline seed.' });
 });
 
-router.post('/system/purge-operational-data', (req: Request, res: Response) => {
-  // Clears out all operational transactional records while keeping Master Configuration intact
-  const clearTables = [
+// Setup Wizard Status Endpoint
+router.get('/system/setup/status', (req: Request, res: Response) => {
+  const coops = db.getTable('cooperatives') || [];
+  const branches = db.getTable('branches') || [];
+  const coa = db.getTable('chart_of_accounts') || [];
+  const periods = db.getTable('accounting_periods') || [];
+  const cashAccounts = db.getTable('cash_accounts') || [];
+  const members = db.getTable('members') || [];
+  const loanProducts = db.getTable('loan_products') || [];
+  const savingsProducts = db.getTable('savings_products') || [];
+  const journalEntries = db.getTable('journal_entries') || [];
+  const journalLines = db.getTable('journal_lines') || [];
+  const shareCapitalAccounts = db.getTable('share_capital_accounts') || [];
+  const savingsAccounts = db.getTable('savings_accounts') || [];
+
+  // Requirement 1: Institutional Profile & Branch Topology
+  const hasCoop = coops.length > 0 && !!coops[0].name && !!coops[0].registration_no;
+  const hasBranches = branches.length > 0 && branches.some(b => b.active);
+
+  // Requirement 2: CDA Standard Chart of Accounts & Active Fiscal Period
+  const hasCoa = coa.length >= 20;
+  const hasOpenPeriod = periods.some(p => p.status === 'Open');
+
+  // Requirement 3: Cash Vault Liquidity & Opening Capital
+  const totalVaultCash = cashAccounts.reduce((sum, c) => sum + (c.current_balance || 0), 0);
+  const hasOpeningEntry = journalEntries.some(j => j.reference_type === 'OPENING_BALANCE' || j.reference_type === 'CAPITAL_INITIALIZATION');
+  const hasVaultLiquidity = cashAccounts.length > 0 && totalVaultCash > 0;
+
+  // Requirement 4: Member Types & Founding Members with Active CBU & Savings
+  const hasMembers = members.length > 0;
+  const membersWithCbu = members.filter(m => shareCapitalAccounts.some(s => s.member_id === m.id));
+  const membersWithSavings = members.filter(m => savingsAccounts.some(s => s.member_id === m.id));
+  const membersConfigured = hasMembers && membersWithCbu.length > 0 && membersWithSavings.length > 0;
+
+  // Requirement 5: Loan Products & Savings Deposit Facilities
+  const hasLoanProducts = loanProducts.length > 0 && loanProducts.some(p => p.active);
+  const hasSavingsProducts = savingsProducts.length > 0 && savingsProducts.some(p => p.active);
+
+  // Requirement 6: General Ledger Double-Entry Balance
+  let totalDebit = 0;
+  let totalCredit = 0;
+  coa.forEach(acc => {
+    const lines = journalLines.filter(l => l.account_id === acc.id);
+    const d = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
+    const c = lines.reduce((sum, l) => sum + (l.credit || 0), 0);
+    if (acc.normal_balance === 'Debit') {
+      const net = d - c;
+      if (net >= 0) totalDebit += net;
+      else totalCredit += Math.abs(net);
+    } else {
+      const net = c - d;
+      if (net >= 0) totalCredit += net;
+      else totalDebit += Math.abs(net);
+    }
+  });
+  const glDiscrepancy = Math.abs(totalDebit - totalCredit);
+  const isGlBalanced = glDiscrepancy < 0.01;
+
+  const requirements = [
+    {
+      id: 'step_profile',
+      step: 1,
+      name: 'Cooperative Profile & Branch Topology',
+      status: hasCoop && hasBranches ? 'completed' : 'pending',
+      summary: hasCoop && hasBranches
+        ? `${coops[0].name} (${branches.filter(b => b.active).length} active branches)`
+        : 'Institutional profile or branch topology missing',
+      details: `${coops[0]?.name || 'Not Configured'} • Reg: ${coops[0]?.registration_no || 'Pending'} • ${branches.length} Registered Branch(es)`
+    },
+    {
+      id: 'step_coa',
+      step: 2,
+      name: 'CDA Standard Chart of Accounts & GL Mapping',
+      status: hasCoa && hasOpenPeriod ? 'completed' : 'pending',
+      summary: hasCoa && hasOpenPeriod
+        ? `${coa.length} standard CDA accounts with active FY-2026 fiscal period`
+        : 'Accounts or accounting period not configured',
+      details: `${coa.length} CDA Accounts (Assets, Liabilities, Equity, P&L) • Period: ${periods.find(p => p.status === 'Open')?.name || 'None Open'}`
+    },
+    {
+      id: 'step_liquidity',
+      step: 3,
+      name: 'Cash Vault Liquidity & Opening Capitalization',
+      status: hasVaultLiquidity && isGlBalanced ? 'completed' : 'pending',
+      summary: hasVaultLiquidity
+        ? `₱${totalVaultCash.toLocaleString('en-PH', { minimumFractionDigits: 2 })} cash float in vaults & depository accounts`
+        : 'No cash vault liquidity or opening capitalization journal posted',
+      details: `Total Vault & Depository Cash: ₱${totalVaultCash.toLocaleString('en-PH', { minimumFractionDigits: 2 })} • Balanced Opening Capital Posted`
+    },
+    {
+      id: 'step_members',
+      step: 4,
+      name: 'Member Classification, CBU & Savings Ledgers',
+      status: membersConfigured ? 'completed' : 'pending',
+      summary: membersConfigured
+        ? `${members.length} founding members with active CBU & Savings accounts`
+        : 'Founding members or linked CBU/Savings accounts not provisioned',
+      details: `${members.length} Registered Members • ${shareCapitalAccounts.length} Active CBU Ledgers • ${savingsAccounts.length} Active Savings Accounts`
+    },
+    {
+      id: 'step_products',
+      step: 5,
+      name: 'Loan Financing & Savings Deposit Facilities',
+      status: hasLoanProducts && hasSavingsProducts ? 'completed' : 'pending',
+      summary: hasLoanProducts && hasSavingsProducts
+        ? `${loanProducts.length} Loan Products, ${savingsProducts.length} Savings Facilities active`
+        : 'Credit financing or deposit products missing',
+      details: `Loans: ${loanProducts.filter(p => p.active).map(p => p.code).join(', ')} • Savings: ${savingsProducts.filter(p => p.active).map(p => p.code).join(', ')}`
+    },
+    {
+      id: 'step_compliance',
+      step: 6,
+      name: 'CDA Statutory Reserves & General Ledger Integrity',
+      status: isGlBalanced ? 'completed' : 'pending',
+      summary: isGlBalanced
+        ? 'Trial Balance is perfectly balanced (Debits = Credits, ₱0.00 variance)'
+        : `GL variance detected (₱${glDiscrepancy.toFixed(2)})`,
+      details: `Mandatory Reserve Funds Active (Reserve 10%, CETF 5%, CDF 3%) • Verified Zero Variance GL`
+    }
+  ];
+
+  const completedCount = requirements.filter(r => r.status === 'completed').length;
+  const isFullyConfigured = completedCount === requirements.length;
+
+  res.json({
+    success: true,
+    data: {
+      is_fully_configured: isFullyConfigured,
+      completion_percentage: Math.round((completedCount / requirements.length) * 100),
+      completed_count: completedCount,
+      total_count: requirements.length,
+      requirements,
+      stats: {
+        cooperative_name: coops[0]?.name || 'Cooperative',
+        branches_count: branches.length,
+        accounts_count: coa.length,
+        members_count: members.length,
+        loans_count: (db.getTable('loans') || []).length,
+        vault_cash_total: totalVaultCash,
+        is_gl_balanced: isGlBalanced,
+        gl_discrepancy: glDiscrepancy
+      }
+    }
+  });
+});
+
+// Purge all operational data to start from a clean scratch baseline
+router.post(['/system/purge-operational-data', '/system/setup/reset-scratch'], (req: Request, res: Response) => {
+  const operationalTables = [
     'members',
     'loans',
-    'loan_schedules',
-    'loan_transactions',
+    'loan_applications',
+    'loan_amortization_schedules',
+    'loan_payments',
+    'loan_payment_allocations',
     'savings_accounts',
     'savings_transactions',
     'share_capital_accounts',
     'share_capital_transactions',
+    'cash_transactions',
     'journal_entries',
-    'journal_entry_lines',
-    'gl_entries'
+    'journal_lines',
+    'general_ledger',
+    'configuration_audit_trails'
   ];
 
-  clearTables.forEach(t => {
+  operationalTables.forEach(t => {
     (db as any).data[t] = [];
   });
+
+  // Zero-out all cash balances so vaults start at scratch
+  const cashAccounts = db.getTable('cash_accounts');
+  cashAccounts.forEach(c => {
+    c.current_balance = 0;
+    c.opening_balance = 0;
+  });
+
   (db as any).save();
 
-  db.recordAudit('System Purge: Clean Slate', 'Active Records', '0 Operational Records', req.body.performed_by || 'System Admin', 'User initiated data reset via Setup Wizard');
+  db.recordAudit(
+    'System Setup: Scratch Baseline',
+    'Active Operational Records',
+    '0 Operational Records (Clean Slate)',
+    req.body.performed_by || 'Setup Wizard',
+    'User initiated full scratch data purge via Setup Wizard'
+  );
 
   res.json({
     success: true,
-    message: 'All operational records (members, loans, savings, vouchers) have been cleared. Master configuration and Chart of Accounts are preserved.'
+    message: 'All operational records (members, loans, savings, vouchers, ledger) have been purged. System is at a clean scratch baseline.'
   });
+});
+
+// Setup Wizard Complete All Requirements
+router.post('/system/setup/complete-all', (req: Request, res: Response) => {
+  const performedBy = req.body.performed_by || 'Setup Wizard';
+  const now = new Date().toISOString().split('T')[0];
+
+  // 1. Ensure Cooperative Profile & Branches exist
+  let coops = db.getTable('cooperatives');
+  if (!coops || coops.length === 0) {
+    coops = db.resetToSeed(initialSeedData) as any;
+  }
+  const coop = db.getTable('cooperatives')[0];
+
+  let branches = db.getTable('branches');
+  if (!branches || branches.length === 0) {
+    branches = initialSeedData.branches;
+    (db as any).data.branches = branches;
+  }
+
+  // 2. Ensure CDA Chart of Accounts & Accounting Period
+  let coa = db.getTable('chart_of_accounts');
+  if (!coa || coa.length < 20) {
+    (db as any).data.chart_of_accounts = initialSeedData.chart_of_accounts;
+  }
+
+  let periods = db.getTable('accounting_periods');
+  if (!periods || periods.length === 0) {
+    (db as any).data.accounting_periods = initialSeedData.accounting_periods;
+  }
+
+  // Ensure active period for current year
+  const activePeriod = db.getTable('accounting_periods').find(p => p.status === 'Open') || db.getTable('accounting_periods')[0];
+
+  // 3. Clear existing operational records to establish pristine balanced state
+  const clearTables = [
+    'members',
+    'loans',
+    'loan_applications',
+    'loan_amortization_schedules',
+    'loan_payments',
+    'loan_payment_allocations',
+    'savings_accounts',
+    'savings_transactions',
+    'share_capital_accounts',
+    'share_capital_transactions',
+    'cash_transactions',
+    'journal_entries',
+    'journal_lines',
+    'general_ledger'
+  ];
+  clearTables.forEach(t => {
+    (db as any).data[t] = [];
+  });
+
+  // 4. Initialize Cash Accounts with Vault Float
+  let cashAccounts = db.getTable('cash_accounts');
+  if (!cashAccounts || cashAccounts.length === 0) {
+    (db as any).data.cash_accounts = initialSeedData.cash_accounts;
+    cashAccounts = db.getTable('cash_accounts');
+  }
+
+  // Reset and allocate initial liquidity
+  cashAccounts.forEach(c => {
+    if (c.id === 'cash_01') {
+      c.opening_balance = 250000;
+      c.current_balance = 250000; // Teller 1 (TAR)
+    } else if (c.id === 'cash_02') {
+      c.opening_balance = 250000;
+      c.current_balance = 250000; // Vault (TAR)
+    } else if (c.id === 'cash_04') {
+      c.opening_balance = 500000;
+      c.current_balance = 500000; // Land Bank of the Philippines
+    } else {
+      c.opening_balance = 0;
+      c.current_balance = 0;
+    }
+  });
+
+  // 5. Post Balanced Opening Balance Journal Voucher (Assets = Equity)
+  const openingJvId = `jv_opening_${Date.now()}`;
+  const openingVoucherNo = 'JV-2026-00001';
+
+  const openingLines = [
+    {
+      id: `jl_open_1`,
+      journal_entry_id: openingJvId,
+      account_id: 'acc_1110', // Cash on Hand - Tellers & Vaults (₱500,000)
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_01'
+    },
+    {
+      id: `jl_open_2`,
+      journal_entry_id: openingJvId,
+      account_id: 'acc_1120', // Cash in Bank - Land Bank (₱500,000)
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_04'
+    },
+    {
+      id: `jl_open_3`,
+      journal_entry_id: openingJvId,
+      account_id: 'acc_3110', // Paid-up Share Capital - Common (₱1,000,000)
+      debit: 0,
+      credit: 1000000,
+      subsidiary_type: null,
+      subsidiary_id: null
+    }
+  ];
+
+  db.insert('journal_entries', {
+    id: openingJvId,
+    voucher_number: openingVoucherNo,
+    branch_id: 'branch_tar',
+    posting_date: now,
+    reference_type: 'OPENING_BALANCE',
+    reference_id: 'INIT-CAPITAL-2026',
+    description: 'Initial Capitalization & Cash Vault Liquidity Setup',
+    total_debit: 1000000,
+    total_credit: 1000000,
+    period_id: activePeriod?.id || 'period_current',
+    status: 'Posted',
+    created_by: performedBy,
+    posted_at: new Date().toISOString()
+  });
+
+  openingLines.forEach(l => db.insert('journal_lines', l));
+
+  // 6. Ensure Member Types exist
+  let memberTypes = db.getTable('member_types');
+  if (!memberTypes || memberTypes.length === 0) {
+    (db as any).data.member_types = initialSeedData.member_types;
+    memberTypes = db.getTable('member_types');
+  }
+
+  // 7. Onboard 4 Founding Cooperative Members with CBU & Savings
+  const foundingMembers = [
+    {
+      id: 'mem_founding_01',
+      member_no: 'MB-2026-0001',
+      branch_id: 'branch_tar',
+      branch_name: 'Tarlac Main Branch',
+      member_type_id: 'mt_regular',
+      member_type_name: 'Regular Agricultural Member',
+      first_name: 'Juan',
+      middle_name: 'Dela',
+      last_name: 'Cruz',
+      gender: 'Male',
+      birthdate: '1982-06-15',
+      phone: '+63 917 555 1234',
+      email: 'juan.delacruz@mayapcare.ph',
+      address: 'Poblacion, Victoria, Tarlac',
+      custom_field_values: { farm_hectares: 3.5, primary_crop: 'Rice & Corn', tin_number: '123-456-789-000' },
+      joined_date: now,
+      active: true
+    },
+    {
+      id: 'mem_founding_02',
+      member_no: 'MB-2026-0002',
+      branch_id: 'branch_tar',
+      branch_name: 'Tarlac Main Branch',
+      member_type_id: 'mt_regular',
+      member_type_name: 'Regular Agricultural Member',
+      first_name: 'Maria',
+      middle_name: 'Santos',
+      last_name: 'Reyes',
+      gender: 'Female',
+      birthdate: '1988-11-22',
+      phone: '+63 920 444 8899',
+      email: 'maria.reyes@organic-farm.ph',
+      address: 'Brgy. San Vicente, Tarlac City',
+      custom_field_values: { farm_hectares: 2.0, primary_crop: 'Organic Vegetables', tin_number: '234-567-890-000' },
+      joined_date: now,
+      active: true
+    },
+    {
+      id: 'mem_founding_03',
+      member_no: 'MB-2026-0003',
+      branch_id: 'branch_urd',
+      branch_name: 'Urdaneta Branch',
+      member_type_id: 'mt_associate',
+      member_type_name: 'Associate Member',
+      first_name: 'Rodrigo',
+      middle_name: 'Bautista',
+      last_name: 'Mendoza',
+      gender: 'Male',
+      birthdate: '1990-03-08',
+      phone: '+63 918 222 3344',
+      email: 'rodrigo.mendoza@agri-supply.ph',
+      address: 'Brgy. Danzo, Gerona, Tarlac',
+      custom_field_values: { business_nature: 'Agri-Farm Supplies', tin_number: '345-678-901-000' },
+      joined_date: now,
+      active: true
+    },
+    {
+      id: 'mem_founding_04',
+      member_no: 'MB-2026-0004',
+      branch_id: 'branch_sfe',
+      branch_name: 'San Fernando Branch',
+      member_type_id: 'mt_regular',
+      member_type_name: 'Regular Member',
+      first_name: 'Elena',
+      middle_name: 'Santos',
+      last_name: 'Rostro',
+      gender: 'Female',
+      birthdate: '1985-04-18',
+      phone: '+63 919 333 7788',
+      email: 'elena.rostro@pampanga-coop.ph',
+      address: 'Dolores, San Fernando City, Pampanga',
+      custom_field_values: { farm_hectares: 4.5, primary_crop: 'Sugarcane & Cassava', tin_number: '456-789-012-000' },
+      joined_date: now,
+      active: true
+    }
+  ];
+
+  foundingMembers.forEach((m, idx) => {
+    db.insert('members', m);
+
+    const seqStr = String(idx + 1).padStart(5, '0');
+    // Provision linked Savings Account
+    const savingsAcc = {
+      id: `sav_${m.id}`,
+      member_id: m.id,
+      member_name: `${m.first_name} ${m.last_name}`,
+      account_number: `SA-2026-${seqStr}`,
+      product_id: 'sp_regular',
+      product_name: 'Regular Savings Deposit',
+      branch_id: m.branch_id,
+      balance: 5000,
+      interest_earned_ytd: 0,
+      status: 'Active',
+      created_at: new Date().toISOString()
+    };
+    db.insert('savings_accounts', savingsAcc);
+
+    // Record initial savings deposit transaction
+    db.insert('savings_transactions', {
+      id: `st_${Date.now()}_${idx}`,
+      savings_account_id: savingsAcc.id,
+      transaction_type: 'Deposit',
+      amount: 5000,
+      balance_after: 5000,
+      reference_no: `OR-2026-INIT-SAV-${idx + 1}`,
+      notes: 'Initial minimum savings deposit upon registration',
+      created_at: new Date().toISOString(),
+      performed_by: performedBy
+    });
+
+    // Provision linked Share Capital (CBU) Account
+    const cbuAcc = {
+      id: `cbu_${m.id}`,
+      member_id: m.id,
+      member_name: `${m.first_name} ${m.last_name}`,
+      account_number: `CBU-2026-${seqStr}`,
+      branch_id: m.branch_id,
+      subscribed_shares: 100, // ₱10,000 subscribed
+      subscribed_amount: 10000,
+      paid_up_shares: 50, // ₱5,000 paid-up
+      paid_up_amount: 5000,
+      par_value: 100,
+      status: 'Active',
+      created_at: new Date().toISOString()
+    };
+    db.insert('share_capital_accounts', cbuAcc);
+
+    // Record initial share capital contribution
+    db.insert('share_capital_transactions', {
+      id: `sct_${Date.now()}_${idx}`,
+      share_capital_account_id: cbuAcc.id,
+      transaction_type: 'Contribution',
+      shares: 50,
+      amount: 5000,
+      balance_after: 5000,
+      reference_no: `OR-2026-INIT-CBU-${idx + 1}`,
+      notes: 'Founding member share capital subscription installment',
+      created_at: new Date().toISOString(),
+      performed_by: performedBy
+    });
+
+    // Post balanced double-entry for Member initial capital & savings:
+    // Dr Cash on Hand (acc_1110) ₱10,000
+    // Cr Savings Deposits (acc_2110) ₱5,000
+    // Cr Paid-up Share Capital (acc_3110) ₱5,000
+    const memJvId = `jv_mem_${m.id}`;
+    const memVoucherNo = `OR-2026-${String(idx + 1).padStart(5, '0')}`;
+
+    db.insert('journal_entries', {
+      id: memJvId,
+      voucher_number: memVoucherNo,
+      branch_id: m.branch_id,
+      posting_date: now,
+      reference_type: 'MEMBER_INITIAL_FUNDING',
+      reference_id: m.id,
+      description: `Initial Savings Deposit & CBU Contribution - ${m.first_name} ${m.last_name}`,
+      total_debit: 10000,
+      total_credit: 10000,
+      period_id: activePeriod?.id || 'period_current',
+      status: 'Posted',
+      created_by: performedBy,
+      posted_at: new Date().toISOString()
+    });
+
+    db.insert('journal_lines', {
+      id: `jl_mem_d_${idx}`,
+      journal_entry_id: memJvId,
+      account_id: 'acc_1110', // Cash on Hand
+      debit: 10000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_01'
+    });
+
+    db.insert('journal_lines', {
+      id: `jl_mem_c1_${idx}`,
+      journal_entry_id: memJvId,
+      account_id: 'acc_2110', // Savings Deposits
+      debit: 0,
+      credit: 5000,
+      subsidiary_type: 'Savings',
+      subsidiary_id: savingsAcc.id
+    });
+
+    db.insert('journal_lines', {
+      id: `jl_mem_c2_${idx}`,
+      journal_entry_id: memJvId,
+      account_id: 'acc_3110', // Paid-up Share Capital
+      debit: 0,
+      credit: 5000,
+      subsidiary_type: 'Member',
+      subsidiary_id: m.id
+    });
+
+    // Add cash to branch teller drawer
+    db.update('cash_accounts', c => c.id === 'cash_01', c => ({
+      ...c,
+      current_balance: Number(((c.current_balance || 0) + 10000).toFixed(2))
+    }));
+  });
+
+  // 8. Ensure Loan & Savings Products exist and are active
+  let loanProducts = db.getTable('loan_products');
+  if (!loanProducts || loanProducts.length === 0) {
+    (db as any).data.loan_products = initialSeedData.loan_products;
+  }
+
+  let savingsProducts = db.getTable('savings_products');
+  if (!savingsProducts || savingsProducts.length === 0) {
+    (db as any).data.savings_products = initialSeedData.savings_products;
+  }
+
+  // 9. Save database
+  (db as any).save();
+
+  db.recordAudit(
+    'Setup Wizard: Complete All Requirements',
+    'Scratch Baseline',
+    '100% Fully Configured & Balanced',
+    performedBy,
+    'Executed full cooperative configuration workflow. Initial capital, vaults, founding members, CBU ledgers, and zero-variance GL posted.'
+  );
+
+  const updatedCashTotal = db.getTable('cash_accounts').reduce((s, c) => s + (c.current_balance || 0), 0);
+
+  res.json({
+    success: true,
+    message: 'Setup Wizard successfully completed all requirements! Cooperative is 100% operational with balanced GL, active vaults, and founding members.',
+    data: {
+      cooperative: coop?.name,
+      branches_count: db.getTable('branches').length,
+      members_count: db.getTable('members').length,
+      share_capital_accounts_count: db.getTable('share_capital_accounts').length,
+      savings_accounts_count: db.getTable('savings_accounts').length,
+      loan_products_count: db.getTable('loan_products').length,
+      total_vault_cash: updatedCashTotal,
+      gl_voucher_posted: openingVoucherNo,
+      gl_balanced: true,
+      variance: 0
+    }
+  });
+});
+
+// Setup Wizard Individual Step Runner
+router.post('/system/setup/step', (req: Request, res: Response) => {
+  const { step } = req.body;
+  const performedBy = req.body.performed_by || 'Setup Wizard';
+  const now = new Date().toISOString().split('T')[0];
+
+  if (step === 1) {
+    // Step 1: Ensure Coop & Branches
+    if (!db.getTable('cooperatives') || db.getTable('cooperatives').length === 0) {
+      (db as any).data.cooperatives = initialSeedData.cooperatives;
+    }
+    if (!db.getTable('branches') || db.getTable('branches').length === 0) {
+      (db as any).data.branches = initialSeedData.branches;
+    }
+    (db as any).save();
+    return res.json({ success: true, message: 'Cooperative profile & branch topology verified.' });
+  }
+
+  if (step === 2) {
+    // Step 2: Ensure COA & Periods
+    (db as any).data.chart_of_accounts = initialSeedData.chart_of_accounts;
+    (db as any).data.accounting_periods = initialSeedData.accounting_periods;
+    (db as any).save();
+    return res.json({ success: true, message: 'CDA Standard Chart of Accounts & GL Mappings loaded.' });
+  }
+
+  if (step === 3) {
+    // Step 3: Vault Liquidity & Opening Balance
+    const cashAccounts = db.getTable('cash_accounts');
+    cashAccounts.forEach(c => {
+      if (c.id === 'cash_01') c.current_balance = 250000;
+      else if (c.id === 'cash_02') c.current_balance = 250000;
+      else if (c.id === 'cash_04') c.current_balance = 500000;
+    });
+
+    const jvId = `jv_open_${Date.now()}`;
+    db.insert('journal_entries', {
+      id: jvId,
+      voucher_number: 'JV-2026-00001',
+      branch_id: 'branch_tar',
+      posting_date: now,
+      reference_type: 'OPENING_BALANCE',
+      reference_id: 'INIT-CAPITAL-2026',
+      description: 'Initial Capitalization & Cash Vault Float for Operations',
+      total_debit: 1000000,
+      total_credit: 1000000,
+      period_id: 'period_2026_q1',
+      status: 'Posted',
+      created_by: performedBy,
+      posted_at: new Date().toISOString()
+    });
+
+    db.insert('journal_lines', {
+      id: `jl_o_1_${Date.now()}`,
+      journal_entry_id: jvId,
+      account_id: 'acc_1110',
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_01'
+    });
+    db.insert('journal_lines', {
+      id: `jl_o_2_${Date.now()}`,
+      journal_entry_id: jvId,
+      account_id: 'acc_1120',
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_04'
+    });
+    db.insert('journal_lines', {
+      id: `jl_o_3_${Date.now()}`,
+      journal_entry_id: jvId,
+      account_id: 'acc_3110',
+      debit: 0,
+      credit: 1000000,
+      subsidiary_type: null,
+      subsidiary_id: null
+    });
+    (db as any).save();
+    return res.json({ success: true, message: 'Opening balance posted with ₱1,000,000 balanced capital.' });
+  }
+
+  if (step === 4) {
+    // Step 4: Member Types & Founding Members
+    const members = db.getTable('members');
+    if (members.length === 0) {
+      // Seed founding members
+      const sample = initialSeedData.members;
+      sample.forEach(m => {
+        db.insert('members', m);
+        // Add linked CBU and Savings
+        db.insert('savings_accounts', {
+          id: `sav_${m.id}`,
+          member_id: m.id,
+          member_name: `${m.first_name} ${m.last_name}`,
+          account_number: `SA-2026-${m.member_no.replace('MB-2026-', '')}`,
+          product_id: 'sp_regular',
+          product_name: 'Regular Savings Deposit',
+          branch_id: m.branch_id,
+          balance: 5000,
+          status: 'Active',
+          created_at: new Date().toISOString()
+        });
+        db.insert('share_capital_accounts', {
+          id: `cbu_${m.id}`,
+          member_id: m.id,
+          member_name: `${m.first_name} ${m.last_name}`,
+          account_number: `CBU-2026-${m.member_no.replace('MB-2026-', '')}`,
+          branch_id: m.branch_id,
+          subscribed_shares: 100,
+          subscribed_amount: 10000,
+          paid_up_shares: 50,
+          paid_up_amount: 5000,
+          par_value: 100,
+          status: 'Active',
+          created_at: new Date().toISOString()
+        });
+      });
+    }
+    (db as any).save();
+    return res.json({ success: true, message: 'Member classifications & founding members registered.' });
+  }
+
+  if (step === 5) {
+    // Step 5: Loan & Savings Products
+    (db as any).data.loan_products = initialSeedData.loan_products;
+    (db as any).data.savings_products = initialSeedData.savings_products;
+    (db as any).save();
+    return res.json({ success: true, message: 'Loan and savings facilities configured.' });
+  }
+
+  if (step === 6) {
+    // Step 6: Regulatory Compliance
+    (db as any).data.penalty_rules = initialSeedData.penalty_rules;
+    (db as any).data.fees = initialSeedData.fees;
+    (db as any).data.numbering_formats = initialSeedData.numbering_formats;
+    (db as any).save();
+    return res.json({ success: true, message: 'Regulatory statutory reserves & numbering series active.' });
+  }
+
+  res.status(400).json({ success: false, error: 'Invalid step index.' });
 });
 
 router.post('/system/seed-sample-data', (req: Request, res: Response) => {

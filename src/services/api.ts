@@ -475,6 +475,53 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ performed_by })
     }),
+  resetToScratch: (performed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>('/system/setup/reset-scratch', {
+      method: 'POST',
+      body: JSON.stringify({ performed_by })
+    }),
+  getSetupStatus: () =>
+    fetchApi<{
+      success: boolean;
+      data: {
+        is_fully_configured: boolean;
+        completion_percentage: number;
+        completed_count: number;
+        total_count: number;
+        requirements: Array<{
+          id: string;
+          step: number;
+          name: string;
+          status: 'completed' | 'pending';
+          summary: string;
+          details: string;
+        }>;
+        stats: {
+          cooperative_name: string;
+          branches_count: number;
+          accounts_count: number;
+          members_count: number;
+          loans_count: number;
+          vault_cash_total: number;
+          is_gl_balanced: boolean;
+          gl_discrepancy: number;
+        };
+      };
+    }>('/system/setup/status'),
+  completeAllSetup: (performed_by?: string) =>
+    fetchApi<{
+      success: boolean;
+      message: string;
+      data?: any;
+    }>('/system/setup/complete-all', {
+      method: 'POST',
+      body: JSON.stringify({ performed_by })
+    }),
+  runSetupStep: (step: number, performed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>('/system/setup/step', {
+      method: 'POST',
+      body: JSON.stringify({ step, performed_by })
+    }),
   seedSampleMembers: () => fetchApi<{ success: boolean; message: string; data?: any }>('/system/seed-sample-data', { method: 'POST' }),
   runVerificationTests: () =>
     fetchApi<{ success: boolean; total_tests: number; passed_count: number; all_passed: boolean; results: any[] }>('/system/run-verification-tests', {

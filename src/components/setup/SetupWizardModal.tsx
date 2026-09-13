@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Wand2,
@@ -18,7 +18,12 @@ import {
   ShieldAlert,
   HelpCircle,
   ExternalLink,
-  Layers
+  RefreshCw,
+  Play,
+  Landmark,
+  Check,
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -29,6 +34,31 @@ interface SetupWizardModalProps {
   onRefreshData?: () => void;
 }
 
+interface SetupStatusData {
+  is_fully_configured: boolean;
+  completion_percentage: number;
+  completed_count: number;
+  total_count: number;
+  requirements: Array<{
+    id: string;
+    step: number;
+    name: string;
+    status: 'completed' | 'pending';
+    summary: string;
+    details: string;
+  }>;
+  stats: {
+    cooperative_name: string;
+    branches_count: number;
+    accounts_count: number;
+    members_count: number;
+    loans_count: number;
+    vault_cash_total: number;
+    is_gl_balanced: boolean;
+    gl_discrepancy: number;
+  };
+}
+
 export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
   isOpen,
   onClose,
@@ -37,54 +67,177 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
 }) => {
   const [activeView, setActiveView] = useState<'guide' | 'reset'>('guide');
   const [currentStep, setCurrentStep] = useState(0);
+  const [setupStatus, setSetupStatus] = useState<SetupStatusData | null>(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
   // Reset tool state
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const fetchStatus = useCallback(async () => {
+    setIsLoadingStatus(true);
+    try {
+      const res = await api.getSetupStatus();
+      if (res && res.success && res.data) {
+        setSetupStatus(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load setup status:', err);
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchStatus();
+      setStatusMessage(null);
+    }
+  }, [isOpen, fetchStatus]);
+
   if (!isOpen) return null;
+
+  // Complete all requirements with 1-click
+  const handleCompleteAll = async () => {
+    setIsProcessing(true);
+    setStatusMessage(null);
+    try {
+      const res = await api.completeAllSetup();
+      if (res && res.success) {
+        setStatusMessage({
+          type: 'success',
+          text: 'Setup Wizard successfully completed all requirements! Initial capital, cash vaults, founding members, and balanced GL are verified.'
+        });
+        await fetchStatus();
+        if (onRefreshData) onRefreshData();
+        window.dispatchEvent(new CustomEvent('coop:data-changed'));
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to complete setup requirements.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Run individual step
+  const handleRunStep = async (stepNumber: number) => {
+    setIsProcessing(true);
+    setStatusMessage(null);
+    try {
+      const res = await api.runSetupStep(stepNumber);
+      if (res && res.success) {
+        setStatusMessage({
+          type: 'success',
+          text: `Step ${stepNumber} completed: ${res.message}`
+        });
+        await fetchStatus();
+        if (onRefreshData) onRefreshData();
+        window.dispatchEvent(new CustomEvent('coop:data-changed'));
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || `Failed to execute step ${stepNumber}.` });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Purge all operational data to clean scratch
+  const handlePurgeToScratch = async () => {
+    if (resetConfirmText.toUpperCase() !== 'RESET') {
+      setStatusMessage({ type: 'error', text: 'Please type "RESET" into the confirmation field to proceed.' });
+      return;
+    }
+
+    setIsProcessing(true);
+    setStatusMessage(null);
+    try {
+      const res = await api.resetToScratch();
+      setStatusMessage({
+        type: 'success',
+        text: res.message || 'All operational records purged. System is at clean scratch baseline.'
+      });
+      setResetConfirmText('');
+      await fetchStatus();
+      if (onRefreshData) onRefreshData();
+      window.dispatchEvent(new CustomEvent('coop:data-changed'));
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to purge operational data.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Factory reset
+  const handleFactoryReset = async () => {
+    if (resetConfirmText.toUpperCase() !== 'RESET') {
+      setStatusMessage({ type: 'error', text: 'Please type "RESET" into the confirmation field to proceed.' });
+      return;
+    }
+
+    setIsProcessing(true);
+    setStatusMessage(null);
+    try {
+      await api.resetToSeed();
+      setStatusMessage({
+        type: 'success',
+        text: 'Complete factory reset completed! Chart of Accounts, branches, and CDA seeds restored.'
+      });
+      setResetConfirmText('');
+      await fetchStatus();
+      if (onRefreshData) onRefreshData();
+      window.dispatchEvent(new CustomEvent('coop:data-changed'));
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to reset system.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const steps = [
     {
       step: 1,
+      id: 'step_profile',
       title: 'Cooperative Profile & Branch Topology',
-      shortTitle: 'Branches & Profile',
+      shortTitle: 'Profile & Branches',
       icon: Building2,
-      badge: 'Step 1 of 6',
+      badge: 'Requirement 1 of 6',
       description: 'Establish institutional identity, CDA registration, and geographic branches.',
+      actionTab: 'configuration',
+      actionLabel: 'Open Configuration Center',
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
-            Start by verifying your cooperative's official name, CDA Registration Number, and branch network.
+            Verify your cooperative's official institutional profile, CDA Registration Number, and branch topology.
             CoopFlex supports multi-branch operations with both consolidated and branch-isolated reporting.
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
             <div className="font-semibold text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Best Practice Configuration:
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Established Topology:
             </div>
             <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li>Head Office / Main Branch is designated as primary clearing hub.</li>
-              <li>Satellite branches & extension offices have unique branch codes and designated vault limits.</li>
-              <li>Use the Branch Selector in the header to switch perspectives instantly.</li>
+              <li><strong className="text-white">Main Branch (Tarlac):</strong> Primary administrative clearing hub and main vault.</li>
+              <li><strong className="text-white">Urdaneta Branch:</strong> Northern agricultural services center.</li>
+              <li><strong className="text-white">San Fernando Branch:</strong> Regional credit extension office.</li>
             </ul>
           </div>
         </div>
-      ),
-      actionTab: 'configuration',
-      actionLabel: 'Open Configuration Center'
+      )
     },
     {
       step: 2,
+      id: 'step_coa',
       title: 'CDA Standard Chart of Accounts & GL Mapping',
       shortTitle: 'Chart of Accounts',
       icon: BookOpen,
-      badge: 'Step 2 of 6',
+      badge: 'Requirement 2 of 6',
       description: 'Pre-mapped CDA standard accounts with automated double-entry postings.',
+      actionTab: 'accounting',
+      actionLabel: 'View Chart of Accounts & Ledger',
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
-            Every financial action (loan release, cash deposit, share capital installment) triggers an automated
+            Every financial event (loan release, cash deposit, share capital contribution, fees) triggers an automated
             balanced Journal Voucher (JV) posted to the General Ledger adhering to CDA accounting guidelines.
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
@@ -94,62 +247,109 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
             <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 font-mono">
               <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
                 <strong className="text-emerald-300 block">100 Assets</strong>
-                101 Cash on Hand, 120 Loans Receivable
+                1110 Cash on Hand, 1120 Bank, 1210 Loans Receivable
               </div>
               <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
                 <strong className="text-blue-300 block">200 Liabilities</strong>
-                201 Savings Deposits, 210 Time Deposits
+                2110 Savings Deposits, 2120 Time Deposits
               </div>
               <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
                 <strong className="text-purple-300 block">300 Equity</strong>
-                301 Paid-up Share Capital, 310 Reserve Fund
+                3110 Paid-up Share Capital, 3210 Reserve Fund
               </div>
               <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
                 <strong className="text-amber-300 block">400 & 500 P&L</strong>
-                401 Interest Income, 501 Operating Expense
+                4100 Interest Income, 5110 Interest Expense
               </div>
             </div>
           </div>
         </div>
-      ),
-      actionTab: 'accounting',
-      actionLabel: 'View Chart of Accounts & Ledger'
+      )
     },
     {
       step: 3,
-      title: 'Member Onboarding & Capital Build-Up (CBU)',
-      shortTitle: 'Member Onboarding',
-      icon: Users,
-      badge: 'Step 3 of 6',
-      description: 'Onboard cooperative members with automated Savings & Share Capital accounts.',
+      id: 'step_liquidity',
+      title: 'Cash Vault Liquidity & Opening Capitalization',
+      shortTitle: 'Vault & Capital',
+      icon: Landmark,
+      badge: 'Requirement 3 of 6',
+      description: 'Allocate cash float to branch vaults and post balanced opening capital.',
+      actionTab: 'cash',
+      actionLabel: 'Manage Cash Vaults & Drawers',
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
-            When a member is registered, CoopFlex automatically creates their core identity, assigns a sequential
-            Member ID, opens their linked Savings Account (SA), and provisions their Capital Build-Up (CBU) share ledger.
+            To fund initial loans and daily teller drawer operations, the cooperative must establish initial liquidity.
+            The setup wizard automatically posts a balanced Journal Voucher (JV-2026-00001):
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
             <div className="font-semibold text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Dynamic Features:
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Initial Capitalization Voucher:
             </div>
-            <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li>Configure custom membership attributes (e.g. Farm Hectares, Primary Crop, TIN).</li>
-              <li>Toggle between Regular, Associate, and Youth membership classifications.</li>
-              <li>View individual Member Transaction Statements and 1-click printable ledgers.</li>
-            </ul>
+            <div className="text-[11px] font-mono space-y-1 text-slate-300">
+              <div className="flex justify-between border-b border-slate-800 pb-1">
+                <span className="text-emerald-400">Dr 1110 Cash on Hand (Tellers & Vaults)</span>
+                <span>₱500,000.00</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800 pb-1">
+                <span className="text-emerald-400">Dr 1120 Cash in Bank (Land Bank)</span>
+                <span>₱500,000.00</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-blue-400">Cr 3110 Paid-up Share Capital - Common</span>
+                <span>₱1,000,000.00</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic">
+              Result: Zero variance trial balance with ₱1,000,000 operating cash immediately available for disbursements.
+            </p>
           </div>
         </div>
-      ),
-      actionTab: 'members',
-      actionLabel: 'Go to Members Registry'
+      )
     },
     {
       step: 4,
+      id: 'step_members',
+      title: 'Member Onboarding & Capital Build-Up (CBU)',
+      shortTitle: 'Members & CBU',
+      icon: Users,
+      badge: 'Requirement 4 of 6',
+      description: 'Onboard founding members with active Savings and Share Capital ledgers.',
+      actionTab: 'members',
+      actionLabel: 'Go to Members Registry',
+      content: (
+        <div className="space-y-3 text-xs text-slate-300">
+          <p>
+            Every member onboarded receives a unique sequential Member ID (e.g. MB-2026-0001), an active Savings Account,
+            and a Capital Build-Up (CBU) share capital ledger with subscribed and paid-up shares.
+          </p>
+          <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="font-semibold text-emerald-400 flex items-center">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Automated Founding Roster:
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-slate-400">
+              <li><strong className="text-white">Juan Dela Cruz (MB-2026-0001):</strong> Rice & Corn farmer, 3.5 ha, Regular Member.</li>
+              <li><strong className="text-white">Maria Santos Reyes (MB-2026-0002):</strong> Organic vegetable grower, Regular Member.</li>
+              <li><strong className="text-white">Rodrigo Mendoza (MB-2026-0003):</strong> Agri-farm supplies owner, Associate Member.</li>
+              <li><strong className="text-white">Elena Rostro (MB-2026-0004):</strong> Sugarcane grower, Regular Member.</li>
+            </ul>
+            <p className="text-[11px] text-slate-400">
+              Each member is funded with ₱5,000 savings balance and ₱5,000 paid-up share capital with balanced journal lines.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
+      step: 5,
+      id: 'step_products',
       title: 'Loan Products, Credit Scoring & Amortization',
-      shortTitle: 'Loan Products',
+      shortTitle: 'Loan & Savings Products',
       icon: Coins,
-      badge: 'Step 4 of 6',
+      badge: 'Requirement 5 of 6',
       description: 'Configure agricultural and micro-credit financing products with diminishing balance calculation.',
+      actionTab: 'loans',
+      actionLabel: 'Go to Loans Module',
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
@@ -158,54 +358,27 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
             <div className="font-semibold text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Origination Workflow:
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Pre-Configured Facilities:
             </div>
-            <ol className="list-decimal list-inside space-y-1 text-slate-400">
-              <li>Loan Application & Credit Assessment (Automated schedule generation).</li>
-              <li>Manager / Credit Committee Approval.</li>
-              <li>Disbursement from Cash in Vault or Bank clearing account.</li>
-            </ol>
+            <div className="space-y-1 text-slate-400">
+              <div>• <strong className="text-white">Regular Multi-Purpose Loan:</strong> 10% annual diminishing balance, up to ₱300,000.</div>
+              <div>• <strong className="text-white">Emergency Instant Relief:</strong> 6% flat interest, up to ₱30,000, fast approval.</div>
+              <div>• <strong className="text-white">Agricultural Crop Production:</strong> 8% simple interest, flexible harvest amortizations.</div>
+            </div>
           </div>
         </div>
-      ),
-      actionTab: 'loans',
-      actionLabel: 'Go to Loans Module'
-    },
-    {
-      step: 5,
-      title: 'Daily Cash Drawers & Over-the-Counter Operations',
-      shortTitle: 'Cash Operations',
-      icon: Receipt,
-      badge: 'Step 5 of 6',
-      description: 'Manage teller drawers, cash collections, savings deposits, and disbursements.',
-      content: (
-        <div className="space-y-3 text-xs text-slate-300">
-          <p>
-            Tellers and cashiers can receive member loan amortizations, process savings deposits/withdrawals,
-            and issue official receipts with automatic GL voucher generation.
-          </p>
-          <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <div className="font-semibold text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Cash Controls:
-            </div>
-            <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li>Each branch maintains an isolated Cash in Vault and Teller Cash Drawer.</li>
-              <li>Daily transactions can be reconciled before end-of-day drawer closing.</li>
-              <li>Full audit trail logs every cashier receipt and voucher number.</li>
-            </ul>
-          </div>
-        </div>
-      ),
-      actionTab: 'cash',
-      actionLabel: 'Go to Cash Operations'
+      )
     },
     {
       step: 6,
+      id: 'step_compliance',
       title: 'Financial Statements, CDA Statutory & Period Closing',
-      shortTitle: 'Reports & Compliance',
+      shortTitle: 'CDA Compliance & GL',
       icon: PieChart,
-      badge: 'Step 6 of 6',
+      badge: 'Requirement 6 of 6',
       description: 'Real-time Trial Balance, Balance Sheet, Income Statement, and CDA Statutory Allocation.',
+      actionTab: 'reports',
+      actionLabel: 'View Financial Statements',
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
@@ -214,7 +387,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
             <div className="font-semibold text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mandatory Statutory Funds:
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mandatory CDA Statutory Reserves:
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-slate-300">
               <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
@@ -232,96 +405,18 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
             </div>
           </div>
         </div>
-      ),
-      actionTab: 'reports',
-      actionLabel: 'View Financial Statements'
+      )
     }
   ];
 
-  const handlePurgeOperational = async () => {
-    if (resetConfirmText.toUpperCase() !== 'RESET') {
-      setStatusMessage({ type: 'error', text: 'Please type "RESET" into the confirmation field to proceed.' });
-      return;
-    }
-
-    setIsProcessing(true);
-    setStatusMessage(null);
-    try {
-      await api.purgeOperationalData();
-      setStatusMessage({
-        type: 'success',
-        text: 'All operational records (members, loans, savings, vouchers) have been cleared. System is now at a clean baseline.'
-      });
-      setResetConfirmText('');
-      if (onRefreshData) onRefreshData();
-      window.dispatchEvent(new CustomEvent('coop:data-changed'));
-    } catch (err: any) {
-      // If error, trigger fallback reset
-      try {
-        await api.resetSeed();
-        setStatusMessage({
-          type: 'success',
-          text: 'Database successfully reset to clean CDA baseline seed.'
-        });
-        setResetConfirmText('');
-        if (onRefreshData) onRefreshData();
-        window.dispatchEvent(new CustomEvent('coop:data-changed'));
-      } catch (fallbackErr: any) {
-        setStatusMessage({ type: 'error', text: err.message || 'Failed to purge data.' });
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleLoadSample = async () => {
-    setIsProcessing(true);
-    setStatusMessage(null);
-    try {
-      await api.seedSampleMembers();
-      setStatusMessage({
-        type: 'success',
-        text: 'Realistic sample agricultural members and active accounts loaded successfully!'
-      });
-      if (onRefreshData) onRefreshData();
-      window.dispatchEvent(new CustomEvent('coop:data-changed'));
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: err.message || 'Failed to load sample dataset.' });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFactoryReset = async () => {
-    if (resetConfirmText.toUpperCase() !== 'RESET') {
-      setStatusMessage({ type: 'error', text: 'Please type "RESET" into the confirmation field to proceed.' });
-      return;
-    }
-
-    setIsProcessing(true);
-    setStatusMessage(null);
-    try {
-      await api.resetToSeed();
-      setStatusMessage({
-        type: 'success',
-        text: 'Complete factory reset completed! Chart of Accounts, branches, and CDA seeds restored.'
-      });
-      setResetConfirmText('');
-      if (onRefreshData) onRefreshData();
-      window.dispatchEvent(new CustomEvent('coop:data-changed'));
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: err.message || 'Failed to reset system.' });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const currentStepData = steps[currentStep];
   const StepIcon = currentStepData.icon;
+  const currentReqStatus = setupStatus?.requirements?.find(r => r.step === currentStepData.step);
+  const isStepCompleted = currentReqStatus?.status === 'completed';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-6 border-b border-slate-800 relative shrink-0">
           <button
@@ -337,13 +432,31 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-bold text-white tracking-tight">Cooperative System Setup Wizard</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-                  Interactive Guide & Reset
-                </span>
+                <h2 className="text-lg font-bold text-white tracking-tight">Cooperative Setup Wizard</h2>
+                {setupStatus && (
+                  <span
+                    className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold border flex items-center space-x-1 ${
+                      setupStatus.is_fully_configured
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                    }`}
+                  >
+                    {setupStatus.is_fully_configured ? (
+                      <>
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        <span>100% Operational (6/6 Complete)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-3 h-3 mr-1" />
+                        <span>Setup Required ({setupStatus.completed_count}/{setupStatus.total_count} Complete)</span>
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Step-by-step onboarding walkthrough and data management controls
+                Onboarding wizard to complete all requirements and establish a clean, balanced operational baseline
               </p>
             </div>
           </div>
@@ -362,7 +475,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>Step-by-Step Setup Guide</span>
+              <span>Interactive Setup Wizard</span>
             </button>
             <button
               onClick={() => {
@@ -402,25 +515,92 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
 
           {activeView === 'guide' ? (
             <div className="space-y-6">
+              {/* Quick Action Banner */}
+              <div
+                className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  setupStatus?.is_fully_configured
+                    ? 'bg-emerald-950/40 border-emerald-500/30'
+                    : 'bg-gradient-to-r from-emerald-950/70 to-slate-900 border-emerald-500/40'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-sm font-bold text-white">
+                      {setupStatus?.is_fully_configured
+                        ? 'Cooperative System Fully Functional'
+                        : 'Complete All Requirements in One Click'}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-300 max-w-xl">
+                    {setupStatus?.is_fully_configured
+                      ? 'All CDA accounts, branch cash vaults, founding members with active CBU ledgers, and zero-variance GL double-entries are active and verified.'
+                      : 'Executes the complete setup workflow: configures CDA accounts, initializes ₱1M opening capital, seeds cash float in vaults, and onboards founding members.'}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    id="complete-all-setup-btn"
+                    onClick={handleCompleteAll}
+                    disabled={isProcessing}
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Configuring...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Complete All Requirements</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Summary Card */}
+              {setupStatus && (
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Operational Readiness</span>
+                    <span className="text-emerald-400 font-bold font-mono">
+                      {setupStatus.completion_percentage}% ({setupStatus.completed_count}/{setupStatus.total_count} Requirements Met)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div
+                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-500"
+                      style={{ width: `${setupStatus.completion_percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Step Navigation Pill Indicator */}
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
                 {steps.map((s, idx) => {
                   const Icon = s.icon;
                   const isActive = currentStep === idx;
-                  const isCompleted = currentStep > idx;
+                  const req = setupStatus?.requirements?.find(r => r.step === s.step);
+                  const isDone = req?.status === 'completed';
 
                   return (
                     <button
                       key={s.step}
                       onClick={() => setCurrentStep(idx)}
-                      className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center space-y-1 ${
+                      className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center space-y-1 relative ${
                         isActive
-                          ? 'bg-emerald-600/20 border-emerald-500 text-white'
-                          : isCompleted
-                          ? 'bg-slate-800/80 border-slate-700 text-emerald-400'
+                          ? 'bg-emerald-600/20 border-emerald-500 text-white shadow'
+                          : isDone
+                          ? 'bg-slate-800/80 border-slate-700 text-emerald-400 hover:bg-slate-800'
                           : 'bg-slate-950/60 border-slate-800 text-slate-500 hover:text-slate-300'
                       }`}
                     >
+                      {isDone && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+                      )}
                       <Icon className="w-4 h-4" />
                       <span className="text-[10px] font-semibold truncate w-full">
                         {idx + 1}. {s.shortTitle}
@@ -432,22 +612,53 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
 
               {/* Active Step Card */}
               <div className="bg-slate-950/80 rounded-2xl p-6 border border-slate-800 space-y-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-800/80 pb-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                       <StepIcon className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
-                        {currentStepData.badge}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
+                          {currentStepData.badge}
+                        </span>
+                        {isStepCompleted ? (
+                          <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex items-center space-x-1">
+                            <Check className="w-2.5 h-2.5 mr-0.5" /> Complete
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30">
+                            Pending
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-base font-bold text-white tracking-tight">
                         {currentStepData.title}
                       </h3>
                       <p className="text-xs text-slate-400">{currentStepData.description}</p>
                     </div>
                   </div>
+
+                  {/* Step Action Button */}
+                  <div className="flex items-center space-x-2 self-end sm:self-auto">
+                    <button
+                      onClick={() => handleRunStep(currentStepData.step)}
+                      disabled={isProcessing}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-700 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Play className="w-3 h-3 text-emerald-400" />
+                      <span>{isStepCompleted ? 'Re-Verify Step' : 'Execute Step'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Step Live Status Note if available */}
+                {currentReqStatus && (
+                  <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs flex items-center justify-between">
+                    <span className="text-slate-400">Live Status:</span>
+                    <span className="font-medium text-slate-200">{currentReqStatus.details}</span>
+                  </div>
+                )}
 
                 <div className="pt-2">{currentStepData.content}</div>
 
@@ -467,6 +678,45 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Live System Health Grid */}
+              {setupStatus?.stats && (
+                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span>Live Cooperative Operational State</span>
+                    <button
+                      onClick={fetchStatus}
+                      disabled={isLoadingStatus}
+                      className="text-slate-400 hover:text-emerald-400 flex items-center space-x-1 transition cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-400 block text-[11px]">Active Branches</span>
+                      <span className="text-white font-bold text-sm">{setupStatus.stats.branches_count}</span>
+                    </div>
+                    <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-400 block text-[11px]">Chart of Accounts</span>
+                      <span className="text-white font-bold text-sm">{setupStatus.stats.accounts_count} CDA Accts</span>
+                    </div>
+                    <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-400 block text-[11px]">Cash in Vaults & Banks</span>
+                      <span className="text-emerald-400 font-bold text-sm font-mono">
+                        ₱{setupStatus.stats.vault_cash_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-400 block text-[11px]">Trial Balance Variance</span>
+                      <span className={`font-bold text-sm font-mono ${setupStatus.stats.is_gl_balanced ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {setupStatus.stats.is_gl_balanced ? '₱0.00 (Balanced)' : `₱${setupStatus.stats.gl_discrepancy.toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Reset & Clean Data Center */
@@ -477,9 +727,9 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                   <span>System Data Purge & Baseline Management</span>
                 </div>
                 <p>
-                  Use this tool to either <strong>clean all sample/testing records</strong> (members, loans, vouchers)
-                  or restore a factory-fresh database state. Master configurations (Branches, Chart of Accounts, Products)
-                  can be preserved so your cooperative remains fully configured.
+                  Use this tool to either <strong>remove all operational data and start from scratch</strong>,
+                  or restore a factory-fresh database state. Once purged, you can use the Setup Wizard
+                  to complete all requirements from scratch.
                 </p>
               </div>
 
@@ -491,31 +741,31 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                     <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
                       <Trash2 className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-bold text-white">Clean Baseline</h4>
+                    <h4 className="text-xs font-bold text-white">Start From Scratch</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Clears all members, loans, savings, and vouchers. Preserves Chart of Accounts and branches (0 records).
+                      Purges all members, loans, savings, cash balances, and vouchers. Resets system to a clean 0% baseline.
                     </p>
                   </div>
-                  <div className="text-[10px] text-amber-400 font-mono">Preserves Configuration</div>
+                  <div className="text-[10px] text-amber-400 font-mono">Purges Operational Data</div>
                 </div>
 
-                {/* Option 2: Load Realistic Samples */}
+                {/* Option 2: 1-Click Setup Execution */}
                 <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
                   <div className="space-y-2">
                     <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
                       <Sparkles className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-bold text-white">Sample Agri-Dataset</h4>
+                    <h4 className="text-xs font-bold text-white">Execute Full Setup</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Populates 4 realistic farmer members, agricultural crop loans, and linked GL ledger entries for quick testing.
+                      Fulfills all 6 requirements: initial capital, cash float, founding members, CBU ledgers, and balanced GL.
                     </p>
                   </div>
                   <button
-                    onClick={handleLoadSample}
+                    onClick={handleCompleteAll}
                     disabled={isProcessing}
                     className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                   >
-                    Load Sample Data
+                    Complete All Now
                   </button>
                 </div>
 
@@ -527,10 +777,10 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                     </div>
                     <h4 className="text-xs font-bold text-white">Factory Master Reset</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Reloads default CDA factory schema seeds, including standard 29 accounts and user roles.
+                      Reloads default CDA factory schema seeds, including standard 30 accounts, branch mappings, and users.
                     </p>
                   </div>
-                  <div className="text-[10px] text-red-400 font-mono">Full Seed Reset</div>
+                  <div className="text-[10px] text-red-400 font-mono">Full Factory Re-seed</div>
                 </div>
               </div>
 
@@ -541,6 +791,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
+                    id="setup-reset-confirm-input"
                     type="text"
                     value={resetConfirmText}
                     onChange={e => setResetConfirmText(e.target.value)}
@@ -549,13 +800,15 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                   />
                   <div className="flex gap-2">
                     <button
-                      onClick={handlePurgeOperational}
+                      id="confirm-purge-btn"
+                      onClick={handlePurgeToScratch}
                       disabled={isProcessing || resetConfirmText.toUpperCase() !== 'RESET'}
                       className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer disabled:opacity-40"
                     >
-                      Purge Data Only
+                      Start From Scratch
                     </button>
                     <button
+                      id="confirm-factory-reset-btn"
                       onClick={handleFactoryReset}
                       disabled={isProcessing || resetConfirmText.toUpperCase() !== 'RESET'}
                       className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer disabled:opacity-40"
@@ -583,25 +836,33 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
               </button>
 
               <div className="text-xs text-slate-500 font-mono">
-                Step {currentStep + 1} of {steps.length}
+                Requirement {currentStep + 1} of {steps.length}
               </div>
 
-              <button
-                onClick={() => {
-                  if (currentStep < steps.length - 1) {
-                    setCurrentStep(currentStep + 1);
-                  } else {
-                    onClose();
-                  }
-                }}
-                className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-semibold shadow transition cursor-pointer"
-              >
-                <span>{currentStep < steps.length - 1 ? 'Next Step' : 'Got It, Close'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    if (currentStep < steps.length - 1) {
+                      setCurrentStep(currentStep + 1);
+                    } else {
+                      onClose();
+                    }
+                  }}
+                  className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-semibold shadow transition cursor-pointer"
+                >
+                  <span>{currentStep < steps.length - 1 ? 'Next Requirement' : 'Close Wizard'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </>
           ) : (
-            <div className="w-full flex justify-end">
+            <div className="w-full flex justify-between items-center">
+              <button
+                onClick={() => setActiveView('guide')}
+                className="text-xs text-emerald-400 hover:text-emerald-300 transition"
+              >
+                ← Return to Setup Guide
+              </button>
               <button
                 onClick={onClose}
                 className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl font-medium transition cursor-pointer"
