@@ -398,10 +398,104 @@ router.put('/config/fees/:id', (req: Request, res: Response) => {
 });
 
 // ==========================================
-// 6. DYNAMIC CASH ACCOUNTS (Test 4)
+// 6. DYNAMIC CASH ACCOUNTS & VAULTS MANAGEMENT
 // ==========================================
 
-router.post('/config/cash-accounts', (req: Request, res: Response) => {
+router.get(['/cash-accounts', '/config/cash-accounts'], (req: Request, res: Response) => {
+  const { branch_id } = req.query;
+  let accounts = db.getTable('cash_accounts') || [];
+
+  // Deduplicate existing cash accounts by ID
+  const seenIds = new Set<string>();
+  const uniqueAccounts: any[] = [];
+  accounts.forEach(a => {
+    if (!seenIds.has(a.id)) {
+      seenIds.add(a.id);
+      uniqueAccounts.push(a);
+    }
+  });
+  (db as any).data.cash_accounts = uniqueAccounts;
+  accounts = uniqueAccounts;
+
+  // Auto-heal / provision any missing branch vaults or drawers
+  const branches = db.getTable('branches') || [];
+  let updated = false;
+  branches.forEach(b => {
+    const vaultId = `cash_vault_${b.code.toLowerCase()}`;
+    const tellerId = `cash_teller_${b.code.toLowerCase()}`;
+    const hasVault = accounts.some(a => a.id === vaultId || (a.branch_id === b.id && (a.account_number?.startsWith('VLT-') || a.name?.toLowerCase().includes('vault'))));
+    const hasTeller = accounts.some(a => a.id === tellerId || (a.branch_id === b.id && (a.account_number?.startsWith('COH-') || a.name?.toLowerCase().includes('teller'))));
+    if (!hasVault) {
+      const vlt = {
+        id: vaultId,
+        name: `${b.name} Cash Vault Reserve`,
+        account_number: `VLT-${b.code.toUpperCase()}-00`,
+        bank_name: `${b.name} Vault Safety Depository`,
+        branch_id: b.id,
+        gl_account_id: 'acc_1110',
+        opening_balance: 250000,
+        current_balance: 250000,
+        currency: 'PHP',
+        active: true
+      };
+      db.insert('cash_accounts', vlt);
+      accounts.push(vlt);
+      updated = true;
+    }
+    if (!hasTeller) {
+      const tlr = {
+        id: tellerId,
+        name: `${b.name} Teller Cash Drawer 1`,
+        account_number: `COH-${b.code.toUpperCase()}-01`,
+        bank_name: `${b.name} Cash Drawer`,
+        branch_id: b.id,
+        gl_account_id: 'acc_1110',
+        opening_balance: 150000,
+        current_balance: 150000,
+        currency: 'PHP',
+        active: true
+      };
+      db.insert('cash_accounts', tlr);
+      accounts.push(tlr);
+      updated = true;
+    }
+  });
+  if (updated) (db as any).save();
+
+  let filtered = [...accounts];
+  if (branch_id && branch_id !== 'all') {
+    filtered = filtered.filter(a => a.branch_id === branch_id);
+  }
+
+  // Calculate liquidity stats
+  const totalVaults = filtered.filter(a => a.account_number?.startsWith('VLT-') || a.name?.toLowerCase().includes('vault')).reduce((s, a) => s + (Number(a.current_balance) || 0), 0);
+  const totalDrawers = filtered.filter(a => a.account_number?.startsWith('COH-') || a.name?.toLowerCase().includes('teller')).reduce((s, a) => s + (Number(a.current_balance) || 0), 0);
+  const totalBanks = filtered.filter(a => a.gl_account_id === 'acc_1120' || a.gl_account_id === 'acc_1121' || a.name?.toLowerCase().includes('bank')).reduce((s, a) => s + (Number(a.current_balance) || 0), 0);
+  const totalLiquidity = filtered.reduce((s, a) => s + (Number(a.current_balance) || 0), 0);
+
+  res.json({
+    success: true,
+    data: filtered,
+    stats: {
+      total_vaults: totalVaults,
+      total_drawers: totalDrawers,
+      total_banks: totalBanks,
+      total_liquidity: totalLiquidity,
+      total_accounts: filtered.length
+    }
+  });
+});
+
+router.get('/cash-accounts/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('cash_accounts') || [];
+  const acc = accounts.find(a => a.id === id);
+  if (!acc) return res.status(404).json({ success: false, error: 'Cash account not found' });
+  const txs = (db.getTable('cash_transactions') || []).filter(t => t.from_account_id === id || t.to_account_id === id);
+  res.json({ success: true, data: acc, transactions: txs });
+});
+
+router.post(['/cash-accounts', '/config/cash-accounts'], (req: Request, res: Response) => {
   const {
     name,
     account_number,
@@ -433,7 +527,7 @@ router.post('/config/cash-accounts', (req: Request, res: Response) => {
   res.json({ success: true, data: newCashAcc });
 });
 
-router.put('/config/cash-accounts/:id', (req: Request, res: Response) => {
+router.put(['/cash-accounts/:id', '/config/cash-accounts/:id'], (req: Request, res: Response) => {
   const { id } = req.params;
   const accounts = db.getTable('cash_accounts');
   const acc = accounts.find(a => a.id === id);
@@ -443,6 +537,179 @@ router.put('/config/cash-accounts/:id', (req: Request, res: Response) => {
   db.update('cash_accounts', a => a.id === id, () => updated);
   db.recordAudit(`Cash Account Updated: ${acc.name}`, oldSnapshot, updated, req.body.changed_by || 'Admin', req.body.reason || 'Spreadsheet config edit');
   res.json({ success: true, data: updated });
+});
+
+router.delete(['/cash-accounts/:id', '/config/cash-accounts/:id'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  db.delete('cash_accounts', a => a.id === id);
+  res.json({ success: true, message: 'Cash account deleted' });
+});
+
+router.post('/cash-accounts/transfer', (req: Request, res: Response) => {
+  const { from_account_id, to_account_id, amount, notes, performed_by } = req.body;
+  const numAmount = Number(amount);
+  if (!from_account_id || !to_account_id || !numAmount || numAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Valid source, destination, and transfer amount (> 0) required.' });
+  }
+  if (from_account_id === to_account_id) {
+    return res.status(400).json({ success: false, error: 'Source and destination accounts must be different.' });
+  }
+  const accounts = db.getTable('cash_accounts');
+  const fromAcc = accounts.find(a => a.id === from_account_id);
+  const toAcc = accounts.find(a => a.id === to_account_id);
+  if (!fromAcc || !toAcc) {
+    return res.status(404).json({ success: false, error: 'One or both cash accounts not found.' });
+  }
+  if ((fromAcc.current_balance || 0) < numAmount) {
+    return res.status(400).json({ success: false, error: `Insufficient funds in ${fromAcc.name}. Available balance: ₱${(fromAcc.current_balance || 0).toLocaleString()}` });
+  }
+
+  // Update balances
+  fromAcc.current_balance = Number(((fromAcc.current_balance || 0) - numAmount).toFixed(2));
+  toAcc.current_balance = Number(((toAcc.current_balance || 0) + numAmount).toFixed(2));
+  db.update('cash_accounts', a => a.id === fromAcc.id, () => fromAcc);
+  db.update('cash_accounts', a => a.id === toAcc.id, () => toAcc);
+
+  // Record cash transaction
+  const txId = `ctx_${Date.now()}`;
+  const now = new Date().toISOString();
+  const tx = {
+    id: txId,
+    transaction_date: now.split('T')[0],
+    from_account_id: fromAcc.id,
+    from_account_name: fromAcc.name,
+    to_account_id: toAcc.id,
+    to_account_name: toAcc.name,
+    amount: numAmount,
+    notes: notes || `Internal Cash Transfer from ${fromAcc.name} to ${toAcc.name}`,
+    performed_by: performed_by || 'Admin',
+    created_at: now
+  };
+  db.insert('cash_transactions', tx);
+
+  // Post balanced Journal Voucher
+  const jvId = `jv_transfer_${Date.now()}`;
+  const vNum = `JV-${Date.now().toString().slice(-6)}`;
+  db.insert('journal_entries', {
+    id: jvId,
+    voucher_number: vNum,
+    branch_id: toAcc.branch_id || fromAcc.branch_id || 'branch_tar',
+    posting_date: now.split('T')[0],
+    reference_type: 'CASH_TRANSFER',
+    reference_id: txId,
+    description: notes || `Cash Transfer: ${fromAcc.name} -> ${toAcc.name}`,
+    total_debit: numAmount,
+    total_credit: numAmount,
+    status: 'Posted',
+    created_by: performed_by || 'Admin',
+    posted_at: now
+  });
+  db.insert('journal_lines', {
+    id: `jl_tx_dr_${Date.now()}`,
+    journal_entry_id: jvId,
+    account_id: toAcc.gl_account_id || 'acc_1110',
+    debit: numAmount,
+    credit: 0,
+    subsidiary_type: 'Cash',
+    subsidiary_id: toAcc.id
+  });
+  db.insert('journal_lines', {
+    id: `jl_tx_cr_${Date.now()}`,
+    journal_entry_id: jvId,
+    account_id: fromAcc.gl_account_id || 'acc_1110',
+    debit: 0,
+    credit: numAmount,
+    subsidiary_type: 'Cash',
+    subsidiary_id: fromAcc.id
+  });
+
+  (db as any).save();
+  db.recordAudit(`Cash Transfer: ₱${numAmount.toLocaleString()} from ${fromAcc.name} to ${toAcc.name}`, { from_balance: fromAcc.current_balance + numAmount }, { from_balance: fromAcc.current_balance }, performed_by || 'Admin', notes || 'Internal cash transfer');
+
+  res.json({ success: true, message: `Successfully transferred ₱${numAmount.toLocaleString()} from ${fromAcc.name} to ${toAcc.name}.`, data: { transaction: tx, from_account: fromAcc, to_account: toAcc } });
+});
+
+router.post('/cash-accounts/replenish', (req: Request, res: Response) => {
+  const { account_id, amount, source_account_id, reason, performed_by } = req.body;
+  const numAmount = Number(amount);
+  if (!account_id || !numAmount || numAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Valid cash account and replenishment amount (> 0) required.' });
+  }
+  const accounts = db.getTable('cash_accounts');
+  const targetAcc = accounts.find(a => a.id === account_id);
+  if (!targetAcc) {
+    return res.status(404).json({ success: false, error: 'Cash account not found.' });
+  }
+
+  let sourceAcc = source_account_id ? accounts.find(a => a.id === source_account_id) : null;
+  if (sourceAcc && (sourceAcc.current_balance || 0) < numAmount) {
+    return res.status(400).json({ success: false, error: `Insufficient funds in source account ${sourceAcc.name}.` });
+  }
+
+  // Update target balance
+  targetAcc.current_balance = Number(((targetAcc.current_balance || 0) + numAmount).toFixed(2));
+  db.update('cash_accounts', a => a.id === targetAcc.id, () => targetAcc);
+
+  if (sourceAcc) {
+    sourceAcc.current_balance = Number(((sourceAcc.current_balance || 0) - numAmount).toFixed(2));
+    db.update('cash_accounts', a => a.id === sourceAcc.id, () => sourceAcc);
+  }
+
+  const now = new Date().toISOString();
+  const txId = `ctx_rep_${Date.now()}`;
+  db.insert('cash_transactions', {
+    id: txId,
+    transaction_date: now.split('T')[0],
+    from_account_id: sourceAcc ? sourceAcc.id : 'CAPITAL_FLOAT',
+    from_account_name: sourceAcc ? sourceAcc.name : 'Capital Liquidity Float',
+    to_account_id: targetAcc.id,
+    to_account_name: targetAcc.name,
+    amount: numAmount,
+    notes: reason || `Cash Replenishment / Liquidity Inflow for ${targetAcc.name}`,
+    performed_by: performed_by || 'Admin',
+    created_at: now
+  });
+
+  // Balanced Journal Entry
+  const jvId = `jv_rep_${Date.now()}`;
+  const vNum = `JV-${Date.now().toString().slice(-6)}`;
+  db.insert('journal_entries', {
+    id: jvId,
+    voucher_number: vNum,
+    branch_id: targetAcc.branch_id || 'branch_tar',
+    posting_date: now.split('T')[0],
+    reference_type: 'CASH_REPLENISHMENT',
+    reference_id: txId,
+    description: reason || `Cash Float Injection for ${targetAcc.name}`,
+    total_debit: numAmount,
+    total_credit: numAmount,
+    status: 'Posted',
+    created_by: performed_by || 'Admin',
+    posted_at: now
+  });
+  db.insert('journal_lines', {
+    id: `jl_rep_dr_${Date.now()}`,
+    journal_entry_id: jvId,
+    account_id: targetAcc.gl_account_id || 'acc_1110',
+    debit: numAmount,
+    credit: 0,
+    subsidiary_type: 'Cash',
+    subsidiary_id: targetAcc.id
+  });
+  db.insert('journal_lines', {
+    id: `jl_rep_cr_${Date.now()}`,
+    journal_entry_id: jvId,
+    account_id: sourceAcc ? (sourceAcc.gl_account_id || 'acc_1120') : 'acc_3110',
+    debit: 0,
+    credit: numAmount,
+    subsidiary_type: sourceAcc ? 'Cash' : null,
+    subsidiary_id: sourceAcc ? sourceAcc.id : null
+  });
+
+  (db as any).save();
+  db.recordAudit(`Cash Replenishment: ₱${numAmount.toLocaleString()} into ${targetAcc.name}`, {}, { balance: targetAcc.current_balance }, performed_by || 'Admin', reason || 'Vault/Drawer replenishment');
+
+  res.json({ success: true, message: `Successfully replenished ₱${numAmount.toLocaleString()} to ${targetAcc.name}.`, data: targetAcc });
 });
 
 // ==========================================
@@ -2143,31 +2410,47 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
     (db as any).data[t] = [];
   });
 
-  // 4. Initialize Cash Accounts with Vault Float
+  // 4. Initialize Cash Accounts with Vault Float across all branches
   let cashAccounts = db.getTable('cash_accounts');
   if (!cashAccounts || cashAccounts.length === 0) {
     (db as any).data.cash_accounts = initialSeedData.cash_accounts;
     cashAccounts = db.getTable('cash_accounts');
   }
 
-  // Reset and allocate initial liquidity
-  cashAccounts.forEach(c => {
-    if (c.id === 'cash_01') {
-      c.opening_balance = 250000;
-      c.current_balance = 250000; // Teller 1 (TAR)
-    } else if (c.id === 'cash_02') {
-      c.opening_balance = 250000;
-      c.current_balance = 250000; // Vault (TAR)
-    } else if (c.id === 'cash_04') {
-      c.opening_balance = 500000;
-      c.current_balance = 500000; // Land Bank of the Philippines
+  // Ensure all 8 branch vaults, drawers, and bank accounts are configured with proper float
+  const standardCashAccounts = [
+    { id: 'cash_01', name: 'Cash on Hand - Teller 1 (Tarlac)', account_number: 'COH-TAR-01', bank_name: 'Cash Vault Drawer 1', branch_id: 'branch_tar', gl_account_id: 'acc_1110', balance: 250000 },
+    { id: 'cash_02', name: 'Main Vault Reserve (Tarlac Clearing)', account_number: 'VLT-TAR-00', bank_name: 'Master Vault Safety Depository', branch_id: 'branch_tar', gl_account_id: 'acc_1110', balance: 500000 },
+    { id: 'cash_03', name: 'Land Bank of the Philippines - Operating Checking', account_number: 'LBP-0912-3341-99', bank_name: 'Land Bank of the Philippines', branch_id: 'branch_tar', gl_account_id: 'acc_1120', balance: 500000 },
+    { id: 'cash_04', name: 'Development Bank of the Philippines - High Yield', account_number: 'DBP-4401-2990-11', bank_name: 'Development Bank of the Philippines', branch_id: 'branch_tar', gl_account_id: 'acc_1121', balance: 500000 },
+    { id: 'cash_05', name: 'Urdaneta Branch Teller Cash', account_number: 'COH-URD-01', bank_name: 'Cash Drawer Urdaneta', branch_id: 'branch_urd', gl_account_id: 'acc_1110', balance: 150000 },
+    { id: 'cash_vault_urd', name: 'Urdaneta Branch Cash Vault Reserve', account_number: 'VLT-URD-00', bank_name: 'Urdaneta Branch Vault Safe', branch_id: 'branch_urd', gl_account_id: 'acc_1110', balance: 250000 },
+    { id: 'cash_06', name: 'San Fernando Branch Teller Cash', account_number: 'COH-SFE-01', bank_name: 'Cash Drawer San Fernando', branch_id: 'branch_sfe', gl_account_id: 'acc_1110', balance: 150000 },
+    { id: 'cash_vault_sfe', name: 'San Fernando Branch Cash Vault Reserve', account_number: 'VLT-SFE-00', bank_name: 'San Fernando Branch Vault Safe', branch_id: 'branch_sfe', gl_account_id: 'acc_1110', balance: 250000 }
+  ];
+
+  standardCashAccounts.forEach(sc => {
+    const existing = cashAccounts.find(c => c.id === sc.id);
+    if (existing) {
+      existing.opening_balance = sc.balance;
+      existing.current_balance = sc.balance;
+      existing.active = true;
     } else {
-      c.opening_balance = 0;
-      c.current_balance = 0;
+      const newAcc = {
+        ...sc,
+        opening_balance: sc.balance,
+        current_balance: sc.balance,
+        currency: 'PHP',
+        active: true
+      };
+      delete (newAcc as any).balance;
+      db.insert('cash_accounts', newAcc);
     }
   });
 
   // 5. Post Balanced Opening Balance Journal Voucher (Assets = Equity)
+  // Total Debits: ₱1,550,000 (Cash on Hand) + ₱500,000 (LBP) + ₱500,000 (DBP) = ₱2,550,000
+  // Total Credits: ₱2,550,000 (Paid-up Share Capital - Common)
   const openingJvId = `jv_opening_${Date.now()}`;
   const openingVoucherNo = 'JV-2026-00001';
 
@@ -2175,11 +2458,11 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
     {
       id: `jl_open_1`,
       journal_entry_id: openingJvId,
-      account_id: 'acc_1110', // Cash on Hand - Tellers & Vaults (₱500,000)
-      debit: 500000,
+      account_id: 'acc_1110', // Cash on Hand - Tellers & Vaults (₱1,550,000)
+      debit: 1550000,
       credit: 0,
       subsidiary_type: 'Cash',
-      subsidiary_id: 'cash_01'
+      subsidiary_id: 'cash_02'
     },
     {
       id: `jl_open_2`,
@@ -2188,14 +2471,23 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
       debit: 500000,
       credit: 0,
       subsidiary_type: 'Cash',
-      subsidiary_id: 'cash_04'
+      subsidiary_id: 'cash_03'
     },
     {
       id: `jl_open_3`,
       journal_entry_id: openingJvId,
-      account_id: 'acc_3110', // Paid-up Share Capital - Common (₱1,000,000)
+      account_id: 'acc_1121', // Cash in Bank - DBP High Yield (₱500,000)
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_04'
+    },
+    {
+      id: `jl_open_4`,
+      journal_entry_id: openingJvId,
+      account_id: 'acc_3110', // Paid-up Share Capital - Common (₱2,550,000)
       debit: 0,
-      credit: 1000000,
+      credit: 2550000,
       subsidiary_type: null,
       subsidiary_id: null
     }
@@ -2208,9 +2500,9 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
     posting_date: now,
     reference_type: 'OPENING_BALANCE',
     reference_id: 'INIT-CAPITAL-2026',
-    description: 'Initial Capitalization & Cash Vault Liquidity Setup',
-    total_debit: 1000000,
-    total_credit: 1000000,
+    description: 'Initial Capitalization & Multi-Branch Cash Vault Liquidity Setup',
+    total_debit: 2550000,
+    total_credit: 2550000,
     period_id: activePeriod?.id || 'period_current',
     status: 'Posted',
     created_by: performedBy,
@@ -2393,6 +2685,8 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
       posted_at: new Date().toISOString()
     });
 
+    const branchTellerId = m.branch_id === 'branch_urd' ? 'cash_05' : (m.branch_id === 'branch_sfe' ? 'cash_06' : 'cash_01');
+
     db.insert('journal_lines', {
       id: `jl_mem_d_${idx}`,
       journal_entry_id: memJvId,
@@ -2400,7 +2694,7 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
       debit: 10000,
       credit: 0,
       subsidiary_type: 'Cash',
-      subsidiary_id: 'cash_01'
+      subsidiary_id: branchTellerId
     });
 
     db.insert('journal_lines', {
@@ -2423,8 +2717,8 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
       subsidiary_id: m.id
     });
 
-    // Add cash to branch teller drawer
-    db.update('cash_accounts', c => c.id === 'cash_01', c => ({
+    // Add cash to the specific branch teller drawer
+    db.update('cash_accounts', c => c.id === branchTellerId, c => ({
       ...c,
       current_balance: Number(((c.current_balance || 0) + 10000).toFixed(2))
     }));
@@ -2500,11 +2794,35 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
 
   if (step === 3) {
     // Step 3: Vault Liquidity & Opening Balance
-    const cashAccounts = db.getTable('cash_accounts');
-    cashAccounts.forEach(c => {
-      if (c.id === 'cash_01') c.current_balance = 250000;
-      else if (c.id === 'cash_02') c.current_balance = 250000;
-      else if (c.id === 'cash_04') c.current_balance = 500000;
+    let cashAccounts = db.getTable('cash_accounts');
+    const standardCashAccounts = [
+      { id: 'cash_01', name: 'Cash on Hand - Teller 1 (Tarlac)', account_number: 'COH-TAR-01', bank_name: 'Cash Vault Drawer 1', branch_id: 'branch_tar', gl_account_id: 'acc_1110', balance: 250000 },
+      { id: 'cash_02', name: 'Main Vault Reserve (Tarlac Clearing)', account_number: 'VLT-TAR-00', bank_name: 'Master Vault Safety Depository', branch_id: 'branch_tar', gl_account_id: 'acc_1110', balance: 500000 },
+      { id: 'cash_03', name: 'Land Bank of the Philippines - Operating Checking', account_number: 'LBP-0912-3341-99', bank_name: 'Land Bank of the Philippines', branch_id: 'branch_tar', gl_account_id: 'acc_1120', balance: 500000 },
+      { id: 'cash_04', name: 'Development Bank of the Philippines - High Yield', account_number: 'DBP-4401-2990-11', bank_name: 'Development Bank of the Philippines', branch_id: 'branch_tar', gl_account_id: 'acc_1121', balance: 500000 },
+      { id: 'cash_05', name: 'Urdaneta Branch Teller Cash', account_number: 'COH-URD-01', bank_name: 'Cash Drawer Urdaneta', branch_id: 'branch_urd', gl_account_id: 'acc_1110', balance: 150000 },
+      { id: 'cash_vault_urd', name: 'Urdaneta Branch Cash Vault Reserve', account_number: 'VLT-URD-00', bank_name: 'Urdaneta Branch Vault Safe', branch_id: 'branch_urd', gl_account_id: 'acc_1110', balance: 250000 },
+      { id: 'cash_06', name: 'San Fernando Branch Teller Cash', account_number: 'COH-SFE-01', bank_name: 'Cash Drawer San Fernando', branch_id: 'branch_sfe', gl_account_id: 'acc_1110', balance: 150000 },
+      { id: 'cash_vault_sfe', name: 'San Fernando Branch Cash Vault Reserve', account_number: 'VLT-SFE-00', bank_name: 'San Fernando Branch Vault Safe', branch_id: 'branch_sfe', gl_account_id: 'acc_1110', balance: 250000 }
+    ];
+
+    standardCashAccounts.forEach(sc => {
+      const existing = cashAccounts.find(c => c.id === sc.id);
+      if (existing) {
+        existing.opening_balance = sc.balance;
+        existing.current_balance = sc.balance;
+        existing.active = true;
+      } else {
+        const newAcc = {
+          ...sc,
+          opening_balance: sc.balance,
+          current_balance: sc.balance,
+          currency: 'PHP',
+          active: true
+        };
+        delete (newAcc as any).balance;
+        db.insert('cash_accounts', newAcc);
+      }
     });
 
     const jvId = `jv_open_${Date.now()}`;
@@ -2515,9 +2833,9 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
       posting_date: now,
       reference_type: 'OPENING_BALANCE',
       reference_id: 'INIT-CAPITAL-2026',
-      description: 'Initial Capitalization & Cash Vault Float for Operations',
-      total_debit: 1000000,
-      total_credit: 1000000,
+      description: 'Initial Capitalization & Multi-Branch Cash Vault Float for Operations',
+      total_debit: 2550000,
+      total_credit: 2550000,
       period_id: 'period_2026_q1',
       status: 'Posted',
       created_by: performedBy,
@@ -2528,10 +2846,10 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
       id: `jl_o_1_${Date.now()}`,
       journal_entry_id: jvId,
       account_id: 'acc_1110',
-      debit: 500000,
+      debit: 1550000,
       credit: 0,
       subsidiary_type: 'Cash',
-      subsidiary_id: 'cash_01'
+      subsidiary_id: 'cash_02'
     });
     db.insert('journal_lines', {
       id: `jl_o_2_${Date.now()}`,
@@ -2540,19 +2858,28 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
       debit: 500000,
       credit: 0,
       subsidiary_type: 'Cash',
-      subsidiary_id: 'cash_04'
+      subsidiary_id: 'cash_03'
     });
     db.insert('journal_lines', {
       id: `jl_o_3_${Date.now()}`,
       journal_entry_id: jvId,
+      account_id: 'acc_1121',
+      debit: 500000,
+      credit: 0,
+      subsidiary_type: 'Cash',
+      subsidiary_id: 'cash_04'
+    });
+    db.insert('journal_lines', {
+      id: `jl_o_4_${Date.now()}`,
+      journal_entry_id: jvId,
       account_id: 'acc_3110',
       debit: 0,
-      credit: 1000000,
+      credit: 2550000,
       subsidiary_type: null,
       subsidiary_id: null
     });
     (db as any).save();
-    return res.json({ success: true, message: 'Opening balance posted with ₱1,000,000 balanced capital.' });
+    return res.json({ success: true, message: 'Opening balance posted with ₱2,550,000 balanced capital across all branch vaults.' });
   }
 
   if (step === 4) {

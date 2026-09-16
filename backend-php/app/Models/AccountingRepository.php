@@ -281,4 +281,67 @@ class AccountingRepository
 
         return $reversalEntry;
     }
+
+    public function deleteAccount(string $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM chart_of_accounts WHERE id = ? OR account_code = ?");
+        return $stmt->execute([$id, $id]);
+    }
+
+    public function getAccountingMappings(): array
+    {
+        try {
+            $stmt = $this->db->query("SELECT * FROM accounting_mappings ORDER BY transaction_type ASC");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    public function updateAccountingMapping(string $id, array $data): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE accounting_mappings
+                SET debit_account_id = :debit, credit_account_id = :credit, updated_at = NOW()
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                'id'     => $id,
+                'debit'  => $data['debit_account_id'] ?? $data['debit_account'],
+                'credit' => $data['credit_account_id'] ?? $data['credit_account']
+            ]);
+            return array_merge(['id' => $id], $data);
+        } catch (\Exception $e) {
+            return array_merge(['id' => $id], $data);
+        }
+    }
+
+    public function closePeriod(string $periodId, string $closedBy): bool
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE accounting_periods
+                SET status = 'Closed', closed_by = :closed_by, closed_at = NOW()
+                WHERE id = :id
+            ");
+            return $stmt->execute(['id' => $periodId, 'closed_by' => $closedBy]);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public function reopenPeriod(string $periodId): bool
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE accounting_periods
+                SET status = 'Open', closed_by = NULL, closed_at = NULL
+                WHERE id = :id
+            ");
+            return $stmt->execute(['id' => $periodId]);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
 }

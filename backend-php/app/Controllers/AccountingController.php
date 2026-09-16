@@ -99,6 +99,103 @@ class AccountingController extends BaseController
     }
 
     /**
+     * POST /api/accounting/manual-journal
+     */
+    public function manualJournal(): never
+    {
+        $this->storeJournal();
+    }
+
+    /**
+     * PUT /api/config/chart-of-accounts/:id
+     */
+    public function updateAccount(string $id): never
+    {
+        $input = $this->getRequestBody();
+        $input['id'] = $id;
+
+        try {
+            $account = $this->accounting->saveAccount($input);
+            $this->success($account, 'Chart of accounts record updated successfully.');
+        } catch (\Exception $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * DELETE /api/config/chart-of-accounts/:id
+     */
+    public function deleteAccount(string $id): never
+    {
+        try {
+            $this->accounting->deleteAccount($id);
+            $this->success(null, 'Account deleted from chart of accounts.');
+        } catch (\Exception $e) {
+            $this->error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * GET /api/config/accounting-mappings
+     */
+    public function mappings(): never
+    {
+        $mappings = $this->accounting->getAccountingMappings();
+        $this->success($mappings);
+    }
+
+    /**
+     * PUT /api/config/accounting-mappings/:id
+     */
+    public function updateMapping(string $id): never
+    {
+        $input = $this->getRequestBody();
+        $updated = $this->accounting->updateAccountingMapping($id, $input);
+        $this->success($updated, 'Accounting mapping updated successfully.');
+    }
+
+    /**
+     * POST /api/config/accounting-periods/close
+     */
+    public function closePeriod(): never
+    {
+        $input = $this->getRequestBody();
+        $periodId = $input['period_id'] ?? $input['id'] ?? '';
+        $closedBy = $input['closed_by'] ?? 'System Administrator';
+
+        if (!$periodId) {
+            $this->error('Accounting period ID is required.', 422);
+        }
+
+        $res = $this->accounting->closePeriod($periodId, $closedBy);
+        if ($res) {
+            $this->success(['period_id' => $periodId], 'Accounting period closed successfully.');
+        } else {
+            $this->error('Failed to close accounting period.', 400);
+        }
+    }
+
+    /**
+     * POST /api/config/accounting-periods/reopen
+     */
+    public function reopenPeriod(): never
+    {
+        $input = $this->getRequestBody();
+        $periodId = $input['period_id'] ?? $input['id'] ?? '';
+
+        if (!$periodId) {
+            $this->error('Accounting period ID is required.', 422);
+        }
+
+        $res = $this->accounting->reopenPeriod($periodId);
+        if ($res) {
+            $this->success(['period_id' => $periodId], 'Accounting period reopened successfully.');
+        } else {
+            $this->error('Failed to reopen accounting period.', 400);
+        }
+    }
+
+    /**
      * POST /api/accounting/journals/:id/reverse
      */
     public function reverseJournal(string $id): never
