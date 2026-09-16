@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2, FileText } from 'lucide-react';
+import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2, FileText, ArrowLeftRight } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { AccountLedgerReport } from '../reports/AccountLedgerReport';
+import { AccountingMappingsView } from '../config/AccountingMappingsView';
 import { api } from '../../services/api';
-import { Account, Branch, JournalEntry, User } from '../../types';
+import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
 
 interface AccountingModuleProps {
   accounts: Account[];
@@ -21,12 +22,13 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   onSelectBranch
 }) => {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [mappings, setMappings] = useState<AccountingMapping[]>([]);
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingJV, setIsCreatingJV] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards' | 'account_report'>('vouchers');
+  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards' | 'account_report' | 'mappings'>('vouchers');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -64,10 +66,26 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
   };
 
+  const loadMappings = async () => {
+    try {
+      const res = await api.getAccountingMappings();
+      if (res && res.data) {
+        setMappings(Array.isArray(res.data) ? res.data : []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     loadJournals();
-    window.addEventListener('coop:data-changed', loadJournals);
-    return () => window.removeEventListener('coop:data-changed', loadJournals);
+    loadMappings();
+    const handleDataChanged = () => {
+      loadJournals();
+      loadMappings();
+    };
+    window.addEventListener('coop:data-changed', handleDataChanged);
+    return () => window.removeEventListener('coop:data-changed', handleDataChanged);
   }, []);
 
   // Columns for Journal Vouchers Table
@@ -314,6 +332,16 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Account Report</span>
+            </button>
+            <button
+              id="tab-gl-mappings"
+              onClick={() => setViewMode('mappings')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                viewMode === 'mappings' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>GL Mappings</span>
             </button>
           </div>
 
@@ -594,6 +622,26 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           journals={journals}
           branches={branches}
           selectedBranch={selectedBranch}
+        />
+      )}
+
+      {viewMode === 'mappings' && (
+        <AccountingMappingsView
+          mappings={mappings}
+          accounts={accounts}
+          currentUser={currentUser}
+          onRefresh={() => {
+            loadMappings();
+            loadJournals();
+          }}
+          showNotice={(type, msg) => {
+            if (type === 'success') {
+              setSuccessMsg(msg);
+              setTimeout(() => setSuccessMsg(null), 5000);
+            } else {
+              setErrorMsg(msg);
+            }
+          }}
         />
       )}
     </div>

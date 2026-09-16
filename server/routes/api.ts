@@ -199,6 +199,30 @@ router.get('/config/accounting-mappings', (req: Request, res: Response) => {
   res.json({ success: true, data: db.getTable('accounting_mappings') });
 });
 
+router.post('/config/accounting-mappings', (req: Request, res: Response) => {
+  const { name, transaction_type, debit_account_id, credit_account_id, description } = req.body;
+  if (!name || !transaction_type || !debit_account_id || !credit_account_id) {
+    return res.status(400).json({ success: false, error: 'Name, transaction type, debit and credit accounts are required.' });
+  }
+
+  const id = req.body.id || `map_${Date.now()}`;
+  const newMapping = {
+    id,
+    transaction_type: transaction_type.toUpperCase().replace(/\s+/g, '_'),
+    name,
+    debit_account_id,
+    credit_account_id,
+    description: description || `Journal mapping for ${name}`,
+    is_system: false,
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('accounting_mappings', newMapping);
+  db.recordAudit(`Created Accounting Mapping: ${name}`, null, newMapping, req.body.changed_by || 'Chief Accountant', req.body.reason || 'Added new GL mapping rule');
+
+  res.status(201).json({ success: true, data: newMapping });
+});
+
 router.put('/config/accounting-mappings/:id', (req: Request, res: Response) => {
   const { id } = req.params;
   const mappings = db.getTable('accounting_mappings');
@@ -219,6 +243,31 @@ router.put('/config/accounting-mappings/:id', (req: Request, res: Response) => {
   db.recordAudit(`Accounting Mapping: ${mapping.name}`, oldSnapshot, updated, req.body.changed_by || 'Chief Accountant', req.body.reason || 'Updated transaction GL debit/credit mapping');
 
   res.json({ success: true, data: updated });
+});
+
+router.delete('/config/accounting-mappings/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const mappings = db.getTable('accounting_mappings');
+  const mapping = mappings.find(m => m.id === id || m.transaction_type === id);
+
+  if (!mapping) {
+    return res.status(404).json({ success: false, error: 'Accounting mapping not found' });
+  }
+
+  db.delete('accounting_mappings', m => m.id === mapping.id);
+  db.recordAudit(`Deleted Accounting Mapping: ${mapping.name}`, mapping, null, 'Chief Accountant', 'Removed accounting mapping');
+
+  res.json({ success: true, message: `Mapping ${mapping.name} deleted successfully.` });
+});
+
+router.post('/config/accounting-mappings/reset', (req: Request, res: Response) => {
+  const defaults = initialSeedData.accounting_mappings;
+  const raw = db.getRawData();
+  raw.accounting_mappings = [...defaults];
+  db.save();
+  db.recordAudit('Reset Accounting Mappings to Default', null, defaults, 'System Admin', 'Restored CDA baseline accounting mappings');
+
+  res.json({ success: true, data: defaults, message: 'Accounting mappings reset to CDA standard defaults.' });
 });
 
 // ==========================================

@@ -82,6 +82,13 @@ $router->get('/api/accounting/journals', [AccountingController::class, 'journals
 $router->post('/api/accounting/journals', [AccountingController::class, 'storeJournal']);
 $router->get('/api/accounting/journals/:id', [AccountingController::class, 'showJournal']);
 $router->post('/api/accounting/journals/:id/reverse', [AccountingController::class, 'reverseJournal']);
+$router->get('/api/config/accounting-mappings', [AccountingController::class, 'mappings']);
+$router->post('/api/config/accounting-mappings', [AccountingController::class, 'storeMapping']);
+$router->put('/api/config/accounting-mappings/:id', [AccountingController::class, 'updateMapping']);
+$router->delete('/api/config/accounting-mappings/:id', [AccountingController::class, 'deleteMapping']);
+$router->post('/api/config/accounting-mappings/reset', [AccountingController::class, 'resetMappings']);
+$router->post('/api/config/accounting-periods/close', [AccountingController::class, 'closePeriod']);
+$router->post('/api/config/accounting-periods/reopen', [AccountingController::class, 'reopenPeriod']);
 
 // Cash Accounts
 $router->get('/api/cash-accounts', [CashController::class, 'index']);

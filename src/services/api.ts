@@ -132,10 +132,25 @@ export const api = {
     }),
 
   // Accounting Mapping
+  getAccountingMappings: () =>
+    fetchApi<{ success: boolean; data: any }>('/config/accounting-mappings'),
+  createAccountingMapping: (mapping: any) =>
+    fetchApi<{ success: boolean; data: any }>('/config/accounting-mappings', {
+      method: 'POST',
+      body: JSON.stringify(mapping)
+    }),
   updateMapping: (id: string, mapping: any) =>
     fetchApi<{ success: boolean; data: any }>(`/config/accounting-mappings/${id}`, {
       method: 'PUT',
       body: JSON.stringify(mapping)
+    }),
+  deleteMapping: (id: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/config/accounting-mappings/${id}`, {
+      method: 'DELETE'
+    }),
+  resetDefaultMappings: () =>
+    fetchApi<{ success: boolean; data: any }>('/config/accounting-mappings/reset', {
+      method: 'POST'
     }),
 
   // Loan Products & Versioning

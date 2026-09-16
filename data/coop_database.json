@@ -703,7 +703,11 @@
       "parent_id": "acc_1100",
       "is_control": false,
       "has_subsidiary": false,
-      "active": true
+      "active": true,
+      "account_code": "1130",
+      "report_group": "Current Assets",
+      "description": "",
+      "is_active": true
     }
   ],
   "financial_statement_mappings": [
@@ -802,7 +806,8 @@
       "name": "Loan Disbursement / Release",
       "debit_account_id": "acc_1230",
       "credit_account_id": "acc_1110",
-      "description": "Disbursement of approved loan principal to borrower"
+      "description": "Disbursement of approved loan principal to borrower",
+      "changed_by": "Test User"
     },
     {
       "id": "map_loan_payment",
@@ -876,7 +881,7 @@
       "prefix": "JV",
       "pattern": "{BRANCH}-GLV-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 44
+      "current_seq": 45
     },
     {
       "id": "num_cd",
@@ -892,7 +897,7 @@
       "prefix": "OR",
       "pattern": "{BRANCH}-OR-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 184
+      "current_seq": 186
     },
     {
       "id": "num_ln",
@@ -1151,7 +1156,7 @@
         "primary_crop": "Rice & Corn",
         "tin_number": "123-456-789-000"
       },
-      "joined_date": "2026-09-13",
+      "joined_date": "2026-09-16",
       "active": true
     },
     {
@@ -1174,7 +1179,7 @@
         "primary_crop": "Organic Vegetables",
         "tin_number": "234-567-890-000"
       },
-      "joined_date": "2026-09-13",
+      "joined_date": "2026-09-16",
       "active": true
     },
     {
@@ -1196,7 +1201,7 @@
         "business_nature": "Agri-Farm Supplies",
         "tin_number": "345-678-901-000"
       },
-      "joined_date": "2026-09-13",
+      "joined_date": "2026-09-16",
       "active": true
     },
     {
@@ -1219,7 +1224,7 @@
         "primary_crop": "Sugarcane & Cassava",
         "tin_number": "456-789-012-000"
       },
-      "joined_date": "2026-09-13",
+      "joined_date": "2026-09-16",
       "active": true
     }
   ],
@@ -1392,6 +1397,33 @@
       "active": true,
       "effective_from": "2026-01-01",
       "effective_until": null
+    },
+    {
+      "id": "lp_1789547351448",
+      "code": "LP-444",
+      "name": "test",
+      "description": "",
+      "version": 1,
+      "min_amount": 10000,
+      "max_amount": 250000,
+      "annual_interest_rate": 10,
+      "interest_calculation_method": "Diminishing Balance",
+      "default_term_months": 12,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 2,
+      "service_fee_fixed": 200,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": false,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Valid Government ID"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-09-16",
+      "effective_until": null
     }
   ],
   "loan_product_versions": [
@@ -1412,6 +1444,16 @@
       "annual_interest_rate": 10,
       "interest_calculation_method": "Diminishing Balance",
       "changed_at": "2026-09-13T09:44:50.042Z",
+      "changed_by": "Administrator",
+      "reason": "New loan product created via Admin Config"
+    },
+    {
+      "id": "ver_lp_1789547351448_1",
+      "loan_product_id": "lp_1789547351448",
+      "version": 1,
+      "annual_interest_rate": 10,
+      "interest_calculation_method": "Diminishing Balance",
+      "changed_at": "2026-09-16T08:29:11.450Z",
       "changed_by": "Administrator",
       "reason": "New loan product created via Admin Config"
     }
@@ -1479,7 +1521,7 @@
       "balance": 5000,
       "interest_earned_ytd": 0,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.590Z"
+      "created_at": "2026-09-16T08:28:49.504Z"
     },
     {
       "id": "sav_mem_founding_02",
@@ -1492,7 +1534,7 @@
       "balance": 5000,
       "interest_earned_ytd": 0,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.595Z"
+      "created_at": "2026-09-16T08:28:49.512Z"
     },
     {
       "id": "sav_mem_founding_03",
@@ -1505,7 +1547,7 @@
       "balance": 5000,
       "interest_earned_ytd": 0,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.599Z"
+      "created_at": "2026-09-16T08:28:49.519Z"
     },
     {
       "id": "sav_mem_founding_04",
@@ -1518,52 +1560,52 @@
       "balance": 5000,
       "interest_earned_ytd": 0,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.604Z"
+      "created_at": "2026-09-16T08:28:49.529Z"
     }
   ],
   "savings_transactions": [
     {
-      "id": "st_1789298970590_0",
+      "id": "st_1789547329506_0",
       "savings_account_id": "sav_mem_founding_01",
       "transaction_type": "Deposit",
       "amount": 5000,
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-SAV-1",
       "notes": "Initial minimum savings deposit upon registration",
-      "created_at": "2026-09-13T11:29:30.590Z",
+      "created_at": "2026-09-16T08:28:49.506Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "st_1789298970595_1",
+      "id": "st_1789547329512_1",
       "savings_account_id": "sav_mem_founding_02",
       "transaction_type": "Deposit",
       "amount": 5000,
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-SAV-2",
       "notes": "Initial minimum savings deposit upon registration",
-      "created_at": "2026-09-13T11:29:30.595Z",
+      "created_at": "2026-09-16T08:28:49.512Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "st_1789298970600_2",
+      "id": "st_1789547329520_2",
       "savings_account_id": "sav_mem_founding_03",
       "transaction_type": "Deposit",
       "amount": 5000,
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-SAV-3",
       "notes": "Initial minimum savings deposit upon registration",
-      "created_at": "2026-09-13T11:29:30.600Z",
+      "created_at": "2026-09-16T08:28:49.520Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "st_1789298970605_3",
+      "id": "st_1789547329531_3",
       "savings_account_id": "sav_mem_founding_04",
       "transaction_type": "Deposit",
       "amount": 5000,
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-SAV-4",
       "notes": "Initial minimum savings deposit upon registration",
-      "created_at": "2026-09-13T11:29:30.605Z",
+      "created_at": "2026-09-16T08:28:49.531Z",
       "performed_by": "Setup Wizard"
     }
   ],
@@ -1593,7 +1635,7 @@
       "paid_up_amount": 5000,
       "par_value": 100,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.591Z"
+      "created_at": "2026-09-16T08:28:49.507Z"
     },
     {
       "id": "cbu_mem_founding_02",
@@ -1607,7 +1649,7 @@
       "paid_up_amount": 5000,
       "par_value": 100,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.596Z"
+      "created_at": "2026-09-16T08:28:49.513Z"
     },
     {
       "id": "cbu_mem_founding_03",
@@ -1621,7 +1663,7 @@
       "paid_up_amount": 5000,
       "par_value": 100,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.600Z"
+      "created_at": "2026-09-16T08:28:49.521Z"
     },
     {
       "id": "cbu_mem_founding_04",
@@ -1631,16 +1673,16 @@
       "branch_id": "branch_sfe",
       "subscribed_shares": 100,
       "subscribed_amount": 10000,
-      "paid_up_shares": 50,
-      "paid_up_amount": 5000,
+      "paid_up_shares": 60,
+      "paid_up_amount": 6000,
       "par_value": 100,
       "status": "Active",
-      "created_at": "2026-09-13T11:29:30.606Z"
+      "created_at": "2026-09-16T08:28:49.532Z"
     }
   ],
   "share_capital_transactions": [
     {
-      "id": "sct_1789298970591_0",
+      "id": "sct_1789547329507_0",
       "share_capital_account_id": "cbu_mem_founding_01",
       "transaction_type": "Contribution",
       "shares": 50,
@@ -1648,11 +1690,11 @@
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-CBU-1",
       "notes": "Founding member share capital subscription installment",
-      "created_at": "2026-09-13T11:29:30.591Z",
+      "created_at": "2026-09-16T08:28:49.507Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "sct_1789298970596_1",
+      "id": "sct_1789547329514_1",
       "share_capital_account_id": "cbu_mem_founding_02",
       "transaction_type": "Contribution",
       "shares": 50,
@@ -1660,11 +1702,11 @@
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-CBU-2",
       "notes": "Founding member share capital subscription installment",
-      "created_at": "2026-09-13T11:29:30.596Z",
+      "created_at": "2026-09-16T08:28:49.514Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "sct_1789298970601_2",
+      "id": "sct_1789547329522_2",
       "share_capital_account_id": "cbu_mem_founding_03",
       "transaction_type": "Contribution",
       "shares": 50,
@@ -1672,11 +1714,11 @@
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-CBU-3",
       "notes": "Founding member share capital subscription installment",
-      "created_at": "2026-09-13T11:29:30.601Z",
+      "created_at": "2026-09-16T08:28:49.522Z",
       "performed_by": "Setup Wizard"
     },
     {
-      "id": "sct_1789298970607_3",
+      "id": "sct_1789547329533_3",
       "share_capital_account_id": "cbu_mem_founding_04",
       "transaction_type": "Contribution",
       "shares": 50,
@@ -1684,8 +1726,19 @@
       "balance_after": 5000,
       "reference_no": "OR-2026-INIT-CBU-4",
       "notes": "Founding member share capital subscription installment",
-      "created_at": "2026-09-13T11:29:30.607Z",
+      "created_at": "2026-09-16T08:28:49.533Z",
       "performed_by": "Setup Wizard"
+    },
+    {
+      "id": "sct_1789547440181",
+      "receipt_no": "TAR-OR-2026-000185",
+      "share_account_id": "cbu_mem_founding_04",
+      "member_id": "mem_founding_04",
+      "type": "PAYMENT",
+      "shares": 10,
+      "amount": 1000,
+      "transaction_date": "2026-09-16",
+      "cash_account_id": "cash_01"
     }
   ],
   "cash_accounts": [
@@ -1697,7 +1750,7 @@
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
       "opening_balance": 250000,
-      "current_balance": 290000,
+      "current_balance": 271000,
       "currency": "PHP",
       "active": true
     },
@@ -1708,8 +1761,8 @@
       "bank_name": "Master Vault Safety Depository",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
-      "opening_balance": 250000,
-      "current_balance": 250000,
+      "opening_balance": 500000,
+      "current_balance": 500000,
       "currency": "PHP",
       "active": true
     },
@@ -1720,8 +1773,8 @@
       "bank_name": "Land Bank of the Philippines",
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1120",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 500000,
+      "current_balance": 500000,
       "currency": "PHP",
       "active": true
     },
@@ -1744,8 +1797,8 @@
       "bank_name": "Cash Drawer Urdaneta",
       "branch_id": "branch_urd",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 150000,
+      "current_balance": 160000,
       "currency": "PHP",
       "active": true
     },
@@ -1756,8 +1809,8 @@
       "bank_name": "Cash Drawer San Fernando",
       "branch_id": "branch_sfe",
       "gl_account_id": "acc_1110",
-      "opening_balance": 0,
-      "current_balance": 0,
+      "opening_balance": 150000,
+      "current_balance": 160000,
       "currency": "PHP",
       "active": true
     },
@@ -1782,6 +1835,30 @@
       "gl_account_id": "acc_1110",
       "opening_balance": 25000,
       "current_balance": 25000,
+      "currency": "PHP",
+      "active": true
+    },
+    {
+      "id": "cash_vault_urd",
+      "name": "Urdaneta Branch Cash Vault Reserve",
+      "account_number": "VLT-URD-00",
+      "bank_name": "Urdaneta Branch Vault Safe",
+      "branch_id": "branch_urd",
+      "gl_account_id": "acc_1110",
+      "opening_balance": 250000,
+      "current_balance": 250000,
+      "currency": "PHP",
+      "active": true
+    },
+    {
+      "id": "cash_vault_sfe",
+      "name": "San Fernando Branch Cash Vault Reserve",
+      "account_number": "VLT-SFE-00",
+      "bank_name": "San Fernando Branch Vault Safe",
+      "branch_id": "branch_sfe",
+      "gl_account_id": "acc_1110",
+      "opening_balance": 250000,
+      "current_balance": 250000,
       "currency": "PHP",
       "active": true
     }
@@ -2142,25 +2219,25 @@
   ],
   "journal_entries": [
     {
-      "id": "jv_opening_1789298970587",
+      "id": "jv_opening_1789547329500",
       "voucher_number": "JV-2026-00001",
       "branch_id": "branch_tar",
-      "posting_date": "2026-09-13",
+      "posting_date": "2026-09-16",
       "reference_type": "OPENING_BALANCE",
       "reference_id": "INIT-CAPITAL-2026",
-      "description": "Initial Capitalization & Cash Vault Liquidity Setup",
-      "total_debit": 1000000,
-      "total_credit": 1000000,
+      "description": "Initial Capitalization & Multi-Branch Cash Vault Liquidity Setup",
+      "total_debit": 2550000,
+      "total_credit": 2550000,
       "period_id": "period_2026_03",
       "status": "Posted",
       "created_by": "Setup Wizard",
-      "posted_at": "2026-09-13T11:29:30.587Z"
+      "posted_at": "2026-09-16T08:28:49.500Z"
     },
     {
       "id": "jv_mem_mem_founding_01",
       "voucher_number": "OR-2026-00001",
       "branch_id": "branch_tar",
-      "posting_date": "2026-09-13",
+      "posting_date": "2026-09-16",
       "reference_type": "MEMBER_INITIAL_FUNDING",
       "reference_id": "mem_founding_01",
       "description": "Initial Savings Deposit & CBU Contribution - Juan Cruz",
@@ -2169,13 +2246,13 @@
       "period_id": "period_2026_03",
       "status": "Posted",
       "created_by": "Setup Wizard",
-      "posted_at": "2026-09-13T11:29:30.592Z"
+      "posted_at": "2026-09-16T08:28:49.508Z"
     },
     {
       "id": "jv_mem_mem_founding_02",
       "voucher_number": "OR-2026-00002",
       "branch_id": "branch_tar",
-      "posting_date": "2026-09-13",
+      "posting_date": "2026-09-16",
       "reference_type": "MEMBER_INITIAL_FUNDING",
       "reference_id": "mem_founding_02",
       "description": "Initial Savings Deposit & CBU Contribution - Maria Reyes",
@@ -2184,13 +2261,13 @@
       "period_id": "period_2026_03",
       "status": "Posted",
       "created_by": "Setup Wizard",
-      "posted_at": "2026-09-13T11:29:30.597Z"
+      "posted_at": "2026-09-16T08:28:49.515Z"
     },
     {
       "id": "jv_mem_mem_founding_03",
       "voucher_number": "OR-2026-00003",
       "branch_id": "branch_urd",
-      "posting_date": "2026-09-13",
+      "posting_date": "2026-09-16",
       "reference_type": "MEMBER_INITIAL_FUNDING",
       "reference_id": "mem_founding_03",
       "description": "Initial Savings Deposit & CBU Contribution - Rodrigo Mendoza",
@@ -2199,13 +2276,13 @@
       "period_id": "period_2026_03",
       "status": "Posted",
       "created_by": "Setup Wizard",
-      "posted_at": "2026-09-13T11:29:30.601Z"
+      "posted_at": "2026-09-16T08:28:49.524Z"
     },
     {
       "id": "jv_mem_mem_founding_04",
       "voucher_number": "OR-2026-00004",
       "branch_id": "branch_sfe",
-      "posting_date": "2026-09-13",
+      "posting_date": "2026-09-16",
       "reference_type": "MEMBER_INITIAL_FUNDING",
       "reference_id": "mem_founding_04",
       "description": "Initial Savings Deposit & CBU Contribution - Elena Rostro",
@@ -2214,34 +2291,73 @@
       "period_id": "period_2026_03",
       "status": "Posted",
       "created_by": "Setup Wizard",
-      "posted_at": "2026-09-13T11:29:30.608Z"
+      "posted_at": "2026-09-16T08:28:49.534Z"
+    },
+    {
+      "id": "jv_1789547407519",
+      "voucher_number": "TAR-GLV-2026-000045",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-09-16",
+      "reference_type": "MANUAL_JOURNAL",
+      "reference_id": "jv_1789547407519",
+      "description": "test",
+      "total_debit": 1500,
+      "total_credit": 1500,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Administrator",
+      "posted_at": "2026-09-16T08:30:07.519Z"
+    },
+    {
+      "id": "jv_1789547440173_2190j9",
+      "voucher_number": "TAR-OR-2026-000186",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-09-16",
+      "reference_type": "SHARE_CAPITAL_PAYMENT",
+      "reference_id": "TAR-OR-2026-000185",
+      "description": "Share capital contribution TAR-OR-2026-000185 for account CBU-2026-00004",
+      "total_debit": 1000,
+      "total_credit": 1000,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Administrator",
+      "posted_at": "2026-09-16T08:30:40.174Z"
     }
   ],
   "journal_lines": [
     {
       "id": "jl_open_1",
-      "journal_entry_id": "jv_opening_1789298970587",
+      "journal_entry_id": "jv_opening_1789547329500",
       "account_id": "acc_1110",
-      "debit": 500000,
+      "debit": 1550000,
       "credit": 0,
       "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
+      "subsidiary_id": "cash_02"
     },
     {
       "id": "jl_open_2",
-      "journal_entry_id": "jv_opening_1789298970587",
+      "journal_entry_id": "jv_opening_1789547329500",
       "account_id": "acc_1120",
+      "debit": 500000,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_03"
+    },
+    {
+      "id": "jl_open_3",
+      "journal_entry_id": "jv_opening_1789547329500",
+      "account_id": "acc_1121",
       "debit": 500000,
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_04"
     },
     {
-      "id": "jl_open_3",
-      "journal_entry_id": "jv_opening_1789298970587",
+      "id": "jl_open_4",
+      "journal_entry_id": "jv_opening_1789547329500",
       "account_id": "acc_3110",
       "debit": 0,
-      "credit": 1000000,
+      "credit": 2550000,
       "subsidiary_type": null,
       "subsidiary_id": null
     },
@@ -2306,7 +2422,7 @@
       "debit": 10000,
       "credit": 0,
       "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
+      "subsidiary_id": "cash_05"
     },
     {
       "id": "jl_mem_c1_2",
@@ -2333,7 +2449,7 @@
       "debit": 10000,
       "credit": 0,
       "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
+      "subsidiary_id": "cash_06"
     },
     {
       "id": "jl_mem_c1_3",
@@ -2350,6 +2466,42 @@
       "account_id": "acc_3110",
       "debit": 0,
       "credit": 5000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_founding_04"
+    },
+    {
+      "id": "jl_1789547407520_7a3eu",
+      "journal_entry_id": "jv_1789547407519",
+      "account_id": "acc_1210",
+      "debit": 1500,
+      "credit": 0,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789547407522_fff9c",
+      "journal_entry_id": "jv_1789547407519",
+      "account_id": "acc_1110",
+      "debit": 0,
+      "credit": 1500,
+      "subsidiary_type": null,
+      "subsidiary_id": null
+    },
+    {
+      "id": "jl_1789547440173_1",
+      "journal_entry_id": "jv_1789547440173_2190j9",
+      "account_id": "acc_1110",
+      "debit": 1000,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01"
+    },
+    {
+      "id": "jl_1789547440173_2",
+      "journal_entry_id": "jv_1789547440173_2190j9",
+      "account_id": "acc_3110",
+      "debit": 0,
+      "credit": 1000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_founding_04"
     }
@@ -2382,6 +2534,33 @@
       "changed_by": "Test Runner",
       "created_at": "2026-09-13T11:29:34.255Z",
       "reason": "Test 2 policy update"
+    },
+    {
+      "id": "audit_1789547329540_jka5ir",
+      "setting": "Setup Wizard: Complete All Requirements",
+      "old_value": "Scratch Baseline",
+      "new_value": "100% Fully Configured & Balanced",
+      "changed_by": "Setup Wizard",
+      "created_at": "2026-09-16T08:28:49.541Z",
+      "reason": "Executed full cooperative configuration workflow. Initial capital, vaults, founding members, CBU ledgers, and zero-variance GL posted."
+    },
+    {
+      "id": "audit_1789547351451_32gd48",
+      "setting": "Loan Product Created: test",
+      "old_value": "None",
+      "new_value": "{\"id\":\"lp_1789547351448\",\"code\":\"LP-444\",\"name\":\"test\",\"description\":\"\",\"version\":1,\"min_amount\":10000,\"max_amount\":250000,\"annual_interest_rate\":10,\"interest_calculation_method\":\"Diminishing Balance\",\"default_term_months\":12,\"payment_frequency\":\"Monthly\",\"grace_period_days\":5,\"processing_fee_percentage\":2,\"service_fee_fixed\":200,\"penalty_rule_id\":\"pen_standard\",\"collateral_required\":false,\"guarantor_required\":false,\"debit_account_id\":\"acc_1210\",\"required_documents\":[\"Valid Government ID\"],\"approval_workflow_id\":\"wf_loan_standard\",\"active\":true,\"effective_from\":\"2026-09-16\",\"effective_until\":null}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-16T08:29:11.451Z",
+      "reason": "New loan product created via Admin Config"
+    },
+    {
+      "id": "audit_1789550906665_04olbm",
+      "setting": "Accounting Mapping: Loan Disbursement / Release",
+      "old_value": "{\"id\":\"map_loan_release\",\"transaction_type\":\"LOAN_RELEASE\",\"name\":\"Loan Disbursement / Release\",\"debit_account_id\":\"acc_1230\",\"credit_account_id\":\"acc_1110\",\"description\":\"Disbursement of approved loan principal to borrower\"}",
+      "new_value": "{\"id\":\"map_loan_release\",\"transaction_type\":\"LOAN_RELEASE\",\"name\":\"Loan Disbursement / Release\",\"debit_account_id\":\"acc_1230\",\"credit_account_id\":\"acc_1110\",\"description\":\"Disbursement of approved loan principal to borrower\",\"changed_by\":\"Test User\"}",
+      "changed_by": "Test User",
+      "created_at": "2026-09-16T09:28:26.665Z",
+      "reason": "Updated transaction GL debit/credit mapping"
     }
   ],
   "user_roles": [

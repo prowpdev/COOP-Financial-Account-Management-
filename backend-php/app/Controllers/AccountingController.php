@@ -145,6 +145,20 @@ class AccountingController extends BaseController
     }
 
     /**
+     * POST /api/config/accounting-mappings
+     */
+    public function storeMapping(): never
+    {
+        $input = $this->getRequestBody();
+        if (empty($input['name']) || empty($input['transaction_type']) || empty($input['debit_account_id']) || empty($input['credit_account_id'])) {
+            $this->error('Name, transaction type, debit and credit accounts are required.', 422);
+        }
+
+        $created = $this->accounting->saveAccountingMapping($input);
+        $this->success($created, 'Accounting mapping created successfully.', 201);
+    }
+
+    /**
      * PUT /api/config/accounting-mappings/:id
      */
     public function updateMapping(string $id): never
@@ -152,6 +166,28 @@ class AccountingController extends BaseController
         $input = $this->getRequestBody();
         $updated = $this->accounting->updateAccountingMapping($id, $input);
         $this->success($updated, 'Accounting mapping updated successfully.');
+    }
+
+    /**
+     * DELETE /api/config/accounting-mappings/:id
+     */
+    public function deleteMapping(string $id): never
+    {
+        $res = $this->accounting->deleteAccountingMapping($id);
+        if ($res) {
+            $this->success(['id' => $id], 'Accounting mapping deleted successfully.');
+        } else {
+            $this->error('Accounting mapping not found or could not be deleted.', 404);
+        }
+    }
+
+    /**
+     * POST /api/config/accounting-mappings/reset
+     */
+    public function resetMappings(): never
+    {
+        $defaults = $this->accounting->resetAccountingMappings();
+        $this->success($defaults, 'Accounting mappings reset to CDA standard defaults.');
     }
 
     /**
