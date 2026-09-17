@@ -92,8 +92,19 @@ $router->post('/api/config/accounting-periods/reopen', [AccountingController::cl
 
 // Cash Accounts
 $router->get('/api/cash-accounts', [CashController::class, 'index']);
+$router->get('/api/config/cash-accounts', [CashController::class, 'index']);
 $router->get('/api/cash-accounts/:id', [CashController::class, 'show']);
+$router->get('/api/config/cash-accounts/:id', [CashController::class, 'show']);
+$router->post('/api/cash-accounts', [CashController::class, 'store']);
+$router->post('/api/config/cash-accounts', [CashController::class, 'store']);
+$router->put('/api/cash-accounts/:id', [CashController::class, 'update']);
+$router->put('/api/config/cash-accounts/:id', [CashController::class, 'update']);
+$router->delete('/api/cash-accounts/:id', [CashController::class, 'destroy']);
+$router->delete('/api/config/cash-accounts/:id', [CashController::class, 'destroy']);
 $router->post('/api/cash-accounts/transfer', [CashController::class, 'transfer']);
+$router->post('/api/cash-accounts/replenish', [CashController::class, 'replenish']);
+$router->post('/api/cash-accounts/auto-align-gl', [CashController::class, 'autoAlign']);
+$router->post('/api/config/cash-accounts/auto-align-gl', [CashController::class, 'autoAlign']);
 
 // Reports & Dashboard
 $router->get('/api/reports/trial-balance', [ReportController::class, 'trialBalance']);

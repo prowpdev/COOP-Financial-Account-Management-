@@ -30,6 +30,7 @@ import {
 import { api } from '../../services/api';
 import { ExcelWorkbench } from './ExcelWorkbench';
 import { AccountingMappingsView } from './AccountingMappingsView';
+import { CashAccountsConfigView } from './CashAccountsConfigView';
 import {
   Account,
   AccountingMapping,
@@ -561,7 +562,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
               )}
 
               {activeSection === 'cash_accounts' && (
-                <CashAccountsConfig
+                <CashAccountsConfigView
                   cashAccounts={configData.cash_accounts}
                   branches={configData.branches}
                   accounts={configData.chart_of_accounts}

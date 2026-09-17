@@ -201,11 +201,27 @@ class MemberRepository
         $scStmt->execute([$id]);
         $shareCapital = $scStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Journal Vouchers (Manual and System JVs for this member)
+        $jvStmt = $this->db->prepare("
+            SELECT DISTINCT je.id, je.voucher_number, je.posting_date, je.description, je.reference_type,
+                   je.total_debit, je.total_credit, je.status, je.created_by
+            FROM journal_entries je
+            LEFT JOIN journal_lines jl ON je.id = jl.journal_entry_id
+            WHERE je.reference_id = ?
+               OR jl.subsidiary_id = ?
+               OR je.description LIKE ?
+            ORDER BY je.posting_date DESC
+        ");
+        $memberName = '%' . ($member['first_name'] ?? '') . '%';
+        $jvStmt->execute([$id, $id, $memberName]);
+        $journalVouchers = $jvStmt->fetchAll(PDO::FETCH_ASSOC);
+
         return [
-            'member'        => $member,
-            'loans'         => $loans,
-            'savings'       => $savings,
-            'share_capital' => $shareCapital
+            'member'            => $member,
+            'loans'             => $loans,
+            'savings'           => $savings,
+            'share_capital'     => $shareCapital,
+            'journal_vouchers'  => $journalVouchers
         ];
     }
 }

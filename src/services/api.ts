@@ -188,6 +188,37 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(acc)
     }),
+  deleteCashAccount: (id: string) =>
+    fetchApi<{ success: boolean; message?: string }>(`/config/cash-accounts/${id}`, {
+      method: 'DELETE'
+    }),
+  autoAlignCashAccountsGl: () =>
+    fetchApi<{ success: boolean; count: number; data: any }>('/config/cash-accounts/auto-align-gl', {
+      method: 'POST'
+    }),
+  transferCash: (data: {
+    from_account_id: string;
+    to_account_id: string;
+    amount: number;
+    notes?: string;
+    performed_by?: string;
+    transaction_date?: string;
+  }) =>
+    fetchApi<{ success: boolean; data: any }>('/cash-accounts/transfer', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  replenishCash: (data: {
+    account_id: string;
+    amount: number;
+    source_account_id?: string;
+    notes?: string;
+    transaction_date?: string;
+  }) =>
+    fetchApi<{ success: boolean; data: any }>('/cash-accounts/replenish', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
 
   // Branches
   createBranch: (branch: any) =>
@@ -370,7 +401,10 @@ export const api = {
         data: {
           accounts: res.data?.balances || [],
           total_debit: res.data?.total_debit || 0,
-          total_credit: res.data?.total_credit || 0
+          total_credit: res.data?.total_credit || 0,
+          variance: res.data?.variance ?? (res.data?.total_debit - res.data?.total_credit) ?? 0,
+          difference: res.data?.difference ?? (res.data?.total_debit - res.data?.total_credit) ?? 0,
+          is_balanced: res.data?.is_balanced ?? (Math.abs((res.data?.total_debit || 0) - (res.data?.total_credit || 0)) < 0.01)
         }
       };
     }
@@ -455,9 +489,16 @@ export const api = {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
     return { success: true, data: res.data?.loan_products || [] };
   },
-  getCashAccounts: async () => {
-    const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
-    return { success: true, data: res.data?.cash_accounts || [] };
+  getCashAccounts: async (branchId?: string) => {
+    const url = branchId && branchId !== 'all' ? `/cash-accounts?branch_id=${branchId}` : '/cash-accounts';
+    try {
+      const res = await fetchApi<{ success: boolean; data: any; stats?: any }>(url);
+      if (res && res.data) return res;
+      throw new Error('Fallback to config');
+    } catch {
+      const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
+      return { success: true, data: res.data?.cash_accounts || [] };
+    }
   },
   getMemberTypes: async () => {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');

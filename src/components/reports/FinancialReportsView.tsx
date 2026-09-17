@@ -139,10 +139,11 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
       align: 'center',
       sortable: true,
       badgeColor: (val) => {
-        if (val === 'ASSET') return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-        if (val === 'LIABILITY') return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-        if (val === 'EQUITY') return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-        if (val === 'REVENUE') return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+        const u = String(val || '').toUpperCase();
+        if (u.includes('ASSET')) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+        if (u.includes('LIABILIT')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+        if (u.includes('EQUITY')) return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        if (u.includes('REVENUE') || u.includes('INCOME')) return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
         return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
       }
     },
@@ -280,6 +281,63 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
 
         {!isLoading && data && reportType === 'trial_balance' && (
           <div className="space-y-4">
+            {/* Equilibrium Status Banner & KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Total Debit Activity
+                </span>
+                <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
+                  {formatMoney(data.total_debit)}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5 block">Standard Normal Debit Balances</span>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Total Credit Activity
+                </span>
+                <span className="text-xl font-bold font-mono text-blue-400 mt-1 block">
+                  {formatMoney(data.total_credit)}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5 block">Standard Normal Credit Balances</span>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Net Ledger Variance
+                </span>
+                <span className={`text-xl font-bold font-mono mt-1 block ${Math.abs(data.variance || 0) < 0.01 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {formatMoney(Math.abs(data.variance || 0))}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  {Math.abs(data.variance || 0) < 0.01 ? 'Zero Discrepancy' : 'Unbalanced Variance'}
+                </span>
+              </div>
+
+              <div className={`p-4 rounded-xl border flex flex-col justify-between ${
+                data.is_balanced !== false && Math.abs(data.variance || 0) < 0.01
+                  ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
+              }`}>
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider block">
+                    Equilibrium Status
+                  </span>
+                  <div className="flex items-center space-x-1.5 mt-1">
+                    <span className="text-sm font-bold tracking-tight">
+                      {data.is_balanced !== false && Math.abs(data.variance || 0) < 0.01
+                        ? 'PERFECTLY BALANCED'
+                        : 'OUT OF BALANCE'}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] opacity-80 mt-1 block">
+                  {data.accounts?.length || 0} Active CDA Accounts Listed
+                </span>
+              </div>
+            </div>
+
             <ExcelGridTable
               title="Consolidated General Ledger Trial Balance"
               subtitle={`Live balance summary across all CDA chart of accounts for ${selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name || 'Branch'}. Enforces mathematical debit/credit equilibrium.`}

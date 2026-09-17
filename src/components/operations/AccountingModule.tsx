@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2, FileText, ArrowLeftRight } from 'lucide-react';
+import { BookOpen, Plus, X, AlertCircle, CheckCircle2, Calendar, FileSpreadsheet, LayoutGrid, Layers, Building2, FileText, ArrowLeftRight, Landmark } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { AccountLedgerReport } from '../reports/AccountLedgerReport';
 import { AccountingMappingsView } from '../config/AccountingMappingsView';
+import { CashAccountsConfigView } from '../config/CashAccountsConfigView';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
 
@@ -28,7 +29,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [isCreatingJV, setIsCreatingJV] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards' | 'account_report' | 'mappings'>('vouchers');
+  const [viewMode, setViewMode] = useState<'vouchers' | 'ledger' | 'cards' | 'account_report' | 'mappings' | 'cash_banks'>('vouchers');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -43,13 +44,22 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
   };
 
+  const [membersList, setMembersList] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.getMembers().then(res => {
+      if (res && res.data) setMembersList(res.data);
+    }).catch(err => console.error(err));
+  }, []);
+
   const [jvForm, setJvForm] = useState({
     posting_date: new Date().toISOString().split('T')[0],
     branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar'),
     description: '',
+    member_id: '',
     lines: [
-      { account_id: 'acc_5110', debit: 1500, credit: 0 }, // Salaries
-      { account_id: 'acc_1110', debit: 0, credit: 1500 }  // Cash
+      { account_id: 'acc_5110', debit: 1500, credit: 0, subsidiary_type: '' as any, subsidiary_id: '' as any }, // Salaries
+      { account_id: 'acc_1110', debit: 0, credit: 1500, subsidiary_type: '' as any, subsidiary_id: '' as any }  // Cash
     ]
   });
 
@@ -343,6 +353,16 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
               <ArrowLeftRight className="w-3.5 h-3.5" />
               <span>GL Mappings</span>
             </button>
+            <button
+              id="tab-cash-banks"
+              onClick={() => setViewMode('cash_banks')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                viewMode === 'cash_banks' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Landmark className="w-3.5 h-3.5" />
+              <span>Cash & Banks</span>
+            </button>
           </div>
 
           <button
@@ -415,12 +435,63 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                     ))}
                   </select>
                 </div>
+
+                {/* Associated Member Selector */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-300 font-medium">
+                      Associated Member <span className="text-slate-500 font-normal">(Optional — links JV to Member Report tab)</span>
+                    </label>
+                    {jvForm.member_id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const m = membersList.find(x => x.id === jvForm.member_id);
+                          const name = m ? `${m.first_name} ${m.last_name}` : 'Member';
+                          setJvForm(prev => ({
+                            ...prev,
+                            description: `${name} paid membership and share capital`,
+                            lines: [
+                              { account_id: 'acc_1110', debit: 1500, credit: 0, subsidiary_type: 'Cash', subsidiary_id: 'cash_01' },
+                              { account_id: 'acc_4210', debit: 0, credit: 500, subsidiary_type: 'Member', subsidiary_id: prev.member_id },
+                              { account_id: 'acc_3110', debit: 0, credit: 1000, subsidiary_type: 'Member', subsidiary_id: prev.member_id }
+                            ]
+                          }));
+                        }}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-medium cursor-pointer"
+                      >
+                        ⚡ Apply Template: Paid Membership & Share Capital
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={jvForm.member_id}
+                    onChange={e => {
+                      const mId = e.target.value;
+                      const m = membersList.find(x => x.id === mId);
+                      setJvForm(prev => ({
+                        ...prev,
+                        member_id: mId,
+                        description: mId ? `${m?.first_name} ${m?.last_name} paid membership and share capital` : prev.description
+                      }));
+                    }}
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
+                  >
+                    <option value="">None / General Cooperative Entry</option>
+                    {membersList.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name} ({m.member_no}) - {m.branch_name || 'Member'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="text-xs text-slate-300 font-medium">Transaction Description</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Office rent and internet utilities allocation"
+                    placeholder="e.g. Juan paid membership and share capital"
                     value={jvForm.description}
                     onChange={e => setJvForm({ ...jvForm, description: e.target.value })}
                     className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -632,6 +703,25 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           currentUser={currentUser}
           onRefresh={() => {
             loadMappings();
+            loadJournals();
+          }}
+          showNotice={(type, msg) => {
+            if (type === 'success') {
+              setSuccessMsg(msg);
+              setTimeout(() => setSuccessMsg(null), 5000);
+            } else {
+              setErrorMsg(msg);
+            }
+          }}
+        />
+      )}
+
+      {viewMode === 'cash_banks' && (
+        <CashAccountsConfigView
+          accounts={accounts}
+          branches={branches}
+          currentUser={currentUser}
+          onRefresh={() => {
             loadJournals();
           }}
           showNotice={(type, msg) => {

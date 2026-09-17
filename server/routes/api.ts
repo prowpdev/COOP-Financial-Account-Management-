@@ -8,6 +8,25 @@ import { NumberingService } from '../services/numberingService';
 
 const router = Router();
 
+// Ensure all standard CDA accounts from initialSeedData exist in chart_of_accounts
+try {
+  const currentCoa = db.getTable('chart_of_accounts');
+  const existingAccountIds = new Set(currentCoa.map(a => a.id));
+  const existingAccountCodes = new Set(currentCoa.map(a => a.code || a.account_code));
+  let modifiedCoa = false;
+  for (const seedAcc of initialSeedData.chart_of_accounts) {
+    if (!existingAccountIds.has(seedAcc.id) && !existingAccountCodes.has(seedAcc.code)) {
+      currentCoa.push(seedAcc);
+      modifiedCoa = true;
+    }
+  }
+  if (modifiedCoa) {
+    db.save();
+  }
+} catch (e) {
+  console.error('Error synchronizing chart of accounts with seed:', e);
+}
+
 // ==========================================
 // 1. CONFIGURATION CENTER & SYSTEM SETTINGS
 // ==========================================
@@ -481,7 +500,7 @@ router.get(['/cash-accounts', '/config/cash-accounts'], (req: Request, res: Resp
         account_number: `VLT-${b.code.toUpperCase()}-00`,
         bank_name: `${b.name} Vault Safety Depository`,
         branch_id: b.id,
-        gl_account_id: 'acc_1110',
+        gl_account_id: 'acc_1112',
         opening_balance: 250000,
         current_balance: 250000,
         currency: 'PHP',
@@ -592,6 +611,43 @@ router.delete(['/cash-accounts/:id', '/config/cash-accounts/:id'], (req: Request
   const { id } = req.params;
   db.delete('cash_accounts', a => a.id === id);
   res.json({ success: true, message: 'Cash account deleted' });
+});
+
+router.post(['/cash-accounts/auto-align-gl', '/config/cash-accounts/auto-align-gl'], (req: Request, res: Response) => {
+  const accounts = db.getTable('cash_accounts');
+  let alignedCount = 0;
+  accounts.forEach(a => {
+    const num = (a.account_number || '').toUpperCase();
+    const name = (a.name || '').toLowerCase();
+    const bank = (a.bank_name || '').toLowerCase();
+    let targetGl = a.gl_account_id;
+
+    if (bank.includes('land bank') || name.includes('land bank')) {
+      targetGl = 'acc_1120';
+    } else if (bank.includes('development bank') || bank.includes('dbp') || name.includes('dbp')) {
+      targetGl = 'acc_1121';
+    } else if (bank.includes('maya') || name.includes('maya') || name.includes('gcash') || name.includes('wallet')) {
+      targetGl = 'acc_1130';
+    } else if (name.includes('petty') || bank.includes('petty')) {
+      targetGl = 'acc_1111';
+    } else if (num.startsWith('COH-') || name.includes('teller') || name.includes('drawer')) {
+      targetGl = 'acc_1110';
+    } else if (num.startsWith('VLT-') || name.includes('vault') || bank.includes('vault')) {
+      targetGl = 'acc_1112';
+    }
+
+    if (targetGl && targetGl !== a.gl_account_id) {
+      a.gl_account_id = targetGl;
+      alignedCount++;
+    }
+  });
+
+  if (alignedCount > 0) {
+    (db as any).save();
+    db.recordAudit('Auto-Aligned Cash & Bank GL Mappings', 'Generic Mappings', `${alignedCount} accounts aligned`, req.body.changed_by || 'Admin', 'CDA Standard Depository Alignment');
+  }
+
+  res.json({ success: true, count: alignedCount, data: accounts });
 });
 
 router.post('/cash-accounts/transfer', (req: Request, res: Response) => {
@@ -1076,7 +1132,7 @@ router.get('/members', (req: Request, res: Response) => {
   res.json({ success: true, data: enriched });
 });
 
-// Complete member/subsidiary ledger.  Relationships are resolved server-side so the
+// Complete member/subsidiary ledger. Relationships are resolved server-side so the
 // report remains correct for every member as new operational transactions are posted.
 router.get('/members/:memberId/report', (req: Request, res: Response) => {
   const member = db.getTable('members').find(item => item.id === req.params.memberId);
@@ -1094,32 +1150,181 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
   const paymentIds = new Set(payments.map(item => item.id));
   const savingsTransactions = db.getTable('savings_transactions').filter(item => savingsIds.has(item.savings_account_id));
   const shareTransactions = db.getTable('share_capital_transactions').filter(item => shareIds.has(item.share_account_id));
-  const transactionIds = new Set([...loanIds, ...paymentIds, ...savingsIds, ...shareIds, ...savingsTransactions.map(item => item.id), ...shareTransactions.map(item => item.id)]);
+  const transactionIds = new Set([member.id, ...loanIds, ...paymentIds, ...savingsIds, ...shareIds, ...savingsTransactions.map(item => item.id), ...shareTransactions.map(item => item.id)]);
 
   const transactions = [
-    ...loans.map(item => ({ id: `loan-${item.id}`, date: item.disbursement_date, type: 'Loan released', reference: item.loan_account_no, description: `${products.find(p => p.id === item.loan_product_id)?.name || 'Loan'} approved/released`, amount: item.net_disbursed || item.principal_amount, debit: item.principal_amount || 0, credit: 0 })),
-    ...payments.map(item => ({ id: `payment-${item.id}`, date: item.payment_date || item.transaction_date, type: 'Loan payment', reference: item.receipt_no || item.id, description: `Principal ${Number(item.principal_amount || 0).toFixed(2)}, interest ${Number(item.interest_amount || 0).toFixed(2)}`, amount: item.amount || item.total_amount || 0, debit: 0, credit: item.amount || item.total_amount || 0 })),
-    ...savingsTransactions.map(item => ({ id: `saving-${item.id}`, date: item.transaction_date, type: `Savings ${String(item.type || 'transaction').toLowerCase()}`, reference: item.transaction_no || item.id, description: savingsAccounts.find(account => account.id === item.savings_account_id)?.account_number || 'Savings account', amount: item.amount || 0, debit: item.type === 'WITHDRAWAL' ? item.amount || 0 : 0, credit: item.type === 'WITHDRAWAL' ? 0 : item.amount || 0 })),
-    ...shareTransactions.map(item => ({ id: `share-${item.id}`, date: item.transaction_date, type: 'Share capital payment', reference: item.receipt_no || item.id, description: shareAccounts.find(account => account.id === item.share_account_id)?.account_number || 'Share capital account', amount: item.amount || 0, debit: 0, credit: item.amount || 0 }))
+    ...loans.map(item => ({
+      id: `loan-${item.id}`,
+      date: item.disbursement_date,
+      type: 'Loan released',
+      reference: item.loan_account_no,
+      description: `${products.find(p => p.id === item.loan_product_id)?.name || 'Loan'} approved/released`,
+      amount: item.net_disbursed || item.principal_amount,
+      debit: item.principal_amount || 0,
+      credit: 0,
+      category: 'Loans'
+    })),
+    ...payments.map(item => ({
+      id: `payment-${item.id}`,
+      date: item.payment_date || item.transaction_date,
+      type: 'Loan payment',
+      reference: item.receipt_no || item.id,
+      description: `Principal ${Number(item.principal_amount || 0).toFixed(2)}, interest ${Number(item.interest_amount || 0).toFixed(2)}`,
+      amount: item.amount || item.total_amount || 0,
+      debit: 0,
+      credit: item.amount || item.total_amount || 0,
+      category: 'Loans'
+    })),
+    ...savingsTransactions.map(item => ({
+      id: `saving-${item.id}`,
+      date: item.transaction_date,
+      type: `Savings ${String(item.type || 'transaction').toLowerCase()}`,
+      reference: item.transaction_no || item.id,
+      description: savingsAccounts.find(account => account.id === item.savings_account_id)?.account_number || 'Savings account',
+      amount: item.amount || 0,
+      debit: item.type === 'WITHDRAWAL' ? item.amount || 0 : 0,
+      credit: item.type === 'WITHDRAWAL' ? 0 : item.amount || 0,
+      category: 'Savings'
+    })),
+    ...shareTransactions.map(item => ({
+      id: `share-${item.id}`,
+      date: item.transaction_date,
+      type: 'Share capital payment',
+      reference: item.receipt_no || item.id,
+      description: shareAccounts.find(account => account.id === item.share_account_id)?.account_number || 'Share capital account',
+      amount: item.amount || 0,
+      debit: 0,
+      credit: item.amount || 0,
+      category: 'Share Capital'
+    }))
   ];
 
   const journalEntries = db.getTable('journal_entries');
   const journalLines = db.getTable('journal_lines');
   const accountMap = new Map(db.getTable('chart_of_accounts').map(account => [account.id, account]));
+
+  const memberFirstLower = (member.first_name || '').trim().toLowerCase();
+  const memberLastLower = (member.last_name || '').trim().toLowerCase();
+  const memberNoLower = (member.member_no || '').trim().toLowerCase();
+
   const journalTransactions = journalEntries.flatMap(entry => {
+    // 1. Direct linkage
+    const isDirectMemberEntry = 
+      entry.member_id === member.id ||
+      entry.reference_id === member.id ||
+      entry.subsidiary_id === member.id;
+
+    // 2. Line subsidiary linkage
     const relevantLines = journalLines.filter(line => line.journal_entry_id === entry.id && (
-      line.subsidiary_id === member.id || loanIds.has(line.subsidiary_id) || savingsIds.has(line.subsidiary_id) || shareIds.has(line.subsidiary_id)
+      line.subsidiary_id === member.id ||
+      line.member_id === member.id ||
+      loanIds.has(line.subsidiary_id) ||
+      savingsIds.has(line.subsidiary_id) ||
+      shareIds.has(line.subsidiary_id)
     ));
-    if (!relevantLines.length && !transactionIds.has(entry.reference_id)) return [];
-    const lines = relevantLines.length ? relevantLines : journalLines.filter(line => line.journal_entry_id === entry.id);
-    return [{ id: `journal-${entry.id}`, date: entry.posting_date, type: 'Accounting posting', reference: entry.voucher_number, description: entry.description, amount: entry.total_debit || 0, debit: lines.reduce((sum, line) => sum + (Number(line.debit) || 0), 0), credit: lines.reduce((sum, line) => sum + (Number(line.credit) || 0), 0), accounts: lines.map(line => `${accountMap.get(line.account_id)?.code || ''} ${accountMap.get(line.account_id)?.name || 'Account'}`).join('; ') }];
+
+    // 3. Name or Member No in description/notes
+    const descLower = (entry.description || '').toLowerCase();
+    const notesLower = (entry.notes || '').toLowerCase();
+    const textHasMember =
+      (memberFirstLower && descLower.includes(memberFirstLower)) ||
+      (memberLastLower && descLower.includes(memberLastLower)) ||
+      (memberNoLower && descLower.includes(memberNoLower)) ||
+      (memberFirstLower && notesLower.includes(memberFirstLower));
+
+    const isMatch = isDirectMemberEntry || relevantLines.length > 0 || textHasMember || transactionIds.has(entry.reference_id);
+    if (!isMatch) return [];
+
+    const lines = relevantLines.length > 0 
+      ? relevantLines 
+      : journalLines.filter(line => line.journal_entry_id === entry.id);
+
+    const lineDetails = lines.map(line => {
+      const acc = accountMap.get(line.account_id);
+      return {
+        id: line.id,
+        account_id: line.account_id,
+        account_code: acc?.code || acc?.account_code || '',
+        account_name: acc?.name || 'Account',
+        debit: Number(line.debit) || 0,
+        credit: Number(line.credit) || 0,
+        subsidiary_type: line.subsidiary_type || null,
+        subsidiary_id: line.subsidiary_id || null
+      };
+    });
+
+    const isManualJV = entry.reference_type === 'MANUAL_JOURNAL' || Boolean(entry.member_id) || textHasMember;
+
+    let displayType = 'Journal Voucher (JV)';
+    if (isManualJV) {
+      if (descLower.includes('membership') && (descLower.includes('share') || descLower.includes('cbu'))) {
+        displayType = 'Manual JV - Membership & Share Capital';
+      } else if (descLower.includes('membership')) {
+        displayType = 'Manual JV - Membership Fee';
+      } else if (descLower.includes('share') || descLower.includes('cbu')) {
+        displayType = 'Manual JV - Share Capital (CBU)';
+      } else {
+        displayType = 'Manual Journal Voucher (JV)';
+      }
+    } else if (entry.reference_type === 'MEMBER_INITIAL_FUNDING') {
+      displayType = 'Initial Membership & CBU (JV)';
+    } else if (entry.reference_type === 'LOAN_DISBURSEMENT') {
+      displayType = 'Loan Disbursement (JV)';
+    } else if (entry.reference_type === 'LOAN_PAYMENT') {
+      displayType = 'Loan Repayment (JV)';
+    }
+
+    return [{
+      id: `journal-${entry.id}`,
+      journal_entry_id: entry.id,
+      date: entry.posting_date,
+      type: displayType,
+      is_jv: true,
+      is_manual_jv: isManualJV,
+      category: isManualJV ? 'Manual JV' : 'Journal Voucher',
+      reference: entry.voucher_number || entry.id,
+      voucher_number: entry.voucher_number,
+      description: entry.description,
+      amount: entry.total_debit || entry.total_credit || 0,
+      debit: lines.reduce((sum, line) => sum + (Number(line.debit) || 0), 0),
+      credit: lines.reduce((sum, line) => sum + (Number(line.credit) || 0), 0),
+      accounts: lineDetails.map(l => `${l.account_code} ${l.account_name}`).join('; '),
+      lines: lineDetails,
+      created_by: entry.created_by || 'Accounting Officer',
+      status: entry.status || 'Posted'
+    }];
   });
 
-  res.json({ success: true, data: {
-    member: { ...member, branch_name: branches.find(branch => branch.id === member.branch_id)?.name || 'Main Branch' },
-    summary: { loan_balance: loans.reduce((sum, item) => sum + (Number(item.current_balance) || 0), 0), savings_balance: savingsAccounts.reduce((sum, item) => sum + (Number(item.balance) || 0), 0), share_capital: shareAccounts.reduce((sum, item) => sum + (Number(item.paid_up_amount) || 0), 0) },
-    transactions: [...transactions, ...journalTransactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-  }});
+  // Calculate manual share capital credits and membership fees
+  const manualShareCredits = journalTransactions
+    .filter(jt => jt.is_jv)
+    .flatMap(jt => jt.lines || [])
+    .filter((l: any) => (l.account_code === '3110' || l.account_id === 'acc_3110' || l.account_code === '3120') && l.credit > 0)
+    .reduce((sum: number, l: any) => sum + l.credit, 0);
+
+  const manualMembershipCredits = journalTransactions
+    .filter(jt => jt.is_jv)
+    .flatMap(jt => jt.lines || [])
+    .filter((l: any) => (l.account_code === '4210' || l.account_code === '4140' || l.account_id === 'acc_4210' || l.account_id === 'acc_4140') && l.credit > 0)
+    .reduce((sum: number, l: any) => sum + l.credit, 0);
+
+  const baseShareCapital = shareAccounts.reduce((sum, item) => sum + (Number(item.paid_up_amount) || 0), 0);
+
+  res.json({
+    success: true,
+    data: {
+      member: { ...member, branch_name: branches.find(branch => branch.id === member.branch_id)?.name || 'Main Branch' },
+      summary: {
+        loan_balance: loans.reduce((sum, item) => sum + (Number(item.current_balance) || 0), 0),
+        savings_balance: savingsAccounts.reduce((sum, item) => sum + (Number(item.balance) || 0), 0),
+        share_capital: Math.max(baseShareCapital, manualShareCredits > 0 ? (baseShareCapital + manualShareCredits) : baseShareCapital),
+        membership_fees: manualMembershipCredits,
+        total_transactions: transactions.length + journalTransactions.length,
+        jv_count: journalTransactions.length
+      },
+      transactions: [...transactions, ...journalTransactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+    }
+  });
 });
 
 router.post('/members', (req: Request, res: Response) => {
@@ -1818,7 +2023,10 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     branch_id,
     description,
     lines,
-    performed_by
+    performed_by,
+    member_id,
+    member_name,
+    reference_type
   } = req.body;
 
   if (!lines || lines.length < 2) {
@@ -1845,6 +2053,34 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     });
   }
 
+  // Resolve member if specified or if mentioned in description
+  let resolvedMemberId = member_id || null;
+  let resolvedMemberName = member_name || null;
+
+  if (!resolvedMemberId) {
+    const memberLine = lines.find((l: any) => l.subsidiary_type === 'Member' && l.subsidiary_id);
+    if (memberLine) {
+      resolvedMemberId = memberLine.subsidiary_id;
+    } else {
+      const members = db.getTable('members');
+      const desc = (description || '').toLowerCase();
+      const matched = members.find(m => 
+        (m.first_name && desc.includes(m.first_name.toLowerCase())) ||
+        (m.last_name && desc.includes(m.last_name.toLowerCase())) ||
+        (m.member_no && description?.includes(m.member_no))
+      );
+      if (matched) {
+        resolvedMemberId = matched.id;
+        resolvedMemberName = `${matched.first_name} ${matched.last_name}`;
+      }
+    }
+  }
+
+  if (resolvedMemberId && !resolvedMemberName) {
+    const mem = db.getTable('members').find(m => m.id === resolvedMemberId);
+    if (mem) resolvedMemberName = `${mem.first_name} ${mem.last_name}`;
+  }
+
   const branches = db.getTable('branches');
   const branch = branches.find(b => b.id === branch_id) || branches[0];
   const voucherNo = NumberingService.getNextNumber('JV', branch.code);
@@ -1855,8 +2091,10 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     voucher_number: voucherNo,
     branch_id: branch.id,
     posting_date: posting_date || new Date().toISOString().split('T')[0],
-    reference_type: 'MANUAL_JOURNAL',
-    reference_id: jvId,
+    reference_type: reference_type || 'MANUAL_JOURNAL',
+    reference_id: resolvedMemberId || jvId,
+    member_id: resolvedMemberId,
+    member_name: resolvedMemberName,
     description,
     total_debit: totalDebit,
     total_credit: totalCredit,
@@ -1869,15 +2107,43 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
   db.insert('journal_entries', entry);
 
   for (const l of lines) {
+    const subType = l.subsidiary_type || (resolvedMemberId ? 'Member' : null);
+    const subId = l.subsidiary_id || (resolvedMemberId ? resolvedMemberId : null);
     db.insert('journal_lines', {
       id: `jl_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       journal_entry_id: jvId,
       account_id: l.account_id,
       debit: Number(l.debit) || 0,
       credit: Number(l.credit) || 0,
-      subsidiary_type: l.subsidiary_type || null,
-      subsidiary_id: l.subsidiary_id || null
+      subsidiary_type: subType,
+      subsidiary_id: subId
     });
+  }
+
+  // If member is associated and share capital was credited, update member share capital
+  if (resolvedMemberId) {
+    const shareCredit = lines
+      .filter((l: any) => (l.account_id === 'acc_3110' || l.account_id === '3110' || l.account_id === 'acc_3120') && (Number(l.credit) || 0) > 0)
+      .reduce((sum: number, l: any) => sum + (Number(l.credit) || 0), 0);
+    
+    if (shareCredit > 0) {
+      const shareAccounts = db.getTable('share_capital_accounts');
+      const shareAcc = shareAccounts.find(s => s.member_id === resolvedMemberId);
+      if (shareAcc) {
+        shareAcc.paid_up_amount = Number(((Number(shareAcc.paid_up_amount) || 0) + shareCredit).toFixed(2));
+        shareAcc.paid_shares = Math.floor(shareAcc.paid_up_amount / (shareAcc.par_value || 100));
+        db.save();
+      }
+      db.insert('share_capital_transactions', {
+        id: `sct_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        share_account_id: shareAcc?.id || `sca_${resolvedMemberId}`,
+        transaction_type: 'PAYMENT',
+        amount: shareCredit,
+        receipt_no: voucherNo,
+        transaction_date: posting_date || new Date().toISOString().split('T')[0],
+        notes: `Manual JV (${voucherNo}): ${description || 'Share Capital Payment'}`
+      });
+    }
   }
 
   res.json({ success: true, data: entry });
@@ -1899,10 +2165,36 @@ router.get('/reports/trial-balance', (req: Request, res: Response) => {
     journalLines = journalLines.filter(l => jEntryIds.has(l.journal_entry_id));
   }
 
-  const balances = accounts.map(acc => {
-    const lines = journalLines.filter(l => l.account_id === acc.id);
-    const totalDebit = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
-    const totalCredit = lines.reduce((sum, l) => sum + (l.credit || 0), 0);
+  const accountMap = new Map<string, any>();
+  accounts.forEach(a => {
+    accountMap.set(a.id, a);
+    if (a.code) accountMap.set(String(a.code), a);
+    if (a.account_code) accountMap.set(String(a.account_code), a);
+  });
+
+  // Collect all unique accounts present in chart_of_accounts OR referenced in journal lines
+  const allAccountIds = new Set<string>();
+  accounts.forEach(a => allAccountIds.add(a.id));
+  journalLines.forEach(l => {
+    if (l.account_id) allAccountIds.add(l.account_id);
+  });
+
+  const balances: any[] = [];
+  for (const accId of allAccountIds) {
+    const acc = accountMap.get(accId) || {
+      id: accId,
+      code: accId.replace('acc_', ''),
+      name: `Account ${accId.replace('acc_', '')}`,
+      type: 'Asset',
+      category: 'Asset',
+      normal_balance: 'Debit'
+    };
+
+    const lines = journalLines.filter(l => l.account_id === accId || l.account_id === acc.id || (acc.code && l.account_id === acc.code));
+    const totalDebit = lines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
+    const totalCredit = lines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
+
+    if (totalDebit === 0 && totalCredit === 0) continue;
 
     let netDebit = 0;
     let netCredit = 0;
@@ -1917,28 +2209,38 @@ router.get('/reports/trial-balance', (req: Request, res: Response) => {
       else netDebit = Math.abs(net);
     }
 
-    return {
+    balances.push({
       id: acc.id,
-      code: acc.code,
+      code: acc.code || acc.account_code || '',
       name: acc.name,
-      type: acc.type,
-      category: acc.category,
-      normal_balance: acc.normal_balance,
+      type: acc.type || acc.category || 'Asset',
+      category: acc.category || acc.type || 'Asset',
+      normal_balance: acc.normal_balance || 'Debit',
       debit: Number(netDebit.toFixed(2)),
-      credit: Number(netCredit.toFixed(2))
-    };
-  }).filter(b => b.debit > 0 || b.credit > 0);
+      credit: Number(netCredit.toFixed(2)),
+      gross_debit: Number(totalDebit.toFixed(2)),
+      gross_credit: Number(totalCredit.toFixed(2))
+    });
+  }
+
+  // Sort by code
+  balances.sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
   const totalDebit = Number(balances.reduce((sum, b) => sum + b.debit, 0).toFixed(2));
   const totalCredit = Number(balances.reduce((sum, b) => sum + b.credit, 0).toFixed(2));
+  const variance = Number((totalDebit - totalCredit).toFixed(2));
+  const isBalanced = Math.abs(variance) < 0.01;
 
   res.json({
     success: true,
     data: {
       balances,
+      accounts: balances, // alias for backwards compatibility
       total_debit: totalDebit,
       total_credit: totalCredit,
-      is_balanced: Math.abs(totalDebit - totalCredit) < 0.01
+      variance,
+      difference: variance,
+      is_balanced: isBalanced
     }
   });
 });
