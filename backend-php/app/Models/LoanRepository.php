@@ -98,7 +98,7 @@ class LoanRepository
     /**
      * Disburse / Create a new loan with full amortization schedule
      */
-    public function createLoan(array $data): array
+public function createLoan(array $data): array
     {
         $this->db->beginTransaction();
 
@@ -214,6 +214,7 @@ class LoanRepository
             throw $e;
         }
     }
+
 
     /**
      * Record loan repayment and allocate against unpaid schedule installments

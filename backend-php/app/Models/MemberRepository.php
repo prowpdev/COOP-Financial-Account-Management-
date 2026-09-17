@@ -220,17 +220,14 @@ class MemberRepository
             SELECT * FROM (
                 SELECT
                     l.id AS transaction_id,
-                    CONCAT('loan-release-', l.id) AS id,
-                    'Loan released' AS type,
-                    l.disbursement_date AS date,
+                    'LOAN_RELEASE' AS transaction_type,
+                    l.disbursement_date AS transaction_date,
                     l.principal_amount AS amount,
-                    l.loan_account_no AS reference,
+                    l.loan_account_no AS reference_number,
                     l.loan_account_no AS account_number,
                     l.current_balance AS balance_after,
                     CONCAT('Loan disbursement - ', COALESCE(lp.name, 'Loan')) AS description,
-                    'Loans' AS category,
-                    l.principal_amount AS debit,
-                    0 AS credit,
+                    'loan' AS source,
                     l.created_at
                 FROM loans l
                 LEFT JOIN loan_products lp ON lp.id = l.loan_product_id
@@ -240,38 +237,31 @@ class MemberRepository
 
                 SELECT
                     p.id AS transaction_id,
-                    CONCAT('loan-payment-', p.id) AS id,
-                    'Loan payment' AS type,
-                    p.payment_date AS date,
+                    'LOAN_PAYMENT' AS transaction_type,
+                    p.payment_date AS transaction_date,
                     p.total_amount AS amount,
-                    p.receipt_no AS reference,
+                    p.receipt_no AS reference_number,
                     l.loan_account_no AS account_number,
                     l.current_balance AS balance_after,
                     CONCAT('Loan payment - ', l.loan_account_no) AS description,
-                    'Loans' AS category,
-                    0 AS debit,
-                    p.total_amount AS credit,
+                    'loan' AS source,
                     p.created_at
                 FROM loan_payments p
                 INNER JOIN loans l ON l.id = p.loan_id
                 WHERE p.member_id = :payment_member_id
-                   OR l.member_id = :payment_loan_member_id
 
                 UNION ALL
 
                 SELECT
                     st.id AS transaction_id,
-                    CONCAT('savings-', st.id) AS id,
-                    CONCAT('Savings ', st.type) AS type,
-                    st.transaction_date AS date,
+                    st.type AS transaction_type,
+                    st.transaction_date,
                     st.amount,
-                    st.transaction_no AS reference,
+                    st.transaction_no AS reference_number,
                     sa.account_number,
                     st.balance_after,
                     COALESCE(st.notes, CONCAT('Savings ', st.type)) AS description,
-                    'Savings' AS category,
-                    CASE WHEN st.type = 'WITHDRAWAL' THEN st.amount ELSE 0 END AS debit,
-                    CASE WHEN st.type = 'WITHDRAWAL' THEN 0 ELSE st.amount END AS credit,
+                    'savings' AS source,
                     st.created_at
                 FROM savings_transactions st
                 INNER JOIN savings_accounts sa ON sa.id = st.savings_account_id
@@ -281,17 +271,14 @@ class MemberRepository
 
                 SELECT
                     sct.id AS transaction_id,
-                    CONCAT('share-', sct.id) AS id,
-                    'Share capital payment' AS type,
-                    sct.transaction_date AS date,
+                    sct.type AS transaction_type,
+                    sct.transaction_date,
                     sct.amount,
-                    sct.receipt_no AS reference,
+                    sct.receipt_no AS reference_number,
                     sca.account_number,
                     NULL AS balance_after,
                     CONCAT('Share capital ', sct.type) AS description,
-                    'Share Capital' AS category,
-                    0 AS debit,
-                    sct.amount AS credit,
+                    'share_capital' AS source,
                     sct.created_at
                 FROM share_capital_transactions sct
                 INNER JOIN share_capital_accounts sca ON sca.id = sct.share_account_id
@@ -301,30 +288,26 @@ class MemberRepository
 
                 SELECT DISTINCT
                     je.id AS transaction_id,
-                    CONCAT('journal-', je.id) AS id,
-                    COALESCE(je.reference_type, 'Journal Voucher (JV)') AS type,
-                    je.posting_date AS date,
+                    je.reference_type AS transaction_type,
+                    je.posting_date AS transaction_date,
                     je.total_debit AS amount,
-                    je.voucher_number AS reference,
+                    je.voucher_number AS reference_number,
                     NULL AS account_number,
                     NULL AS balance_after,
                     je.description,
-                    'Journal' AS category,
-                    je.total_debit AS debit,
-                    je.total_credit AS credit,
-                    je.created_at
+                    'journal' AS source,
+                    je.posting_date AS created_at
                 FROM journal_entries je
                 LEFT JOIN journal_lines jl ON jl.journal_entry_id = je.id
                 WHERE je.reference_id = :journal_reference_id
                    OR jl.subsidiary_id = :journal_subsidiary_id
                    OR je.description LIKE :journal_member_name
             ) AS member_transactions
-            ORDER BY date DESC, created_at DESC
+            ORDER BY transaction_date DESC, created_at DESC
         ");
         $transactionStmt->execute([
             'loan_member_id'        => $id,
             'payment_member_id'     => $id,
-            'payment_loan_member_id' => $id,
             'savings_member_id'     => $id,
             'share_member_id'       => $id,
             'journal_reference_id'  => $id,

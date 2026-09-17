@@ -116,6 +116,41 @@ class LoanController extends BaseController
         $this->store($input);
     }
 
+    /**
+     * POST /api/loans/:id/repay
+     * POST /api/loans/repay
+     */
+    public function repay(?string $id = null): never
+    {
+        $input = $this->getRequestBody();
+        if ($id) {
+            $input['loan_id'] = $id;
+        }
+
+        if (empty($input['loan_id'])) {
+            $this->error('Loan ID is required for repayment.', 422);
+        }
+
+        if (empty($input['amount_paid']) && !empty($input['amount'])) {
+            $input['amount_paid'] = $input['amount'];
+        }
+
+        if (empty($input['amount_paid']) || (float)$input['amount_paid'] <= 0) {
+            $this->error('A valid positive repayment amount is required.', 422);
+        }
+
+        try {
+            $receipt = $this->loans->recordPayment($input);
+            $this->success($receipt, 'Loan payment recorded and allocated successfully.');
+        } catch (\Exception $e) {
+            $this->error('Loan payment processing failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/loans
+     */
+    
     public function store(?array $requestInput = null): never
     {
         $input = $requestInput ?? $this->getRequestBody();
@@ -168,40 +203,6 @@ class LoanController extends BaseController
         }
     }
 
-    /**
-     * POST /api/loans/:id/repay
-     * POST /api/loans/repay
-     */
-    public function repay(?string $id = null): never
-    {
-        $input = $this->getRequestBody();
-        if ($id) {
-            $input['loan_id'] = $id;
-        }
-
-        if (empty($input['loan_id'])) {
-            $this->error('Loan ID is required for repayment.', 422);
-        }
-
-        if (empty($input['amount_paid']) && !empty($input['amount'])) {
-            $input['amount_paid'] = $input['amount'];
-        }
-
-        if (empty($input['amount_paid']) || (float)$input['amount_paid'] <= 0) {
-            $this->error('A valid positive repayment amount is required.', 422);
-        }
-
-        try {
-            $receipt = $this->loans->recordPayment($input);
-            $this->success($receipt, 'Loan payment recorded and allocated successfully.');
-        } catch (\Exception $e) {
-            $this->error('Loan payment processing failed: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * POST /api/loans
-     */
     /**
      * POST /api/loans/payments
      */
