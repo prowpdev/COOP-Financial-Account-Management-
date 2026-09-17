@@ -116,6 +116,18 @@ class CashRepository
         $currency = $data['currency'] ?? 'PHP';
         $active = isset($data['active']) ? (int)$data['active'] : 1;
 
+        $branchStmt = $this->db->prepare('SELECT id FROM branches WHERE id = ?');
+        $branchStmt->execute([$branchId]);
+        if (!$branchStmt->fetchColumn()) {
+            throw new \InvalidArgumentException('Selected branch does not exist.');
+        }
+
+        $glStmt = $this->db->prepare('SELECT id FROM chart_of_accounts WHERE id = ?');
+        $glStmt->execute([$glId]);
+        if (!$glStmt->fetchColumn()) {
+            throw new \InvalidArgumentException('Selected GL account does not exist.');
+        }
+
         $sql = "
             INSERT INTO cash_accounts (id, name, account_number, bank_name, branch_id, gl_account_id, opening_balance, current_balance, currency, active)
             VALUES (:id, :name, :account_number, :bank_name, :branch_id, :gl_account_id, :opening_balance, :current_balance, :currency, :active)

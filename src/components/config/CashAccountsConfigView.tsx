@@ -264,7 +264,7 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
         category_preset: preset,
         account_number: `VLT-${bCode}-01`,
         bank_name: `${branch?.name || 'Branch'} Vault Safety Depository`,
-        gl_account_id: 'acc_1112'
+        gl_account_id: ''
       }));
     } else if (preset === 'BANK') {
       setFormData(prev => ({

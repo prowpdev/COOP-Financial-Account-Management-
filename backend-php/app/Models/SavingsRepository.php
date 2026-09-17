@@ -25,9 +25,9 @@ class SavingsRepository
                    sp.code AS product_code,
                    b.name AS branch_name
             FROM savings_accounts sa
-            JOIN members m ON sa.member_id = m.id
-            JOIN savings_products sp ON sa.savings_product_id = sp.id
-            JOIN branches b ON sa.branch_id = b.id
+                 LEFT JOIN members m ON sa.member_id = m.id
+                 LEFT JOIN savings_products sp ON sa.savings_product_id = sp.id
+                 LEFT JOIN branches b ON sa.branch_id = b.id
             WHERE 1=1
         ";
         $params = [];
@@ -61,9 +61,9 @@ class SavingsRepository
                    sp.name AS product_name,
                    b.name AS branch_name
             FROM savings_accounts sa
-            JOIN members m ON sa.member_id = m.id
-            JOIN savings_products sp ON sa.savings_product_id = sp.id
-            JOIN branches b ON sa.branch_id = b.id
+                 LEFT JOIN members m ON sa.member_id = m.id
+                 LEFT JOIN savings_products sp ON sa.savings_product_id = sp.id
+                 LEFT JOIN branches b ON sa.branch_id = b.id
             WHERE sa.id = ? OR sa.account_number = ?
             LIMIT 1
         ");
@@ -178,7 +178,6 @@ class SavingsRepository
             // Update account balance
             $updStmt = $this->db->prepare("UPDATE savings_accounts SET balance = ? WHERE id = ?");
             $updStmt->execute([$newBal, $accountId]);
-
             // Insert transaction line
             $txId = 'stx_' . bin2hex(random_bytes(6));
             $txStmt = $this->db->prepare("

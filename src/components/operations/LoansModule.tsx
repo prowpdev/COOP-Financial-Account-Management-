@@ -293,12 +293,8 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     setSelectedLoanForSchedule(loan);
     setIsLoadingSchedule(true);
     try {
-      const res = await api.getLoan(loan.id);
-      if (res.data?.schedule) {
-        setLoanScheduleData(res.data.schedule);
-      } else {
-        setLoanScheduleData([]);
-      }
+      const res = await api.getLoanSchedule(loan.id);
+      setLoanScheduleData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.warn('Failed to fetch schedule:', err);
       setLoanScheduleData([]);

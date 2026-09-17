@@ -270,6 +270,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(product)
     }),
+  getSavingsProducts: async () => {
+    const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
+    return { success: true, data: res.data?.savings_products || [] };
+  },
+  createSavingsAccount: (account: any) =>
+    fetchApi<{ success: boolean; data: any }>('/savings/accounts', {
+      method: 'POST',
+      body: JSON.stringify(account)
+    }),
 
   // Numbering Formats
   updateNumberingFormat: (id: string, fmt: any) =>
@@ -411,6 +420,8 @@ export const api = {
     }),
   getLoan: (loanId: string) =>
     fetchApi<{ success: boolean; data: any }>(`/loans/${loanId}`),
+  getLoanSchedule: (loanId: string) =>
+    fetchApi<{ success: boolean; data: any[] }>(`/loans/${loanId}/schedule`),
   repayLoan: (loanId: string, params: any) =>
     fetchApi<{ success: boolean; payment: any; allocation: any; loan_updated: any; journal_entry: any }>(`/loans/${loanId}/repay`, {
       method: 'POST',
@@ -443,6 +454,11 @@ export const api = {
       return { success: false, data: [] };
     }
   },
+  createShareCapitalAccount: (account: any) =>
+    fetchApi<{ success: boolean; data: any }>('/share-capital/accounts', {
+      method: 'POST',
+      body: JSON.stringify(account)
+    }),
   payShareCapital: (params: any) =>
     fetchApi<{ success: boolean; data: any; account: any }>('/share-capital/pay', {
       method: 'POST',
