@@ -297,6 +297,14 @@ router.get('/config/loan-products', (req: Request, res: Response) => {
   res.json({ success: true, data: db.getTable('loan_products') });
 });
 
+router.get('/config/loan-products/:id', (req: Request, res: Response) => {
+  const product = db.getTable('loan_products').find(p => p.id === req.params.id);
+  if (!product) {
+    return res.status(404).json({ success: false, error: 'Loan product not found' });
+  }
+  res.json({ success: true, data: product });
+});
+
 router.post('/config/loan-products', (req: Request, res: Response) => {
   const {
     code,
@@ -304,11 +312,16 @@ router.post('/config/loan-products', (req: Request, res: Response) => {
     description,
     min_amount,
     max_amount,
+    min_term_months,
+    max_term_months,
     annual_interest_rate,
     interest_calculation_method,
     default_term_months,
     payment_frequency,
     grace_period_days,
+    penalty_rate_percentage,
+    gl_receivable_account_id,
+    gl_interest_income_account_id,
     processing_fee_percentage,
     service_fee_fixed,
     penalty_rule_id,
@@ -329,17 +342,22 @@ router.post('/config/loan-products', (req: Request, res: Response) => {
     version: 1,
     min_amount: Number(min_amount) || 1000,
     max_amount: Number(max_amount) || 500000,
+    min_term_months: Number(min_term_months ?? default_term_months) || 1,
+    max_term_months: Number(max_term_months ?? default_term_months) || 12,
     annual_interest_rate: Number(annual_interest_rate) || 10.0,
     interest_calculation_method: interest_calculation_method || 'Diminishing Balance',
-    default_term_months: Number(default_term_months) || 12,
+    default_term_months: Number(default_term_months ?? max_term_months) || 12,
     payment_frequency: payment_frequency || 'Monthly',
     grace_period_days: Number(grace_period_days) || 5,
     processing_fee_percentage: Number(processing_fee_percentage) || 2.0,
+    penalty_rate_percentage: Number(penalty_rate_percentage) || 2.0,
     service_fee_fixed: Number(service_fee_fixed) || 200,
     penalty_rule_id: penalty_rule_id || 'pen_standard',
     collateral_required: Boolean(collateral_required),
     guarantor_required: Boolean(guarantor_required),
     debit_account_id: debit_account_id || 'acc_1210',
+    gl_receivable_account_id: gl_receivable_account_id || debit_account_id || 'acc_1210',
+    gl_interest_income_account_id: gl_interest_income_account_id || 'acc_4110',
     required_documents: required_documents || ['Valid Government ID'],
     approval_workflow_id: approval_workflow_id || 'wf_loan_standard',
     active: true,
@@ -414,6 +432,24 @@ router.put('/config/loan-products/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: updated, previous_version: oldSnapshot });
 });
 
+router.delete('/config/loan-products/:id', (req: Request, res: Response) => {
+  const products = db.getTable('loan_products');
+  const product = products.find(p => p.id === req.params.id);
+  if (!product) {
+    return res.status(404).json({ success: false, error: 'Loan product not found' });
+  }
+
+  db.delete('loan_products', p => p.id === req.params.id);
+  db.recordAudit(
+    `Loan Product Deleted: ${product.name}`,
+    product,
+    null,
+    req.body?.changed_by || 'Loan Administrator',
+    'Deleted loan product'
+  );
+  res.json({ success: true, message: `Loan product ${product.name} deleted successfully.` });
+});
+
 // ==========================================
 // 5. DYNAMIC FEES (Test 3)
 // ==========================================
@@ -423,10 +459,12 @@ router.post('/config/fees', (req: Request, res: Response) => {
     name,
     code,
     calculation_type,
+    amount,
     fixed_amount,
     percentage,
     min_amount,
     max_amount,
+    applies_to,
     applicable_module,
     accounting_account_id,
     changed_by,
@@ -438,11 +476,11 @@ router.post('/config/fees', (req: Request, res: Response) => {
     name,
     code: code || `FEE-${Date.now().toString().slice(-4)}`,
     calculation_type: calculation_type || 'Fixed',
-    fixed_amount: Number(fixed_amount) || 0,
+    fixed_amount: Number(amount ?? fixed_amount) || 0,
     percentage: Number(percentage) || 0,
     min_amount: Number(min_amount) || 0,
     max_amount: Number(max_amount) || 0,
-    applicable_module: applicable_module || 'Loans',
+    applicable_module: applies_to || applicable_module || 'Loans',
     accounting_account_id: accounting_account_id || 'acc_4120',
     active: true
   };
@@ -1057,8 +1095,13 @@ router.put('/config/payment-allocation-rules/:id', (req: Request, res: Response)
     return res.status(404).json({ success: false, error: 'Allocation rule not found' });
   }
 
-  const oldPriorities = [...rule.priorities];
-  rule.priorities = req.body.priorities;
+  const normalizePriorities = (priorities: any[]) => priorities.map((item, index) =>
+    typeof item === 'string'
+      ? { priority: index + 1, component: item, label: item }
+      : { ...item, priority: item.priority || index + 1 }
+  );
+  const oldPriorities = normalizePriorities(Array.isArray(rule.priorities) ? rule.priorities : []);
+  rule.priorities = normalizePriorities(req.body.priorities || []);
   db.update('payment_allocation_rules', r => r.id === id, () => rule);
 
   db.recordAudit(

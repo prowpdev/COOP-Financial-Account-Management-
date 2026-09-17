@@ -656,14 +656,16 @@ function LoanProductsConfig({
     description: '',
     min_amount: 10000,
     max_amount: 250000,
+    min_term_months: 1,
+    max_term_months: 12,
     annual_interest_rate: 10.0,
     interest_calculation_method: 'Diminishing Balance',
     default_term_months: 12,
     payment_frequency: 'Monthly',
     grace_period_days: 5,
-    processing_fee_percentage: 2.0,
-    service_fee_fixed: 200,
-    debit_account_id: 'acc_1210'
+    penalty_rate_percentage: 2.0,
+    gl_receivable_account_id: 'acc_1210',
+    gl_interest_income_account_id: 'acc_4110'
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -697,6 +699,17 @@ function LoanProductsConfig({
     }
   };
 
+  const handleDelete = async (product: LoanProduct) => {
+    if (!window.confirm(`Delete loan product "${product.name}"?`)) return;
+    try {
+      await api.deleteLoanProduct(product.id, currentUser.name);
+      showNotice('success', `Loan product "${product.name}" deleted.`);
+      onRefresh();
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -715,14 +728,16 @@ function LoanProductsConfig({
               description: '',
               min_amount: 10000,
               max_amount: 250000,
+              min_term_months: 1,
+              max_term_months: 12,
               annual_interest_rate: 10.0,
               interest_calculation_method: 'Diminishing Balance',
               default_term_months: 12,
               payment_frequency: 'Monthly',
               grace_period_days: 5,
-              processing_fee_percentage: 2.0,
-              service_fee_fixed: 200,
-              debit_account_id: 'acc_1210'
+              penalty_rate_percentage: 2.0,
+              gl_receivable_account_id: 'acc_1210',
+              gl_interest_income_account_id: 'acc_4110'
             });
             setIsCreating(true);
             setEditingId(null);
@@ -773,8 +788,7 @@ function LoanProductsConfig({
               >
                 <option value="Diminishing Balance">Diminishing Balance</option>
                 <option value="Flat Rate">Flat Rate</option>
-                <option value="Simple Interest">Simple Interest</option>
-                <option value="Fixed Interest">Fixed Interest</option>
+                <option value="Equal Amortization">Equal Amortization</option>
               </select>
             </div>
             <div>
@@ -795,23 +809,29 @@ function LoanProductsConfig({
                 onChange={e => setFormData({ ...formData, payment_frequency: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
               >
-                <option value="Daily">Daily</option>
                 <option value="Weekly">Weekly</option>
-                <option value="Bi-weekly">Bi-weekly</option>
                 <option value="Semi-monthly">Semi-monthly</option>
                 <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Semi-annually">Semi-annually</option>
-                <option value="Annually">Annually</option>
+                <option value="Lump Sum">Lump Sum</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Default Term (Months)</label>
+              <label className="text-xs text-slate-300 font-medium">Minimum Term (Months)</label>
               <input
                 type="number"
                 required
-                value={formData.default_term_months}
-                onChange={e => setFormData({ ...formData, default_term_months: parseInt(e.target.value) || 12 })}
+                value={formData.min_term_months}
+                onChange={e => setFormData({ ...formData, min_term_months: parseInt(e.target.value) || 1 })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Maximum Term (Months)</label>
+              <input
+                type="number"
+                required
+                value={formData.max_term_months}
+                onChange={e => setFormData({ ...formData, max_term_months: parseInt(e.target.value) || 1 })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
               />
             </div>
@@ -834,14 +854,34 @@ function LoanProductsConfig({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Processing Fee (%)</label>
+              <label className="text-xs text-slate-300 font-medium">Penalty Rate (%)</label>
               <input
                 type="number"
                 step="0.1"
-                value={formData.processing_fee_percentage}
-                onChange={e => setFormData({ ...formData, processing_fee_percentage: parseFloat(e.target.value) || 0 })}
+                value={formData.penalty_rate_percentage}
+                onChange={e => setFormData({ ...formData, penalty_rate_percentage: parseFloat(e.target.value) || 0 })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
               />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">GL Receivable Account</label>
+              <select
+                value={formData.gl_receivable_account_id}
+                onChange={e => setFormData({ ...formData, gl_receivable_account_id: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
+              >
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">GL Interest Income Account</label>
+              <select
+                value={formData.gl_interest_income_account_id}
+                onChange={e => setFormData({ ...formData, gl_interest_income_account_id: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
+              >
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}
+              </select>
             </div>
           </div>
           <div className="flex justify-end space-x-2 pt-2">
@@ -904,7 +944,7 @@ function LoanProductsConfig({
                         >
                           <option value="Diminishing Balance">Diminishing Balance</option>
                           <option value="Flat Rate">Flat Rate</option>
-                          <option value="Simple Interest">Simple Interest</option>
+                          <option value="Equal Amortization">Equal Amortization</option>
                         </select>
                       </div>
                       <div>
@@ -914,11 +954,10 @@ function LoanProductsConfig({
                           onChange={e => setFormData({ ...formData, payment_frequency: e.target.value })}
                           className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
                         >
-                          <option value="Daily">Daily</option>
                           <option value="Weekly">Weekly</option>
                           <option value="Semi-monthly">Semi-monthly</option>
                           <option value="Monthly">Monthly</option>
-                          <option value="Quarterly">Quarterly</option>
+                          <option value="Lump Sum">Lump Sum</option>
                         </select>
                       </div>
                       <div>
@@ -993,18 +1032,28 @@ function LoanProductsConfig({
                         max_amount: p.max_amount,
                         annual_interest_rate: p.annual_interest_rate,
                         interest_calculation_method: p.interest_calculation_method,
-                        default_term_months: p.default_term_months,
+                        min_term_months: p.min_term_months || 1,
+                        max_term_months: p.max_term_months || p.default_term_months || 12,
+                        default_term_months: p.default_term_months || p.max_term_months || 12,
                         payment_frequency: p.payment_frequency,
                         grace_period_days: p.grace_period_days,
-                        processing_fee_percentage: p.processing_fee_percentage,
-                        service_fee_fixed: p.service_fee_fixed,
-                        debit_account_id: p.debit_account_id
+                        penalty_rate_percentage: p.penalty_rate_percentage || 2,
+                        gl_receivable_account_id: p.gl_receivable_account_id || p.debit_account_id || 'acc_1210',
+                        gl_interest_income_account_id: p.gl_interest_income_account_id || 'acc_4110'
                       });
                     }}
                     className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
-                    <span>Edit Rate / Terms</span>
+                    <span>Edit Product</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(p)}
+                    className="flex items-center space-x-1 text-xs text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
                   </button>
                 </div>
               )}
@@ -1660,15 +1709,27 @@ function FeesAndPenaltiesConfig({
     percentage: 0,
     min_amount: 250,
     max_amount: 250,
-    applicable_module: 'Loans',
-    accounting_account_id: 'acc_4120'
+    applies_to: 'Loans',
+    gl_account_id: 'acc_4120'
   });
 
   const handleCreateFee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const feeData = newFee.calculation_type === 'Fixed'
+        ? {
+            ...newFee,
+            amount: newFee.fixed_amount,
+            percentage: 0
+          }
+        : {
+            ...newFee,
+            amount: 0,
+            fixed_amount: 0
+          };
+
       await api.createFee({
-        ...newFee,
+        ...feeData,
         changed_by: currentUser.name,
         reason: 'Created new fee rule via Admin'
       });
@@ -1727,8 +1788,23 @@ function FeesAndPenaltiesConfig({
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
                 <option value="Fixed">Fixed Amount</option>
-                <option value="Percentage of Loan">Percentage of Loan</option>
+                <option value="Percentage">Percentage</option>
                 <option value="Percentage of Principal">Percentage of Principal</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Applicable Module</label>
+              <select
+                value={newFee.applies_to}
+                onChange={e => setNewFee({ ...newFee, applies_to: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+              >
+                <option value="Loans">Loans</option>
+                <option value="Savings">Savings</option>
+                <option value="Share Capital">Share Capital</option>
+                <option value="Membership">Membership</option>
+                <option value="Accounting">Accounting</option>
+                <option value="All Modules">All Modules</option>
               </select>
             </div>
             <div>
@@ -1754,8 +1830,8 @@ function FeesAndPenaltiesConfig({
             <div>
               <label className="text-xs text-slate-300 font-medium">Applicable GL Account</label>
               <select
-                value={newFee.accounting_account_id}
-                onChange={e => setNewFee({ ...newFee, accounting_account_id: e.target.value })}
+                value={newFee.gl_account_id}
+                onChange={e => setNewFee({ ...newFee, gl_account_id: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
                 {accounts
@@ -1853,7 +1929,18 @@ function PaymentAllocationsConfig({
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
   const activeRule = rules.find(r => r.is_default) || rules[0];
-  const [priorities, setPriorities] = useState(activeRule?.priorities || []);
+  const normalizePriorities = (items: PaymentAllocationRule['priorities']) =>
+    items.map((item, index) => typeof item === 'string'
+      ? { priority: index + 1, component: item, label: item }
+      : item
+    );
+  const [priorities, setPriorities] = useState(() =>
+    normalizePriorities(activeRule?.priorities || [])
+  );
+
+  useEffect(() => {
+    setPriorities(normalizePriorities(activeRule?.priorities || []));
+  }, [activeRule]);
 
   const moveUp = (index: number) => {
     if (index === 0) return;

@@ -98,6 +98,13 @@ class ConfigRepository
         return $this->fetchAll('loan_products');
     }
 
+    public function getLoanProduct(string $id): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM loan_products WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function getSavingsProducts(): array
     {
         return $this->fetchAll('savings_products');
@@ -123,19 +130,24 @@ class ConfigRepository
     {
         $id = $data['id'] ?? ('lp_' . bin2hex(random_bytes(4)));
         $sql = "
-            INSERT INTO loan_products (id, code, name, description, min_amount, max_amount, default_term_months, min_term_months, max_term_months, default_interest_rate, interest_calculation_method, status)
-            VALUES (:id, :code, :name, :description, :min_amount, :max_amount, :default_term_months, :min_term_months, :max_term_months, :default_interest_rate, :interest_calculation_method, :status)
+            INSERT INTO loan_products (id, code, name, description, version, min_amount, max_amount, min_term_months, max_term_months, annual_interest_rate, interest_calculation_method, payment_frequency, grace_period_days, penalty_rate_percentage, gl_receivable_account_id, gl_interest_income_account_id, active)
+            VALUES (:id, :code, :name, :description, :version, :min_amount, :max_amount, :min_term_months, :max_term_months, :annual_interest_rate, :interest_calculation_method, :payment_frequency, :grace_period_days, :penalty_rate_percentage, :gl_receivable_account_id, :gl_interest_income_account_id, :active)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 description = VALUES(description),
+                version = version + 1,
                 min_amount = VALUES(min_amount),
                 max_amount = VALUES(max_amount),
-                default_term_months = VALUES(default_term_months),
                 min_term_months = VALUES(min_term_months),
                 max_term_months = VALUES(max_term_months),
-                default_interest_rate = VALUES(default_interest_rate),
+                annual_interest_rate = VALUES(annual_interest_rate),
                 interest_calculation_method = VALUES(interest_calculation_method),
-                status = VALUES(status)
+                payment_frequency = VALUES(payment_frequency),
+                grace_period_days = VALUES(grace_period_days),
+                penalty_rate_percentage = VALUES(penalty_rate_percentage),
+                gl_receivable_account_id = VALUES(gl_receivable_account_id),
+                gl_interest_income_account_id = VALUES(gl_interest_income_account_id),
+                active = VALUES(active)
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
@@ -143,16 +155,21 @@ class ConfigRepository
             'code'                        => $data['code'] ?? ('LP-' . mt_rand(100, 999)),
             'name'                        => $data['name'],
             'description'                 => $data['description'] ?? '',
+            'version'                     => (int)($data['version'] ?? 1),
             'min_amount'                  => (float)($data['min_amount'] ?? 5000),
             'max_amount'                  => (float)($data['max_amount'] ?? 500000),
-            'default_term_months'         => (int)($data['default_term_months'] ?? 12),
             'min_term_months'             => (int)($data['min_term_months'] ?? 1),
-            'max_term_months'             => (int)($data['max_term_months'] ?? 60),
-            'default_interest_rate'       => (float)($data['default_interest_rate'] ?? 6),
+            'max_term_months'             => (int)($data['max_term_months'] ?? $data['default_term_months'] ?? 60),
+            'annual_interest_rate'        => (float)($data['annual_interest_rate'] ?? 6),
             'interest_calculation_method' => $data['interest_calculation_method'] ?? 'Diminishing Balance',
-            'status'                      => $data['status'] ?? 'Active'
+            'payment_frequency'           => $data['payment_frequency'] ?? 'Monthly',
+            'grace_period_days'           => (int)($data['grace_period_days'] ?? 0),
+            'penalty_rate_percentage'     => (float)($data['penalty_rate_percentage'] ?? 2),
+            'gl_receivable_account_id'    => $data['gl_receivable_account_id'] ?? $data['debit_account_id'] ?? '',
+            'gl_interest_income_account_id' => $data['gl_interest_income_account_id'] ?? '',
+            'active'                      => isset($data['active']) ? (int)(bool)$data['active'] : 1
         ]);
-        return array_merge(['id' => $id], $data);
+        return $this->getLoanProduct($id);
     }
 
     public function deleteLoanProduct(string $id): bool

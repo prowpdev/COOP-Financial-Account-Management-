@@ -29,12 +29,17 @@ export class PaymentAllocationService {
       activeRule = rules[0];
     }
 
-    const priorities = activeRule?.priorities || [
+    const rawPriorities = activeRule?.priorities || [
       { priority: 1, component: 'Penalty' },
       { priority: 2, component: 'Interest' },
       { priority: 3, component: 'Fees' },
       { priority: 4, component: 'Principal' }
     ];
+    const priorities = rawPriorities.map((item: any, index: number) =>
+      typeof item === 'string'
+        ? { priority: index + 1, component: item }
+        : { ...item, priority: item.priority || index + 1 }
+    );
 
     // Sort by priority ascending
     const sortedPriorities = [...priorities].sort((a, b) => a.priority - b.priority);

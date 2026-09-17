@@ -522,8 +522,9 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 print:divide-slate-200">
-              {filteredRows.map((row: any) => {
-                const isExpanded = expandedJVs.has(row.id);
+              {filteredRows.map((row: any, rowIndex: number) => {
+                const rowKey = `${row.id || row.transaction_id || row.reference || 'transaction'}-${rowIndex}`;
+                const isExpanded = expandedJVs.has(rowKey);
                 const isJV = row.is_jv || row.is_manual_jv || (row.lines && row.lines.length > 0);
 
                 let badgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
@@ -544,12 +545,12 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
                 }
 
                 return (
-                  <React.Fragment key={row.id}>
+                  <React.Fragment key={rowKey}>
                     <tr className={`hover:bg-slate-800/40 transition text-slate-300 print:text-black ${row.is_manual_jv ? 'bg-emerald-950/10' : ''}`}>
                       <td className="p-3 print:hidden">
                         {isJV ? (
                           <button
-                            onClick={() => toggleExpand(row.id)}
+                            onClick={() => toggleExpand(rowKey)}
                             className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white cursor-pointer transition"
                             title="Toggle ledger breakdown"
                           >

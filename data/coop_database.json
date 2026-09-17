@@ -708,159 +708,6 @@
       "report_group": "Current Assets",
       "description": "",
       "is_active": true
-    },
-    {
-      "id": "acc_1112",
-      "account_code": "1112",
-      "code": "1112",
-      "name": "Cash in Vault - Reserve Safes",
-      "category": "Asset",
-      "type": "Asset",
-      "report_group": "Current Assets",
-      "normal_balance": "Debit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": "acc_1100",
-      "parent_id": "acc_1100",
-      "description": "Branch heavy depository cash vault reserve funds",
-      "is_control": false,
-      "has_subsidiary": true
-    },
-    {
-      "id": "acc_1290",
-      "account_code": "1290",
-      "code": "1290",
-      "name": "Allowance for Probable Loan Losses",
-      "category": "Asset",
-      "type": "Asset",
-      "report_group": "Contra-Asset",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": "acc_1200",
-      "parent_id": "acc_1200",
-      "description": "Provision for PAR and non-performing loan impairments",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_1590",
-      "account_code": "1590",
-      "code": "1590",
-      "name": "Accumulated Depreciation - Office Equipment",
-      "category": "Asset",
-      "type": "Asset",
-      "report_group": "Contra-Asset",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Depreciation reserve on operational equipment",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_2220",
-      "account_code": "2220",
-      "code": "2220",
-      "name": "Interest Payable on Deposits",
-      "category": "Liability",
-      "type": "Liability",
-      "report_group": "Current Liabilities",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Accrued interest payable to member savings deposits",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_3220",
-      "account_code": "3220",
-      "code": "3220",
-      "name": "Coop Education & Training Fund (CETF)",
-      "category": "Equity",
-      "type": "Equity",
-      "report_group": "Statutory Reserves",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Mandatory educational reserve (5% localized, 5% apex federation)",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_3230",
-      "account_code": "3230",
-      "code": "3230",
-      "name": "Community Development Fund",
-      "category": "Equity",
-      "type": "Equity",
-      "report_group": "Statutory Reserves",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Mandatory 3% social community outreach fund",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_3240",
-      "account_code": "3240",
-      "code": "3240",
-      "name": "Optional Reserve Fund",
-      "category": "Equity",
-      "type": "Equity",
-      "report_group": "Statutory Reserves",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Discretionary cooperative stability and building fund",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_4140",
-      "account_code": "4140",
-      "code": "4140",
-      "name": "Membership & Admission Fees",
-      "category": "Revenue",
-      "type": "Income",
-      "report_group": "Operating Revenue",
-      "normal_balance": "Credit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Non-refundable membership application and seminar fees",
-      "is_control": false,
-      "has_subsidiary": false
-    },
-    {
-      "id": "acc_5290",
-      "account_code": "5290",
-      "code": "5290",
-      "name": "Provision for Loan Losses",
-      "category": "Expense",
-      "type": "Expense",
-      "report_group": "Credit Losses",
-      "normal_balance": "Debit",
-      "is_active": true,
-      "active": true,
-      "parent_account_id": null,
-      "parent_id": null,
-      "description": "Expense entry provisioning reserve for doubtful loan accounts",
-      "is_control": false,
-      "has_subsidiary": false
     }
   ],
   "financial_statement_mappings": [
@@ -1034,7 +881,7 @@
       "prefix": "JV",
       "pattern": "{BRANCH}-GLV-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 47
+      "current_seq": 45
     },
     {
       "id": "num_cd",
@@ -1577,6 +1424,60 @@
       "active": true,
       "effective_from": "2026-09-16",
       "effective_until": null
+    },
+    {
+      "id": "lp_1789626756753",
+      "code": "LP-RED-001",
+      "name": "Regular Multi-Purpose Loan",
+      "description": "",
+      "version": 1,
+      "min_amount": 10000,
+      "max_amount": 250000,
+      "annual_interest_rate": 12,
+      "interest_calculation_method": "Diminishing Balance",
+      "default_term_months": 12,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 2,
+      "service_fee_fixed": 200,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": false,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Valid Government ID"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-09-17",
+      "effective_until": null
+    },
+    {
+      "id": "lp_1789628305153",
+      "code": "LP-723",
+      "name": "Regular Multi-Purpose Loan",
+      "description": "",
+      "version": 1,
+      "min_amount": 10000,
+      "max_amount": 250000,
+      "annual_interest_rate": 10,
+      "interest_calculation_method": "Diminishing Balance",
+      "default_term_months": 12,
+      "payment_frequency": "Monthly",
+      "grace_period_days": 5,
+      "processing_fee_percentage": 2,
+      "service_fee_fixed": 200,
+      "penalty_rule_id": "pen_standard",
+      "collateral_required": false,
+      "guarantor_required": false,
+      "debit_account_id": "acc_1210",
+      "required_documents": [
+        "Valid Government ID"
+      ],
+      "approval_workflow_id": "wf_loan_standard",
+      "active": true,
+      "effective_from": "2026-09-17",
+      "effective_until": null
     }
   ],
   "loan_product_versions": [
@@ -1607,6 +1508,26 @@
       "annual_interest_rate": 10,
       "interest_calculation_method": "Diminishing Balance",
       "changed_at": "2026-09-16T08:29:11.450Z",
+      "changed_by": "Administrator",
+      "reason": "New loan product created via Admin Config"
+    },
+    {
+      "id": "ver_lp_1789626756753_1",
+      "loan_product_id": "lp_1789626756753",
+      "version": 1,
+      "annual_interest_rate": 12,
+      "interest_calculation_method": "Diminishing Balance",
+      "changed_at": "2026-09-17T06:32:36.757Z",
+      "changed_by": "Administrator",
+      "reason": "New loan product created via Admin Config"
+    },
+    {
+      "id": "ver_lp_1789628305153_1",
+      "loan_product_id": "lp_1789628305153",
+      "version": 1,
+      "annual_interest_rate": 10,
+      "interest_calculation_method": "Diminishing Balance",
+      "changed_at": "2026-09-17T06:58:25.158Z",
       "changed_by": "Administrator",
       "reason": "New loan product created via Admin Config"
     }
@@ -1785,11 +1706,10 @@
       "subscribed_shares": 100,
       "subscribed_amount": 10000,
       "paid_up_shares": 50,
-      "paid_up_amount": 6000,
+      "paid_up_amount": 5000,
       "par_value": 100,
       "status": "Active",
-      "created_at": "2026-09-16T08:28:49.507Z",
-      "paid_shares": 60
+      "created_at": "2026-09-16T08:28:49.507Z"
     },
     {
       "id": "cbu_mem_founding_02",
@@ -1893,15 +1813,6 @@
       "amount": 1000,
       "transaction_date": "2026-09-16",
       "cash_account_id": "cash_01"
-    },
-    {
-      "id": "sct_1789617505532_izwnc",
-      "share_account_id": "cbu_mem_founding_01",
-      "transaction_type": "PAYMENT",
-      "amount": 1000,
-      "receipt_no": "TAR-GLV-2026-000047",
-      "transaction_date": "2026-09-16",
-      "notes": "Manual JV (TAR-GLV-2026-000047): Juan paid membership and share capital"
     }
   ],
   "cash_accounts": [
@@ -1913,7 +1824,7 @@
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
       "opening_balance": 250000,
-      "current_balance": 281000,
+      "current_balance": 271000,
       "currency": "PHP",
       "active": true
     },
@@ -1923,9 +1834,9 @@
       "account_number": "VLT-TAR-00",
       "bank_name": "Master Vault Safety Depository",
       "branch_id": "branch_tar",
-      "gl_account_id": "acc_1112",
+      "gl_account_id": "acc_1110",
       "opening_balance": 500000,
-      "current_balance": 490000,
+      "current_balance": 500000,
       "currency": "PHP",
       "active": true
     },
@@ -1983,7 +1894,7 @@
       "account_number": "DIGI-EWALLET-01",
       "bank_name": "Digital Payments Clearing",
       "branch_id": "branch_tar",
-      "gl_account_id": "acc_1130",
+      "gl_account_id": "acc_1110",
       "opening_balance": 0,
       "current_balance": 0,
       "currency": "PHP",
@@ -1995,7 +1906,7 @@
       "account_number": "DIGI-EWALLET-01",
       "bank_name": "Digital Payments Clearing",
       "branch_id": "branch_tar",
-      "gl_account_id": "acc_1130",
+      "gl_account_id": "acc_1110",
       "opening_balance": 25000,
       "current_balance": 25000,
       "currency": "PHP",
@@ -2007,7 +1918,7 @@
       "account_number": "VLT-URD-00",
       "bank_name": "Urdaneta Branch Vault Safe",
       "branch_id": "branch_urd",
-      "gl_account_id": "acc_1112",
+      "gl_account_id": "acc_1110",
       "opening_balance": 250000,
       "current_balance": 250000,
       "currency": "PHP",
@@ -2019,75 +1930,14 @@
       "account_number": "VLT-SFE-00",
       "bank_name": "San Fernando Branch Vault Safe",
       "branch_id": "branch_sfe",
-      "gl_account_id": "acc_1112",
-      "opening_balance": 250000,
-      "current_balance": 250000,
-      "currency": "PHP",
-      "active": true
-    },
-    {
-      "id": "cash_vault_bag",
-      "name": "Baguio Highland Branch Cash Vault Reserve",
-      "account_number": "VLT-BAG-00",
-      "bank_name": "Baguio Highland Branch Vault Safety Depository",
-      "branch_id": "branch_test_1789200177600",
-      "gl_account_id": "acc_1112",
-      "opening_balance": 250000,
-      "current_balance": 250000,
-      "currency": "PHP",
-      "active": true
-    },
-    {
-      "id": "cash_vault_bag",
-      "name": "Baguio Highland Branch Cash Vault Reserve",
-      "account_number": "VLT-BAG-00",
-      "bank_name": "Baguio Highland Branch Vault Safety Depository",
-      "branch_id": "branch_test_1789200177600",
-      "gl_account_id": "acc_1112",
-      "opening_balance": 250000,
-      "current_balance": 250000,
-      "currency": "PHP",
-      "active": true
-    },
-    {
-      "id": "cash_teller_bag",
-      "name": "Baguio Highland Branch Teller Cash Drawer 1",
-      "account_number": "COH-BAG-01",
-      "bank_name": "Baguio Highland Branch Cash Drawer",
-      "branch_id": "branch_test_1789200177600",
       "gl_account_id": "acc_1110",
-      "opening_balance": 150000,
-      "current_balance": 150000,
-      "currency": "PHP",
-      "active": true
-    },
-    {
-      "id": "cash_teller_bag",
-      "name": "Baguio Highland Branch Teller Cash Drawer 1",
-      "account_number": "COH-BAG-01",
-      "bank_name": "Baguio Highland Branch Cash Drawer",
-      "branch_id": "branch_test_1789200177600",
-      "gl_account_id": "acc_1110",
-      "opening_balance": 150000,
-      "current_balance": 150000,
+      "opening_balance": 250000,
+      "current_balance": 250000,
       "currency": "PHP",
       "active": true
     }
   ],
-  "cash_transactions": [
-    {
-      "id": "ctx_1789556782410",
-      "transaction_date": "2026-09-16",
-      "from_account_id": "cash_02",
-      "from_account_name": "Main Vault Reserve",
-      "to_account_id": "cash_01",
-      "to_account_name": "Cash on Hand - Teller 1",
-      "amount": 10000,
-      "notes": "Vault to Teller float replenishment",
-      "performed_by": "Audit Test",
-      "created_at": "2026-09-16T11:06:22.410Z"
-    }
-  ],
+  "cash_transactions": [],
   "fees": [
     {
       "id": "fee_proc",
@@ -2165,6 +2015,45 @@
       "max_amount": 350,
       "applicable_module": "Loans",
       "accounting_account_id": "acc_4120",
+      "active": true
+    },
+    {
+      "id": "fee_1789620064673",
+      "name": "Loan Processing Fee",
+      "code": "FEE-4673",
+      "calculation_type": "Percentage of Loan",
+      "fixed_amount": 250,
+      "percentage": 2,
+      "min_amount": 250,
+      "max_amount": 250,
+      "applicable_module": "Loans",
+      "accounting_account_id": "coa_c10384c181aa",
+      "active": true
+    },
+    {
+      "id": "fee_1789620219989",
+      "name": "Loan Processing Fee",
+      "code": "FEE-9989",
+      "calculation_type": "Percentage of Principal",
+      "fixed_amount": 250,
+      "percentage": 2,
+      "min_amount": 250,
+      "max_amount": 250,
+      "applicable_module": "Loans",
+      "accounting_account_id": "acc_4120",
+      "active": true
+    },
+    {
+      "id": "fee_1789624684469",
+      "name": "Processing Fee",
+      "code": "FEE-4469",
+      "calculation_type": "Percentage of Loan",
+      "fixed_amount": 250,
+      "percentage": 2.5,
+      "min_amount": 250,
+      "max_amount": 250,
+      "applicable_module": "Loans",
+      "accounting_account_id": "coa_d085c331d4d1",
       "active": true
     }
   ],
@@ -2546,52 +2435,6 @@
       "status": "Posted",
       "created_by": "Administrator",
       "posted_at": "2026-09-16T08:30:40.174Z"
-    },
-    {
-      "id": "jv_1789555295448",
-      "voucher_number": "TAR-GLV-2026-000046",
-      "branch_id": "branch_tar",
-      "posting_date": "2026-09-16",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "jv_1789555295448",
-      "description": "Simulated Test JV: Loan Disbursement / Release (LOAN_RELEASE)",
-      "total_debit": 50000,
-      "total_credit": 50000,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Administrator",
-      "posted_at": "2026-09-16T10:41:35.448Z"
-    },
-    {
-      "id": "jv_transfer_1789556782411",
-      "voucher_number": "JV-782411",
-      "branch_id": "branch_tar",
-      "posting_date": "2026-09-16",
-      "reference_type": "CASH_TRANSFER",
-      "reference_id": "ctx_1789556782410",
-      "description": "Vault to Teller float replenishment",
-      "total_debit": 10000,
-      "total_credit": 10000,
-      "status": "Posted",
-      "created_by": "Audit Test",
-      "posted_at": "2026-09-16T11:06:22.410Z"
-    },
-    {
-      "id": "jv_1789617505525",
-      "voucher_number": "TAR-GLV-2026-000047",
-      "branch_id": "branch_tar",
-      "posting_date": "2026-09-16",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "mem_founding_01",
-      "member_id": "mem_founding_01",
-      "member_name": "Juan Cruz",
-      "description": "Juan paid membership and share capital",
-      "total_debit": 1500,
-      "total_credit": 1500,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Chief Accountant",
-      "posted_at": "2026-09-17T03:58:25.525Z"
     }
   ],
   "journal_lines": [
@@ -2774,69 +2617,6 @@
       "credit": 1000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_founding_04"
-    },
-    {
-      "id": "jl_1789555295449_4d76n",
-      "journal_entry_id": "jv_1789555295448",
-      "account_id": "acc_1230",
-      "debit": 50000,
-      "credit": 0,
-      "subsidiary_type": null,
-      "subsidiary_id": null
-    },
-    {
-      "id": "jl_1789555295450_sv07n",
-      "journal_entry_id": "jv_1789555295448",
-      "account_id": "acc_1110",
-      "debit": 0,
-      "credit": 50000,
-      "subsidiary_type": null,
-      "subsidiary_id": null
-    },
-    {
-      "id": "jl_tx_dr_1789556782413",
-      "journal_entry_id": "jv_transfer_1789556782411",
-      "account_id": "acc_1110",
-      "debit": 10000,
-      "credit": 0,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
-    },
-    {
-      "id": "jl_tx_cr_1789556782414",
-      "journal_entry_id": "jv_transfer_1789556782411",
-      "account_id": "acc_1112",
-      "debit": 0,
-      "credit": 10000,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_02"
-    },
-    {
-      "id": "jl_1789617505526_6yfa0",
-      "journal_entry_id": "jv_1789617505525",
-      "account_id": "acc_1110",
-      "debit": 1500,
-      "credit": 0,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
-    },
-    {
-      "id": "jl_1789617505528_o76zp",
-      "journal_entry_id": "jv_1789617505525",
-      "account_id": "acc_4210",
-      "debit": 0,
-      "credit": 500,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_founding_01"
-    },
-    {
-      "id": "jl_1789617505529_he639",
-      "journal_entry_id": "jv_1789617505525",
-      "account_id": "acc_3110",
-      "debit": 0,
-      "credit": 1000,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_founding_01"
     }
   ],
   "general_ledger": [],
@@ -2896,40 +2676,49 @@
       "reason": "Updated transaction GL debit/credit mapping"
     },
     {
-      "id": "audit_1789556743444_k4qkno",
-      "setting": "Auto-Aligned Cash & Bank GL Mappings",
-      "old_value": "Generic Mappings",
-      "new_value": "6 accounts aligned",
-      "changed_by": "Admin",
-      "created_at": "2026-09-16T11:05:43.444Z",
-      "reason": "CDA Standard Depository Alignment"
+      "id": "audit_1789620064678_ri5n9e",
+      "setting": "Fee Created: Loan Processing Fee",
+      "old_value": "None",
+      "new_value": "{\"id\":\"fee_1789620064673\",\"name\":\"Loan Processing Fee\",\"code\":\"FEE-4673\",\"calculation_type\":\"Percentage of Loan\",\"fixed_amount\":250,\"percentage\":2,\"min_amount\":250,\"max_amount\":250,\"applicable_module\":\"Loans\",\"accounting_account_id\":\"coa_c10384c181aa\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-17T04:41:04.678Z",
+      "reason": "Created new fee rule via Admin"
     },
     {
-      "id": "audit_1789556775618_6arh44",
-      "setting": "Auto-Aligned Cash & Bank GL Mappings",
-      "old_value": "Generic Mappings",
-      "new_value": "1 accounts aligned",
-      "changed_by": "Admin",
-      "created_at": "2026-09-16T11:06:15.618Z",
-      "reason": "CDA Standard Depository Alignment"
+      "id": "audit_1789620219992_63hvi7",
+      "setting": "Fee Created: Loan Processing Fee",
+      "old_value": "None",
+      "new_value": "{\"id\":\"fee_1789620219989\",\"name\":\"Loan Processing Fee\",\"code\":\"FEE-9989\",\"calculation_type\":\"Percentage of Principal\",\"fixed_amount\":250,\"percentage\":2,\"min_amount\":250,\"max_amount\":250,\"applicable_module\":\"Loans\",\"accounting_account_id\":\"acc_4120\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-17T04:43:39.992Z",
+      "reason": "Created new fee rule via Admin"
     },
     {
-      "id": "audit_1789556778737_01tdnn",
-      "setting": "Cash Account Updated: Cash on Hand - Teller 1",
-      "old_value": "{\"id\":\"cash_01\",\"name\":\"Cash on Hand - Teller 1\",\"account_number\":\"COH-TAR-01\",\"bank_name\":\"Cash Vault Drawer\",\"branch_id\":\"branch_tar\",\"gl_account_id\":\"acc_1110\",\"opening_balance\":250000,\"current_balance\":271000,\"currency\":\"PHP\",\"active\":true}",
-      "new_value": "{\"id\":\"cash_01\",\"name\":\"Cash on Hand - Teller 1\",\"account_number\":\"COH-TAR-01\",\"bank_name\":\"Cash Vault Drawer\",\"branch_id\":\"branch_tar\",\"gl_account_id\":\"acc_1110\",\"opening_balance\":250000,\"current_balance\":271000,\"currency\":\"PHP\",\"active\":true}",
-      "changed_by": "Admin",
-      "created_at": "2026-09-16T11:06:18.737Z",
-      "reason": "Spreadsheet config edit"
+      "id": "audit_1789624684480_8e7lik",
+      "setting": "Fee Created: Processing Fee",
+      "old_value": "None",
+      "new_value": "{\"id\":\"fee_1789624684469\",\"name\":\"Processing Fee\",\"code\":\"FEE-4469\",\"calculation_type\":\"Percentage of Loan\",\"fixed_amount\":250,\"percentage\":2.5,\"min_amount\":250,\"max_amount\":250,\"applicable_module\":\"Loans\",\"accounting_account_id\":\"coa_d085c331d4d1\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-17T05:58:04.480Z",
+      "reason": "Created new fee rule via Admin"
     },
     {
-      "id": "audit_1789556782440_o3qaai",
-      "setting": "Cash Transfer: ₱10,000 from Main Vault Reserve to Cash on Hand - Teller 1",
-      "old_value": "{\"from_balance\":500000}",
-      "new_value": "{\"from_balance\":490000}",
-      "changed_by": "Audit Test",
-      "created_at": "2026-09-16T11:06:22.441Z",
-      "reason": "Vault to Teller float replenishment"
+      "id": "audit_1789626756761_n2zw16",
+      "setting": "Loan Product Created: Regular Multi-Purpose Loan",
+      "old_value": "None",
+      "new_value": "{\"id\":\"lp_1789626756753\",\"code\":\"LP-RED-001\",\"name\":\"Regular Multi-Purpose Loan\",\"description\":\"\",\"version\":1,\"min_amount\":10000,\"max_amount\":250000,\"annual_interest_rate\":12,\"interest_calculation_method\":\"Diminishing Balance\",\"default_term_months\":12,\"payment_frequency\":\"Monthly\",\"grace_period_days\":5,\"processing_fee_percentage\":2,\"service_fee_fixed\":200,\"penalty_rule_id\":\"pen_standard\",\"collateral_required\":false,\"guarantor_required\":false,\"debit_account_id\":\"acc_1210\",\"required_documents\":[\"Valid Government ID\"],\"approval_workflow_id\":\"wf_loan_standard\",\"active\":true,\"effective_from\":\"2026-09-17\",\"effective_until\":null}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-17T06:32:36.761Z",
+      "reason": "New loan product created via Admin Config"
+    },
+    {
+      "id": "audit_1789628305162_sychhq",
+      "setting": "Loan Product Created: Regular Multi-Purpose Loan",
+      "old_value": "None",
+      "new_value": "{\"id\":\"lp_1789628305153\",\"code\":\"LP-723\",\"name\":\"Regular Multi-Purpose Loan\",\"description\":\"\",\"version\":1,\"min_amount\":10000,\"max_amount\":250000,\"annual_interest_rate\":10,\"interest_calculation_method\":\"Diminishing Balance\",\"default_term_months\":12,\"payment_frequency\":\"Monthly\",\"grace_period_days\":5,\"processing_fee_percentage\":2,\"service_fee_fixed\":200,\"penalty_rule_id\":\"pen_standard\",\"collateral_required\":false,\"guarantor_required\":false,\"debit_account_id\":\"acc_1210\",\"required_documents\":[\"Valid Government ID\"],\"approval_workflow_id\":\"wf_loan_standard\",\"active\":true,\"effective_from\":\"2026-09-17\",\"effective_until\":null}",
+      "changed_by": "Administrator",
+      "created_at": "2026-09-17T06:58:25.162Z",
+      "reason": "New loan product created via Admin Config"
     }
   ],
   "user_roles": [

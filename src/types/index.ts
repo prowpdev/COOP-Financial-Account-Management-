@@ -160,17 +160,22 @@ export interface LoanProduct {
   version: number;
   min_amount: number;
   max_amount: number;
+  min_term_months?: number;
+  max_term_months?: number;
   annual_interest_rate: number;
   interest_calculation_method: string;
   default_term_months: number;
   payment_frequency: string;
   grace_period_days: number;
   processing_fee_percentage: number;
+  penalty_rate_percentage?: number;
   service_fee_fixed: number;
   penalty_rule_id: string;
   collateral_required: boolean;
   guarantor_required: boolean;
   debit_account_id: string;
+  gl_receivable_account_id?: string;
+  gl_interest_income_account_id?: string;
   required_documents: string[];
   approval_workflow_id: string;
   active: boolean;
@@ -293,7 +298,7 @@ export interface PenaltyRule {
 export interface PaymentAllocationRule {
   id: string;
   name: string;
-  priorities: { priority: number; component: string; label?: string }[];
+  priorities: ({ priority: number; component: string; label?: string } | string)[];
   is_default: boolean;
   active: boolean;
 }

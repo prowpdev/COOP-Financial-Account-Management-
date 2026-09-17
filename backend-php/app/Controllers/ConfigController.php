@@ -59,6 +59,15 @@ class ConfigController extends BaseController
         $this->success($products);
     }
 
+    public function loanProduct(string $id): never
+    {
+        $product = $this->config->getLoanProduct($id);
+        if (!$product) {
+            $this->error('Loan product not found.', 404);
+        }
+        $this->success($product);
+    }
+
     /**
      * GET /api/savings-products or /api/config/savings-products
      */

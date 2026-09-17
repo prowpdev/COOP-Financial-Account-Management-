@@ -155,14 +155,22 @@ export const api = {
 
   // Loan Products & Versioning
   createLoanProduct: (product: any) =>
-    fetchApi<{ success: boolean; data: any }>('/config/loan-products', {
-      method: 'POST',
-      body: JSON.stringify(product)
-    }),
+  {console.log(product);},
+    // fetchApi<{ success: boolean; data: any }>('/config/loan-products', {
+    //   method: 'POST',
+    //   body: JSON.stringify(product)
+    // }),
+  getLoanProduct: (id: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/config/loan-products/${id}`),
   updateLoanProduct: (id: string, product: any) =>
     fetchApi<{ success: boolean; data: any; previous_version: any }>(`/config/loan-products/${id}`, {
       method: 'PUT',
       body: JSON.stringify(product)
+    }),
+  deleteLoanProduct: (id: string, changed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/loan-products/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ changed_by })
     }),
 
   // Fees & Penalties
@@ -299,7 +307,45 @@ export const api = {
       return { success: false, data: [] };
     }
   },
-  getMemberReport: (memberId: string) => fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`),
+  getMemberReport: async (memberId: string) => {
+    const res = await fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`);
+    const report = res.data || {};
+    const transactions = Array.isArray(report.transactions)
+      ? report.transactions.map((transaction: any) => {
+          const type = transaction.type || transaction.transaction_type || 'Transaction';
+          const source = String(transaction.category || transaction.source || '').toLowerCase();
+          const category = transaction.category || (
+            source.includes('loan') ? 'Loans' :
+            source.includes('saving') ? 'Savings' :
+            source.includes('share') ? 'Share Capital' :
+            'Journal'
+          );
+          const amount = Number(transaction.amount || transaction.total_amount || 0);
+          const isLoanRelease = type === 'LOAN_RELEASE' || String(type).toLowerCase().includes('loan release');
+          const isLoanPayment = type === 'LOAN_PAYMENT' || String(type).toLowerCase().includes('loan payment');
+
+          return {
+            ...transaction,
+            id: transaction.id || transaction.transaction_id || transaction.reference_number,
+            date: transaction.date || transaction.transaction_date,
+            type: isLoanRelease ? 'Loan released' : isLoanPayment ? 'Loan payment' : type,
+            reference: transaction.reference || transaction.reference_number || transaction.voucher_number,
+            category,
+            amount,
+            debit: transaction.debit !== undefined ? Number(transaction.debit) : isLoanRelease ? amount : 0,
+            credit: transaction.credit !== undefined ? Number(transaction.credit) : isLoanPayment ? amount : 0
+          };
+        })
+      : [];
+
+    return {
+      ...res,
+      data: {
+        ...report,
+        transactions
+      }
+    };
+  },
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
       method: 'POST',
@@ -316,11 +362,43 @@ export const api = {
       return { success: false, data: [] };
     }
   },
-  calculateSchedule: (params: any) =>
-    fetchApi<{ success: boolean; data: any }>('/loans/calculate-schedule', {
+  calculateSchedule: async (params: any) => {
+    const res = await fetchApi<any>('/loans/calculate-schedule', {
       method: 'POST',
-      body: JSON.stringify(params)
-    }),
+      body: JSON.stringify({
+        ...params,
+        principal_amount: params.principal_amount ?? params.principal,
+        annual_interest_rate: params.annual_interest_rate ?? params.annual_rate,
+        interest_calculation_method: params.interest_calculation_method ?? params.method,
+        payment_frequency: params.payment_frequency ?? params.frequency,
+        disbursement_date: params.disbursement_date ?? params.start_date
+      })
+    });
+    const schedule = res.data?.schedule || res.schedule || [];
+    const summary = res.data?.summary || res.summary || {};
+    return {
+      ...res,
+      data: {
+        ...(res.data || {}),
+        schedule,
+        installment_amount: res.data?.installment_amount
+          ?? res.installment_amount
+          ?? schedule[0]?.total_installment
+          ?? 0,
+        total_principal: res.data?.total_principal
+          ?? summary.principal
+          ?? params.principal_amount
+          ?? params.principal
+          ?? 0,
+        total_interest: res.data?.total_interest
+          ?? summary.total_interest
+          ?? 0,
+        total_repayment: res.data?.total_repayment
+          ?? summary.total_payment
+          ?? 0
+      }
+    };
+  },
   originateLoan: (params: any) =>
     fetchApi<{ success: boolean; data: any; schedule: any[]; accounting_posting: any }>('/loans/originate', {
       method: 'POST',
@@ -486,8 +564,7 @@ export const api = {
     return { success: true, data: res.data?.chart_of_accounts || [] };
   },
   getLoanProducts: async () => {
-    const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
-    return { success: true, data: res.data?.loan_products || [] };
+    return fetchApi<{ success: boolean; data: any[] }>('/config/loan-products');
   },
   getCashAccounts: async (branchId?: string) => {
     const url = branchId && branchId !== 'all' ? `/cash-accounts?branch_id=${branchId}` : '/cash-accounts';
