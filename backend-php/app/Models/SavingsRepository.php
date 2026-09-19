@@ -15,6 +15,106 @@ class SavingsRepository
     /**
      * Get savings accounts with member and product info
      */
+    private ?array $savingsTxColumns = null;
+
+    private function getSavingsTxColumns(): array
+    {
+        if ($this->savingsTxColumns !== null) {
+            return $this->savingsTxColumns;
+        }
+
+        try {
+            $stmt = $this->db->query("SHOW COLUMNS FROM savings_transactions");
+            $cols = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $cols[strtolower($row['Field'])] = true;
+            }
+            $this->savingsTxColumns = $cols;
+            return $cols;
+        } catch (\Throwable $e) {
+            return [
+                'id' => true,
+                'transaction_no' => true,
+                'savings_account_id' => true,
+                'member_id' => true,
+                'type' => true,
+                'amount' => true,
+                'balance_after' => true,
+                'transaction_date' => true,
+                'notes' => true,
+            ];
+        }
+    }
+
+    private function recordSavingsTransaction(
+        string $txId,
+        string $accountId,
+        ?string $memberId,
+        string $type,
+        float $amount,
+        float $balanceAfter,
+        string $ref,
+        string $date,
+        string $notes,
+        ?string $cashAccountId = null
+    ): void {
+        $cols = $this->getSavingsTxColumns();
+        $data = [];
+
+        if (isset($cols['id'])) {
+            $data['id'] = $txId;
+        }
+        if (isset($cols['savings_account_id'])) {
+            $data['savings_account_id'] = $accountId;
+        }
+        if (isset($cols['member_id']) && $memberId) {
+            $data['member_id'] = $memberId;
+        }
+        if (isset($cols['type'])) {
+            $upper = strtoupper($type);
+            $mapped = 'DEPOSIT';
+            if (str_contains($upper, 'WITHDRAW')) $mapped = 'WITHDRAWAL';
+            elseif (str_contains($upper, 'INTEREST')) $mapped = 'INTEREST_POSTING';
+            elseif (str_contains($upper, 'FEE')) $mapped = 'FEE_DEDUCTION';
+            $data['type'] = $mapped;
+        }
+        if (isset($cols['transaction_type'])) {
+            $data['transaction_type'] = $type;
+        }
+        if (isset($cols['amount'])) {
+            $data['amount'] = $amount;
+        }
+        if (isset($cols['balance_after'])) {
+            $data['balance_after'] = $balanceAfter;
+        }
+        if (isset($cols['running_balance'])) {
+            $data['running_balance'] = $balanceAfter;
+        }
+        if (isset($cols['transaction_no'])) {
+            $data['transaction_no'] = $ref;
+        }
+        if (isset($cols['reference_number'])) {
+            $data['reference_number'] = $ref;
+        }
+        if (isset($cols['transaction_date'])) {
+            $data['transaction_date'] = $date;
+        }
+        if (isset($cols['notes'])) {
+            $data['notes'] = $notes;
+        }
+        if (isset($cols['cash_account_id']) && $cashAccountId) {
+            $data['cash_account_id'] = $cashAccountId;
+        }
+
+        if (empty($data)) return;
+
+        $fields = array_keys($data);
+        $placeholders = array_fill(0, count($fields), '?');
+        $sql = "INSERT INTO savings_transactions (" . implode(', ', $fields) . ") VALUES (" . implode(', ', $placeholders) . ")";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(array_values($data));
+    }
+
     public function all(?string $branchId = null, ?string $memberId = null): array
     {
         $sql = "
@@ -102,20 +202,18 @@ class SavingsRepository
             ]);
 
             if ($initialDeposit > 0) {
-                $txStmt = $this->db->prepare("
-                    INSERT INTO savings_transactions (
-                        id, savings_account_id, transaction_type, amount, running_balance,
-                        reference_number, transaction_date, notes
-                    ) VALUES (?, ?, 'Deposit', ?, ?, ?, ?, 'Initial Opening Deposit')
-                ");
-                $txStmt->execute([
+                $ref = 'DEP-' . date('Ymd') . '-' . mt_rand(100, 999);
+                $this->recordSavingsTransaction(
                     'stx_' . bin2hex(random_bytes(6)),
                     $id,
+                    $data['member_id'] ?? null,
+                    'Deposit',
                     $initialDeposit,
                     $initialDeposit,
-                    'DEP-' . date('Ymd') . '-' . mt_rand(100, 999),
-                    $data['opened_date'] ?? date('Y-m-d')
-                ]);
+                    $ref,
+                    $data['opened_date'] ?? date('Y-m-d'),
+                    'Initial Opening Deposit'
+                );
             }
 
             $this->db->commit();
@@ -178,24 +276,20 @@ class SavingsRepository
             // Update account balance
             $updStmt = $this->db->prepare("UPDATE savings_accounts SET balance = ? WHERE id = ?");
             $updStmt->execute([$newBal, $accountId]);
-            // Insert transaction line
+
+            // Insert transaction line safely
             $txId = 'stx_' . bin2hex(random_bytes(6));
-            $txStmt = $this->db->prepare("
-                INSERT INTO savings_transactions (
-                    id, savings_account_id, transaction_type, amount, running_balance,
-                    reference_number, transaction_date, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $txStmt->execute([
+            $this->recordSavingsTransaction(
                 $txId,
                 $accountId,
+                $acc['member_id'] ?? null,
                 $type,
                 $amount,
                 $newBal,
                 $ref,
                 $date,
                 $data['notes'] ?? "$type transaction"
-            ]);
+            );
 
             $this->db->commit();
 

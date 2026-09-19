@@ -253,13 +253,22 @@ CREATE TABLE cash_transactions (
     amount DECIMAL(15,2) NOT NULL,
     balance_before DECIMAL(15,2) NOT NULL,
     balance_after DECIMAL(15,2) NOT NULL,
+    running_balance DECIMAL(15,2) DEFAULT 0,
+    reference_number VARCHAR(100) NULL,
     reference_type VARCHAR(50),
     reference_id VARCHAR(50),
     description TEXT,
+    notes TEXT NULL,
+    transaction_date DATE NULL,
     created_by VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cash_account_id) REFERENCES cash_accounts(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration helper if updating an existing database:
+-- ALTER TABLE cash_transactions ADD COLUMN IF NOT EXISTS balance_before DECIMAL(15,2) DEFAULT 0;
+-- ALTER TABLE cash_transactions ADD COLUMN IF NOT EXISTS balance_after DECIMAL(15,2) DEFAULT 0;
+-- ALTER TABLE cash_transactions ADD COLUMN IF NOT EXISTS running_balance DECIMAL(15,2) DEFAULT 0;
 
 -- ---------------------------------------------------------------------
 -- 12. LOAN PRODUCTS & VERSIONS

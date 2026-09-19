@@ -1,9 +1,22 @@
-export const DEFAULT_API_BASE = 'http://cooperative-api.test/api';
+import { ShareCapitalSetting } from '../types';
+
+export const DEFAULT_API_BASE = '/api';
 
 const getInitialApiBase = () => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('coop_api_endpoint');
-    if (saved) return saved.replace(/\/$/, '');
+    if (saved) {
+      // If the saved endpoint was an unreachable external domain or mixed content in HTTPS, purge it
+      if (saved.includes('cooperative-api.test') || (window.location.protocol === 'https:' && saved.startsWith('http://'))) {
+        try {
+          localStorage.removeItem('coop_api_endpoint');
+        } catch {
+          // ignore
+        }
+      } else {
+        return saved.replace(/\/$/, '');
+      }
+    }
   }
   return (((import.meta as any).env?.VITE_API_BASE_URL as string) || DEFAULT_API_BASE).replace(/\/$/, '');
 };
@@ -52,7 +65,7 @@ export function safeArray<T = any>(payload: any): T[] {
   return [];
 }
 
-export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+export async function fetchApi<T>(endpoint: string, options?: RequestInit, retries = 1): Promise<T> {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const targetUrl = `${activeApiBase}${cleanEndpoint}`;
 
@@ -92,15 +105,32 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
         });
         const fallbackData = await fallbackRes.json();
         if (fallbackRes.ok && fallbackData.success !== false) {
+          // Update activeApiBase to '/api' so subsequent requests don't repeatedly fail
+          activeApiBase = '/api';
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.removeItem('coop_api_endpoint');
+            } catch {
+              // ignore
+            }
+            window.dispatchEvent(new CustomEvent('coop:api-endpoint-changed', { detail: '/api' }));
+          }
           if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
             window.dispatchEvent(new Event('coop:data-changed'));
           }
           return fallbackData;
         }
       } catch (fallbackErr) {
-        // Fallback also failed or had an error, continue to rethrow original error
+        // Fallback also failed or had an error, continue to retry or throw
       }
     }
+
+    // For transient network hiccups (such as dev server reload), retry once
+    if (retries > 0 && (!options?.method || options.method.toUpperCase() === 'GET')) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+      return fetchApi<T>(endpoint, options, retries - 1);
+    }
+
     throw err;
   }
 }
@@ -120,6 +150,15 @@ export const api = {
     }),
 
   // Chart of Accounts
+  getChartOfAccounts: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/chart');
+      return { ...res, data: safeArray(res) };
+    } catch {
+      const cfg = await fetchApi<{ success: boolean; data: any }>('/config/all');
+      return { success: true, data: cfg.data?.chart_of_accounts || [] };
+    }
+  },
   createAccount: (account: any) =>
     fetchApi<{ success: boolean; data: any }>('/config/chart-of-accounts', {
       method: 'POST',
@@ -480,6 +519,25 @@ export const api = {
     fetchApi<{ success: boolean; data: any; account: any }>('/share-capital/pay', {
       method: 'POST',
       body: JSON.stringify(params)
+    }),
+  getShareCapitalSettings: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: ShareCapitalSetting[] }>('/share-capital/settings');
+      return { ...res, data: safeArray<ShareCapitalSetting>(res) };
+    } catch (err) {
+      console.warn('[API] getShareCapitalSettings fallback:', err);
+      return { success: false, data: [] };
+    }
+  },
+  createShareCapitalSetting: (setting: Partial<ShareCapitalSetting> & { changed_by?: string; reason?: string }) =>
+    fetchApi<{ success: boolean; data: ShareCapitalSetting; message?: string }>('/share-capital/settings', {
+      method: 'POST',
+      body: JSON.stringify(setting)
+    }),
+  updateShareCapitalSetting: (id: string, updates: Partial<ShareCapitalSetting> & { changed_by?: string; reason?: string }) =>
+    fetchApi<{ success: boolean; data: ShareCapitalSetting; message?: string }>(`/share-capital/settings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
     }),
 
   // Operations: General Accounting

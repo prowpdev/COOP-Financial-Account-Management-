@@ -110,6 +110,24 @@ try {
         db.save();
       }
     }
+
+    // Initialize share_capital_settings if missing
+    if (!currentData.share_capital_settings || currentData.share_capital_settings.length === 0) {
+      currentData.share_capital_settings = [
+        {
+          id: 'sc_setting_01',
+          cooperative_id: 'coop_01',
+          par_value_per_share: 100.0,
+          min_subscription_shares: 100,
+          min_paid_up_shares: 25,
+          max_share_holding_percentage: 10.0,
+          transfer_fee: 100.0,
+          withdrawal_rule: 'Subject to Board approval and 30-day prior written notice',
+          accounting_account_id: 'acc_3110'
+        }
+      ];
+      db.save();
+    }
   }
 } catch (dbErr) {
   console.error('[server] Error during database initialization:', dbErr);

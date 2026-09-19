@@ -785,12 +785,20 @@ router.post('/cash-accounts/transfer', (req: Request, res: Response) => {
   const now = new Date().toISOString();
   const tx = {
     id: txId,
+    transaction_no: `TXFR-${Date.now().toString().slice(-8)}`,
+    reference_number: `TXFR-${Date.now().toString().slice(-8)}`,
     transaction_date: now.split('T')[0],
     from_account_id: fromAcc.id,
     from_account_name: fromAcc.name,
     to_account_id: toAcc.id,
     to_account_name: toAcc.name,
+    cash_account_id: toAcc.id,
+    type: 'TRANSFER',
     amount: numAmount,
+    balance_before: fromAcc.current_balance + numAmount,
+    balance_after: toAcc.current_balance,
+    running_balance: toAcc.current_balance,
+    description: notes || `Internal Cash Transfer from ${fromAcc.name} to ${toAcc.name}`,
     notes: notes || `Internal Cash Transfer from ${fromAcc.name} to ${toAcc.name}`,
     performed_by: performed_by || 'Admin',
     created_at: now
@@ -869,12 +877,20 @@ router.post('/cash-accounts/replenish', (req: Request, res: Response) => {
   const txId = `ctx_rep_${Date.now()}`;
   db.insert('cash_transactions', {
     id: txId,
+    transaction_no: `REP-${Date.now().toString().slice(-8)}`,
+    reference_number: `REP-${Date.now().toString().slice(-8)}`,
     transaction_date: now.split('T')[0],
     from_account_id: sourceAcc ? sourceAcc.id : 'CAPITAL_FLOAT',
     from_account_name: sourceAcc ? sourceAcc.name : 'Capital Liquidity Float',
     to_account_id: targetAcc.id,
     to_account_name: targetAcc.name,
+    cash_account_id: targetAcc.id,
+    type: 'INFLOW',
     amount: numAmount,
+    balance_before: Number((targetAcc.current_balance - numAmount).toFixed(2)),
+    balance_after: targetAcc.current_balance,
+    running_balance: targetAcc.current_balance,
+    description: reason || `Cash Replenishment / Liquidity Inflow for ${targetAcc.name}`,
     notes: reason || `Cash Replenishment / Liquidity Inflow for ${targetAcc.name}`,
     performed_by: performed_by || 'Admin',
     created_at: now
@@ -2034,6 +2050,159 @@ router.post('/savings/transact', (req: Request, res: Response) => {
 // ==========================================
 // 17. OPERATIONAL MODULES: SHARE CAPITAL (CBU)
 // ==========================================
+
+// GET /share-capital/settings: Retrieve cooperative share capital policy settings
+router.get('/share-capital/settings', (req: Request, res: Response) => {
+  let settings = db.getTable('share_capital_settings');
+  if (!settings || settings.length === 0) {
+    const defaultSetting = {
+      id: 'sc_setting_01',
+      cooperative_id: 'coop_01',
+      par_value_per_share: 100.0,
+      min_subscription_shares: 100,
+      min_paid_up_shares: 25,
+      max_share_holding_percentage: 10.0,
+      transfer_fee: 100.0,
+      withdrawal_rule: 'Subject to Board approval and 30-day prior written notice',
+      accounting_account_id: 'acc_3110'
+    };
+    db.insert('share_capital_settings', defaultSetting);
+    settings = [defaultSetting];
+  }
+  res.json({ success: true, data: settings });
+});
+
+// POST /share-capital/settings: Create new share capital setting / policy version
+router.post('/share-capital/settings', (req: Request, res: Response) => {
+  const {
+    cooperative_id,
+    par_value_per_share,
+    min_subscription_shares,
+    min_paid_up_shares,
+    max_share_holding_percentage,
+    transfer_fee,
+    withdrawal_rule,
+    accounting_account_id,
+    changed_by,
+    reason
+  } = req.body;
+
+  const parValue = parseFloat(par_value_per_share) || 100.0;
+  const minSub = parseInt(min_subscription_shares, 10) || 100;
+  const minPaid = parseInt(min_paid_up_shares, 10) || 25;
+  const maxHolding = parseFloat(max_share_holding_percentage) || 10.0;
+  const fee = parseFloat(transfer_fee) || 0.0;
+
+  if (parValue <= 0) {
+    return res.status(400).json({ success: false, error: 'Par value per share must be greater than zero.' });
+  }
+  if (minSub <= 0) {
+    return res.status(400).json({ success: false, error: 'Minimum subscription shares must be greater than zero.' });
+  }
+  if (minPaid < 0) {
+    return res.status(400).json({ success: false, error: 'Minimum paid-up shares cannot be negative.' });
+  }
+  if (minPaid > minSub) {
+    return res.status(400).json({ success: false, error: 'Minimum paid-up shares cannot exceed minimum subscription shares.' });
+  }
+  if (maxHolding <= 0 || maxHolding > 100) {
+    return res.status(400).json({ success: false, error: 'Maximum shareholding percentage must be between 1% and 100% (CDA standard is 10%).' });
+  }
+
+  const id = `sc_setting_${Date.now().toString(36)}`;
+  const newSetting = {
+    id,
+    cooperative_id: cooperative_id || 'coop_01',
+    par_value_per_share: parValue,
+    min_subscription_shares: minSub,
+    min_paid_up_shares: minPaid,
+    max_share_holding_percentage: maxHolding,
+    transfer_fee: fee,
+    withdrawal_rule: withdrawal_rule || 'Subject to Board approval and 30-day prior written notice',
+    accounting_account_id: accounting_account_id || 'acc_3110',
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('share_capital_settings', newSetting);
+  db.recordAudit(
+    `Share Capital Settings: Created ${id}`,
+    null,
+    `Par Value: ₱${parValue}, Min Sub: ${minSub} shares, Min Paid: ${minPaid} shares`,
+    changed_by || 'Admin',
+    reason || 'Created new share capital policy setting'
+  );
+
+  res.json({ success: true, data: newSetting, message: 'Share capital setting created successfully.' });
+});
+
+// PUT /share-capital/settings/:id: Update existing share capital setting / policy
+router.put('/share-capital/settings/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const settings = db.getTable('share_capital_settings');
+  const existing = settings.find(s => s.id === id) || settings[0];
+
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Share capital setting not found.' });
+  }
+
+  const {
+    par_value_per_share,
+    min_subscription_shares,
+    min_paid_up_shares,
+    max_share_holding_percentage,
+    transfer_fee,
+    withdrawal_rule,
+    accounting_account_id,
+    changed_by,
+    reason
+  } = req.body;
+
+  const parValue = par_value_per_share !== undefined ? parseFloat(par_value_per_share) : existing.par_value_per_share;
+  const minSub = min_subscription_shares !== undefined ? parseInt(min_subscription_shares, 10) : existing.min_subscription_shares;
+  const minPaid = min_paid_up_shares !== undefined ? parseInt(min_paid_up_shares, 10) : existing.min_paid_up_shares;
+  const maxHolding = max_share_holding_percentage !== undefined ? parseFloat(max_share_holding_percentage) : existing.max_share_holding_percentage;
+  const fee = transfer_fee !== undefined ? parseFloat(transfer_fee) : existing.transfer_fee;
+
+  if (parValue <= 0) {
+    return res.status(400).json({ success: false, error: 'Par value per share must be greater than zero.' });
+  }
+  if (minSub <= 0) {
+    return res.status(400).json({ success: false, error: 'Minimum subscription shares must be greater than zero.' });
+  }
+  if (minPaid < 0) {
+    return res.status(400).json({ success: false, error: 'Minimum paid-up shares cannot be negative.' });
+  }
+  if (minPaid > minSub) {
+    return res.status(400).json({ success: false, error: 'Minimum paid-up shares cannot exceed minimum subscription shares.' });
+  }
+  if (maxHolding <= 0 || maxHolding > 100) {
+    return res.status(400).json({ success: false, error: 'Maximum shareholding percentage must be between 1% and 100% (CDA standard is 10%).' });
+  }
+
+  const oldSummary = `Par: ₱${existing.par_value_per_share}, MinSub: ${existing.min_subscription_shares} sh, MinPaid: ${existing.min_paid_up_shares} sh, GL: ${existing.accounting_account_id}`;
+
+  existing.par_value_per_share = parValue;
+  existing.min_subscription_shares = minSub;
+  existing.min_paid_up_shares = minPaid;
+  existing.max_share_holding_percentage = maxHolding;
+  existing.transfer_fee = fee;
+  if (withdrawal_rule !== undefined) existing.withdrawal_rule = withdrawal_rule;
+  if (accounting_account_id !== undefined) existing.accounting_account_id = accounting_account_id;
+  existing.updated_at = new Date().toISOString();
+
+  db.update('share_capital_settings', s => s.id === existing.id, () => existing);
+
+  const newSummary = `Par: ₱${parValue}, MinSub: ${minSub} sh, MinPaid: ${minPaid} sh, GL: ${existing.accounting_account_id}`;
+  db.recordAudit(
+    `Share Capital Policy: Updated ${existing.id}`,
+    oldSummary,
+    newSummary,
+    changed_by || 'Admin',
+    reason || 'Updated cooperative share capital policy parameters'
+  );
+
+  res.json({ success: true, data: existing, message: 'Share capital setting updated successfully.' });
+});
 
 router.get('/share-capital/accounts', (req: Request, res: Response) => {
   const accounts = db.getTable('share_capital_accounts');

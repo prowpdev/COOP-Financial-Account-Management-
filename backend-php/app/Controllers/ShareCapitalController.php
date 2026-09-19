@@ -116,4 +116,47 @@ class ShareCapitalController extends BaseController
 
         $this->success(['id' => $id], 'Share capital account deleted.');
     }
+
+    /**
+     * GET /api/share-capital/settings
+     */
+    public function getSettings(): never
+    {
+        $settings = $this->shareCapital->getSettings();
+        $this->success($settings);
+    }
+
+    /**
+     * POST /api/share-capital/settings
+     */
+    public function storeSetting(): never
+    {
+        $input = $this->getRequestBody();
+        if (isset($input['par_value_per_share']) && (float)$input['par_value_per_share'] <= 0) {
+            $this->error('Par value per share must be greater than zero.', 422);
+        }
+        try {
+            $setting = $this->shareCapital->createSetting($input);
+            $this->success($setting, 'Share capital setting created successfully.', 201);
+        } catch (\Exception $e) {
+            $this->error('Failed to save share capital setting: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * PUT /api/share-capital/settings/:id
+     */
+    public function updateSetting(string $id): never
+    {
+        $input = $this->getRequestBody();
+        if (isset($input['par_value_per_share']) && (float)$input['par_value_per_share'] <= 0) {
+            $this->error('Par value per share must be greater than zero.', 422);
+        }
+        try {
+            $setting = $this->shareCapital->updateSetting($id, $input);
+            $this->success($setting, 'Share capital setting updated successfully.');
+        } catch (\Exception $e) {
+            $this->error('Failed to update share capital setting: ' . $e->getMessage(), 500);
+        }
+    }
 }

@@ -294,4 +294,87 @@ class ShareCapitalRepository
         $stmt = $this->db->prepare('DELETE FROM share_capital_accounts WHERE id = ?');
         return $stmt->execute([$id]);
     }
+
+    /**
+     * Get share capital settings
+     */
+    public function getSettings(): array
+    {
+        $stmt = $this->db->query("SELECT scs.*, coa.account_code, coa.name AS gl_account_name FROM share_capital_settings scs LEFT JOIN chart_of_accounts coa ON scs.accounting_account_id = coa.id");
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($results)) {
+            // Return baseline default
+            return [[
+                'id' => 'sc_setting_01',
+                'cooperative_id' => 'coop_01',
+                'par_value_per_share' => 100.00,
+                'min_subscription_shares' => 100,
+                'min_paid_up_shares' => 25,
+                'max_share_holding_percentage' => 10.00,
+                'transfer_fee' => 100.00,
+                'withdrawal_rule' => 'Subject to Board approval and 30-day prior written notice',
+                'accounting_account_id' => 'acc_3110'
+            ]];
+        }
+        return $results;
+    }
+
+    /**
+     * Create share capital setting
+     */
+    public function createSetting(array $data): array
+    {
+        $id = $data['id'] ?? ('sc_setting_' . substr(uniqid(), -6));
+        $stmt = $this->db->prepare("
+            INSERT INTO share_capital_settings (id, cooperative_id, par_value_per_share, min_subscription_shares, min_paid_up_shares, max_share_holding_percentage, transfer_fee, withdrawal_rule, accounting_account_id)
+            VALUES (:id, :cooperative_id, :par_value_per_share, :min_subscription_shares, :min_paid_up_shares, :max_share_holding_percentage, :transfer_fee, :withdrawal_rule, :accounting_account_id)
+        ");
+        $stmt->execute([
+            'id' => $id,
+            'cooperative_id' => $data['cooperative_id'] ?? 'coop_01',
+            'par_value_per_share' => (float)($data['par_value_per_share'] ?? 100.0),
+            'min_subscription_shares' => (int)($data['min_subscription_shares'] ?? 100),
+            'min_paid_up_shares' => (int)($data['min_paid_up_shares'] ?? 25),
+            'max_share_holding_percentage' => (float)($data['max_share_holding_percentage'] ?? 10.0),
+            'transfer_fee' => (float)($data['transfer_fee'] ?? 100.0),
+            'withdrawal_rule' => $data['withdrawal_rule'] ?? 'Subject to Board approval and 30-day prior written notice',
+            'accounting_account_id' => $data['accounting_account_id'] ?? 'acc_3110'
+        ]);
+
+        $fetch = $this->db->prepare("SELECT * FROM share_capital_settings WHERE id = ?");
+        $fetch->execute([$id]);
+        return $fetch->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * Update share capital setting
+     */
+    public function updateSetting(string $id, array $data): array
+    {
+        $stmt = $this->db->prepare("
+            UPDATE share_capital_settings
+            SET par_value_per_share = :par_value_per_share,
+                min_subscription_shares = :min_subscription_shares,
+                min_paid_up_shares = :min_paid_up_shares,
+                max_share_holding_percentage = :max_share_holding_percentage,
+                transfer_fee = :transfer_fee,
+                withdrawal_rule = :withdrawal_rule,
+                accounting_account_id = :accounting_account_id
+            WHERE id = :id
+        ");
+        $stmt->execute([
+            'id' => $id,
+            'par_value_per_share' => (float)($data['par_value_per_share'] ?? 100.0),
+            'min_subscription_shares' => (int)($data['min_subscription_shares'] ?? 100),
+            'min_paid_up_shares' => (int)($data['min_paid_up_shares'] ?? 25),
+            'max_share_holding_percentage' => (float)($data['max_share_holding_percentage'] ?? 10.0),
+            'transfer_fee' => (float)($data['transfer_fee'] ?? 100.0),
+            'withdrawal_rule' => $data['withdrawal_rule'] ?? 'Subject to Board approval and 30-day prior written notice',
+            'accounting_account_id' => $data['accounting_account_id'] ?? 'acc_3110'
+        ]);
+
+        $fetch = $this->db->prepare("SELECT * FROM share_capital_settings WHERE id = ?");
+        $fetch->execute([$id]);
+        return $fetch->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
 }

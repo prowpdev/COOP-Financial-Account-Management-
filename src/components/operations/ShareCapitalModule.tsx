@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Plus, X, Building2, Pencil, Trash2, CheckCircle, AlertTriangle, UserCheck, Percent } from 'lucide-react';
+import { Coins, Plus, X, Building2, Pencil, Trash2, CheckCircle, AlertTriangle, UserCheck, Percent, Settings, ShieldCheck } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
-import { Branch, CashAccount, Member, ShareCapitalAccount, User } from '../../types';
+import { Account, Branch, CashAccount, Member, ShareCapitalAccount, ShareCapitalSetting, User } from '../../types';
+import { ShareCapitalSettingsView } from '../config/ShareCapitalSettingsView';
 
 interface ShareCapitalModuleProps {
   branches?: Branch[];
@@ -20,6 +21,9 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   onSelectBranch
 }) => {
   const [accounts, setAccounts] = useState<ShareCapitalAccount[]>([]);
+  const [scSettings, setScSettings] = useState<ShareCapitalSetting[]>([]);
+  const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [activeAccount, setActiveAccount] = useState<ShareCapitalAccount | null>(null);
@@ -80,12 +84,38 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     }
   };
 
+  const loadSettings = async () => {
+    try {
+      const [resSettings, resAccounts] = await Promise.all([
+        api.getShareCapitalSettings(),
+        api.getChartOfAccounts()
+      ]);
+      const stList = Array.isArray(resSettings.data) ? resSettings.data : [];
+      setScSettings(stList);
+      setChartAccounts(Array.isArray(resAccounts.data) ? resAccounts.data : []);
+      if (stList.length > 0) {
+        const active = stList[0];
+        setNewAccount(prev => ({
+          ...prev,
+          par_value: Number(active.par_value_per_share) || 100,
+          subscribed_shares: Number(active.min_subscription_shares) || 100,
+          paid_up_shares: Number(active.min_paid_up_shares) || 25
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to load share capital settings in module:', err);
+    }
+  };
+
   useEffect(() => {
     loadAccounts();
+    loadSettings();
     api.getMembers()
       .then(res => setMembers(Array.isArray(res.data) ? res.data : []))
       .catch(err => setCreateError(err.message));
   }, []);
+
+  const activePolicy = scSettings[0] || null;
 
   const safeAccounts = Array.isArray(accounts) ? accounts : [];
   const safeCashAccounts = Array.isArray(cashAccounts) ? cashAccounts : [];
@@ -461,6 +491,17 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
 
           <button
             type="button"
+            id="btn-open-cbu-settings"
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer transition shadow"
+            title="Configure cooperative Par Value and CBU policies"
+          >
+            <Settings className="w-3.5 h-3.5 text-amber-400" />
+            <span>Coop Policy (Par: ₱{activePolicy?.par_value_per_share || 100})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               const firstAvailable = availableMembers[0] || members[0];
               const memBranch = firstAvailable?.branch_id || branches[0]?.id || 'branch_tar';
@@ -468,9 +509,9 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                 member_id: firstAvailable?.id || '',
                 account_number: `CBU-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
                 branch_id: memBranch,
-                par_value: 100,
-                subscribed_shares: 100,
-                paid_up_shares: 0,
+                par_value: Number(activePolicy?.par_value_per_share) || 100,
+                subscribed_shares: Number(activePolicy?.min_subscription_shares) || 100,
+                paid_up_shares: Number(activePolicy?.min_paid_up_shares) || 0,
                 status: 'Active'
               });
               setCreateError(null);
@@ -483,6 +524,45 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Cooperative Policy Quick-Bar */}
+      {activePolicy && (
+        <div className="bg-slate-900/90 rounded-xl px-4 py-3 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4 text-slate-300">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-slate-500 font-medium">Cooperative Par Value:</span>
+              <span className="font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                ₱{Number(activePolicy.par_value_per_share || 100).toFixed(2)} / share
+              </span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-slate-500 font-medium">Min. Subscription:</span>
+              <span className="font-semibold text-white">
+                {activePolicy.min_subscription_shares} shares (₱{(activePolicy.min_subscription_shares * activePolicy.par_value_per_share).toLocaleString()})
+              </span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-slate-500 font-medium">Min. Paid-Up:</span>
+              <span className="font-semibold text-white">
+                {activePolicy.min_paid_up_shares} shares (₱{(activePolicy.min_paid_up_shares * activePolicy.par_value_per_share).toLocaleString()})
+              </span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-slate-500 font-medium">CDA Limit:</span>
+              <span className="font-semibold text-amber-400">
+                {activePolicy.max_share_holding_percentage}% max / member
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="text-amber-400 hover:text-amber-300 font-medium text-xs flex items-center space-x-1 cursor-pointer"
+          >
+            <span>Edit Policy & Par Value</span>
+            <span>&rarr;</span>
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1016,6 +1096,47 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cooperative Share Capital Policy Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400">
+                  <Coins className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Cooperative Share Capital & Par Value Settings</h3>
+                  <p className="text-xs text-slate-400">
+                    Define institutional par value per share, minimum subscriptions, CDA statutory caps, and GL equity linkages.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <ShareCapitalSettingsView
+              settings={scSettings}
+              accounts={chartAccounts}
+              currentUser={currentUser}
+              onRefresh={() => {
+                loadSettings();
+                loadAccounts();
+              }}
+              showNotice={(type, msg) => {
+                setNotice(msg);
+                setTimeout(() => setNotice(null), 5000);
+              }}
+            />
           </div>
         </div>
       )}

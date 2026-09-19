@@ -19,7 +19,9 @@ import {
   X,
   Sliders,
   Layers,
-  Coins
+  Coins,
+  HelpCircle,
+  BookOpen
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { CashAccount, Branch, Account, User } from '../../types';
@@ -81,6 +83,19 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
     amount: 50000,
     transaction_date: new Date().toISOString().split('T')[0],
     notes: 'Depository Fund Rebalancing'
+  });
+
+  // Funding Modal & Guide States
+  const [isFundOpen, setIsFundOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [fundData, setFundData] = useState({
+    account_id: '',
+    funding_source_type: 'EQUITY_SHARE_CAPITAL', // 'EQUITY_SHARE_CAPITAL' | 'CASH_VAULT' | 'BANK_LOAN' | 'GRANT_SUBSIDY'
+    source_cash_account_id: '',
+    amount: 100000,
+    transaction_date: new Date().toISOString().split('T')[0],
+    reference_number: `DEP-LBP-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-01`,
+    notes: 'Initial Paid-Up Share Capital Deposit into Bank Depository'
   });
 
   // In-app alert notification
@@ -440,6 +455,61 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
     }
   };
 
+  // Execute Direct Bank / Depository Funding
+  const handleExecuteFunding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fundData.account_id) {
+      triggerNotice('error', 'Please select a depository or bank account to fund.');
+      return;
+    }
+    if (fundData.amount <= 0) {
+      triggerNotice('error', 'Funding amount must be greater than zero.');
+      return;
+    }
+
+    try {
+      const targetAcc = cashList.find(c => c.id === fundData.account_id);
+      const targetName = targetAcc?.name || 'Bank Account';
+
+      if (fundData.funding_source_type === 'CASH_VAULT') {
+        if (!fundData.source_cash_account_id) {
+          triggerNotice('error', 'Please select the source cash vault or drawer account.');
+          return;
+        }
+        if (fundData.source_cash_account_id === fundData.account_id) {
+          triggerNotice('error', 'Source and target accounts must be different.');
+          return;
+        }
+
+        await api.transferCash({
+          from_account_id: fundData.source_cash_account_id,
+          to_account_id: fundData.account_id,
+          amount: Number(fundData.amount),
+          transaction_date: fundData.transaction_date,
+          notes: fundData.notes || `Cash Deposit into ${targetName}`,
+          performed_by: currentUser?.name || 'Finance Officer'
+        });
+      } else {
+        await api.replenishCash({
+          account_id: fundData.account_id,
+          amount: Number(fundData.amount),
+          notes: fundData.notes || `Depository Funding for ${targetName}`,
+          transaction_date: fundData.transaction_date
+        });
+      }
+
+      triggerNotice(
+        'success',
+        `Successfully funded ${targetName} with ₱${Number(fundData.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}! General Ledger updated.`
+      );
+      setIsFundOpen(false);
+      await fetchData();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      triggerNotice('error', err.message || 'Funding failed.');
+    }
+  };
+
   // Auto-Align CDA Mappings
   const handleAutoAlign = async () => {
     setIsAligning(true);
@@ -510,6 +580,40 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
 
         {/* Global Actions */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            id="btn-guide-fund-bank"
+            onClick={() => setIsGuideOpen(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition cursor-pointer shadow-sm"
+            title="How to fund Bank accounts in the Chart of Accounts"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+            <span>How to Fund Bank</span>
+          </button>
+
+          <button
+            id="btn-fund-depository"
+            onClick={() => {
+              const bankAcc = cashList.find(c => getAccountCategory(c) === 'BANK') || cashList[0];
+              if (bankAcc) {
+                setFundData(prev => ({
+                  ...prev,
+                  account_id: bankAcc.id,
+                  amount: 100000,
+                  transaction_date: new Date().toISOString().split('T')[0],
+                  notes: `Initial Depository & Capital Float Funding for ${bankAcc.name}`
+                }));
+                setIsFundOpen(true);
+              } else {
+                triggerNotice('error', 'Please create a bank or cash account first.');
+              }
+            }}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-950"
+            title="Fund bank or cash account with initial capital, vault deposit, loan drawdown, or grant"
+          >
+            <Coins className="w-3.5 h-3.5 text-amber-300" />
+            <span>Fund Bank / Depository</span>
+          </button>
+
           <button
             id="btn-auto-align-cda"
             onClick={handleAutoAlign}
@@ -895,6 +999,22 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => {
+                        setFundData(prev => ({
+                          ...prev,
+                          account_id: acc.id,
+                          amount: 50000,
+                          transaction_date: new Date().toISOString().split('T')[0],
+                          notes: `Depository Funding for ${acc.name}`
+                        }));
+                        setIsFundOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition cursor-pointer"
+                      title="Fund this Depository (Add capital, vault deposit, loan or grant)"
+                    >
+                      <Coins className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => {
                         setTransferData(prev => ({
@@ -1361,6 +1481,393 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Fund Bank / Depository (COA Capital Inflow) */}
+      {isFundOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden">
+            <div className="p-5 bg-gradient-to-r from-emerald-900/40 via-teal-900/20 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  <Coins className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Fund Bank / Depository</h3>
+                  <p className="text-xs text-slate-400">
+                    Inject capital, deposit vault cash, or record bank financing into the Chart of Accounts
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsFundOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteFunding} className="p-5 space-y-4">
+              {/* Target Depository */}
+              <div>
+                <label className="text-xs font-semibold text-slate-300">
+                  Target Depository / Bank Account <span className="text-emerald-400">*</span>
+                </label>
+                <select
+                  value={fundData.account_id}
+                  onChange={e => setFundData({ ...fundData, account_id: e.target.value })}
+                  required
+                  className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  <option value="">-- Select Bank or Depository --</option>
+                  {cashList.map(c => {
+                    const cat = getAccountCategory(c);
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {cat === 'BANK' ? '🏦 [Bank] ' : cat === 'VAULT' ? '🔒 [Vault] ' : '💵 '}
+                        {c.name} (Current: ₱{Number(c.current_balance || 0).toLocaleString()})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Funding Source in Chart of Accounts */}
+              <div>
+                <label className="text-xs font-semibold text-slate-300">
+                  Funding Mechanism in Chart of Accounts (COA Source)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
+                  {[
+                    {
+                      id: 'EQUITY_SHARE_CAPITAL',
+                      title: 'Member Share Capital (CBU)',
+                      gl: 'GL 3110 (Paid-up Share Capital)',
+                      desc: 'Founders / Member equity injection'
+                    },
+                    {
+                      id: 'CASH_VAULT',
+                      title: 'Vault Cash Deposit',
+                      gl: 'GL 1112 (Cash in Vault)',
+                      desc: 'Cash collection deposit into bank'
+                    },
+                    {
+                      id: 'BANK_LOAN',
+                      title: 'Credit Line / Bank Loan',
+                      gl: 'GL 2110 (Loans Payable - Banks)',
+                      desc: 'Commercial loan drawdown'
+                    },
+                    {
+                      id: 'GRANT_SUBSIDY',
+                      title: 'Govt Grant / Subsidy',
+                      gl: 'GL 3300 (Subsidies & Grants)',
+                      desc: 'DA / CDA agricultural assistance'
+                    }
+                  ].map(s => {
+                    const isSelected = fundData.funding_source_type === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() =>
+                          setFundData({
+                            ...fundData,
+                            funding_source_type: s.id,
+                            notes:
+                              s.id === 'EQUITY_SHARE_CAPITAL'
+                                ? 'Initial Paid-Up Share Capital Deposit into Bank Depository'
+                                : s.id === 'CASH_VAULT'
+                                ? 'Branch Vault Collection Remittance & Bank Deposit'
+                                : s.id === 'BANK_LOAN'
+                                ? 'Bank Credit Line Drawdown / Loan Proceeds'
+                                : 'CDA / DA Agricultural Grant Remittance'
+                          })
+                        }
+                        className={`p-2.5 text-left rounded-xl border transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-500/10 border-emerald-500/50 text-white'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-200">{s.title}</span>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-400/90 mt-0.5">{s.gl}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{s.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* If CASH_VAULT, select source cash account */}
+              {fundData.funding_source_type === 'CASH_VAULT' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1.5">
+                  <label className="text-xs font-semibold text-amber-300">
+                    Source Cash Depository (Cash in Vault or Teller Drawer to Deduct)
+                  </label>
+                  <select
+                    value={fundData.source_cash_account_id}
+                    onChange={e => setFundData({ ...fundData, source_cash_account_id: e.target.value })}
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="">-- Select Source Vault / Cash Drawer --</option>
+                    {cashList
+                      .filter(c => c.id !== fundData.account_id)
+                      .map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} (Available: ₱{Number(c.current_balance || 0).toLocaleString()})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Amount and Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Funding Amount (₱)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    required
+                    value={fundData.amount}
+                    onChange={e => setFundData({ ...fundData, amount: parseFloat(e.target.value) || 0 })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Deposit / Effective Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={fundData.transaction_date}
+                    onChange={e => setFundData({ ...fundData, transaction_date: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Reference & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Reference / Deposit Slip No.</label>
+                  <input
+                    type="text"
+                    value={fundData.reference_number}
+                    onChange={e => setFundData({ ...fundData, reference_number: e.target.value })}
+                    placeholder="e.g., DEP-LBP-2026-001"
+                    className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Description / Narration</label>
+                  <input
+                    type="text"
+                    value={fundData.notes}
+                    onChange={e => setFundData({ ...fundData, notes: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Simulated Journal Voucher */}
+              <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold border-b border-slate-800 pb-1">
+                  <span>General Ledger Balanced Journal Voucher:</span>
+                  <span className="text-emerald-400 font-medium">Double-Entry Verified</span>
+                </div>
+                {/* Debit Line */}
+                <div className="grid grid-cols-3 text-[11px] pt-1 text-slate-300 font-mono">
+                  <div>
+                    Dr: {coaList.find(c => c.id === cashList.find(a => a.id === fundData.account_id)?.gl_account_id)?.code || '1120'}
+                  </div>
+                  <div className="truncate">
+                    {cashList.find(a => a.id === fundData.account_id)?.name || 'Bank Account'}
+                  </div>
+                  <div className="text-right text-emerald-400 font-bold">
+                    ₱{Number(fundData.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                {/* Credit Line */}
+                <div className="grid grid-cols-3 text-[11px] text-slate-300 font-mono">
+                  <div>
+                    Cr:{' '}
+                    {fundData.funding_source_type === 'CASH_VAULT'
+                      ? coaList.find(c => c.id === cashList.find(a => a.id === fundData.source_cash_account_id)?.gl_account_id)?.code || '1112'
+                      : fundData.funding_source_type === 'EQUITY_SHARE_CAPITAL'
+                      ? '3110'
+                      : fundData.funding_source_type === 'BANK_LOAN'
+                      ? '2110'
+                      : '3300'}
+                  </div>
+                  <div className="truncate">
+                    {fundData.funding_source_type === 'CASH_VAULT'
+                      ? cashList.find(a => a.id === fundData.source_cash_account_id)?.name || 'Cash in Vault'
+                      : fundData.funding_source_type === 'EQUITY_SHARE_CAPITAL'
+                      ? 'Paid-up Share Capital - Common'
+                      : fundData.funding_source_type === 'BANK_LOAN'
+                      ? 'Loans Payable - Bank Credit Facility'
+                      : 'Government Subsidies and Grants'}
+                  </div>
+                  <div className="text-right text-slate-300">
+                    ₱{Number(fundData.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFundOpen(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md shadow-emerald-950"
+                >
+                  Post Bank Funding & JV
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Educational Accounting Guide on Funding the Bank */}
+      {isGuideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">How to Fund Bank Accounts in the Chart of Accounts</h3>
+                  <p className="text-xs text-slate-400">CDA Standard Cooperative Accounting Guide & Workflows</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsGuideOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300">
+              <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-200">
+                In a cooperative compliant with the <strong>Cooperative Development Authority (CDA)</strong> standard chart of accounts,
+                commercial bank accounts (e.g. Land Bank of the Philippines, DBP) correspond to <strong>Asset Account Code 1120 (Cash in Bank - LBP)</strong> or <strong>1121 (Cash in Bank - DBP)</strong>.
+                Below are the 4 standard methods to fund these bank accounts.
+              </div>
+
+              {/* Method 1 */}
+              <div className="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">
+                    1
+                  </span>
+                  <h4 className="font-bold text-white text-sm">Direct Bank Depository Funding (Fastest)</h4>
+                </div>
+                <p className="text-slate-400">
+                  Use the <strong>"Fund Bank / Depository"</strong> button on this screen. It records an immediate liquidity injection or capital float replenishment.
+                </p>
+                <div className="bg-slate-900 p-2.5 rounded-lg font-mono text-[11px] text-slate-300 border border-slate-800 space-y-1">
+                  <div><strong>Debit:</strong> 1120 - Cash in Bank (Increases Bank Balance)</div>
+                  <div><strong>Credit:</strong> 3110 - Paid-Up Share Capital / Capital Liquidity Float</div>
+                </div>
+              </div>
+
+              {/* Method 2 */}
+              <div className="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center text-[10px]">
+                    2
+                  </span>
+                  <h4 className="font-bold text-white text-sm">Remit Cash Collections from Vault to Bank</h4>
+                </div>
+                <p className="text-slate-400">
+                  When physical cash collected from loan repayments and savings deposits accumulates in the branch vault, bring it to the commercial bank and perform a <strong>Transfer / Rebalance</strong> in this system:
+                </p>
+                <div className="bg-slate-900 p-2.5 rounded-lg font-mono text-[11px] text-slate-300 border border-slate-800 space-y-1">
+                  <div><strong>Debit:</strong> 1120 - Cash in Bank (Increases Bank Depository)</div>
+                  <div><strong>Credit:</strong> 1112 - Cash in Vault (Reduces physical cash on hand)</div>
+                </div>
+              </div>
+
+              {/* Method 3 */}
+              <div className="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[10px]">
+                    3
+                  </span>
+                  <h4 className="font-bold text-white text-sm">Member Share Capital (CBU) Subscriptions</h4>
+                </div>
+                <p className="text-slate-400">
+                  When members pay their Capital Build-Up (CBU) or initial share capital via bank transfer or over-the-counter deposit, select the commercial bank as the receiving account in the <strong>Share Capital (CBU)</strong> module.
+                </p>
+                <div className="bg-slate-900 p-2.5 rounded-lg font-mono text-[11px] text-slate-300 border border-slate-800 space-y-1">
+                  <div><strong>Debit:</strong> 1120 - Cash in Bank</div>
+                  <div><strong>Credit:</strong> 3110 - Paid-Up Share Capital (Member Individual Ledger credited)</div>
+                </div>
+              </div>
+
+              {/* Method 4 */}
+              <div className="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold flex items-center justify-center text-[10px]">
+                    4
+                  </span>
+                  <h4 className="font-bold text-white text-sm">Manual Journal Voucher (Accounting Menu)</h4>
+                </div>
+                <p className="text-slate-400">
+                  For external wholesale loan drawdowns, DA/CDA grants, or wire remittances, navigate to <strong>Accounting &rarr; Journal Vouchers &rarr; New JV</strong>.
+                  Debit <strong>GL 1120 (Cash in Bank)</strong> and credit the corresponding liability or subsidy account.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Always ensure your bank account is mapped to GL 1120 or 1121 via <em>Map GL</em>.
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setIsGuideOpen(false);
+                    const bankAcc = cashList.find(c => getAccountCategory(c) === 'BANK') || cashList[0];
+                    if (bankAcc) {
+                      setFundData(prev => ({
+                        ...prev,
+                        account_id: bankAcc.id,
+                        amount: 100000,
+                        notes: `Initial Depository & Capital Float Funding for ${bankAcc.name}`
+                      }));
+                      setIsFundOpen(true);
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Fund Bank Now
+                </button>
+                <button
+                  onClick={() => setIsGuideOpen(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

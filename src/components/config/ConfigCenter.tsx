@@ -25,12 +25,14 @@ import {
   Trash2,
   RefreshCw,
   FileSpreadsheet,
-  Search
+  Search,
+  Coins
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExcelWorkbench } from './ExcelWorkbench';
 import { AccountingMappingsView } from './AccountingMappingsView';
 import { CashAccountsConfigView } from './CashAccountsConfigView';
+import { ShareCapitalSettingsView } from './ShareCapitalSettingsView';
 import {
   Account,
   AccountingMapping,
@@ -91,6 +93,7 @@ type ConfigSection =
   | 'payment_allocations'
   | 'approvals'
   | 'custom_fields'
+  | 'share_capital_settings'
   | 'savings_cbu'
   | 'cash_accounts'
   | 'numbering'
@@ -111,16 +114,25 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
   const [activeSection, setActiveSection] = useState<ConfigSection>('loan_products');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const fetchFullConfig = async () => {
+  const fetchFullConfig = async (retryCount = 2) => {
     try {
       setIsLoading(true);
       const res = await api.getConfig();
       if (res && res.data) {
         setInternalData(res.data);
+        if (notification?.type === 'error') {
+          setNotification(null);
+        }
       }
     } catch (err: any) {
+      if (retryCount > 0) {
+        setTimeout(() => {
+          fetchFullConfig(retryCount - 1);
+        }, 500);
+        return;
+      }
       console.error('Failed to load configuration:', err);
-      showNotice('error', `Failed to load config: ${err.message || err}`);
+      showNotice('error', `Failed to load configuration: ${err.message || err}`);
     } finally {
       setIsLoading(false);
     }
@@ -198,6 +210,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
       categoryName: 'Membership & Capital',
       items: [
         { id: 'custom_fields' as ConfigSection, label: 'Member Fields & Types', icon: Sliders, count: configData.custom_fields.length },
+        { id: 'share_capital_settings' as ConfigSection, label: 'Share Capital (CBU) Settings', icon: Coins, count: configData.share_capital_settings?.length || 1 },
         { id: 'savings_cbu' as ConfigSection, label: 'Savings & Share Capital', icon: PiggyBank, count: configData.savings_products.length }
       ]
     },
@@ -328,9 +341,20 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
             : 'bg-rose-950/80 border-rose-500/50 text-rose-300'
         }`}>
           <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center space-x-2">
+            {notification.type === 'error' && (
+              <button
+                type="button"
+                onClick={() => fetchFullConfig()}
+                className="px-2.5 py-1 bg-rose-800 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+            <button onClick={() => setNotification(null)} className="cursor-pointer p-1 text-slate-400 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -544,6 +568,16 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
                 <CustomFieldsConfig
                   fields={configData.custom_fields}
                   memberTypes={configData.member_types}
+                  currentUser={currentUser}
+                  onRefresh={handleRefresh}
+                  showNotice={showNotice}
+                />
+              )}
+
+              {activeSection === 'share_capital_settings' && (
+                <ShareCapitalSettingsView
+                  settings={configData.share_capital_settings}
+                  accounts={configData.chart_of_accounts}
                   currentUser={currentUser}
                   onRefresh={handleRefresh}
                   showNotice={showNotice}
@@ -2787,6 +2821,7 @@ function SavingsAndCbuConfig({
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<'share_capital' | 'savings'>('share_capital');
   const [isAddingSavings, setIsAddingSavings] = useState(false);
   const [newSavings, setNewSavings] = useState({
     code: '',
@@ -2816,134 +2851,172 @@ function SavingsAndCbuConfig({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">Dynamic Savings Products & Share Capital</h2>
-          <p className="text-xs text-slate-400">
-            Define savings facilities, deposit interest rates, and cooperative capital build-up (CBU) settings (Req #15, #16, Test #9).
-          </p>
-        </div>
+      {/* Sub-navigation Tabs */}
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
         <button
-          id="btn-add-savings-prod"
-          onClick={() => setIsAddingSavings(true)}
-          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+          onClick={() => setActiveTab('share_capital')}
+          className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            activeTab === 'share_capital'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'
+              : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>+ Create Savings Product</span>
+          <Coins className="w-4 h-4" />
+          <span>Share Capital (CBU) Settings</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('savings')}
+          className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            activeTab === 'savings'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'
+              : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          <PiggyBank className="w-4 h-4" />
+          <span>Savings Deposit Products ({savingsProducts.length})</span>
         </button>
       </div>
 
-      {isAddingSavings && (
-        <form onSubmit={handleCreateSavings} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-            <h3 className="text-sm font-bold text-emerald-400">Create New Savings Product</h3>
-            <button type="button" onClick={() => setIsAddingSavings(false)} className="text-slate-400 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {activeTab === 'share_capital' ? (
+        <ShareCapitalSettingsView
+          settings={shareCapitalSettings}
+          accounts={accounts}
+          currentUser={currentUser}
+          onRefresh={onRefresh}
+          showNotice={showNotice}
+        />
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
             <div>
-              <label className="text-xs text-slate-300 font-medium">Product Code</label>
-              <input
-                type="text"
-                required
-                placeholder="SAV-GOLD"
-                value={newSavings.code}
-                onChange={e => setNewSavings({ ...newSavings, code: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
-              />
+              <h2 className="text-lg font-bold text-white">Dynamic Savings Deposit Products</h2>
+              <p className="text-xs text-slate-400">
+                Define savings facilities, deposit interest rates, and withdrawal rules.
+              </p>
             </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Product Name</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Special Senior High-Yield"
-                value={newSavings.name}
-                onChange={e => setNewSavings({ ...newSavings, name: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Annual Interest Rate (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                value={newSavings.annual_interest_rate}
-                onChange={e => setNewSavings({ ...newSavings, annual_interest_rate: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Min Balance to Earn Interest (₱)</label>
-              <input
-                type="number"
-                value={newSavings.min_balance_to_earn_interest}
-                onChange={e => setNewSavings({ ...newSavings, min_balance_to_earn_interest: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Calculation Method</label>
-              <select
-                value={newSavings.interest_calculation_method}
-                onChange={e => setNewSavings({ ...newSavings, interest_calculation_method: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
-              >
-                <option value="Average Daily Balance">Average Daily Balance</option>
-                <option value="Monthly Minimum Balance">Monthly Minimum Balance</option>
-                <option value="Fixed Term Maturity">Fixed Term Maturity</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end space-x-2 pt-2">
             <button
-              type="button"
-              onClick={() => setIsAddingSavings(false)}
-              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
+              id="btn-add-savings-prod"
+              onClick={() => setIsAddingSavings(true)}
+              className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
-            >
-              Save Savings Product
+              <Plus className="w-4 h-4" />
+              <span>+ Create Savings Product</span>
             </button>
           </div>
-        </form>
-      )}
 
-      {/* Savings Products Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {savingsProducts.map(sp => (
-          <div key={sp.id} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white">{sp.name}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">{sp.code}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/60 text-xs">
-              <div>
-                <span className="text-slate-400">Interest Rate:</span>{' '}
-                <span className="font-semibold text-emerald-400">{sp.annual_interest_rate}% p.a.</span>
+          {isAddingSavings && (
+            <form onSubmit={handleCreateSavings} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                <h3 className="text-sm font-bold text-emerald-400">Create New Savings Product</h3>
+                <button type="button" onClick={() => setIsAddingSavings(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div>
-                <span className="text-slate-400">Calculation:</span>{' '}
-                <span className="text-slate-200">{sp.interest_calculation_method}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-slate-300 font-medium">Product Code</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="SAV-GOLD"
+                    value={newSavings.code}
+                    onChange={e => setNewSavings({ ...newSavings, code: e.target.value })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-300 font-medium">Product Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Special Senior High-Yield"
+                    value={newSavings.name}
+                    onChange={e => setNewSavings({ ...newSavings, name: e.target.value })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-300 font-medium">Annual Interest Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    value={newSavings.annual_interest_rate}
+                    onChange={e => setNewSavings({ ...newSavings, annual_interest_rate: parseFloat(e.target.value) || 0 })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-300 font-medium">Min Balance to Earn Interest (₱)</label>
+                  <input
+                    type="number"
+                    value={newSavings.min_balance_to_earn_interest}
+                    onChange={e => setNewSavings({ ...newSavings, min_balance_to_earn_interest: parseFloat(e.target.value) || 0 })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-300 font-medium">Calculation Method</label>
+                  <select
+                    value={newSavings.interest_calculation_method}
+                    onChange={e => setNewSavings({ ...newSavings, interest_calculation_method: e.target.value })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+                  >
+                    <option value="Average Daily Balance">Average Daily Balance</option>
+                    <option value="Monthly Minimum Balance">Monthly Minimum Balance</option>
+                    <option value="Fixed Term Maturity">Fixed Term Maturity</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-400">Min Balance:</span>{' '}
-                <span className="text-slate-200">₱{sp.min_balance_to_earn_interest?.toLocaleString()}</span>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSavings(false)}
+                  className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
+                >
+                  Save Savings Product
+                </button>
               </div>
-              <div>
-                <span className="text-slate-400">Daily Limit:</span>{' '}
-                <span className="text-slate-200">₱{sp.withdrawal_limit_per_day?.toLocaleString()}</span>
+            </form>
+          )}
+
+          {/* Savings Products Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {savingsProducts.map(sp => (
+              <div key={sp.id} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">{sp.name}</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">{sp.code}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/60 text-xs">
+                  <div>
+                    <span className="text-slate-400">Interest Rate:</span>{' '}
+                    <span className="font-semibold text-emerald-400">{sp.annual_interest_rate}% p.a.</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Calculation:</span>{' '}
+                    <span className="text-slate-200">{sp.interest_calculation_method}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Min Balance:</span>{' '}
+                    <span className="text-slate-200">₱{sp.min_balance_to_earn_interest?.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Daily Limit:</span>{' '}
+                    <span className="text-slate-200">₱{sp.withdrawal_limit_per_day?.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

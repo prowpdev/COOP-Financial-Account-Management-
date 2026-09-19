@@ -255,6 +255,20 @@ export interface ShareCapitalAccount {
   created_at?: string;
 }
 
+export interface ShareCapitalSetting {
+  id: string;
+  cooperative_id: string;
+  par_value_per_share: number;
+  min_subscription_shares: number;
+  min_paid_up_shares: number;
+  max_share_holding_percentage: number;
+  transfer_fee: number;
+  withdrawal_rule: string;
+  accounting_account_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CashAccount {
   id: string;
   name: string;

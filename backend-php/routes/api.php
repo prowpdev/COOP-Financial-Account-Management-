@@ -80,11 +80,15 @@ $router->post('/api/savings/transactions', [SavingsController::class, 'transacti
 $router->delete('/api/savings/accounts/:id', [SavingsController::class, 'destroy']);
 
 // Share Capital (CBU)
+$router->get('/api/share-capital/settings', [ShareCapitalController::class, 'getSettings']);
+$router->post('/api/share-capital/settings', [ShareCapitalController::class, 'storeSetting']);
+$router->put('/api/share-capital/settings/:id', [ShareCapitalController::class, 'updateSetting']);
 $router->get('/api/share-capital/accounts', [ShareCapitalController::class, 'index']);
 $router->post('/api/share-capital/accounts', [ShareCapitalController::class, 'store']);
 $router->get('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'show']);
 $router->put('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'update']);
 $router->post('/api/share-capital/payments', [ShareCapitalController::class, 'payment']);
+$router->post('/api/share-capital/pay', [ShareCapitalController::class, 'pay']);
 $router->delete('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'destroy']);
 
 // Accounting & General Ledger

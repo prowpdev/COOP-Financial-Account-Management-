@@ -318,7 +318,7 @@ export const Header: React.FC<HeaderProps> = ({
                   type="text"
                   value={customEndpointInput}
                   onChange={(e) => setCustomEndpointInput(e.target.value)}
-                  placeholder="http://cooperative-api.test/api"
+                  placeholder="/api"
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -326,13 +326,13 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="bg-slate-800/70 p-3 rounded-xl border border-slate-700/60 space-y-1.5 text-[11px] text-slate-400">
                 <div className="flex items-center space-x-1.5 text-emerald-400 font-semibold">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Configured Target: http://cooperative-api.test/api</span>
+                  <span>Active Endpoint: {apiEndpoint}</span>
                 </div>
                 <p>
-                  • In local dev (Laragon/Valet/Apache), calls connect directly to your PHP MVC server.
+                  • Default <code className="text-emerald-300 font-mono">/api</code> connects directly to the built-in cooperative backend.
                 </p>
                 <p>
-                  • In Cloud Sandbox preview where local domains cannot be routed, seamless fallback keeps all views operational.
+                  • For external PHP MVC servers (e.g. Laragon/Valet), you can specify your custom URL (e.g. <code className="text-slate-300 font-mono">http://localhost:8000/api</code>).
                 </p>
               </div>
 
