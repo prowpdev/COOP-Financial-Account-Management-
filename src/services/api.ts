@@ -467,6 +467,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(account)
     }),
+  updateShareCapitalAccount: (id: string, updates: any) =>
+    fetchApi<{ success: boolean; data: any; message?: string }>(`/share-capital/accounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    }),
+  deleteShareCapitalAccount: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/share-capital/accounts/${id}`, {
+      method: 'DELETE'
+    }),
   payShareCapital: (params: any) =>
     fetchApi<{ success: boolean; data: any; account: any }>('/share-capital/pay', {
       method: 'POST',

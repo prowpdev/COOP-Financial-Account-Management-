@@ -83,6 +83,7 @@ $router->delete('/api/savings/accounts/:id', [SavingsController::class, 'destroy
 $router->get('/api/share-capital/accounts', [ShareCapitalController::class, 'index']);
 $router->post('/api/share-capital/accounts', [ShareCapitalController::class, 'store']);
 $router->get('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'show']);
+$router->put('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'update']);
 $router->post('/api/share-capital/payments', [ShareCapitalController::class, 'payment']);
 $router->delete('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'destroy']);
 

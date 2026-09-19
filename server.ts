@@ -68,6 +68,48 @@ try {
     if (coaUpdated) {
       db.save();
     }
+
+    // Deduplicate and backfill branch_id in share_capital_accounts
+    if (currentData.share_capital_accounts && currentData.share_capital_accounts.length > 0) {
+      const memberMap = new Map((currentData.members || []).map(m => [m.id, m]));
+      let scaUpdated = false;
+      const seenMembers = new Map<string, any>();
+      const deduped: any[] = [];
+
+      for (const sca of currentData.share_capital_accounts) {
+        const mem = memberMap.get(sca.member_id);
+        if (!sca.branch_id && mem?.branch_id) {
+          sca.branch_id = mem.branch_id;
+          scaUpdated = true;
+        }
+        if (!sca.member_name && mem) {
+          sca.member_name = `${mem.first_name} ${mem.last_name}`;
+          scaUpdated = true;
+        }
+        if (!sca.par_value) {
+          sca.par_value = 100;
+          scaUpdated = true;
+        }
+
+        if (seenMembers.has(sca.member_id)) {
+          // Merge duplicate account into canonical one
+          const existing = seenMembers.get(sca.member_id);
+          existing.paid_up_shares = (existing.paid_up_shares || 0) + (sca.paid_up_shares || 0);
+          existing.paid_up_amount = (existing.paid_up_amount || 0) + (sca.paid_up_amount || 0);
+          existing.subscribed_shares = Math.max(existing.subscribed_shares || 0, sca.subscribed_shares || 0);
+          existing.subscribed_amount = Math.max(existing.subscribed_amount || 0, sca.subscribed_amount || 0);
+          scaUpdated = true;
+        } else {
+          seenMembers.set(sca.member_id, sca);
+          deduped.push(sca);
+        }
+      }
+
+      if (scaUpdated || deduped.length !== currentData.share_capital_accounts.length) {
+        currentData.share_capital_accounts = deduped;
+        db.save();
+      }
+    }
   }
 } catch (dbErr) {
   console.error('[server] Error during database initialization:', dbErr);

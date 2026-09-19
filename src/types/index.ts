@@ -244,11 +244,15 @@ export interface ShareCapitalAccount {
   account_number: string;
   member_id: string;
   member_name?: string;
+  branch_id?: string;
+  branch_name?: string;
+  par_value?: number;
   subscribed_shares: number;
   subscribed_amount: number;
   paid_up_shares: number;
   paid_up_amount: number;
   status: string;
+  created_at?: string;
 }
 
 export interface CashAccount {

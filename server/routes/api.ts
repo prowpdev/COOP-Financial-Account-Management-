@@ -1495,16 +1495,23 @@ router.post('/members', (req: Request, res: Response) => {
   });
 
   const scaNo = `CBU-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
-  db.insert('share_capital_accounts', {
-    id: `sca_${newMember.id}`,
-    account_number: scaNo,
-    member_id: newMember.id,
-    subscribed_shares: 100,
-    subscribed_amount: 10000,
-    paid_up_shares: 0,
-    paid_up_amount: 0,
-    status: 'Active'
-  });
+  const existingSca = db.getTable('share_capital_accounts').find(a => a.member_id === newMember.id);
+  if (!existingSca) {
+    db.insert('share_capital_accounts', {
+      id: `sca_${newMember.id}`,
+      account_number: scaNo,
+      member_id: newMember.id,
+      member_name: `${newMember.first_name} ${newMember.last_name}`,
+      branch_id: newMember.branch_id || 'branch_tar',
+      par_value: 100,
+      subscribed_shares: 100,
+      subscribed_amount: 10000,
+      paid_up_shares: 0,
+      paid_up_amount: 0,
+      status: 'Active',
+      created_at: new Date().toISOString()
+    });
+  }
 
   res.json({ success: true, data: newMember });
 });
@@ -2033,17 +2040,334 @@ router.get('/share-capital/accounts', (req: Request, res: Response) => {
   const members = db.getTable('members');
   const branches = db.getTable('branches');
 
-  const enriched = accounts.map(a => {
+  // 1. Reconcile duplicates and ensure branch_id is saved on database records
+  let hasDbUpdates = false;
+  const uniqueAccounts: any[] = [];
+  const seenMemberIds = new Set<string>();
+
+  for (const a of accounts) {
     const mem = members.find(m => m.id === a.member_id);
-    const br = branches.find(b => b.id === mem?.branch_id);
+    // Backfill branch_id directly into database record if missing
+    if (!a.branch_id && mem?.branch_id) {
+      a.branch_id = mem.branch_id;
+      hasDbUpdates = true;
+    }
+    if (!a.member_name && mem) {
+      a.member_name = `${mem.first_name} ${mem.last_name}`;
+      hasDbUpdates = true;
+    }
+    if (!a.par_value) {
+      a.par_value = 100;
+      hasDbUpdates = true;
+    }
+
+    if (!seenMemberIds.has(a.member_id)) {
+      seenMemberIds.add(a.member_id);
+      uniqueAccounts.push(a);
+    } else {
+      // Duplicate account detected: merge paid-up values into the canonical record
+      const existing = uniqueAccounts.find(x => x.member_id === a.member_id);
+      if (existing) {
+        existing.paid_up_shares = (existing.paid_up_shares || 0) + (a.paid_up_shares || 0);
+        existing.paid_up_amount = (existing.paid_up_amount || 0) + (a.paid_up_amount || 0);
+        existing.subscribed_shares = Math.max(existing.subscribed_shares || 0, a.subscribed_shares || 0);
+        existing.subscribed_amount = Math.max(existing.subscribed_amount || 0, a.subscribed_amount || 0);
+        hasDbUpdates = true;
+      }
+    }
+  }
+
+  if (hasDbUpdates || uniqueAccounts.length !== accounts.length) {
+    (db as any).data.share_capital_accounts = uniqueAccounts;
+    db.save();
+  }
+
+  const enriched = uniqueAccounts.map(a => {
+    const mem = members.find(m => m.id === a.member_id);
+    const br = branches.find(b => b.id === (a.branch_id || mem?.branch_id));
     return {
       ...a,
-      branch_id: mem?.branch_id || 'branch_tar',
+      branch_id: a.branch_id || mem?.branch_id || 'branch_tar',
       branch_name: br ? br.name : 'Main Branch',
-      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown'
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : (a.member_name || 'Unknown')
     };
   });
   res.json({ success: true, data: enriched });
+});
+
+router.get('/share-capital/accounts/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('share_capital_accounts');
+  const members = db.getTable('members');
+  const branches = db.getTable('branches');
+  const transactions = db.getTable('share_capital_transactions');
+
+  const account = accounts.find(a => a.id === id || a.account_number === id);
+  if (!account) {
+    return res.status(404).json({ success: false, error: 'Share capital account not found.' });
+  }
+
+  const mem = members.find(m => m.id === account.member_id);
+  const br = branches.find(b => b.id === (account.branch_id || mem?.branch_id));
+  const txs = transactions.filter(t => t.share_capital_account_id === account.id || t.share_account_id === account.id);
+
+  res.json({
+    success: true,
+    data: {
+      ...account,
+      branch_id: account.branch_id || mem?.branch_id || 'branch_tar',
+      branch_name: br ? br.name : 'Main Branch',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : (account.member_name || 'Unknown'),
+      transactions: txs
+    }
+  });
+});
+
+// POST /share-capital/accounts: Create new account with duplicate prevention and branch persistence
+router.post('/share-capital/accounts', (req: Request, res: Response) => {
+  const {
+    member_id,
+    account_number,
+    branch_id,
+    par_value = 100,
+    subscribed_shares = 100,
+    subscribed_amount,
+    paid_up_shares = 0,
+    paid_up_amount,
+    status = 'Active',
+    performed_by = 'System Administrator'
+  } = req.body;
+
+  if (!member_id) {
+    return res.status(400).json({ success: false, error: 'Member ID is required to open a Share Capital account.' });
+  }
+
+  const members = db.getTable('members');
+  const member = members.find(m => m.id === member_id);
+  if (!member) {
+    return res.status(404).json({ success: false, error: 'Selected member does not exist.' });
+  }
+
+  // 1. Prevent Duplicate Accounts
+  const accounts = db.getTable('share_capital_accounts');
+  const existing = accounts.find(a => a.member_id === member_id);
+  if (existing) {
+    return res.status(400).json({
+      success: false,
+      error: `Member "${member.first_name} ${member.last_name}" already has an active Share Capital account (${existing.account_number}). Duplicate accounts are prohibited. Please edit the existing account if you need to adjust subscribed shares.`
+    });
+  }
+
+  // 2. Validate Shares & Amounts
+  const numSubscribed = Number(subscribed_shares) || 0;
+  const numPaidUp = Number(paid_up_shares) || 0;
+  const numParValue = Number(par_value) || 100;
+
+  if (numSubscribed <= 0) {
+    return res.status(400).json({ success: false, error: 'Subscribed shares must be greater than zero.' });
+  }
+  if (numPaidUp < 0) {
+    return res.status(400).json({ success: false, error: 'Paid-up shares cannot be negative.' });
+  }
+  if (numPaidUp > numSubscribed) {
+    return res.status(400).json({
+      success: false,
+      error: `Paid-up shares (${numPaidUp}) cannot exceed subscribed shares (${numSubscribed}).`
+    });
+  }
+
+  // 3. Save Member Branch to Database
+  const resolvedBranchId = branch_id || member.branch_id || 'branch_tar';
+  const calcSubscribedAmount = subscribed_amount !== undefined ? Number(subscribed_amount) : (numSubscribed * numParValue);
+  const calcPaidUpAmount = paid_up_amount !== undefined ? Number(paid_up_amount) : (numPaidUp * numParValue);
+
+  const accNo = account_number && account_number.trim().length > 0
+    ? account_number.trim()
+    : `CBU-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  const newAccount: any = {
+    id: `cbu_${member.id}`,
+    account_number: accNo,
+    member_id: member.id,
+    member_name: `${member.first_name} ${member.last_name}`,
+    branch_id: resolvedBranchId,
+    par_value: numParValue,
+    subscribed_shares: numSubscribed,
+    subscribed_amount: calcSubscribedAmount,
+    paid_up_shares: numPaidUp,
+    paid_up_amount: calcPaidUpAmount,
+    status: status || 'Active',
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('share_capital_accounts', newAccount);
+
+  // If initial paid up amount > 0, record initial transaction
+  if (calcPaidUpAmount > 0) {
+    db.insert('share_capital_transactions', {
+      id: `sct_${Date.now()}`,
+      share_capital_account_id: newAccount.id,
+      share_account_id: newAccount.id,
+      member_id: member.id,
+      type: 'PAYMENT',
+      transaction_type: 'Contribution',
+      shares: numPaidUp,
+      amount: calcPaidUpAmount,
+      balance_after: calcPaidUpAmount,
+      reference_no: `OR-INIT-CBU-${Date.now().toString().slice(-4)}`,
+      receipt_no: `OR-INIT-CBU-${Date.now().toString().slice(-4)}`,
+      notes: 'Initial paid-up share capital on account creation',
+      transaction_date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+      performed_by: performed_by
+    });
+  }
+
+  db.recordAudit(
+    'Share Capital (CBU)',
+    'None',
+    `Created ${accNo} (${numSubscribed} sub shares, Branch: ${resolvedBranchId}) for ${member.first_name} ${member.last_name}`,
+    performed_by,
+    'Opened new Share Capital (CBU) subscription ledger'
+  );
+
+  const branches = db.getTable('branches');
+  const br = branches.find(b => b.id === resolvedBranchId);
+
+  res.status(201).json({
+    success: true,
+    data: {
+      ...newAccount,
+      branch_name: br ? br.name : 'Main Branch',
+      member_name: `${member.first_name} ${member.last_name}`
+    },
+    message: 'Share capital account created successfully.'
+  });
+});
+
+// PUT /share-capital/accounts/:id: Edit existing account (subscribed shares, paid up, branch, etc.)
+router.put('/share-capital/accounts/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('share_capital_accounts');
+  const account = accounts.find(a => a.id === id || a.account_number === id);
+
+  if (!account) {
+    return res.status(404).json({ success: false, error: 'Share capital account not found.' });
+  }
+
+  const {
+    subscribed_shares,
+    subscribed_amount,
+    paid_up_shares,
+    paid_up_amount,
+    par_value,
+    status,
+    branch_id,
+    account_number,
+    performed_by = 'System Administrator',
+    reason = 'Account configuration update'
+  } = req.body;
+
+  const currentPar = Number(par_value ?? account.par_value ?? 100);
+  const targetSubscribed = subscribed_shares !== undefined ? Number(subscribed_shares) : Number(account.subscribed_shares);
+  const targetPaidUp = paid_up_shares !== undefined ? Number(paid_up_shares) : Number(account.paid_up_shares);
+
+  if (targetSubscribed < 0) {
+    return res.status(400).json({ success: false, error: 'Subscribed shares cannot be negative.' });
+  }
+  if (targetPaidUp < 0) {
+    return res.status(400).json({ success: false, error: 'Paid-up shares cannot be negative.' });
+  }
+  if (targetPaidUp > targetSubscribed) {
+    return res.status(400).json({
+      success: false,
+      error: `Paid-up shares (${targetPaidUp}) cannot exceed subscribed shares (${targetSubscribed}).`
+    });
+  }
+
+  const oldSummary = `${account.account_number}: ${account.subscribed_shares} sub (${account.subscribed_amount}), ${account.paid_up_shares} paid (${account.paid_up_amount}), Branch: ${account.branch_id || 'N/A'}, Status: ${account.status}`;
+
+  account.subscribed_shares = targetSubscribed;
+  account.subscribed_amount = subscribed_amount !== undefined ? Number(subscribed_amount) : (targetSubscribed * currentPar);
+  account.paid_up_shares = targetPaidUp;
+  account.paid_up_amount = paid_up_amount !== undefined ? Number(paid_up_amount) : (targetPaidUp * currentPar);
+  account.par_value = currentPar;
+
+  if (status) {
+    account.status = status;
+  }
+  if (account_number && account_number.trim()) {
+    account.account_number = account_number.trim();
+  }
+  if (branch_id) {
+    account.branch_id = branch_id;
+    // Keep member branch consistent if member has no branch
+    const members = db.getTable('members');
+    const mem = members.find(m => m.id === account.member_id);
+    if (mem && !mem.branch_id) {
+      mem.branch_id = branch_id;
+    }
+  }
+
+  account.updated_at = new Date().toISOString();
+  db.update('share_capital_accounts', a => a.id === account.id, () => account);
+
+  const newSummary = `${account.account_number}: ${account.subscribed_shares} sub (${account.subscribed_amount}), ${account.paid_up_shares} paid (${account.paid_up_amount}), Branch: ${account.branch_id}, Status: ${account.status}`;
+
+  db.recordAudit(
+    'Share Capital (CBU)',
+    oldSummary,
+    newSummary,
+    performed_by,
+    reason || `Edited Share Capital account ${account.account_number}`
+  );
+
+  const members = db.getTable('members');
+  const branches = db.getTable('branches');
+  const mem = members.find(m => m.id === account.member_id);
+  const br = branches.find(b => b.id === (account.branch_id || mem?.branch_id));
+
+  res.json({
+    success: true,
+    data: {
+      ...account,
+      branch_id: account.branch_id || mem?.branch_id || 'branch_tar',
+      branch_name: br ? br.name : 'Main Branch',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : (account.member_name || 'Unknown')
+    },
+    message: `Share capital account ${account.account_number} updated successfully.`
+  });
+});
+
+router.patch('/share-capital/accounts/:id', (req: Request, res: Response) => {
+  // Pass to PUT handler logic
+  return (router as any).handle({ ...req, method: 'PUT' }, res);
+});
+
+router.delete('/share-capital/accounts/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('share_capital_accounts');
+  const account = accounts.find(a => a.id === id || a.account_number === id);
+
+  if (!account) {
+    return res.status(404).json({ success: false, error: 'Share capital account not found.' });
+  }
+
+  db.delete('share_capital_accounts', a => a.id === account.id);
+  db.delete('share_capital_transactions', t => t.share_capital_account_id === account.id || t.share_account_id === account.id);
+
+  db.recordAudit(
+    'Share Capital (CBU)',
+    `Deleted ${account.account_number}`,
+    'None',
+    'System Administrator',
+    `Deleted Share Capital account ${account.account_number}`
+  );
+
+  res.json({
+    success: true,
+    message: `Share capital account ${account.account_number} deleted successfully.`
+  });
 });
 
 router.post('/share-capital/pay', (req: Request, res: Response) => {
