@@ -44,6 +44,12 @@ $router->put('/api/config/loan-products/:id', [ConfigController::class, 'updateL
 $router->delete('/api/config/loan-products/:id', [ConfigController::class, 'destroyLoanProduct']);
 $router->get('/api/savings-products', [ConfigController::class, 'savingsProducts']);
 $router->get('/api/config/savings-products', [ConfigController::class, 'savingsProducts']);
+$router->get('/api/fees', [ConfigController::class, 'fees']);
+$router->get('/api/config/fees', [ConfigController::class, 'fees']);
+$router->get('/api/config/fees/:id', [ConfigController::class, 'fee']);
+$router->post('/api/config/fees', [ConfigController::class, 'storeFee']);
+$router->put('/api/config/fees/:id', [ConfigController::class, 'updateFee']);
+$router->delete('/api/config/fees/:id', [ConfigController::class, 'destroyFee']);
 $router->get('/api/feature-toggles', [ConfigController::class, 'featureToggles']);
 $router->post('/api/feature-toggles', [ConfigController::class, 'updateToggle']);
 $router->get('/api/system-settings', [ConfigController::class, 'systemSettings']);

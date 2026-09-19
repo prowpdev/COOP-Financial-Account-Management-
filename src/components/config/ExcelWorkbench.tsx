@@ -462,15 +462,24 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
   };
 
   const handleEditFee = async (fee: Fee, fieldKey: string, newVal: any) => {
+    const numVal = (fieldKey === 'fixed_amount' || fieldKey === 'percentage' || fieldKey === 'amount' || fieldKey === 'rate')
+      ? (parseFloat(newVal) || 0)
+      : newVal;
     const updated = {
       ...fee,
-      [fieldKey]: newVal,
+      [fieldKey]: numVal,
+      ...(fieldKey === 'fixed_amount' ? { amount: numVal } : {}),
+      ...(fieldKey === 'percentage' ? { rate: numVal, amount: fee.calculation_type === 'Fixed' ? fee.fixed_amount : numVal } : {}),
+      ...(fieldKey === 'applicable_module' ? { applies_to: newVal } : {}),
+      ...(fieldKey === 'applies_to' ? { applicable_module: newVal } : {}),
+      ...(fieldKey === 'accounting_account_id' ? { gl_account_id: newVal } : {}),
+      ...(fieldKey === 'gl_account_id' ? { accounting_account_id: newVal } : {}),
       changed_by: currentUser.name,
       reason: `Excel Spreadsheet direct edit: ${fieldKey}`
     };
     await api.updateFee(fee.id, updated);
     notify('success', `Fee "${fee.name}" updated!`);
-    onRefresh();
+    if (onRefresh) onRefresh();
   };
 
   const handleEditBranch = async (branch: Branch, fieldKey: string, newVal: any) => {

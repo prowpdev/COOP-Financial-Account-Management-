@@ -454,6 +454,18 @@ router.delete('/config/loan-products/:id', (req: Request, res: Response) => {
 // 5. DYNAMIC FEES (Test 3)
 // ==========================================
 
+router.get(['/fees', '/config/fees'], (req: Request, res: Response) => {
+  const fees = db.getTable('fees') || [];
+  res.json({ success: true, data: fees });
+});
+
+router.get('/config/fees/:id', (req: Request, res: Response) => {
+  const fees = db.getTable('fees');
+  const fee = fees.find(f => f.id === req.params.id);
+  if (!fee) return res.status(404).json({ success: false, error: 'Fee not found' });
+  res.json({ success: true, data: fee });
+});
+
 router.post('/config/fees', (req: Request, res: Response) => {
   const {
     name,
@@ -462,27 +474,40 @@ router.post('/config/fees', (req: Request, res: Response) => {
     amount,
     fixed_amount,
     percentage,
+    rate,
     min_amount,
     max_amount,
     applies_to,
     applicable_module,
     accounting_account_id,
+    gl_account_id,
+    active,
     changed_by,
     reason
   } = req.body;
+
+  const isPercentage = String(calculation_type || '').toLowerCase().includes('percent');
+  const finalFixed = isPercentage ? 0 : Number(amount ?? fixed_amount ?? 0);
+  const finalPercent = isPercentage ? Number(percentage ?? rate ?? amount ?? 0) : 0;
+  const moduleName = applies_to || applicable_module || 'Loans';
+  const glAccountId = gl_account_id || accounting_account_id || 'acc_4120';
 
   const newFee = {
     id: `fee_${Date.now()}`,
     name,
     code: code || `FEE-${Date.now().toString().slice(-4)}`,
     calculation_type: calculation_type || 'Fixed',
-    fixed_amount: Number(amount ?? fixed_amount) || 0,
-    percentage: Number(percentage) || 0,
-    min_amount: Number(min_amount) || 0,
-    max_amount: Number(max_amount) || 0,
-    applicable_module: applies_to || applicable_module || 'Loans',
-    accounting_account_id: accounting_account_id || 'acc_4120',
-    active: true
+    fixed_amount: finalFixed,
+    amount: isPercentage ? finalPercent : finalFixed,
+    percentage: finalPercent,
+    rate: finalPercent,
+    min_amount: Number(min_amount ?? (isPercentage ? 0 : finalFixed)) || 0,
+    max_amount: Number(max_amount ?? (isPercentage ? 0 : finalFixed)) || 0,
+    applicable_module: moduleName,
+    applies_to: moduleName,
+    accounting_account_id: glAccountId,
+    gl_account_id: glAccountId,
+    active: active !== undefined ? Boolean(active) : true
   };
 
   db.insert('fees', newFee);
@@ -497,10 +522,52 @@ router.put('/config/fees/:id', (req: Request, res: Response) => {
   const fee = fees.find(f => f.id === id);
   if (!fee) return res.status(404).json({ success: false, error: 'Fee not found' });
   const oldSnapshot = { ...fee };
-  const updated = { ...fee, ...req.body, id: fee.id };
+
+  const calculation_type = req.body.calculation_type ?? fee.calculation_type ?? 'Fixed';
+  const isPercentage = String(calculation_type).toLowerCase().includes('percent');
+  const finalFixed = isPercentage ? 0 : Number(req.body.amount ?? req.body.fixed_amount ?? fee.fixed_amount ?? fee.amount ?? 0);
+  const finalPercent = isPercentage ? Number(req.body.percentage ?? req.body.rate ?? req.body.amount ?? fee.percentage ?? fee.rate ?? 0) : 0;
+  const moduleName = req.body.applies_to ?? req.body.applicable_module ?? fee.applicable_module ?? fee.applies_to ?? 'Loans';
+  const glAccountId = req.body.gl_account_id ?? req.body.accounting_account_id ?? fee.gl_account_id ?? fee.accounting_account_id ?? 'acc_4120';
+
+  const updated = {
+    ...fee,
+    ...req.body,
+    id: fee.id,
+    name: req.body.name ?? fee.name,
+    code: req.body.code ?? fee.code,
+    calculation_type,
+    fixed_amount: finalFixed,
+    amount: isPercentage ? finalPercent : finalFixed,
+    percentage: finalPercent,
+    rate: finalPercent,
+    min_amount: Number(req.body.min_amount ?? fee.min_amount ?? 0) || 0,
+    max_amount: Number(req.body.max_amount ?? fee.max_amount ?? 0) || 0,
+    applicable_module: moduleName,
+    applies_to: moduleName,
+    accounting_account_id: glAccountId,
+    gl_account_id: glAccountId,
+    active: req.body.active !== undefined ? Boolean(req.body.active) : (fee.active !== undefined ? fee.active : true)
+  };
   db.update('fees', f => f.id === id, () => updated);
-  db.recordAudit(`Fee Updated: ${fee.name}`, oldSnapshot, updated, req.body.changed_by || 'Admin', req.body.reason || 'Spreadsheet config edit');
+  db.recordAudit(`Fee Updated: ${fee.name}`, oldSnapshot, updated, req.body.changed_by || 'Admin', req.body.reason || 'Fee config edit');
   res.json({ success: true, data: updated });
+});
+
+router.delete('/config/fees/:id', (req: Request, res: Response) => {
+  const fees = db.getTable('fees');
+  const fee = fees.find(f => f.id === req.params.id);
+  if (!fee) return res.status(404).json({ success: false, error: 'Fee not found' });
+
+  db.delete('fees', f => f.id === req.params.id);
+  db.recordAudit(
+    `Fee Deleted: ${fee.name}`,
+    fee,
+    null,
+    req.body?.changed_by || 'Admin',
+    'Deleted fee rule'
+  );
+  res.json({ success: true, message: `Fee ${fee.name} deleted successfully.` });
 });
 
 // ==========================================

@@ -233,6 +233,18 @@ class ConfigController extends BaseController
     }
 
     /**
+     * GET /api/config/fees/:id
+     */
+    public function fee(string $id): never
+    {
+        $fee = $this->config->getFee($id);
+        if (!$fee) {
+            $this->error('Fee not found.', 404);
+        }
+        $this->success($fee);
+    }
+
+    /**
      * PUT /api/config/fees/:id
      */
     public function updateFee(string $id): never
@@ -241,6 +253,15 @@ class ConfigController extends BaseController
         $input['id'] = $id;
         $saved = $this->config->saveFee($input);
         $this->success($saved, 'Fee updated successfully.');
+    }
+
+    /**
+     * DELETE /api/config/fees/:id
+     */
+    public function destroyFee(string $id): never
+    {
+        $this->config->deleteFee($id);
+        $this->success(null, 'Fee deleted successfully.');
     }
 
     /**

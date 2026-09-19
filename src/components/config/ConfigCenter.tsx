@@ -1701,6 +1701,13 @@ function FeesAndPenaltiesConfig({
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
   const [isAddingFee, setIsAddingFee] = useState(false);
+  const [editingFee, setEditingFee] = useState<Fee | null>(null);
+
+  const revenueAccounts = accounts.filter(
+    a => a.category === 'Revenue' || a.category === 'Income' || a.type === 'Income' || a.type === 'Revenue'
+  );
+  const defaultGlId = revenueAccounts[0]?.id || 'acc_4120';
+
   const [newFee, setNewFee] = useState({
     name: '',
     code: '',
@@ -1710,31 +1717,112 @@ function FeesAndPenaltiesConfig({
     min_amount: 250,
     max_amount: 250,
     applies_to: 'Loans',
-    gl_account_id: 'acc_4120'
+    gl_account_id: defaultGlId,
+    active: true
   });
 
   const handleCreateFee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const feeData = newFee.calculation_type === 'Fixed'
-        ? {
-            ...newFee,
-            amount: newFee.fixed_amount,
-            percentage: 0
-          }
-        : {
-            ...newFee,
-            amount: 0,
-            fixed_amount: 0
-          };
-
-      await api.createFee({
-        ...feeData,
+      const isFixed = newFee.calculation_type === 'Fixed';
+      const feeData = {
+        name: newFee.name.trim(),
+        code: newFee.code.trim() || `FEE-${Date.now().toString().slice(-4)}`,
+        calculation_type: newFee.calculation_type,
+        fixed_amount: isFixed ? Number(newFee.fixed_amount) || 0 : 0,
+        amount: isFixed ? Number(newFee.fixed_amount) || 0 : Number(newFee.percentage) || 0,
+        percentage: isFixed ? 0 : Number(newFee.percentage) || 0,
+        rate: isFixed ? 0 : Number(newFee.percentage) || 0,
+        min_amount: Number(newFee.min_amount) || 0,
+        max_amount: Number(newFee.max_amount) || 0,
+        applies_to: newFee.applies_to,
+        applicable_module: newFee.applies_to,
+        gl_account_id: newFee.gl_account_id || defaultGlId,
+        accounting_account_id: newFee.gl_account_id || defaultGlId,
+        active: newFee.active,
         changed_by: currentUser.name,
         reason: 'Created new fee rule via Admin'
-      });
+      };
+
+      await api.createFee(feeData);
       setIsAddingFee(false);
-      showNotice('success', `Created fee "${newFee.name}".`);
+      setNewFee({
+        name: '',
+        code: '',
+        calculation_type: 'Fixed',
+        fixed_amount: 250,
+        percentage: 0,
+        min_amount: 250,
+        max_amount: 250,
+        applies_to: 'Loans',
+        gl_account_id: defaultGlId,
+        active: true
+      });
+      showNotice('success', `Created fee "${feeData.name}".`);
+      onRefresh();
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
+  const handleUpdateFee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFee) return;
+    try {
+      const isFixed = editingFee.calculation_type === 'Fixed';
+      const fixedAmt = Number(editingFee.fixed_amount ?? editingFee.amount ?? 0);
+      const pct = Number(editingFee.percentage ?? editingFee.rate ?? 0);
+      const feeData = {
+        name: editingFee.name.trim(),
+        code: editingFee.code.trim(),
+        calculation_type: editingFee.calculation_type,
+        fixed_amount: isFixed ? fixedAmt : 0,
+        amount: isFixed ? fixedAmt : pct,
+        percentage: isFixed ? 0 : pct,
+        rate: isFixed ? 0 : pct,
+        min_amount: Number(editingFee.min_amount) || 0,
+        max_amount: Number(editingFee.max_amount) || 0,
+        applies_to: editingFee.applies_to || editingFee.applicable_module || 'Loans',
+        applicable_module: editingFee.applies_to || editingFee.applicable_module || 'Loans',
+        gl_account_id: editingFee.gl_account_id || editingFee.accounting_account_id || defaultGlId,
+        accounting_account_id: editingFee.gl_account_id || editingFee.accounting_account_id || defaultGlId,
+        active: editingFee.active !== undefined ? editingFee.active : true,
+        changed_by: currentUser.name,
+        reason: 'Updated fee rule via Admin'
+      };
+
+      await api.updateFee(editingFee.id, feeData);
+      setEditingFee(null);
+      showNotice('success', `Updated fee "${feeData.name}".`);
+      onRefresh();
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
+  const handleDeleteFee = async (fee: Fee) => {
+    if (!window.confirm(`Are you sure you want to delete fee rule "${fee.name}" (${fee.code})?`)) {
+      return;
+    }
+    try {
+      await api.deleteFee(fee.id, currentUser.name);
+      showNotice('success', `Fee "${fee.name}" deleted successfully.`);
+      onRefresh();
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
+  const handleToggleActive = async (fee: Fee) => {
+    try {
+      const newStatus = !(fee.active !== false);
+      await api.updateFee(fee.id, {
+        ...fee,
+        active: newStatus,
+        changed_by: currentUser.name,
+        reason: `Toggled fee status to ${newStatus ? 'active' : 'inactive'}`
+      });
+      showNotice('success', `Fee "${fee.name}" marked as ${newStatus ? 'active' : 'inactive'}.`);
       onRefresh();
     } catch (err: any) {
       showNotice('error', err.message);
@@ -1747,12 +1835,15 @@ function FeesAndPenaltiesConfig({
         <div>
           <h2 className="text-lg font-bold text-white">Dynamic Fees & Penalty Engine</h2>
           <p className="text-xs text-slate-400">
-            Configure fee calculation models (Fixed, Percentage of Loan, Min/Max) and automated penalty rules (Req #9, #10, Test #3).
+            Configure fee calculation models (Fixed, Percentage of Loan, Min/Max) and automated penalty rules with general ledger integration.
           </p>
         </div>
         <button
           id="btn-add-fee"
-          onClick={() => setIsAddingFee(true)}
+          onClick={() => {
+            setEditingFee(null);
+            setIsAddingFee(true);
+          }}
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -1760,21 +1851,32 @@ function FeesAndPenaltiesConfig({
         </button>
       </div>
 
+      {/* Add Fee Form */}
       {isAddingFee && (
-        <form onSubmit={handleCreateFee} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4">
+        <form onSubmit={handleCreateFee} className="bg-slate-800/90 rounded-xl p-4 border border-slate-700 space-y-4 shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-            <h3 className="text-sm font-bold text-emerald-400">Add New Fee</h3>
+            <h3 className="text-sm font-bold text-emerald-400">Add New Fee Rule</h3>
             <button type="button" onClick={() => setIsAddingFee(false)} className="text-slate-400 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-slate-300 font-medium">Fee Name</label>
+              <label className="text-xs text-slate-300 font-medium">Fee Code</label>
+              <input
+                type="text"
+                placeholder="e.g. FEE-NOTARIAL (or leave blank)"
+                value={newFee.code}
+                onChange={e => setNewFee({ ...newFee, code: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-slate-300 font-medium">Fee Name / Description *</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Legal & Notarial Fee"
+                placeholder="e.g. Legal & Notarial Documentation Fee"
                 value={newFee.name}
                 onChange={e => setNewFee({ ...newFee, name: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
@@ -1784,11 +1886,21 @@ function FeesAndPenaltiesConfig({
               <label className="text-xs text-slate-300 font-medium">Calculation Model</label>
               <select
                 value={newFee.calculation_type}
-                onChange={e => setNewFee({ ...newFee, calculation_type: e.target.value })}
+                onChange={e => {
+                  const type = e.target.value;
+                  const isFixed = type === 'Fixed';
+                  setNewFee({
+                    ...newFee,
+                    calculation_type: type,
+                    fixed_amount: isFixed ? (newFee.fixed_amount || 250) : 0,
+                    percentage: !isFixed ? (newFee.percentage || 2) : 0
+                  });
+                }}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
                 <option value="Fixed">Fixed Amount</option>
                 <option value="Percentage">Percentage</option>
+                <option value="Percentage of Loan">Percentage of Loan</option>
                 <option value="Percentage of Principal">Percentage of Principal</option>
               </select>
             </div>
@@ -1802,18 +1914,18 @@ function FeesAndPenaltiesConfig({
                 <option value="Loans">Loans</option>
                 <option value="Savings">Savings</option>
                 <option value="Share Capital">Share Capital</option>
-                <option value="Membership">Membership</option>
+                <option value="Members">Members / Membership</option>
                 <option value="Accounting">Accounting</option>
                 <option value="All Modules">All Modules</option>
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-300 font-medium">
-                {newFee.calculation_type === 'Fixed' ? 'Fixed Amount (₱)' : 'Rate Percentage (%)'}
+                {newFee.calculation_type === 'Fixed' ? 'Fixed Amount (₱) *' : 'Rate Percentage (%) *'}
               </label>
               <input
                 type="number"
-                step="0.1"
+                step="0.01"
                 required
                 value={newFee.calculation_type === 'Fixed' ? newFee.fixed_amount : newFee.percentage}
                 onChange={e => {
@@ -1828,60 +1940,340 @@ function FeesAndPenaltiesConfig({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-300 font-medium">Applicable GL Account</label>
+              <label className="text-xs text-slate-300 font-medium">Minimum Amount (₱)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newFee.min_amount}
+                onChange={e => setNewFee({ ...newFee, min_amount: parseFloat(e.target.value) || 0 })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Maximum Cap (₱)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newFee.max_amount}
+                onChange={e => setNewFee({ ...newFee, max_amount: parseFloat(e.target.value) || 0 })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Applicable Revenue GL Account *</label>
               <select
                 value={newFee.gl_account_id}
                 onChange={e => setNewFee({ ...newFee, gl_account_id: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
               >
-                {accounts
-                  .filter(a => a.category === 'Revenue' || a.category === 'Income' || a.type === 'Income' || a.type === 'Revenue')
-                  .map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.account_code || a.code} - {a.name}
-                    </option>
-                  ))}
+                {revenueAccounts.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.account_code || a.code} - {a.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
-          <div className="flex justify-end space-x-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAddingFee(false)}
-              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
-            >
-              Cancel
+          <div className="flex justify-between items-center pt-2">
+            <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newFee.active}
+                onChange={e => setNewFee({ ...newFee, active: e.target.checked })}
+                className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+              />
+              <span>Set fee rule as Active immediately</span>
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsAddingFee(false)}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer flex items-center space-x-1"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Fee Rule</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* Edit Fee Modal / Form */}
+      {editingFee && (
+        <form onSubmit={handleUpdateFee} className="bg-slate-800/95 rounded-xl p-4 border border-blue-500/50 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+            <h3 className="text-sm font-bold text-blue-400 flex items-center space-x-2">
+              <Edit2 className="w-4 h-4" />
+              <span>Edit Fee: {editingFee.name} ({editingFee.code})</span>
+            </h3>
+            <button type="button" onClick={() => setEditingFee(null)} className="text-slate-400 hover:text-white cursor-pointer">
+              <X className="w-4 h-4" />
             </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
-            >
-              Save Fee Rule
-            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Fee Code *</label>
+              <input
+                type="text"
+                required
+                value={editingFee.code}
+                onChange={e => setEditingFee({ ...editingFee, code: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-slate-300 font-medium">Fee Name / Description *</label>
+              <input
+                type="text"
+                required
+                value={editingFee.name}
+                onChange={e => setEditingFee({ ...editingFee, name: e.target.value })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Calculation Model</label>
+              <select
+                value={editingFee.calculation_type}
+                onChange={e => {
+                  const type = e.target.value;
+                  const isFixed = type === 'Fixed';
+                  setEditingFee({
+                    ...editingFee,
+                    calculation_type: type,
+                    fixed_amount: isFixed ? (editingFee.fixed_amount || 250) : 0,
+                    percentage: !isFixed ? (editingFee.percentage || 2) : 0
+                  });
+                }}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+              >
+                <option value="Fixed">Fixed Amount</option>
+                <option value="Percentage">Percentage</option>
+                <option value="Percentage of Loan">Percentage of Loan</option>
+                <option value="Percentage of Principal">Percentage of Principal</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Applicable Module</label>
+              <select
+                value={editingFee.applies_to || editingFee.applicable_module || 'Loans'}
+                onChange={e => setEditingFee({
+                  ...editingFee,
+                  applies_to: e.target.value,
+                  applicable_module: e.target.value
+                })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+              >
+                <option value="Loans">Loans</option>
+                <option value="Savings">Savings</option>
+                <option value="Share Capital">Share Capital</option>
+                <option value="Members">Members / Membership</option>
+                <option value="Accounting">Accounting</option>
+                <option value="All Modules">All Modules</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">
+                {editingFee.calculation_type === 'Fixed' ? 'Fixed Amount (₱) *' : 'Rate Percentage (%) *'}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={
+                  editingFee.calculation_type === 'Fixed'
+                    ? (editingFee.fixed_amount !== undefined ? editingFee.fixed_amount : (editingFee.amount || 0))
+                    : (editingFee.percentage !== undefined ? editingFee.percentage : (editingFee.rate || 0))
+                }
+                onChange={e => {
+                  const v = parseFloat(e.target.value) || 0;
+                  if (editingFee.calculation_type === 'Fixed') {
+                    setEditingFee({ ...editingFee, fixed_amount: v, amount: v });
+                  } else {
+                    setEditingFee({ ...editingFee, percentage: v, rate: v });
+                  }
+                }}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Minimum Amount (₱)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={editingFee.min_amount || 0}
+                onChange={e => setEditingFee({ ...editingFee, min_amount: parseFloat(e.target.value) || 0 })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Maximum Cap (₱)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={editingFee.max_amount || 0}
+                onChange={e => setEditingFee({ ...editingFee, max_amount: parseFloat(e.target.value) || 0 })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-300 font-medium">Applicable Revenue GL Account *</label>
+              <select
+                value={editingFee.gl_account_id || editingFee.accounting_account_id || defaultGlId}
+                onChange={e => setEditingFee({
+                  ...editingFee,
+                  gl_account_id: e.target.value,
+                  accounting_account_id: e.target.value
+                })}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
+              >
+                {revenueAccounts.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.account_code || a.code} - {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-between items-center pt-2">
+            <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editingFee.active !== false}
+                onChange={e => setEditingFee({ ...editingFee, active: e.target.checked })}
+                className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+              />
+              <span>Rule is Active</span>
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => setEditingFee(null)}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded text-xs cursor-pointer flex items-center space-x-1"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Changes</span>
+              </button>
+            </div>
           </div>
         </form>
       )}
 
       {/* Fee List */}
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Configured Fee Schedule</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Configured Fee Schedule ({fees.length} Rules)
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {fees.map(f => {
+            const isPercentage = String(f.calculation_type || '').toLowerCase().includes('percent');
             const fixedAmt = f.fixed_amount !== undefined ? f.fixed_amount : (f.amount !== undefined ? f.amount : 0);
-            const pct = f.percentage !== undefined ? f.percentage : (f.rate !== undefined ? f.rate : 0);
-            const isFixed = f.calculation_type === 'Fixed';
+            const pct = f.percentage !== undefined ? f.percentage : (f.rate !== undefined ? f.rate : (f.amount !== undefined ? f.amount : 0));
+            const glId = f.gl_account_id || f.accounting_account_id;
+            const glAcc = accounts.find(a => a.id === glId);
+            const moduleName = f.applies_to || f.applicable_module || 'Loans';
+            const isActive = f.active !== false;
+
             return (
-              <div key={f.id} className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700 flex justify-between items-start">
-                <div>
-                  <div className="text-xs font-bold text-white">{f.name}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Model: {f.calculation_type}</div>
-                  <div className="text-xs font-semibold text-emerald-400 mt-1">
-                    {isFixed ? `₱${Number(fixedAmt || 0).toLocaleString()}` : `${pct}% of principal`}
+              <div
+                key={f.id}
+                className={`bg-slate-800/70 rounded-xl p-4 border transition-colors flex flex-col justify-between space-y-3 ${
+                  isActive ? 'border-slate-700' : 'border-slate-700/40 opacity-70'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-sm font-bold text-white flex items-center space-x-2">
+                        <span>{f.name}</span>
+                        {!isActive && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                          {f.code}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                          {moduleName}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded border ${
+                            isPercentage
+                              ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                          }`}
+                        >
+                          {f.calculation_type}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-800 flex justify-between items-center">
+                    <div>
+                      <span className="text-[11px] text-slate-400">Charge Value:</span>
+                      <div className="text-sm font-bold text-emerald-400">
+                        {isPercentage
+                          ? `${pct}% ${f.min_amount || f.max_amount ? `(Min: ₱${f.min_amount || 0} / Max: ₱${f.max_amount || 0})` : ''}`
+                          : `₱${Number(fixedAmt || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400">General Ledger:</span>
+                      <div className="text-xs font-medium text-slate-200 truncate max-w-[180px]">
+                        {glAcc ? `${glAcc.account_code || glAcc.code} - ${glAcc.name}` : (glId || 'acc_4120')}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-                  {f.code}
-                </span>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700/60 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(f)}
+                    className="text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer underline"
+                  >
+                    {isActive ? 'Deactivate Rule' : 'Activate Rule'}
+                  </button>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingFee(false);
+                        setEditingFee(f);
+                      }}
+                      className="flex items-center space-x-1 px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs cursor-pointer font-medium"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFee(f)}
+                      className="flex items-center space-x-1 px-2 py-1 bg-rose-900/30 hover:bg-rose-900/50 text-rose-300 border border-rose-700/40 rounded text-xs cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}

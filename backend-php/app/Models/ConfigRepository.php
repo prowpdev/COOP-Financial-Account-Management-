@@ -179,73 +179,133 @@ class ConfigRepository
         return $this->fetchAll('fees');
     }
 
-public function saveFee(array $data): array
-{
-    $id = $data['id'] ?? ('fee_' . bin2hex(random_bytes(4)));
+    public function getFee(string $id): ?array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM fees WHERE id = ?");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return null;
+        return array_merge($row, [
+            'fixed_amount' => (float)($row['amount'] ?? 0),
+            'percentage' => (float)($row['percentage'] ?? ($row['calculation_type'] === 'Percentage' ? $row['amount'] : 0)),
+            'rate' => (float)($row['percentage'] ?? ($row['calculation_type'] === 'Percentage' ? $row['amount'] : 0)),
+            'applicable_module' => $row['applies_to'] ?? 'Loans',
+            'accounting_account_id' => $row['gl_account_id'] ?? null,
+            'active' => (bool)($row['active'] ?? true)
+        ]);
+    }
 
-    $code = !empty($data['code'])
-        ? $data['code']
-        : ('FEE-' . mt_rand(100, 999));
+    public function deleteFee(string $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM fees WHERE id = ?");
+        return $stmt->execute([$id]);
+    }
 
-    $sql = "
-        INSERT INTO fees (
-            id,
-            code,
-            name,
-            calculation_type,
-            amount,
-            applies_to,
-            percentage,
-            gl_account_id,
-            active
-        )
-        VALUES (
-            :id,
-            :code,
-            :name,
-            :calculation_type,
-            :amount,
-            :applies_to,
-            :percentage,
-            :gl_account_id,
-            :active
-        )
-        ON DUPLICATE KEY UPDATE
-            code = VALUES(code),
-            name = VALUES(name),
-            calculation_type = VALUES(calculation_type),
-            amount = VALUES(amount),
-            applies_to = VALUES(applies_to),
-            percentage = VALUES(percentage),
-            gl_account_id = VALUES(gl_account_id),
-            active = VALUES(active)
-    ";
+    public function saveFee(array $data): array
+    {
+        $id = $data['id'] ?? ('fee_' . bin2hex(random_bytes(4)));
 
-    $stmt = $this->db->prepare($sql);
+        $code = !empty($data['code'])
+            ? $data['code']
+            : ('FEE-' . mt_rand(100, 999));
 
-    $stmt->execute([
-        'id' => $id,
-        'code' => $code,
-        'name' => $data['name'],
-        'calculation_type' => $data['calculation_type'] ?? 'Fixed',
-        'amount' => (float) (
+        $calcType = $data['calculation_type'] ?? 'Fixed';
+        $isPercentage = (stripos($calcType, 'Percent') !== false);
+        $dbCalcType = $isPercentage ? 'Percentage' : 'Fixed';
+
+        $amount = (float)(
             $data['amount']
             ?? $data['fixed_amount']
-            ?? 0
-        ),
-        'applies_to' => $data['applicable_module'] ?? 'loan',
-        'gl_account_id' => $data['gl_account_id'] ?? null,
-        'percentage' => (float) ($data['percentage'] ?? 0),
-        'active' => isset($data['active'])
-            ? (int) $data['active']
-            : 1,
-    ]);
+            ?? ($isPercentage ? ($data['percentage'] ?? $data['rate'] ?? 0) : 0)
+        );
+        $percentage = (float)($data['percentage'] ?? $data['rate'] ?? ($isPercentage ? $amount : 0));
+        $appliesTo = $data['applies_to'] ?? $data['applicable_module'] ?? 'Loans';
+        $glAccountId = $data['gl_account_id'] ?? $data['accounting_account_id'] ?? 'acc_4120';
+        $active = isset($data['active']) ? (int)(bool)$data['active'] : 1;
 
-    return array_merge([
-        'id' => $id,
-        'code' => $code,
-    ], $data);
-}
+        // Check if percentage column exists in fees table
+        $hasPercentageCol = false;
+        try {
+            $colStmt = $this->db->query("SHOW COLUMNS FROM fees LIKE 'percentage'");
+            $hasPercentageCol = (bool)$colStmt->fetch();
+        } catch (\Exception $e) {
+            $hasPercentageCol = false;
+        }
+
+        if ($hasPercentageCol) {
+            $sql = "
+                INSERT INTO fees (
+                    id, code, name, calculation_type, amount, percentage, applies_to, gl_account_id, active
+                ) VALUES (
+                    :id, :code, :name, :calculation_type, :amount, :percentage, :applies_to, :gl_account_id, :active
+                )
+                ON DUPLICATE KEY UPDATE
+                    code = VALUES(code),
+                    name = VALUES(name),
+                    calculation_type = VALUES(calculation_type),
+                    amount = VALUES(amount),
+                    percentage = VALUES(percentage),
+                    applies_to = VALUES(applies_to),
+                    gl_account_id = VALUES(gl_account_id),
+                    active = VALUES(active)
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                'id' => $id,
+                'code' => $code,
+                'name' => $data['name'],
+                'calculation_type' => $dbCalcType,
+                'amount' => $amount,
+                'percentage' => $percentage,
+                'applies_to' => $appliesTo,
+                'gl_account_id' => $glAccountId,
+                'active' => $active
+            ]);
+        } else {
+            $sql = "
+                INSERT INTO fees (
+                    id, code, name, calculation_type, amount, applies_to, gl_account_id, active
+                ) VALUES (
+                    :id, :code, :name, :calculation_type, :amount, :applies_to, :gl_account_id, :active
+                )
+                ON DUPLICATE KEY UPDATE
+                    code = VALUES(code),
+                    name = VALUES(name),
+                    calculation_type = VALUES(calculation_type),
+                    amount = VALUES(amount),
+                    applies_to = VALUES(applies_to),
+                    gl_account_id = VALUES(gl_account_id),
+                    active = VALUES(active)
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                'id' => $id,
+                'code' => $code,
+                'name' => $data['name'],
+                'calculation_type' => $dbCalcType,
+                'amount' => $isPercentage ? $percentage : $amount,
+                'applies_to' => $appliesTo,
+                'gl_account_id' => $glAccountId,
+                'active' => $active
+            ]);
+        }
+
+        return array_merge($data, [
+            'id' => $id,
+            'code' => $code,
+            'name' => $data['name'],
+            'calculation_type' => $calcType,
+            'amount' => $amount,
+            'fixed_amount' => $amount,
+            'percentage' => $percentage,
+            'rate' => $percentage,
+            'applies_to' => $appliesTo,
+            'applicable_module' => $appliesTo,
+            'gl_account_id' => $glAccountId,
+            'accounting_account_id' => $glAccountId,
+            'active' => (bool)$active
+        ]);
+    }
 
     public function updateSystemSettings(array $data): bool
     {

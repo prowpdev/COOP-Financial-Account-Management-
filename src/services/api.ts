@@ -155,11 +155,10 @@ export const api = {
 
   // Loan Products & Versioning
   createLoanProduct: (product: any) =>
-  {console.log(product);},
-    // fetchApi<{ success: boolean; data: any }>('/config/loan-products', {
-    //   method: 'POST',
-    //   body: JSON.stringify(product)
-    // }),
+    fetchApi<{ success: boolean; data: any }>('/config/loan-products', {
+      method: 'POST',
+      body: JSON.stringify(product)
+    }),
   getLoanProduct: (id: string) =>
     fetchApi<{ success: boolean; data: any }>(`/config/loan-products/${id}`),
   updateLoanProduct: (id: string, product: any) =>
@@ -174,6 +173,10 @@ export const api = {
     }),
 
   // Fees & Penalties
+  getFees: () =>
+    fetchApi<{ success: boolean; data: any[] }>('/config/fees'),
+  getFee: (id: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/config/fees/${id}`),
   createFee: (fee: any) =>
     fetchApi<{ success: boolean; data: any }>('/config/fees', {
       method: 'POST',
@@ -183,6 +186,11 @@ export const api = {
     fetchApi<{ success: boolean; data: any }>(`/config/fees/${id}`, {
       method: 'PUT',
       body: JSON.stringify(fee)
+    }),
+  deleteFee: (id: string, changed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/fees/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ changed_by })
     }),
 
   // Cash Accounts
