@@ -125,7 +125,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
       <div id="account-ledger-print" className="bg-slate-900 rounded-2xl border border-slate-800 p-6 print:bg-white print:text-black print:border-0 print:p-0">
         <header className="border-b border-slate-700 pb-4 mb-4 print:border-slate-300">
           <p className="text-xs uppercase tracking-wider font-bold text-emerald-400 print:text-slate-700">General Ledger Account Report</p>
-          <h2 className="text-xl font-bold text-white mt-1 print:text-black">{account ? `${account.code} — ${account.name}` : 'Select an account'}</h2>
+          <h2 className="text-xl font-bold text-white mt-1 print:text-black">{account ? `${account.account_code} — ${account.name}` : 'Select an account'}</h2>
           <div className="flex flex-wrap gap-x-6 gap-y-1 mt-2 text-xs text-slate-400 print:text-slate-600">
             <span>Classification: {account?.type || '—'}</span><span>Normal balance: {account?.normal_balance || '—'}</span><span>Scope: {branchLabel}</span><span>Period: {periodLabel}</span>
           </div>

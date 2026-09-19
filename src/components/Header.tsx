@@ -19,7 +19,7 @@ import {
   LogIn
 } from 'lucide-react';
 import { Branch, User } from '../types';
-import { getApiBase, setApiBase, DEFAULT_API_BASE } from '../services/api';
+import { getApiBase, setApiBase, DEFAULT_API_BASE, api } from '../services/api';
 import { SqlSchemaModal } from './common/SqlSchemaModal';
 
 interface HeaderProps {
@@ -68,6 +68,17 @@ export const Header: React.FC<HeaderProps> = ({
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+  const [usersState, setUsersState] = useState(users);
+  
+  const populateUsers = async () => {
+    const res = await api.getUsers();
+    setUsersState(res.data)
+    console.log(users)
+  }
+  useEffect(()=>{
+    populateUsers();
+  },[])
+
 
   useEffect(() => {
     const handleEndpointChange = (e: any) => {
@@ -159,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {users.map(u => (
                   <option key={u.id} value={u.id} className="bg-slate-800 text-slate-200">
-                    {u.name} ({u.role_name})
+                    {u.username} ({u.role_id})
                   </option>
                 ))}
               </select>

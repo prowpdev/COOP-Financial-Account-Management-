@@ -250,7 +250,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     try {
       const res = await api.createManualJournal({
         ...jvForm,
-        performed_by: currentUser.name
+        created_by: currentUser.name
       });
       setIsCreatingJV(false);
       setSuccessMsg(`Journal Voucher ${res.data.voucher_number} posted successfully.`);
