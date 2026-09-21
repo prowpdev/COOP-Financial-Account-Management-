@@ -90,13 +90,13 @@ class DatabaseSeeder
 
         $results['cooperatives'] =(new CooperativeSeeder($this->db))->run();
 
-        $results['system_settings'] =(new SystemSettingSeeder($this->db))->run();
+        $results['system_settings'] = (new SystemSettingSeeder($this->db))->run();
 
-        $results['transaction_types '] =(new TransactionTypeSeeder($this->db))->run();
+        $results['transaction_types'] = (new TransactionTypeSeeder($this->db))->run();
 
-        $results['user_roles '] =(new UserRoleSeeder($this->db))->run();
+        $results['user_roles'] = (new UserRoleSeeder($this->db))->run();
 
-        $results['users '] =(new UserSeeder($this->db))->run();
+        $results['users'] = (new UserSeeder($this->db))->run();
 
 
         return $results;
