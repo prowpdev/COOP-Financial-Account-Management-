@@ -222,7 +222,7 @@ export default function App() {
       const members = res.data || [];
       const memberToUse: Member = members.length > 0 ? members[0] : {
         id: 'mem_sample_01',
-        member_no: 'MB-2026-0001',
+        member_no: 'MEM-2026-0001',
         first_name: 'Juan',
         last_name: 'Dela Cruz',
         middle_name: 'Santos',

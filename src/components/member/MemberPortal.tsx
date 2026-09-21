@@ -32,7 +32,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { Member, AuthSession } from '../../types';
+import { Member } from '../../types';
 
 interface MemberPortalProps {
   member: Member;
@@ -40,12 +40,201 @@ interface MemberPortalProps {
   onSwitchToStaff?: () => void;
 }
 
+/**
+ * Normalize the API response to match the frontend structure.
+ */
+const mapMemberDashboardData = (data: any) => {
+  const stats = data.stats || {};
+
+  // Share capital accounts
+  const shareCapitalAccounts = (
+    data.share_capital_accounts || []
+  ).map((account: any) => ({
+    ...account,
+    subscribed_shares: Number(account.subscribed_shares || 0),
+    subscribed_amount: Number(account.subscribed_amount || 0),
+    paid_up_shares: Number(account.paid_up_shares || 0),
+    paid_up_amount: Number(account.paid_up_amount || 0),
+
+    transactions: (account.transactions || []).map((tx: any) => ({
+      ...tx,
+      amount: Number(tx.amount || 0),
+      shares: Number(tx.shares || 0),
+      date: tx.transaction_date,
+      reference: tx.receipt_no,
+      type: `Share Capital: ${tx.type}`,
+      category: 'Share Capital',
+      transaction_type: 'cbu',
+      description: 'Share capital contribution',
+      notes: 'Share capital contribution'
+    }))
+  }));
+
+  // Savings accounts
+  const savingsAccounts = (
+    data.savings_accounts || []
+  ).map((account: any) => ({
+    ...account,
+    balance: Number(account.balance || 0),
+
+    transactions: (account.transactions || []).map((tx: any) => ({
+      ...tx,
+      amount: Number(tx.amount || 0),
+      balance_after: Number(tx.balance_after || 0),
+      date: tx.transaction_date,
+      reference: tx.transaction_no,
+      type: `Savings ${tx.type}`,
+      category: 'Savings',
+      transaction_type: 'savings',
+      description: tx.notes || 'Savings transaction',
+      notes: tx.notes || ''
+    }))
+  }));
+
+  // Loans
+  const loans = (data.loans || []).map((loan: any) => ({
+    ...loan,
+    principal_amount: Number(loan.principal_amount || 0),
+    current_balance: Number(loan.current_balance || 0),
+    total_principal_paid: Number(loan.total_principal_paid || 0),
+    total_interest_paid: Number(loan.total_interest_paid || 0),
+    total_penalty_paid: Number(loan.total_penalty_paid || 0),
+    total_fees_paid: Number(loan.total_fees_paid || 0),
+
+    // API: schedule
+    // Frontend: amortization_schedule
+    amortization_schedule: (loan.schedule || []).map((item: any) => ({
+      ...item,
+      principal: Number(item.principal || 0),
+      interest: Number(item.interest || 0),
+      fee: Number(item.fee || 0),
+      total_installment: Number(item.total_installment || 0),
+      principal_balance: Number(item.principal_balance || 0),
+      paid_principal: Number(item.paid_principal || 0),
+      paid_interest: Number(item.paid_interest || 0),
+      paid_penalty: Number(item.paid_penalty || 0)
+    })),
+
+    payments: loan.payments || []
+  }));
+
+  // All transactions
+  const allTransactions = (data.transactions || []).map((tx: any) => {
+    const transactionType = String(
+      tx.transaction_type || ''
+    ).toLowerCase();
+
+    let category = 'Other';
+
+    if (transactionType === 'cbu') {
+      category = 'Share Capital';
+    } else if (transactionType === 'savings') {
+      category = 'Savings';
+    } else if (transactionType === 'loans') {
+      category = 'Loans';
+    } else if (transactionType === 'jv') {
+      category = 'Journal Vouchers';
+    }
+
+    return {
+      ...tx,
+      amount: Number(tx.amount || 0),
+      category,
+      description: tx.description || tx.notes || tx.type || '',
+      notes: tx.notes || '',
+      reference: tx.reference || '',
+      date: tx.date || tx.transaction_date || ''
+    };
+  });
+
+  // Summary
+  const summary = {
+    share_capital_paid: shareCapitalAccounts.reduce(
+      (sum: number, account: any) =>
+        sum + Number(account.paid_up_amount || 0),
+      0
+    ),
+
+    share_capital_subscribed: shareCapitalAccounts.reduce(
+      (sum: number, account: any) =>
+        sum + Number(account.subscribed_amount || 0),
+      0
+    ),
+
+    total_shares_owned: shareCapitalAccounts.reduce(
+      (sum: number, account: any) =>
+        sum + Number(account.paid_up_shares || 0),
+      0
+    ),
+
+    savings_balance: Number(stats.total_savings_balance || 0),
+
+    total_loan_balance: Number(
+      stats.total_loan_outstanding || 0
+    ),
+
+    total_loan_borrowed: loans.reduce(
+      (sum: number, loan: any) =>
+        sum + Number(loan.principal_amount || 0),
+      0
+    ),
+
+    total_payments_made: loans.reduce(
+      (sum: number, loan: any) =>
+        sum +
+        Number(loan.total_principal_paid || 0) +
+        Number(loan.total_interest_paid || 0) +
+        Number(loan.total_penalty_paid || 0) +
+        Number(loan.total_fees_paid || 0),
+      0
+    ),
+
+    next_payment_due: null as any,
+
+    total_loan_outstanding: Number(
+      stats.total_loan_outstanding || 0
+    )
+  };
+
+  // Find the next unpaid installment
+  const unpaidInstallments = loans
+    .flatMap((loan: any) =>
+      (loan.amortization_schedule || [])
+        .filter((item: any) => item.status !== 'Paid')
+        .map((item: any) => ({
+          ...item,
+          loan_id: loan.id,
+          loan_account_no: loan.loan_account_no
+        }))
+    )
+    .sort((a: any, b: any) =>
+      String(a.due_date).localeCompare(String(b.due_date))
+    );
+
+  if (unpaidInstallments.length > 0) {
+    summary.next_payment_due = unpaidInstallments[0];
+  }
+
+  return {
+    ...data,
+    member: data.member || {},
+    share_capital_accounts: shareCapitalAccounts,
+    savings_accounts: savingsAccounts,
+    loans,
+    all_transactions: allTransactions,
+    summary
+  };
+};
+
 export const MemberPortal: React.FC<MemberPortalProps> = ({
   member,
   onLogout,
   onSwitchToStaff
 }) => {
-  const [activeTab, setActiveTab] = useState<'transactions' | 'loans' | 'savings' | 'cbu' | 'profile'>('transactions');
+  const [activeTab, setActiveTab] = useState<
+    'transactions' | 'loans' | 'savings' | 'cbu' | 'profile'
+  >('transactions');
+
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -71,7 +260,9 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const [applyProductId, setApplyProductId] = useState('');
   const [applyPrincipal, setApplyPrincipal] = useState(30000);
   const [applyTerm, setApplyTerm] = useState(12);
-  const [applyNotes, setApplyNotes] = useState('Farm inputs & fertilizer support');
+  const [applyNotes, setApplyNotes] = useState(
+    'Farm inputs & fertilizer support'
+  );
 
   const [depositAmount, setDepositAmount] = useState(1000);
   const [cbuAmount, setCbuAmount] = useState(2500);
@@ -83,18 +274,32 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const loadDashboard = async () => {
     setIsLoading(true);
     setErrorMessage('');
+
     try {
       const res = await api.getMemberPortalDashboard(member.id);
+
       if (res.success && res.data) {
-        setDashboardData(res.data);
-        if (res.data.loans && res.data.loans.length > 0 && !expandedLoanId) {
-          setExpandedLoanId(res.data.loans[0].id);
+        // Normalize the API response
+        const mappedData = mapMemberDashboardData(res.data);
+
+        setDashboardData(mappedData);
+
+        if (
+          mappedData.loans &&
+          mappedData.loans.length > 0 &&
+          !expandedLoanId
+        ) {
+          setExpandedLoanId(mappedData.loans[0].id);
         }
       } else {
-        setErrorMessage(res.message || 'Failed to load member financial records.');
+        setErrorMessage(
+          res.message || 'Failed to load member financial records.'
+        );
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error fetching member portal dashboard.');
+      setErrorMessage(
+        err.message || 'Error fetching member portal dashboard.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +307,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
   useEffect(() => {
     loadDashboard();
-    // Load loan products for application
+
+    // Load loan products
     api.getLoanProducts().then((res) => {
       if (res.data && res.data.length > 0) {
         setLoanProducts(res.data);
@@ -111,10 +317,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     });
   }, [member.id]);
 
-  // Actions
+  // Apply for a loan
   const handleApplyLoan = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+
     try {
       const res = await api.memberApplyLoan(member.id, {
         loan_product_id: applyProductId,
@@ -122,8 +329,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         term_months: Number(applyTerm),
         notes: applyNotes
       });
+
       if (res.success) {
-        setSuccessMessage(res.message || 'Loan application approved and disbursed!');
+        setSuccessMessage(
+          res.message || 'Loan application submitted successfully!'
+        );
         setShowApplyLoanModal(false);
         await loadDashboard();
         setActiveTab('loans');
@@ -137,18 +347,30 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     }
   };
 
+  // Deposit savings
   const handleDepositSavings = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+
     try {
-      const targetAccId = dashboardData?.savings_accounts?.[0]?.id;
+      const targetAccId =
+        dashboardData?.savings_accounts?.[0]?.id;
+
+      if (!targetAccId) {
+        setErrorMessage('No active savings account found.');
+        return;
+      }
+
       const res = await api.memberDepositSavings(member.id, {
         savings_account_id: targetAccId,
         amount: Number(depositAmount),
         notes: 'Deposit via Online Member Portal'
       });
+
       if (res.success) {
-        setSuccessMessage(res.message || 'Deposit processed successfully!');
+        setSuccessMessage(
+          res.message || 'Deposit processed successfully!'
+        );
         setShowDepositModal(false);
         await loadDashboard();
         setActiveTab('savings');
@@ -162,16 +384,21 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     }
   };
 
+  // Pay share capital
   const handlePayCbu = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+
     try {
       const res = await api.memberPayShareCapital(member.id, {
         amount: Number(cbuAmount),
         notes: 'Share capital contribution via Online Member Portal'
       });
+
       if (res.success) {
-        setSuccessMessage(res.message || 'Share capital contribution recorded!');
+        setSuccessMessage(
+          res.message || 'Share capital contribution recorded!'
+        );
         setShowCbuModal(false);
         await loadDashboard();
         setActiveTab('cbu');
@@ -185,18 +412,25 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     }
   };
 
+  // Pay loan installment
   const handlePayLoanInstallment = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!selectedLoanForPayment) return;
+
     setActionLoading(true);
+
     try {
       const res = await api.memberMakeLoanPayment(member.id, {
         loan_id: selectedLoanForPayment.id,
         amount: Number(loanPayAmount),
         notes: `Online installment repayment for ${selectedLoanForPayment.loan_account_no}`
       });
+
       if (res.success) {
-        setSuccessMessage(res.message || 'Loan installment paid successfully!');
+        setSuccessMessage(
+          res.message || 'Loan installment paid successfully!'
+        );
         setShowPayLoanModal(false);
         await loadDashboard();
         setActiveTab('loans');
@@ -210,34 +444,54 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     }
   };
 
+  // Open loan payment modal
   const openLoanPayment = (loan: any) => {
     setSelectedLoanForPayment(loan);
-    const nextSched = (loan.amortization_schedule || []).find((s: any) => s.status !== 'Paid');
-    setLoanPayAmount(nextSched ? nextSched.total_installment : loan.current_balance);
+
+    const nextSched = (
+      loan.amortization_schedule || []
+    ).find((s: any) => s.status !== 'Paid');
+
+    setLoanPayAmount(
+      nextSched
+        ? Number(nextSched.total_installment)
+        : Number(loan.current_balance || 0)
+    );
+
     setShowPayLoanModal(true);
   };
 
   // Filter transactions
   const allTx = dashboardData?.all_transactions || [];
+
   const filteredTransactions = allTx.filter((t: any) => {
+    const type = String(t.type || '');
+    const category = String(t.category || '');
+
     const matchesCategory =
       txFilterCategory === 'all' ||
-      (txFilterCategory === 'loans' && (t.category === 'Loans' || t.type.includes('Loan'))) ||
-      (txFilterCategory === 'savings' && (t.category === 'Savings' || t.type.includes('Savings'))) ||
-      (txFilterCategory === 'cbu' && (t.category === 'Share Capital' || t.type.includes('Share'))) ||
-      (txFilterCategory === 'jv' && (t.category === 'Journal Vouchers' || t.type.includes('Journal')));
+      (txFilterCategory === 'loans' &&
+        (category === 'Loans' || type.includes('Loan'))) ||
+      (txFilterCategory === 'savings' &&
+        (category === 'Savings' || type.includes('Savings'))) ||
+      (txFilterCategory === 'cbu' &&
+        (category === 'Share Capital' || type.includes('Share'))) ||
+      (txFilterCategory === 'jv' &&
+        (category === 'Journal Vouchers' || type.includes('Journal')));
 
     const q = txSearchTerm.toLowerCase();
+
     const matchesSearch =
       !q ||
       String(t.reference || '').toLowerCase().includes(q) ||
       String(t.description || '').toLowerCase().includes(q) ||
-      String(t.type || '').toLowerCase().includes(q) ||
+      type.toLowerCase().includes(q) ||
       String(t.notes || '').toLowerCase().includes(q);
 
     return matchesCategory && matchesSearch;
   });
 
+  // Member summary
   const memberSummary = dashboardData?.summary || {
     share_capital_paid: 0,
     share_capital_subscribed: 0,
@@ -246,7 +500,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     total_loan_balance: 0,
     total_loan_borrowed: 0,
     total_payments_made: 0,
-    next_payment_due: null
+    next_payment_due: null,
+    total_loan_outstanding: 0
   };
 
   const memberRecord = dashboardData?.member || member;
@@ -291,7 +546,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 id="btn-switch-to-staff"
                 onClick={onSwitchToStaff}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1.5 cursor-pointer"
+                className="hide px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1.5 cursor-pointer"
                 title="Switch view to Staff Core Management"
               >
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
@@ -391,7 +646,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 id="btn-action-deposit"
                 onClick={() => setShowDepositModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <PiggyBank className="w-3.5 h-3.5 text-teal-400" />
                 <span>Deposit Savings</span>
@@ -400,7 +655,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 id="btn-action-cbu"
                 onClick={() => setShowCbuModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <Wallet className="w-3.5 h-3.5 text-purple-400" />
                 <span>Add Share Capital</span>
@@ -484,7 +739,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <span>Loan Outstanding</span>
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                {memberSummary.active_loans_count || 0} Active
+                {memberSummary.total_loan_outstanding || 0} Active
               </span>
             </div>
             <div className="text-2xl font-black text-white">
@@ -797,7 +1052,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             <button
                               id={`btn-pay-loan-${loan.id}`}
                               onClick={() => openLoanPayment(loan)}
-                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
+                              className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>Make Payment</span>
@@ -1025,7 +1280,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
                   <button
                     onClick={() => setShowDepositModal(true)}
-                    className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
+                    className="hide px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Make a Deposit</span>

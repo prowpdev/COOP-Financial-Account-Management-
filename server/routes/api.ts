@@ -3138,7 +3138,7 @@ router.post('/auth/member-login', (req: Request, res: Response) => {
   if (!member) {
     return res.status(401).json({
       success: false,
-      message: `No member account found for "${idStr}". Please check your Member Number (e.g. MB-2026-0001) or register a new member account.`
+      message: `No member account found for "${idStr}". Please check your Member Number (e.g. MEM-2026-0001) or register a new member account.`
     });
   }
 
@@ -4249,7 +4249,7 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
   const foundingMembers = [
     {
       id: 'mem_founding_01',
-      member_no: 'MB-2026-0001',
+      member_no: 'MEM-2026-0001',
       branch_id: 'branch_tar',
       branch_name: 'Tarlac Main Branch',
       member_type_id: 'mt_regular',

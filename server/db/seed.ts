@@ -383,7 +383,7 @@ export const initialSeedData: DatabaseSchema = {
   members: [
     {
       id: 'mem_sample_01',
-      member_no: 'MB-2026-0001',
+      member_no: 'MEM-2026-0001',
       branch_id: 'branch_tar',
       branch_name: 'Tarlac Main Branch',
       member_type_id: 'mt_regular',

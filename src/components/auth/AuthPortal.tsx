@@ -56,7 +56,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [staffRegBranchId, setStaffRegBranchId] = useState('branch_tar');
 
   // Member Login fields
-  const [memberIdentifier, setMemberIdentifier] = useState('MB-2026-0001');
+  const [memberIdentifier, setMemberIdentifier] = useState('MEM-2026-0001');
   const [memberPassword, setMemberPassword] = useState('123456');
 
   // Member Register fields
@@ -688,7 +688,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         type="text"
                         value={memberIdentifier}
                         onChange={(e) => setMemberIdentifier(e.target.value)}
-                        placeholder="e.g. MB-2026-0001 or juan.delacruz@tar-agri.ph"
+                        placeholder="e.g. MEM-2026-0001 or juan.delacruz@tar-agri.ph"
                         required
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                       />
@@ -735,7 +735,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   </button>
 
                   {/* 1-Click Quick Member Selector */}
-                  <div className="pt-4 border-t border-slate-800/80">
+                  <div className="hide pt-4 border-t border-slate-800/80">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
                       Select Sample Cooperative Member (1-Click Test):
                     </p>
@@ -743,7 +743,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       <button
                         type="button"
                         id="quick-member-juan"
-                        onClick={() => quickMemberLogin('MB-2026-0001')}
+                        onClick={() => quickMemberLogin('MEM-2026-0001')}
                         className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-600/50 transition flex items-center justify-between text-left cursor-pointer group"
                       >
                         <div className="flex items-center space-x-3">
@@ -752,7 +752,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                           </div>
                           <div>
                             <p className="font-bold text-slate-200 group-hover:text-white">Juan Dela Cruz</p>
-                            <p className="text-[11px] text-slate-400">MB-2026-0001 • Agri Member (Rice & Corn)</p>
+                            <p className="text-[11px] text-slate-400">MEM-2026-0001 • Agri Member (Rice & Corn)</p>
                           </div>
                         </div>
                         <span className="text-[11px] px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold">

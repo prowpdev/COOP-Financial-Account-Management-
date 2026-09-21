@@ -320,7 +320,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
       content: (
         <div className="space-y-3 text-xs text-slate-300">
           <p>
-            Every member onboarded receives a unique sequential Member ID (e.g. MB-2026-0001), an active Savings Account,
+            Every member onboarded receives a unique sequential Member ID (e.g. MEM-2026-0001), an active Savings Account,
             and a Capital Build-Up (CBU) share capital ledger with subscribed and paid-up shares.
           </p>
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
@@ -328,7 +328,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
               <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Automated Founding Roster:
             </div>
             <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li><strong className="text-white">Juan Dela Cruz (MB-2026-0001):</strong> Rice & Corn farmer, 3.5 ha, Regular Member.</li>
+              <li><strong className="text-white">Juan Dela Cruz (MEM-2026-0001):</strong> Rice & Corn farmer, 3.5 ha, Regular Member.</li>
               <li><strong className="text-white">Maria Santos Reyes (MB-2026-0002):</strong> Organic vegetable grower, Regular Member.</li>
               <li><strong className="text-white">Rodrigo Mendoza (MB-2026-0003):</strong> Agri-farm supplies owner, Associate Member.</li>
               <li><strong className="text-white">Elena Rostro (MB-2026-0004):</strong> Sugarcane grower, Regular Member.</li>
