@@ -123,6 +123,9 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
 }
 
 export const api = {
+  // Seeders
+  LoadSeeders:()=> fetchApi<{ success: boolean; data: any }>('/database/seeder'),
+  ResetSeeders:()=> fetchApi<{ success: boolean; data: any }>('/database/seeder/reset'),
   // Config
   getConfig: () => fetchApi<{ success: boolean; data: any }>('/config/all'),
   updateSetting: (body: { key: string; value: string; changed_by?: string; reason?: string }) =>

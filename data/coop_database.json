@@ -1609,24 +1609,24 @@
       "name": "Standard CDA Priority Allocation",
       "priorities": [
         {
-          "label": "Penalties & Late Fines",
           "priority": 1,
-          "component": "Penalty"
+          "component": "Penalty",
+          "label": "Penalties & Late Fines"
         },
         {
-          "label": "Accrued Interest",
           "priority": 2,
-          "component": "Interest"
+          "component": "Interest",
+          "label": "Accrued Interest"
         },
         {
-          "label": "Loan Principal Balance",
           "priority": 3,
-          "component": "Principal"
+          "component": "Fees",
+          "label": "Service & Other Fees"
         },
         {
-          "label": "Service & Other Fees",
           "priority": 4,
-          "component": "Fees"
+          "component": "Principal",
+          "label": "Loan Principal Balance"
         }
       ],
       "is_default": true,
@@ -1853,107 +1853,7 @@
   "journal_entries": [],
   "journal_lines": [],
   "general_ledger": [],
-  "configuration_audit_trails": [
-    {
-      "id": "audit_1789961316403_v1ajfw",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Penalty -> Interest -> Fees -> Principal",
-      "new_value": "Penalty -> Interest -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T03:28:36.403Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789961941432_9qxjzk",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Penalty -> Interest -> Principal -> Fees",
-      "new_value": "",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T03:39:01.432Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789962802715_cacud7",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "",
-      "new_value": "Interest -> Penalty -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T03:53:22.715Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963207795_yr8cc8",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Principal -> Fees",
-      "new_value": "Penalty -> Interest -> Fees -> Principal",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:00:07.795Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963662229_kchxy9",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Penalty -> Interest -> Fees -> Principal",
-      "new_value": "Interest -> Penalty -> Fees -> Principal",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:07:42.229Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963675288_2n1kmb",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Fees -> Principal",
-      "new_value": "Interest -> Penalty -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:07:55.288Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963764859_0b7lvz",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Principal -> Fees",
-      "new_value": "Interest -> Penalty -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:09:24.859Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963878850_hprlbr",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Principal -> Fees",
-      "new_value": "Penalty -> Interest -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:11:18.850Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963897991_rs37lr",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Penalty -> Interest -> Principal -> Fees",
-      "new_value": "Interest -> Penalty -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:11:37.991Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789963913513_eib6g8",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Principal -> Fees",
-      "new_value": "Interest -> Penalty -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:11:53.513Z",
-      "reason": "Re-ordered payment priority sequence"
-    },
-    {
-      "id": "audit_1789965821641_vi9atv",
-      "setting": "Payment Allocation Priorities: Standard CDA Priority Allocation",
-      "old_value": "Interest -> Penalty -> Principal -> Fees",
-      "new_value": "Penalty -> Interest -> Principal -> Fees",
-      "changed_by": "Lending Committee",
-      "created_at": "2026-09-21T04:43:41.641Z",
-      "reason": "Re-ordered payment priority sequence"
-    }
-  ],
+  "configuration_audit_trails": [],
   "user_roles": [
     {
       "id": "role_admin",

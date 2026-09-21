@@ -172,7 +172,10 @@ export default function App() {
       window.removeEventListener('coop:open-auth-modal', handleOpenAuth);
     };
   }, []);
-
+ 
+  const handleReloadApp = () =>{
+    location.reload();
+  }
   const handleResetSeed = async () => {
     if (!window.confirm('Reset cooperative state to clean default seed configuration?')) return;
     setIsResetting(true);
@@ -210,7 +213,8 @@ export default function App() {
         users={users}
         onSwitchUser={setCurrentUser}
         onOpenVerification={() => setActiveTab('verification')}
-        onResetSeed={handleResetSeed}
+        // onResetSeed={handleResetSeed}
+        onResetSeed={handleReloadApp}
         isResetting={isResetting}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={toggleSidebar}

@@ -22,6 +22,9 @@ import { Branch, User } from '../types';
 import { getApiBase, setApiBase, DEFAULT_API_BASE, api } from '../services/api';
 import { SqlSchemaModal } from './common/SqlSchemaModal';
 
+import Notice from './Notice';
+import { useNotice } from './useNotice';
+
 interface HeaderProps {
   cooperativeName: string;
   branches: Branch[];
@@ -69,6 +72,14 @@ export const Header: React.FC<HeaderProps> = ({
   const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [usersState, setUsersState] = useState(users);
+
+  const {
+    notice,
+    showNotice,
+    hideNotice,
+  } = useNotice();
+
+  
   
   const populateUsers = async () => {
     const res = await api.getUsers();
@@ -87,7 +98,36 @@ export const Header: React.FC<HeaderProps> = ({
     window.addEventListener('coop:api-endpoint-changed', handleEndpointChange);
     return () => window.removeEventListener('coop:api-endpoint-changed', handleEndpointChange);
   }, []);
+ 
+  const handleSeedDatabase = async () => {
+    try {
+      if(confirm("confirm to add sample data to live database ?")){
+        await api.LoadSeeders();
+        showNotice('Database seeded successfully. Please wait...', 'success');
+        
+      }
+    } catch (error: any) {
+      showNotice(
+        error?.message || 'Failed to seed database.',
+        'error'
+      );
+    }
+  };
 
+  const handleResetSeedDatabase = async () => {
+    try {
+      if(confirm("confirm to reset sample data to live database ?")){
+        await api.ResetSeeders();
+        showNotice('Database reset successfully.', 'success');
+      }
+    } catch (error: any) {
+      showNotice(
+        error?.message || 'Failed to seed database.',
+        'error'
+      );
+    }
+  };
+ 
   const handleSaveEndpoint = () => {
     setApiBase(customEndpointInput);
     setApiEndpointState(customEndpointInput);
@@ -99,6 +139,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-sm">
+      {notice && (
+        <Notice
+          message={notice.message}
+          type={notice.type}
+          onClose={hideNotice}
+          reload={true}
+        />
+      )}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-3">
           {/* Brand & Organization */}
@@ -188,7 +236,30 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden xl:inline">Login / Register</span>
               </button>
             )}
+            {/* Seed */}
+            <button
+             id=""
+             onClick={()=> handleSeedDatabase()}
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+             >
+              <Server className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-mono text-[11px] text-emerald-300 truncate max-w-[130px]">
 
+              Populate Sample Data
+              </span>
+            </button>
+            {/* Reset Seeders */}
+            <button
+             id=""
+             onClick={()=> handleResetSeedDatabase()}
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+             >
+              <Server className="w-3.5 h-3.5 text-rose-400" />
+              <span className="font-mono text-[11px] text-rose-300 truncate max-w-[130px]">
+
+              Reset Database
+              </span>
+            </button>
             {/* PHP MVC API Endpoint Pill */}
             <button
               id="api-endpoint-pill"
@@ -275,7 +346,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="reset-seed-btn"
               onClick={onResetSeed}
               disabled={isResetting}
-              title="Reset database to clean seed"
+              title="Reload the app"
               className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${isResetting ? 'animate-spin text-emerald-400' : ''}`} />
@@ -377,6 +448,7 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={showSqlModal}
         onClose={() => setShowSqlModal(false)}
       />
+      
     </header>
   );
 };
