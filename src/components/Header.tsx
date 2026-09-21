@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchUser,
   onOpenVerification,
   onResetSeed,
-  isResetting,
+  isResetting: isResettingProp = false,
   isSidebarCollapsed = false,
   onToggleSidebar,
   theme = 'dark',
@@ -81,15 +81,21 @@ export const Header: React.FC<HeaderProps> = ({
 
   
   
-  const populateUsers = async () => {
-    const res = await api.getUsers();
-    setUsersState(res.data)
-    console.log(users)
-  }
-  useEffect(()=>{
-    populateUsers();
-  },[])
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
+  const populateUsers = async () => {
+    try {
+      const res = await api.getUsers();
+      setUsersState(res.data || []);
+    } catch (e) {
+      console.error('Failed to populate users:', e);
+    }
+  };
+
+  useEffect(() => {
+    populateUsers();
+  }, []);
 
   useEffect(() => {
     const handleEndpointChange = (e: any) => {
@@ -100,31 +106,38 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
  
   const handleSeedDatabase = async () => {
+    if (isSeeding) return;
+    setIsSeeding(true);
     try {
-      if(confirm("confirm to add sample data to live database ?")){
-        await api.LoadSeeders();
-        showNotice('Database seeded successfully. Please wait...', 'success');
-        
-      }
+      await api.LoadSeeders();
+      showNotice('Sample cooperative database seeded successfully with members, loans, savings, and balanced journals!', 'success');
+      await populateUsers();
+      window.dispatchEvent(new Event('coop:data-changed'));
     } catch (error: any) {
       showNotice(
         error?.message || 'Failed to seed database.',
         'error'
       );
+    } finally {
+      setIsSeeding(false);
     }
   };
 
   const handleResetSeedDatabase = async () => {
+    if (isResetting) return;
+    setIsResetting(true);
     try {
-      if(confirm("confirm to reset sample data to live database ?")){
-        await api.ResetSeeders();
-        showNotice('Database reset successfully.', 'success');
-      }
+      await api.ResetSeeders();
+      showNotice('Database reset successfully to baseline CDA chart of accounts and settings.', 'success');
+      await populateUsers();
+      window.dispatchEvent(new Event('coop:data-changed'));
     } catch (error: any) {
       showNotice(
-        error?.message || 'Failed to seed database.',
+        error?.message || 'Failed to reset database.',
         'error'
       );
+    } finally {
+      setIsResetting(false);
     }
   };
  
@@ -238,26 +251,26 @@ export const Header: React.FC<HeaderProps> = ({
             )}
             {/* Seed */}
             <button
-             id=""
-             onClick={()=> handleSeedDatabase()}
-              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
-             >
-              <Server className="w-3.5 h-3.5 text-emerald-400" />
+              id="btn-populate-sample-data"
+              disabled={isSeeding || isResetting}
+              onClick={() => handleSeedDatabase()}
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Server className={`w-3.5 h-3.5 text-emerald-400 ${isSeeding ? 'animate-spin' : ''}`} />
               <span className="font-mono text-[11px] text-emerald-300 truncate max-w-[130px]">
-
-              Populate Sample Data
+                {isSeeding ? 'Seeding...' : 'Populate Sample Data'}
               </span>
             </button>
             {/* Reset Seeders */}
             <button
-             id=""
-             onClick={()=> handleResetSeedDatabase()}
-              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
-             >
-              <Server className="w-3.5 h-3.5 text-rose-400" />
+              id="btn-reset-database"
+              disabled={isSeeding || isResetting}
+              onClick={() => handleResetSeedDatabase()}
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Server className={`w-3.5 h-3.5 text-rose-400 ${isResetting ? 'animate-spin' : ''}`} />
               <span className="font-mono text-[11px] text-rose-300 truncate max-w-[130px]">
-
-              Reset Database
+                {isResetting ? 'Resetting...' : 'Reset Database'}
               </span>
             </button>
             {/* PHP MVC API Endpoint Pill */}

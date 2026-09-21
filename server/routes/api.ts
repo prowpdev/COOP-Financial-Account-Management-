@@ -5,6 +5,7 @@ import { InterestCalculationService } from '../services/interestCalculationServi
 import { PaymentAllocationService } from '../services/paymentAllocationService';
 import { AccountingEngine } from '../services/accountingEngine';
 import { NumberingService } from '../services/numberingService';
+import { runComprehensiveDatabaseSeeder, resetDatabaseToBaseline } from '../services/sampleSeeder';
 
 const router = Router();
 
@@ -3110,12 +3111,17 @@ router.get('/user-roles', (req: Request, res: Response) => {
 });
 
 // ==========================================
-// 21. RESET DATABASE & FLEXIBILITY TEST RUNNER
+// 21. RESET DATABASE & SEEDER ENDPOINTS
 // ==========================================
 
-router.post('/system/reset-seed', (req: Request, res: Response) => {
-  db.resetToSeed(initialSeedData);
-  res.json({ success: true, message: 'Cooperative database successfully reset to clean CDA baseline seed.' });
+router.all('/database/seeder/reset', (req: Request, res: Response) => {
+  const result = resetDatabaseToBaseline();
+  res.json(result);
+});
+
+router.all('/system/reset-seed', (req: Request, res: Response) => {
+  const result = resetDatabaseToBaseline();
+  res.json(result);
 });
 
 // Setup Wizard Status Endpoint
@@ -3897,81 +3903,14 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
   res.status(400).json({ success: false, error: 'Invalid step index.' });
 });
 
-router.post('/system/seed-sample-data', (req: Request, res: Response) => {
-  // Inserts a clean, realistic set of 4 cooperative members with savings, share capital and loans
-  const branchId = 'branch_tar';
-  const now = new Date().toISOString().split('T')[0];
+router.all('/database/seeder', (req: Request, res: Response) => {
+  const result = runComprehensiveDatabaseSeeder();
+  res.json(result);
+});
 
-  const sampleMembers = [
-    {
-      id: 'mem_sample_01',
-      member_no: 'MB-2026-0001',
-      branch_id: branchId,
-      branch_name: 'Tarlac Main Branch',
-      member_type_id: 'mt_regular',
-      member_type_name: 'Regular Agricultural Member',
-      first_name: 'Juan',
-      middle_name: 'Dela',
-      last_name: 'Cruz',
-      gender: 'Male',
-      birthdate: '1982-06-15',
-      phone: '+63 917 555 1234',
-      email: 'juan.delacruz@tar-agri.ph',
-      address: 'Poblacion, Victoria, Tarlac',
-      custom_field_values: { farm_hectares: 3.5, primary_crop: 'Rice & Corn' },
-      joined_date: '2026-01-10',
-      active: true
-    },
-    {
-      id: 'mem_sample_02',
-      member_no: 'MB-2026-0002',
-      branch_id: branchId,
-      branch_name: 'Tarlac Main Branch',
-      member_type_id: 'mt_regular',
-      member_type_name: 'Regular Agricultural Member',
-      first_name: 'Maria',
-      middle_name: 'Santos',
-      last_name: 'Reyes',
-      gender: 'Female',
-      birthdate: '1988-11-22',
-      phone: '+63 920 444 8899',
-      email: 'maria.reyes@organic-farm.ph',
-      address: 'Brgy. San Vicente, Tarlac City',
-      custom_field_values: { farm_hectares: 2.0, primary_crop: 'Organic Vegetables' },
-      joined_date: '2026-01-15',
-      active: true
-    },
-    {
-      id: 'mem_sample_03',
-      member_no: 'MB-2026-0003',
-      branch_id: 'branch_ger',
-      branch_name: 'Gerona Extension Office',
-      member_type_id: 'mt_associate',
-      member_type_name: 'Associate Micro-Entrepreneur',
-      first_name: 'Rodrigo',
-      middle_name: 'Bautista',
-      last_name: 'Mendoza',
-      gender: 'Male',
-      birthdate: '1990-03-08',
-      phone: '+63 918 222 3344',
-      email: 'rodrigo.mendoza@agri-supply.ph',
-      address: 'Brgy. Danzo, Gerona, Tarlac',
-      custom_field_values: { business_nature: 'Agri-Farm Supplies' },
-      joined_date: '2026-02-01',
-      active: true
-    }
-  ];
-
-  sampleMembers.forEach(m => {
-    const existing = db.getTable('members').find(x => x.id === m.id);
-    if (!existing) db.insert('members', m);
-  });
-
-  res.json({
-    success: true,
-    message: 'Sample agricultural cooperative members populated successfully.',
-    data: sampleMembers
-  });
+router.all('/system/seed-sample-data', (req: Request, res: Response) => {
+  const result = runComprehensiveDatabaseSeeder();
+  res.json(result);
 });
 
 // Automated Verification Suite executing Acceptance Criteria Tests 1 through 15!

@@ -110,8 +110,10 @@ export interface ApprovalRule {
 export interface CustomField {
   id: string;
   entity: 'Member' | 'Loan';
-  field_name: string;
-  field_label: string;
+  field_name?: string;
+  field_key?: string;
+  field_label?: string;
+  label?: string;
   field_type: 'Text' | 'Number' | 'Date' | 'Dropdown' | 'Radio' | 'Checkbox' | 'Currency' | 'Phone' | 'Email';
   options: string[];
   required: boolean;
@@ -306,6 +308,7 @@ export interface PenaltyRule {
   calculation_type: string;
   grace_period_days: number;
   rate: number;
+  penalty_rate_percentage?: number;
   calculation_frequency: string;
   minimum_penalty: number;
   maximum_penalty: number;
@@ -316,7 +319,8 @@ export interface PenaltyRule {
 export interface PaymentAllocationRule {
   id: string;
   name: string;
-  priorities: ({ priority: number; component: string; label?: string } | string)[];
+  priorities?: ({ priority: number; component: string; label?: string } | string)[];
+  priority_order?: any;
   is_default: boolean;
   active: boolean;
 }

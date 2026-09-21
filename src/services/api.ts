@@ -3,9 +3,25 @@ import { ShareCapitalSetting } from '../types';
 export const DEFAULT_API_BASE = 'http://coop-backend.test/api/';
 
 const getInitialApiBase = (): string => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('coop_api_endpoint');
+    if (saved) return saved.replace(/\/+$/, '');
+  }
   const envApiBase = import.meta.env.VITE_API_BASE_URL;
+  if (envApiBase) return envApiBase.replace(/\/+$/, '');
 
-  return (envApiBase || DEFAULT_API_BASE).replace(/\/+$/, '');
+  // In cloud sandbox or dev environments where .test is unresolvable, default to internal /api
+  if (typeof window !== 'undefined') {
+    const isCloudOrDev = window.location.hostname.includes('.run.app') || 
+                          window.location.hostname.includes('webcontainer') || 
+                          window.location.hostname.includes('localhost') ||
+                          window.location.hostname.includes('127.0.0.1');
+    if (isCloudOrDev) {
+      return '/api';
+    }
+  }
+
+  return DEFAULT_API_BASE.replace(/\/+$/, '');
 };
 
 let activeApiBase = getInitialApiBase();
@@ -124,8 +140,20 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
 
 export const api = {
   // Seeders
-  LoadSeeders:()=> fetchApi<{ success: boolean; data: any }>('/database/seeder'),
-  ResetSeeders:()=> fetchApi<{ success: boolean; data: any }>('/database/seeder/reset'),
+  LoadSeeders: async () => {
+    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder', { method: 'POST' });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('coop:data-changed'));
+    }
+    return res;
+  },
+  ResetSeeders: async () => {
+    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder/reset', { method: 'POST' });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('coop:data-changed'));
+    }
+    return res;
+  },
   // Config
   getConfig: () => fetchApi<{ success: boolean; data: any }>('/config/all'),
   updateSetting: (body: { key: string; value: string; changed_by?: string; reason?: string }) =>

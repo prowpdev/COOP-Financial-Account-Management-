@@ -136,6 +136,12 @@ try {
 // Mount API routes
 app.use('/api', apiRouter);
 
+// Support direct seeder paths when called without /api prefix
+app.use('/database', (req, res, next) => {
+  req.url = '/database' + req.url;
+  apiRouter(req, res, next);
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
