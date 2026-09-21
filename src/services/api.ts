@@ -709,6 +709,40 @@ export const api = {
   getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
   getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
 
+  // Member Portal Authentication & Endpoints
+  memberLogin: (credentials: { identifier: string; password?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: { member: any; token: string } }>('/auth/member-login', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    }),
+  memberRegister: (memberData: any) =>
+    fetchApi<{ success: boolean; message?: string; data: { member: any; token: string } }>('/auth/member-register', {
+      method: 'POST',
+      body: JSON.stringify(memberData)
+    }),
+  getMemberPortalDashboard: (memberId: string) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/dashboard`),
+  memberApplyLoan: (memberId: string, payload: { loan_product_id: string; principal_amount: number; term_months: number; notes?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/apply-loan`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  memberDepositSavings: (memberId: string, payload: { savings_account_id?: string; amount: number; notes?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/deposit`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  memberPayShareCapital: (memberId: string, payload: { amount: number; notes?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/pay-share-capital`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  memberMakeLoanPayment: (memberId: string, payload: { loan_id: string; amount: number; notes?: string }) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/loan-payment`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
   // Verification & Reset
   resetSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),
   resetToSeed: () => fetchApi<{ success: boolean; message: string }>('/system/reset-seed', { method: 'POST' }),

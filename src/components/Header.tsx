@@ -44,6 +44,8 @@ interface HeaderProps {
   onToggleTextSize?: () => void;
   onOpenSetupWizard?: () => void;
   onOpenAuthModal?: () => void;
+  onLogout?: () => void;
+  onOpenMemberPortal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -64,7 +66,9 @@ export const Header: React.FC<HeaderProps> = ({
   isLargeText = false,
   onToggleTextSize,
   onOpenSetupWizard,
-  onOpenAuthModal
+  onOpenAuthModal,
+  onLogout,
+  onOpenMemberPortal
 }) => {
   const [apiEndpoint, setApiEndpointState] = useState(getApiBase());
   const [showApiModal, setShowApiModal] = useState(false);
@@ -237,6 +241,32 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
+            {/* Member Portal Switcher */}
+            {onOpenMemberPortal && (
+              <button
+                id="btn-header-member-portal"
+                onClick={onOpenMemberPortal}
+                title="Open Member Self-Service Dashboard"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold transition cursor-pointer text-xs shadow-sm border border-emerald-500/40"
+              >
+                <UserCircle className="w-3.5 h-3.5 text-emerald-200" />
+                <span className="hidden sm:inline">Member Portal</span>
+              </button>
+            )}
+
+            {/* Logout to Outside Auth Portal */}
+            {onLogout && (
+              <button
+                id="btn-header-logout"
+                onClick={onLogout}
+                title="Sign out of system"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/50 transition cursor-pointer text-xs"
+              >
+                <LogIn className="w-3.5 h-3.5 rotate-180" />
+                <span className="hidden md:inline">Sign Out</span>
+              </button>
+            )}
+
             {/* Auth Modal Trigger / Sign In */}
             {onOpenAuthModal && (
               <button
@@ -246,7 +276,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="hide flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
               >
                 <LogIn className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden xl:inline">Login / Register</span>
+                <span className="hidden xl:inline">Switch / Add User</span>
               </button>
             )}
             {/* Seed */}

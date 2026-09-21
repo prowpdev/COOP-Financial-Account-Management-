@@ -12,6 +12,8 @@ import { AccountingModule } from './components/operations/AccountingModule';
 import { FinancialReportsView } from './components/reports/FinancialReportsView';
 import { FlexibilityTestSuite } from './components/verification/FlexibilityTestSuite';
 import { AuthModal } from './components/auth/AuthModal';
+import { AuthPortal } from './components/auth/AuthPortal';
+import { MemberPortal } from './components/member/MemberPortal';
 import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
 import {
@@ -22,8 +24,10 @@ import {
   CustomField,
   FeatureToggle,
   LoanProduct,
+  Member,
   MemberType,
-  User
+  User,
+  AuthSession
 } from './types';
 import { RefreshCw } from 'lucide-react';
 
@@ -34,9 +38,22 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
+  // Authentication State: persistent session (Staff vs Member)
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
+    try {
+      const saved = localStorage.getItem('coop_auth_session');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse saved auth session:', e);
+    }
+    return null;
+  });
+
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
-    name: 'Multipurpose Cooperative System',
+    name: 'Mayap Care Agriculture Coop.',
     registration_no: 'CDA-REG-9502-100234',
     currency_code: 'PHP',
     currency_symbol: '₱',
@@ -190,17 +207,98 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    setAuthSession(null);
+    try {
+      localStorage.removeItem('coop_auth_session');
+    } catch (e) {
+      console.error('Failed to clear session:', e);
+    }
+  };
+
+  const handleOpenMemberPortal = async () => {
+    try {
+      const res = await api.getMembers();
+      const members = res.data || [];
+      const memberToUse: Member = members.length > 0 ? members[0] : {
+        id: 'mem_sample_01',
+        member_no: 'MB-2026-0001',
+        first_name: 'Juan',
+        last_name: 'Dela Cruz',
+        middle_name: 'Santos',
+        contact_no: '09171234567',
+        email: 'juan.delacruz@agricoop.ph',
+        branch_id: 'branch_hq',
+        member_type_id: 'mtype_regular',
+        status: 'active',
+        date_of_birth: '1985-05-15',
+        gender: 'male',
+        membership_date: '2022-01-15'
+      };
+      const memberSession: AuthSession = {
+        type: 'member',
+        member: memberToUse,
+        token: `member_token_${Date.now()}`
+      };
+      setAuthSession(memberSession);
+      localStorage.setItem('coop_auth_session', JSON.stringify(memberSession));
+    } catch (e) {
+      console.error('Failed to switch to member portal:', e);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 space-y-4">
         <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-300">
-          Loading CoopFlex Configuration Engine...
+          Loading Cooperative System Engine...
         </p>
       </div>
     );
   }
 
+  // 1. Unauthenticated: Outside Login & Registration Portal
+  if (!authSession) {
+    return (
+      <AuthPortal
+        onSuccess={(session) => {
+          setAuthSession(session);
+          try {
+            localStorage.setItem('coop_auth_session', JSON.stringify(session));
+          } catch (e) {
+            console.error('Failed to save session:', e);
+          }
+          if (session.type === 'staff') {
+            setCurrentUser(session.user);
+          }
+        }}
+      />
+    );
+  }
+
+  // 2. Member Portal: Dedicated Member Self-Service Dashboard
+  if (authSession.type === 'member') {
+    return (
+      <MemberPortal
+        member={authSession.member}
+        onLogout={handleLogout}
+        onSwitchToStaff={() => {
+          const staffSession: AuthSession = {
+            type: 'staff',
+            user: currentUser,
+            token: `staff_token_${Date.now()}`
+          };
+          setAuthSession(staffSession);
+          try {
+            localStorage.setItem('coop_auth_session', JSON.stringify(staffSession));
+          } catch (e) {}
+        }}
+      />
+    );
+  }
+
+  // 3. Staff / Admin Management Dashboard
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
       {/* Top Application Header */}
@@ -213,7 +311,6 @@ export default function App() {
         users={users}
         onSwitchUser={setCurrentUser}
         onOpenVerification={() => setActiveTab('verification')}
-        // onResetSeed={handleResetSeed}
         onResetSeed={handleReloadApp}
         isResetting={isResetting}
         isSidebarCollapsed={isSidebarCollapsed}
@@ -224,6 +321,8 @@ export default function App() {
         onToggleTextSize={toggleTextSize}
         onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
+        onOpenMemberPortal={handleOpenMemberPortal}
       />
 
       {/* Main View Area with Persistent Collapsible Sidebar */}

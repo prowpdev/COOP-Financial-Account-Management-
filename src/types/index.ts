@@ -401,3 +401,8 @@ export interface VerificationTestResult {
   passed: boolean;
   details: any;
 }
+
+export type AuthSession =
+  | { type: 'staff'; user: User; token: string }
+  | { type: 'member'; member: Member; token: string };
+

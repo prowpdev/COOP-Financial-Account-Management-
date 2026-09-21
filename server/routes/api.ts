@@ -3111,6 +3111,773 @@ router.get('/user-roles', (req: Request, res: Response) => {
 });
 
 // ==========================================
+// 20.6 MEMBER AUTHENTICATION & PORTAL API
+// ==========================================
+
+// Member Login
+router.post('/auth/member-login', (req: Request, res: Response) => {
+  const { identifier, password } = req.body;
+  const idStr = String(identifier || '').trim();
+  const idLower = idStr.toLowerCase();
+  const pass = String(password || '').trim();
+
+  if (!idStr) {
+    return res.status(422).json({ success: false, message: 'Member Number, Email, or Phone is required.' });
+  }
+
+  const members = db.getTable('members') || [];
+  const member = members.find(m => 
+    (m.member_no && m.member_no.toLowerCase() === idLower) ||
+    (m.email && m.email.toLowerCase() === idLower) ||
+    (m.id && m.id.toLowerCase() === idLower) ||
+    (m.phone && m.phone.replace(/\D/g, '').includes(idLower.replace(/\D/g, '')) && idLower.replace(/\D/g, '').length >= 4) ||
+    (`${m.first_name} ${m.last_name}`.toLowerCase() === idLower) ||
+    (m.last_name && m.last_name.toLowerCase() === idLower)
+  );
+
+  if (!member) {
+    return res.status(401).json({
+      success: false,
+      message: `No member account found for "${idStr}". Please check your Member Number (e.g. MB-2026-0001) or register a new member account.`
+    });
+  }
+
+  // Password validation: allow member password, or default demo password '123456', 'member', 'admin', 'password', or birthdate
+  const isDemoPass = !pass || pass === '123456' || pass === 'member' || pass === 'password' || pass === 'Admin@123456' || pass === 'admin';
+  const isMatchingPass = (member.password && member.password === pass) || (member.birthdate && pass === member.birthdate.replace(/-/g, ''));
+  
+  if (!isDemoPass && !isMatchingPass) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid password. (Tip: Demo password is "123456")'
+    });
+  }
+
+  const branches = db.getTable('branches') || [];
+  const memberTypes = db.getTable('member_types') || [];
+  const branch = branches.find(b => b.id === member.branch_id);
+  const memberType = memberTypes.find(t => t.id === member.member_type_id);
+
+  const safeMember = {
+    ...member,
+    branch_name: branch?.name || 'Tarlac Main Branch',
+    member_type_name: memberType?.name || 'Regular Agricultural Member'
+  };
+
+  const token = `member_token_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  res.json({
+    success: true,
+    message: `Welcome back, ${safeMember.first_name} ${safeMember.last_name}!`,
+    data: {
+      member: safeMember,
+      token
+    }
+  });
+});
+
+// Member Self-Registration / Application
+router.post('/auth/member-register', (req: Request, res: Response) => {
+  const {
+    first_name,
+    last_name,
+    middle_name,
+    gender,
+    birthdate,
+    phone,
+    email,
+    address,
+    branch_id,
+    member_type_id,
+    custom_field_values,
+    password
+  } = req.body;
+
+  if (!first_name || !last_name || !phone) {
+    return res.status(422).json({ success: false, message: 'First name, last name, and phone number are required.' });
+  }
+
+  const members = db.getTable('members') || [];
+  if (email && members.some(m => m.email && m.email.toLowerCase() === email.trim().toLowerCase())) {
+    return res.status(409).json({ success: false, message: 'Email address is already registered to another member.' });
+  }
+
+  const branches = db.getTable('branches') || [];
+  const memberTypes = db.getTable('member_types') || [];
+  const assignedBranch = branches.find(b => b.id === branch_id) || branches[0] || { id: 'branch_tar', name: 'Tarlac Main Branch', code: 'TAR' };
+  const assignedType = memberTypes.find(t => t.id === member_type_id) || memberTypes[0] || { id: 'mt_regular', name: 'Regular Agricultural Member' };
+
+  const memberSeq = members.length + 1;
+  const memberNo = `MB-2026-${String(memberSeq).padStart(4, '0')}`;
+  const memberId = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const today = new Date().toISOString().split('T')[0];
+
+  const newMember = {
+    id: memberId,
+    member_no: memberNo,
+    branch_id: assignedBranch.id,
+    branch_name: assignedBranch.name,
+    member_type_id: assignedType.id,
+    member_type_name: assignedType.name,
+    first_name: first_name.trim(),
+    middle_name: (middle_name || '').trim(),
+    last_name: last_name.trim(),
+    gender: gender || 'Male',
+    birthdate: birthdate || '1990-01-01',
+    phone: phone.trim(),
+    email: (email || '').trim(),
+    address: (address || 'Tarlac, Philippines').trim(),
+    custom_field_values: custom_field_values || {},
+    status: 'Active',
+    active: true,
+    joined_date: today,
+    password: password || '123456'
+  };
+
+  db.insert('members', newMember);
+
+  // Initialize Share Capital Account (CBU)
+  const cbuAccount = {
+    id: `sca_${memberId}`,
+    account_number: `CBU-${memberNo.replace('MB-', '')}`,
+    member_id: memberId,
+    member_name: `${newMember.first_name} ${newMember.last_name}`,
+    branch_id: assignedBranch.id,
+    subscribed_shares: 100,
+    subscribed_amount: 10000,
+    paid_up_shares: 25,
+    paid_up_amount: 2500,
+    par_value: 100,
+    status: 'Active',
+    created_at: today
+  };
+  db.insert('share_capital_accounts', cbuAccount);
+
+  // Initial Share Capital Contribution Transaction
+  db.insert('share_capital_transactions', {
+    id: `sct_${memberId}_01`,
+    share_account_id: cbuAccount.id,
+    receipt_no: `OR-CBU-${Date.now().toString().slice(-6)}`,
+    member_id: memberId,
+    type: 'Subscription Initial Payment',
+    shares: 25,
+    amount: 2500,
+    transaction_date: today,
+    cash_account_id: 'cash_01',
+    created_at: `${today} 10:00:00`,
+    notes: 'Initial Share Capital Contribution upon enrollment'
+  });
+
+  // Initialize Regular Savings Account
+  const savingsAccount = {
+    id: `sa_${memberId}`,
+    account_number: `SA-${memberNo.replace('MB-', '')}`,
+    member_id: memberId,
+    member_name: `${newMember.first_name} ${newMember.last_name}`,
+    savings_product_id: 'sp_regular',
+    product_name: 'Regular Savings Deposit',
+    branch_id: assignedBranch.id,
+    balance: 1000,
+    opened_date: today,
+    status: 'Active',
+    created_at: today
+  };
+  db.insert('savings_accounts', savingsAccount);
+
+  // Initial Savings Deposit Transaction
+  db.insert('savings_transactions', {
+    id: `st_${memberId}_01`,
+    transaction_no: `TX-SA-${Date.now().toString().slice(-6)}`,
+    savings_account_id: savingsAccount.id,
+    member_id: memberId,
+    type: 'Deposit',
+    amount: 1000,
+    balance_after: 1000,
+    cash_account_id: 'cash_01',
+    transaction_date: today,
+    notes: 'Initial Opening Deposit',
+    created_at: `${today} 10:15:00`
+  });
+
+  const token = `member_token_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  res.status(201).json({
+    success: true,
+    message: `Welcome to Mayap Care Cooperative! Your member account (${memberNo}) is registered.`,
+    data: {
+      member: newMember,
+      token
+    }
+  });
+});
+
+// Member Portal: Comprehensive Member Dashboard Data
+router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) => {
+  const { memberId } = req.params;
+  const members = db.getTable('members') || [];
+  
+  // Resolve member
+  const member = members.find(m => 
+    m.id === memberId || 
+    m.member_no === memberId ||
+    (memberId.includes('sample_01') && m.id === 'mem_sample_01') ||
+    (memberId.includes('sample_02') && m.id === 'mem_sample_02') ||
+    (memberId.includes('sample_03') && m.id === 'mem_sample_03')
+  );
+
+  if (!member) {
+    return res.status(404).json({ success: false, message: 'Member not found' });
+  }
+
+  const branches = db.getTable('branches') || [];
+  const memberTypes = db.getTable('member_types') || [];
+  const branch = branches.find(b => b.id === member.branch_id);
+  const memberType = memberTypes.find(t => t.id === member.member_type_id);
+
+  // Member aliases
+  const aliasIds = new Set([member.id, member.member_no]);
+  if (member.id === 'mem_sample_01') aliasIds.add('mem_000001');
+  if (member.id === 'mem_sample_02') { aliasIds.add('mem_000002'); aliasIds.add('sca_mem_000002'); }
+  if (member.id === 'mem_sample_03') { aliasIds.add('mem_000003'); aliasIds.add('sca_mem_000003'); }
+
+  // 1. Share Capital Accounts & Transactions
+  let shareAccounts = (db.getTable('share_capital_accounts') || []).filter(s => aliasIds.has(s.member_id));
+  if (shareAccounts.length === 0) {
+    // Create default CBU account if none exists
+    const defaultSca = {
+      id: `sca_${member.id}`,
+      account_number: `CBU-${(member.member_no || '2026-0001').replace('MB-', '').replace('MEM-', '')}`,
+      member_id: member.id,
+      member_name: `${member.first_name} ${member.last_name}`,
+      branch_id: member.branch_id || 'branch_tar',
+      subscribed_shares: 100,
+      subscribed_amount: 10000,
+      paid_up_shares: 50,
+      paid_up_amount: 5000,
+      par_value: 100,
+      status: 'Active',
+      created_at: member.joined_date || '2026-01-01'
+    };
+    db.insert('share_capital_accounts', defaultSca);
+    shareAccounts = [defaultSca];
+  }
+
+  const scaIds = new Set(shareAccounts.map(s => s.id));
+  const shareTransactions = (db.getTable('share_capital_transactions') || []).filter(t => 
+    scaIds.has(t.share_account_id) || aliasIds.has(t.member_id)
+  );
+
+  // 2. Savings Accounts & Transactions
+  let savingsAccounts = (db.getTable('savings_accounts') || []).filter(s => aliasIds.has(s.member_id));
+  if (savingsAccounts.length === 0) {
+    const defaultSa = {
+      id: `sa_${member.id}`,
+      account_number: `SA-${(member.member_no || '2026-0001').replace('MB-', '').replace('MEM-', '')}`,
+      member_id: member.id,
+      member_name: `${member.first_name} ${member.last_name}`,
+      savings_product_id: 'sp_regular',
+      product_name: 'Regular Savings Deposit',
+      branch_id: member.branch_id || 'branch_tar',
+      balance: 5000,
+      opened_date: member.joined_date || '2026-01-01',
+      status: 'Active'
+    };
+    db.insert('savings_accounts', defaultSa);
+    savingsAccounts = [defaultSa];
+  }
+
+  const saIds = new Set(savingsAccounts.map(s => s.id));
+  const savingsTransactions = (db.getTable('savings_transactions') || []).filter(t => 
+    saIds.has(t.savings_account_id) || aliasIds.has(t.member_id)
+  );
+
+  // 3. Loans, Schedules & Payments
+  const allLoans = db.getTable('loans') || [];
+  const memberLoans = allLoans.filter(l => aliasIds.has(l.member_id));
+  const loanIds = new Set(memberLoans.map(l => l.id));
+
+  const allSchedules = db.getTable('loan_amortization_schedules') || [];
+  const allPayments = db.getTable('loan_payments') || [];
+  const allAllocations = db.getTable('loan_payment_allocations') || [];
+
+  const loansWithDetails = memberLoans.map(loan => {
+    const sched = allSchedules
+      .filter(s => s.loan_id === loan.id)
+      .sort((a, b) => a.installment_no - b.installment_no);
+    const payments = allPayments.filter(p => p.loan_id === loan.id);
+    const allocations = allAllocations.filter(a => a.loan_id === loan.id);
+
+    return {
+      ...loan,
+      amortization_schedule: sched,
+      payments,
+      allocations
+    };
+  });
+
+  // 4. Relevant Manual Journal Vouchers
+  const journalEntries = db.getTable('journal_entries') || [];
+  const journalLines = db.getTable('journal_lines') || [];
+  const accountMap = new Map((db.getTable('chart_of_accounts') || []).map(a => [a.id, a]));
+
+  const memberName = `${member.first_name} ${member.last_name}`.toLowerCase();
+  const relevantJVs = journalEntries.filter(entry => {
+    const descLower = (entry.description || '').toLowerCase();
+    const notesLower = (entry.notes || '').toLowerCase();
+    const hasName = descLower.includes(memberName) || notesLower.includes(memberName);
+    const hasRef = aliasIds.has(entry.member_id) || aliasIds.has(entry.reference_id) || aliasIds.has(entry.subsidiary_id);
+    return hasName || hasRef;
+  }).map(entry => {
+    const lines = journalLines.filter(l => l.journal_entry_id === entry.id).map(l => {
+      const acc = accountMap.get(l.account_id);
+      return {
+        ...l,
+        account_code: acc?.code || acc?.account_code || '',
+        account_name: acc?.name || 'Account'
+      };
+    });
+    return {
+      ...entry,
+      lines
+    };
+  });
+
+  // 5. Consolidated All Transactions Feed
+  const unifiedTransactions: any[] = [];
+
+  // Loans released
+  memberLoans.forEach(l => {
+    unifiedTransactions.push({
+      id: `tx_loan_rel_${l.id}`,
+      date: l.disbursement_date,
+      type: 'Loan Released',
+      category: 'Loans',
+      facility: l.product_name || 'Loan',
+      reference: l.loan_account_no,
+      description: `Principal disbursement of ${l.product_name || 'Loan'}`,
+      amount: l.principal_amount,
+      debit: l.principal_amount,
+      credit: 0,
+      status: 'Completed',
+      notes: `Net proceeds ₱${(l.net_disbursed || l.principal_amount).toLocaleString()}`
+    });
+  });
+
+  // Loan payments
+  allPayments.filter(p => loanIds.has(p.loan_id)).forEach(p => {
+    unifiedTransactions.push({
+      id: `tx_loan_pay_${p.id}`,
+      date: p.payment_date,
+      type: 'Loan Repayment',
+      category: 'Loans',
+      facility: 'Loan Payment',
+      reference: p.receipt_no || p.id,
+      description: `Amortization payment (Principal: ₱${Number(p.principal_amount || 0).toLocaleString()}, Interest: ₱${Number(p.interest_amount || 0).toLocaleString()})`,
+      amount: p.amount,
+      debit: 0,
+      credit: p.amount,
+      status: 'Completed',
+      notes: p.notes || `Received by ${p.received_by || 'Teller'}`
+    });
+  });
+
+  // Savings transactions
+  savingsTransactions.forEach(st => {
+    const isWithdrawal = st.type === 'WITHDRAWAL' || st.type === 'Withdrawal';
+    unifiedTransactions.push({
+      id: `tx_sav_${st.id}`,
+      date: st.transaction_date,
+      type: `Savings ${st.type}`,
+      category: 'Savings',
+      facility: 'Regular Savings',
+      reference: st.transaction_no || st.id,
+      description: st.notes || `Savings account ${st.type}`,
+      amount: st.amount,
+      debit: isWithdrawal ? st.amount : 0,
+      credit: isWithdrawal ? 0 : st.amount,
+      running_balance: st.balance_after,
+      status: 'Completed',
+      notes: `Passbook balance: ₱${Number(st.balance_after || 0).toLocaleString()}`
+    });
+  });
+
+  // Share capital transactions
+  shareTransactions.forEach(sct => {
+    unifiedTransactions.push({
+      id: `tx_cbu_${sct.id}`,
+      date: sct.transaction_date,
+      type: 'Share Capital Payment',
+      category: 'Share Capital',
+      facility: 'Capital Build-Up (CBU)',
+      reference: sct.receipt_no || sct.id,
+      description: sct.notes || `CBU payment for ${sct.shares || 0} shares`,
+      amount: sct.amount,
+      debit: 0,
+      credit: sct.amount,
+      status: 'Completed',
+      notes: `${sct.shares || 0} shares @ ₱100.00 par value`
+    });
+  });
+
+  // Manual JVs
+  relevantJVs.forEach(jv => {
+    unifiedTransactions.push({
+      id: `tx_jv_${jv.id}`,
+      date: jv.posting_date,
+      type: 'Journal Voucher (JV)',
+      category: 'Journal Vouchers',
+      facility: 'Coop Accounting JV',
+      reference: jv.voucher_number || jv.id,
+      description: jv.description || 'Manual accounting journal entry',
+      amount: jv.total_debit || jv.total_credit || 0,
+      debit: jv.total_debit || 0,
+      credit: jv.total_credit || 0,
+      status: jv.status || 'Posted',
+      notes: jv.notes || 'Posted to official General Ledger'
+    });
+  });
+
+  // Sort unified transactions descending by date
+  unifiedTransactions.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+  // Find next unpaid installment
+  let nextInstallment: any = null;
+  for (const loan of loansWithDetails) {
+    const upcoming = (loan.amortization_schedule || []).find((s: any) => s.status !== 'Paid');
+    if (upcoming) {
+      if (!nextInstallment || upcoming.due_date < nextInstallment.due_date) {
+        nextInstallment = {
+          loan_no: loan.loan_account_no,
+          product_name: loan.product_name,
+          installment_no: upcoming.installment_no,
+          due_date: upcoming.due_date,
+          amount_due: upcoming.total_installment,
+          principal_due: upcoming.principal,
+          interest_due: upcoming.interest
+        };
+      }
+    }
+  }
+
+  // Calculate summary metrics
+  const totalCbuPaid = shareAccounts.reduce((sum, s) => sum + Number(s.paid_up_amount || 0), 0);
+  const totalCbuSubscribed = shareAccounts.reduce((sum, s) => sum + Number(s.subscribed_amount || 0), 0);
+  const totalSavings = savingsAccounts.reduce((sum, s) => sum + Number(s.balance || 0), 0);
+  const totalLoanBalance = memberLoans.reduce((sum, l) => sum + Number(l.current_balance || 0), 0);
+  const totalLoanBorrowed = memberLoans.reduce((sum, l) => sum + Number(l.principal_amount || 0), 0);
+  const totalLoanPayments = allPayments.filter(p => loanIds.has(p.loan_id)).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  res.json({
+    success: true,
+    data: {
+      member: {
+        ...member,
+        branch_name: branch?.name || 'Tarlac Main Branch',
+        member_type_name: memberType?.name || 'Regular Agricultural Member'
+      },
+      summary: {
+        share_capital_paid: totalCbuPaid,
+        share_capital_subscribed: totalCbuSubscribed,
+        total_shares_owned: shareAccounts.reduce((sum, s) => sum + Number(s.paid_up_shares || 0), 0),
+        savings_balance: totalSavings,
+        savings_accounts_count: savingsAccounts.length,
+        total_loan_balance: totalLoanBalance,
+        total_loan_borrowed: totalLoanBorrowed,
+        active_loans_count: memberLoans.filter(l => l.status === 'Active').length,
+        total_payments_made: totalLoanPayments + totalCbuPaid + totalSavings,
+        next_payment_due: nextInstallment
+      },
+      loans: loansWithDetails,
+      savings_accounts: savingsAccounts.map(sa => ({
+        ...sa,
+        transactions: savingsTransactions.filter(st => st.savings_account_id === sa.id)
+      })),
+      share_capital: {
+        accounts: shareAccounts,
+        transactions: shareTransactions
+      },
+      journal_entries: relevantJVs,
+      all_transactions: unifiedTransactions
+    }
+  });
+});
+
+// Member Action: Apply for a new loan directly from member portal
+router.post('/member-portal/:memberId/apply-loan', (req: Request, res: Response) => {
+  const { memberId } = req.params;
+  const { loan_product_id, principal_amount, term_months, notes } = req.body;
+
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === memberId || m.member_no === memberId);
+  if (!member) {
+    return res.status(404).json({ success: false, message: 'Member not found' });
+  }
+
+  const products = db.getTable('loan_products') || [];
+  const product = products.find(p => p.id === loan_product_id) || products[0];
+  if (!product) {
+    return res.status(400).json({ success: false, message: 'Invalid loan product selected' });
+  }
+
+  const principal = Number(principal_amount) || product.min_amount || 10000;
+  const term = Number(term_months) || product.default_term_months || 12;
+  const rate = product.annual_interest_rate || 10.0;
+  const method = product.interest_calculation_method || 'Diminishing Balance';
+  const today = new Date().toISOString().split('T')[0];
+
+  const schedResult = InterestCalculationService.calculateSchedule({
+    principal,
+    annual_rate: rate,
+    term_months: term,
+    frequency: 'Monthly',
+    method,
+    start_date: today,
+    grace_period_days: product.grace_period_days || 0
+  });
+
+  const branch = (db.getTable('branches') || []).find(b => b.id === member.branch_id);
+  const loanNo = NumberingService.getNextNumber('LN', branch ? branch.code : 'TAR');
+  const loanId = `loan_${Date.now()}`;
+
+  const procFee = Number((principal * ((product.processing_fee_percentage || 2) / 100)).toFixed(2));
+  const servFee = Number(product.service_fee_fixed || 200);
+  const totalFees = procFee + servFee;
+
+  const newLoan = {
+    id: loanId,
+    loan_account_no: loanNo,
+    member_id: member.id,
+    member_name: `${member.first_name} ${member.last_name}`,
+    member_no: member.member_no,
+    loan_product_id: product.id,
+    product_name: product.name,
+    product_version: product.version || 1,
+    branch_id: member.branch_id || 'branch_tar',
+    branch_name: branch ? branch.name : 'Tarlac Main Branch',
+    principal_amount: principal,
+    annual_interest_rate: rate,
+    interest_calculation_method: method,
+    term_months: term,
+    payment_frequency: 'Monthly',
+    disbursement_date: today,
+    first_due_date: schedResult.schedule[0]?.due_date || today,
+    maturity_date: schedResult.schedule[schedResult.schedule.length - 1]?.due_date || today,
+    processing_fee: procFee,
+    service_fee: servFee,
+    net_disbursed: principal - totalFees,
+    status: 'Active',
+    current_balance: principal,
+    total_principal_paid: 0,
+    total_interest_paid: 0,
+    total_penalty_paid: 0,
+    total_fees_paid: totalFees,
+    approved_by: 'Credit Committee (Online Member Portal)',
+    approved_date: today,
+    notes: notes || 'Submitted via Member Portal self-service'
+  };
+
+  db.insert('loans', newLoan);
+
+  // Insert amortization schedule
+  for (const item of schedResult.schedule) {
+    db.insert('loan_amortization_schedules', {
+      id: `sched_${loanId}_${item.installment_no}`,
+      loan_id: loanId,
+      installment_no: item.installment_no,
+      due_date: item.due_date,
+      principal: item.principal,
+      interest: item.interest,
+      fee: item.fee || 0,
+      total_installment: item.total_installment,
+      principal_balance: item.principal_balance,
+      paid_principal: 0,
+      paid_interest: 0,
+      paid_penalty: 0,
+      paid_date: null,
+      status: item.installment_no === 1 ? 'Due' : 'Upcoming'
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: `Loan application for ₱${principal.toLocaleString()} (${loanNo}) has been approved and disbursed!`,
+    data: newLoan
+  });
+});
+
+// Member Action: Deposit to Savings Account
+router.post('/member-portal/:memberId/deposit', (req: Request, res: Response) => {
+  const { memberId } = req.params;
+  const { savings_account_id, amount, notes } = req.body;
+  const depAmount = Number(amount);
+
+  if (!depAmount || depAmount <= 0) {
+    return res.status(422).json({ success: false, message: 'Valid deposit amount is required.' });
+  }
+
+  const savingsAccounts = db.getTable('savings_accounts') || [];
+  const account = savingsAccounts.find(sa => sa.id === savings_account_id || sa.member_id === memberId);
+  if (!account) {
+    return res.status(404).json({ success: false, message: 'Savings account not found' });
+  }
+
+  const newBalance = Number(account.balance || 0) + depAmount;
+  db.update('savings_accounts', sa => sa.id === account.id, () => ({ ...account, balance: newBalance }));
+
+  const today = new Date().toISOString().split('T')[0];
+  const txNo = `TX-SA-${Date.now().toString().slice(-6)}`;
+  const tx = {
+    id: `st_${Date.now()}`,
+    transaction_no: txNo,
+    savings_account_id: account.id,
+    member_id: memberId,
+    type: 'Deposit',
+    amount: depAmount,
+    balance_after: newBalance,
+    cash_account_id: 'cash_01',
+    transaction_date: today,
+    notes: notes || 'Over-the-counter / online deposit via Member Portal',
+    created_at: `${today} 12:00:00`
+  };
+
+  db.insert('savings_transactions', tx);
+
+  res.json({
+    success: true,
+    message: `Deposit of ₱${depAmount.toLocaleString()} recorded successfully. New balance: ₱${newBalance.toLocaleString()}`,
+    data: { transaction: tx, balance: newBalance }
+  });
+});
+
+// Member Action: Pay Share Capital (CBU)
+router.post('/member-portal/:memberId/pay-share-capital', (req: Request, res: Response) => {
+  const { memberId } = req.params;
+  const { amount, notes } = req.body;
+  const payAmount = Number(amount);
+
+  if (!payAmount || payAmount <= 0) {
+    return res.status(422).json({ success: false, message: 'Valid payment amount is required.' });
+  }
+
+  const shareAccounts = db.getTable('share_capital_accounts') || [];
+  const account = shareAccounts.find(s => s.member_id === memberId || s.id === `sca_${memberId}`);
+  if (!account) {
+    return res.status(404).json({ success: false, message: 'Share capital account not found' });
+  }
+
+  const parValue = account.par_value || 100;
+  const additionalShares = Math.floor(payAmount / parValue);
+  const newPaidAmount = Number(account.paid_up_amount || 0) + payAmount;
+  const newPaidShares = Number(account.paid_up_shares || 0) + additionalShares;
+
+  db.update('share_capital_accounts', s => s.id === account.id, () => ({
+    ...account,
+    paid_up_amount: newPaidAmount,
+    paid_up_shares: newPaidShares
+  }));
+
+  const today = new Date().toISOString().split('T')[0];
+  const receiptNo = `OR-CBU-${Date.now().toString().slice(-6)}`;
+  const tx = {
+    id: `sct_${Date.now()}`,
+    share_account_id: account.id,
+    receipt_no: receiptNo,
+    member_id: memberId,
+    type: 'Subscription Payment',
+    shares: additionalShares,
+    amount: payAmount,
+    transaction_date: today,
+    cash_account_id: 'cash_01',
+    created_at: `${today} 12:00:00`,
+    notes: notes || `Member Portal CBU payment (+${additionalShares} shares)`
+  };
+
+  db.insert('share_capital_transactions', tx);
+
+  res.json({
+    success: true,
+    message: `Share capital contribution of ₱${payAmount.toLocaleString()} (+${additionalShares} shares) received! Total Paid-up: ₱${newPaidAmount.toLocaleString()}`,
+    data: { transaction: tx, account: { ...account, paid_up_amount: newPaidAmount, paid_up_shares: newPaidShares } }
+  });
+});
+
+// Member Action: Pay Loan Installment
+router.post('/member-portal/:memberId/loan-payment', (req: Request, res: Response) => {
+  const { memberId } = req.params;
+  const { loan_id, amount, notes } = req.body;
+  const payAmount = Number(amount);
+
+  const loans = db.getTable('loans') || [];
+  const loan = loans.find(l => l.id === loan_id);
+  if (!loan) {
+    return res.status(404).json({ success: false, message: 'Loan account not found' });
+  }
+
+  const schedules = (db.getTable('loan_amortization_schedules') || []).filter(s => s.loan_id === loan.id);
+  const nextUnpaid = schedules.find(s => s.status !== 'Paid');
+
+  const today = new Date().toISOString().split('T')[0];
+  const receiptNo = `OR-PAY-${Date.now().toString().slice(-6)}`;
+
+  let principalPart = payAmount;
+  let interestPart = 0;
+
+  if (nextUnpaid) {
+    interestPart = nextUnpaid.interest || 0;
+    principalPart = Math.max(0, payAmount - interestPart);
+    
+    // Mark schedule as paid
+    db.update('loan_amortization_schedules', s => s.id === nextUnpaid.id, () => ({
+      ...nextUnpaid,
+      status: 'Paid',
+      paid_principal: principalPart,
+      paid_interest: interestPart,
+      paid_date: today
+    }));
+  }
+
+  const newBalance = Math.max(0, Number(loan.current_balance || 0) - principalPart);
+  const newPrincipalPaid = Number(loan.total_principal_paid || 0) + principalPart;
+  const newInterestPaid = Number(loan.total_interest_paid || 0) + interestPart;
+  const isFullyPaid = newBalance <= 0;
+
+  db.update('loans', l => l.id === loan.id, () => ({
+    ...loan,
+    current_balance: newBalance,
+    total_principal_paid: newPrincipalPaid,
+    total_interest_paid: newInterestPaid,
+    status: isFullyPaid ? 'Fully Paid' : 'Active'
+  }));
+
+  const paymentRecord = {
+    id: `lp_${Date.now()}`,
+    receipt_no: receiptNo,
+    loan_id: loan.id,
+    member_id: memberId,
+    payment_date: today,
+    amount: payAmount,
+    principal_amount: principalPart,
+    interest_amount: interestPart,
+    penalty_amount: 0,
+    received_by: 'Online Member Payment Gateway',
+    cash_account_id: 'cash_01',
+    notes: notes || `Installment payment for loan ${loan.loan_account_no}`
+  };
+
+  db.insert('loan_payments', paymentRecord);
+
+  res.json({
+    success: true,
+    message: `Loan payment of ₱${payAmount.toLocaleString()} recorded (OR: ${receiptNo}). Remaining balance: ₱${newBalance.toLocaleString()}`,
+    data: {
+      payment: paymentRecord,
+      loan_balance: newBalance,
+      is_fully_paid: isFullyPaid
+    }
+  });
+});
+
+// ==========================================
 // 21. RESET DATABASE & SEEDER ENDPOINTS
 // ==========================================
 
