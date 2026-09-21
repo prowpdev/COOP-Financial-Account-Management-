@@ -244,6 +244,7 @@ class SavingsRepository
     public function recordTransaction(array $data): array
     {
         $accountId = $data['savings_account_id'];
+        $memberId = $data['member_id'];
         $type      = $data['transaction_type']; // 'Deposit' or 'Withdrawal'
         $amount    = (float)$data['amount'];
         $date      = $data['transaction_date'] ?? date('Y-m-d');
@@ -282,7 +283,7 @@ class SavingsRepository
             $this->recordSavingsTransaction(
                 $txId,
                 $accountId,
-                $acc['member_id'] ?? null,
+                $acc['member_id'] ?? $memberId,
                 $type,
                 $amount,
                 $newBal,

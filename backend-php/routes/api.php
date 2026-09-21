@@ -13,6 +13,9 @@ use App\Controllers\ConfigController;
 use App\Controllers\CashController;
 use App\Controllers\ReportController;
 use App\Controllers\UserController;
+use App\Controllers\SystemController;
+use App\Controllers\SeederController;
+use PSpell\Config;
 
 /** @var Router $router */
 
@@ -30,29 +33,34 @@ $router->get('/api', [HomeController::class, 'index']);
 $router->get('/test', [HomeController::class, 'test']);
 $router->get('/api/test', [HomeController::class, 'test']);
 
+// System Configuration
+$router->get('/api/system/setup/status', [SystemController::class, 'status']);
+// Verification test
+$router->post('/api/system/run-verification-tests', [SystemController::class, 'runVerificationTests']);
+
 // Configuration Center
 $router->get('/api/config/all', [ConfigController::class, 'all']);
 $router->get('/api/branches', [ConfigController::class, 'branches']);
 $router->get('/api/config/branches', [ConfigController::class, 'branches']);
 $router->post('/api/branches', [ConfigController::class, 'storeBranch']);
 $router->post('/api/config/branches', [ConfigController::class, 'storeBranch']);
+//Loan Products
 $router->get('/api/loan-products', [ConfigController::class, 'loanProducts']);
 $router->get('/api/config/loan-products', [ConfigController::class, 'loanProducts']);
 $router->get('/api/config/loan-products/:id', [ConfigController::class, 'loanProduct']);
 $router->post('/api/config/loan-products', [ConfigController::class, 'storeLoanProduct']);
 $router->put('/api/config/loan-products/:id', [ConfigController::class, 'updateLoanProduct']);
 $router->delete('/api/config/loan-products/:id', [ConfigController::class, 'destroyLoanProduct']);
+
+
 $router->get('/api/savings-products', [ConfigController::class, 'savingsProducts']);
 $router->get('/api/config/savings-products', [ConfigController::class, 'savingsProducts']);
-$router->get('/api/fees', [ConfigController::class, 'fees']);
-$router->get('/api/config/fees', [ConfigController::class, 'fees']);
-$router->get('/api/config/fees/:id', [ConfigController::class, 'fee']);
-$router->post('/api/config/fees', [ConfigController::class, 'storeFee']);
-$router->put('/api/config/fees/:id', [ConfigController::class, 'updateFee']);
-$router->delete('/api/config/fees/:id', [ConfigController::class, 'destroyFee']);
+$router->post('/api/config/savings-products', [ConfigController::class, 'savingsProducts']);
 $router->get('/api/feature-toggles', [ConfigController::class, 'featureToggles']);
 $router->post('/api/feature-toggles', [ConfigController::class, 'updateToggle']);
 $router->get('/api/system-settings', [ConfigController::class, 'systemSettings']);
+
+
 
 // Members Management
 $router->get('/api/members', [MemberController::class, 'index']);
@@ -67,34 +75,46 @@ $router->get('/api/loans', [LoanController::class, 'index']);
 $router->post('/api/loans', [LoanController::class, 'store']);
 $router->get('/api/loans/:id', [LoanController::class, 'show']);
 $router->get('/api/loans/:id/schedule', [LoanController::class, 'schedule']);
-$router->post('/api/loans/originate', [LoanController::class, 'originate']);
-$router->post('/api/loans/apply', [LoanController::class, 'apply']);
 $router->post('/api/loans/payments', [LoanController::class, 'payment']);
 $router->delete('/api/loans/:id', [LoanController::class, 'destroy']);
+$router->post('/api/loans/:id/repay', [LoanController::class, 'repay']);
+// Apply Loan
+$router->post('/api/loans/apply', [LoanController::class, 'originate']);
+$router->post('/api/loans/calculate-schedule', [LoanController::class, 'calculateSchedule']);
+
 
 // Savings Accounts
 $router->get('/api/savings/accounts', [SavingsController::class, 'index']);
 $router->post('/api/savings/accounts', [SavingsController::class, 'store']);
 $router->get('/api/savings/accounts/:id', [SavingsController::class, 'show']);
 $router->post('/api/savings/transactions', [SavingsController::class, 'transaction']);
+$router->post('/api/savings/transact', [SavingsController::class, 'transaction']);
 $router->delete('/api/savings/accounts/:id', [SavingsController::class, 'destroy']);
 
 // Share Capital (CBU)
-$router->get('/api/share-capital/settings', [ShareCapitalController::class, 'getSettings']);
-$router->post('/api/share-capital/settings', [ShareCapitalController::class, 'storeSetting']);
-$router->put('/api/share-capital/settings/:id', [ShareCapitalController::class, 'updateSetting']);
 $router->get('/api/share-capital/accounts', [ShareCapitalController::class, 'index']);
 $router->post('/api/share-capital/accounts', [ShareCapitalController::class, 'store']);
 $router->get('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'show']);
-$router->put('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'update']);
 $router->post('/api/share-capital/payments', [ShareCapitalController::class, 'payment']);
-$router->post('/api/share-capital/pay', [ShareCapitalController::class, 'pay']);
+$router->post('/api/share-capital/pay', [ShareCapitalController::class, 'payment']);
 $router->delete('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'destroy']);
+$router->put('/api/share-capital/accounts/:id', [ShareCapitalController::class, 'update']);
+// Share Capital
+$router->get('/api/share-capital/settings', [ShareCapitalController::class, 'getSettings']);
+$router->post('/api/share-capital/settings', [ShareCapitalController::class, 'storeSetting']);
+$router->put('/api/share-capital/settings/:id', [ShareCapitalController::class, 'updateSetting']);
 
 // Accounting & General Ledger
 $router->get('/api/accounting/chart', [AccountingController::class, 'chart']);
 $router->get('/api/config/chart-of-accounts', [AccountingController::class, 'chart']);
+$router->post('/api/config/chart-of-accounts', [AccountingController::class, 'saveAccount']);
+
+#######################################################################################################
 $router->post('/api/accounting/chart', [AccountingController::class, 'saveAccount']);
+#######################################################################################################
+
+$router->post('/api/accounting/manual-journal', [AccountingController::class, 'manualJournal']);
+
 $router->get('/api/accounting/journals', [AccountingController::class, 'journals']);
 $router->post('/api/accounting/journals', [AccountingController::class, 'storeJournal']);
 $router->get('/api/accounting/journals/:id', [AccountingController::class, 'showJournal']);
@@ -109,21 +129,24 @@ $router->post('/api/config/accounting-periods/reopen', [AccountingController::cl
 
 // Cash Accounts
 $router->get('/api/cash-accounts', [CashController::class, 'index']);
-$router->get('/api/config/cash-accounts', [CashController::class, 'index']);
 $router->get('/api/cash-accounts/:id', [CashController::class, 'show']);
-$router->get('/api/config/cash-accounts/:id', [CashController::class, 'show']);
-$router->post('/api/cash-accounts', [CashController::class, 'store']);
-$router->post('/api/config/cash-accounts', [CashController::class, 'store']);
-$router->put('/api/cash-accounts/:id', [CashController::class, 'update']);
-$router->put('/api/config/cash-accounts/:id', [CashController::class, 'update']);
-$router->delete('/api/cash-accounts/:id', [CashController::class, 'destroy']);
-$router->delete('/api/config/cash-accounts/:id', [CashController::class, 'destroy']);
 $router->post('/api/cash-accounts/transfer', [CashController::class, 'transfer']);
-$router->post('/api/cash-accounts/replenish', [CashController::class, 'replenish']);
-$router->post('/api/cash-accounts/auto-align-gl', [CashController::class, 'autoAlign']);
-$router->post('/api/config/cash-accounts/auto-align-gl', [CashController::class, 'autoAlign']);
+$router->post('/api/config/cash-accounts', [CashController::class, 'store']);
 
 // Reports & Dashboard
 $router->get('/api/reports/trial-balance', [ReportController::class, 'trialBalance']);
 $router->get('/api/reports/financial-statements', [ReportController::class, 'financialStatements']);
 $router->get('/api/dashboard/stats', [ReportController::class, 'dashboardStats']);
+
+
+// Fees
+$router->post('/api/config/fees', [ConfigController::class, 'storeFee']);
+// Rules
+$router->get('/api/config/payment-allocation-rules/alloc_cda_std', [ConfigController::class, 'getAllocationRules']);
+$router->put('/api/config/approval-rules/', [ConfigController::class, 'updateApprovalRule']);
+
+// Database Seeders
+$router->get('/api/database/seeder', [SeederController::class, 'run']);
+$router->get('/api/database/seeder/reset', [SeederController::class, 'reset']);
+
+

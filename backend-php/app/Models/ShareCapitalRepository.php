@@ -62,7 +62,7 @@ class ShareCapitalRepository
         return $row ?: null;
     }
 
-    /**
+   /**
      * Open a new Share Capital / CBU subscription account
      */
     public function createAccount(array $data): array
@@ -76,7 +76,7 @@ class ShareCapitalRepository
 
         $paidUpShares = (int)($data['paid_up_shares'] ?? 0);
         $paidUpAmount = (float)($data['paid_up_amount'] ?? ($paidUpShares * $parValue));
-
+        
         if ($paidUpShares > $subscribedShares) {
             throw new \Exception("Paid-up shares cannot exceed subscribed shares.");
         }
@@ -102,10 +102,10 @@ class ShareCapitalRepository
 
         try {
             $sql = "INSERT INTO share_capital_accounts (
-                id, account_number, member_id, branch_id, par_value, subscribed_shares, subscribed_amount,
+                id, account_number, member_id, branch_id, subscribed_shares, subscribed_amount,
                 paid_up_shares, paid_up_amount, status
             ) VALUES (
-                :id, :account_number, :member_id, :branch_id, :par_value, :subscribed_shares, :subscribed_amount,
+                :id, :account_number, :member_id, :branch_id, :subscribed_shares, :subscribed_amount,
                 :paid_up_shares, :paid_up_amount, :status
             )";
 
@@ -115,7 +115,6 @@ class ShareCapitalRepository
                 'account_number'    => $accNo,
                 'member_id'         => $data['member_id'],
                 'branch_id'         => $branchId,
-                'par_value'         => $parValue,
                 'subscribed_shares' => $subscribedShares,
                 'subscribed_amount' => $subscribedAmount,
                 'paid_up_shares'    => $paidUpShares,
@@ -137,7 +136,8 @@ class ShareCapitalRepository
                     $data['member_id'],
                     $paidUpShares,
                     $paidUpAmount,
-                    $data['payment_date'] ?? date('Y-m-d')
+                    $data['payment_date'] ?? date('Y-m-d'),
+                    $data['cash_account_id'] ?? null
                 ]);
             }
 
@@ -154,7 +154,7 @@ class ShareCapitalRepository
      */
     public function recordPayment(array $data): array
     {
-        $accountId = $data['share_capital_account_id'];
+        $accountId = $data['account_id'];
         $amount    = (float)$data['amount'];
         $parValue  = (float)($data['par_value'] ?? 100);
         $shares    = (int)($data['shares'] ?? ($amount / $parValue));
@@ -262,7 +262,7 @@ class ShareCapitalRepository
         $sql = "UPDATE share_capital_accounts SET
             account_number = :account_number,
             branch_id = :branch_id,
-            par_value = :par_value,
+           
             subscribed_shares = :subscribed_shares,
             subscribed_amount = :subscribed_amount,
             paid_up_shares = :paid_up_shares,
@@ -275,7 +275,7 @@ class ShareCapitalRepository
             'id'                => $id,
             'account_number'    => $accNo,
             'branch_id'         => $branchId,
-            'par_value'         => $parValue,
+        
             'subscribed_shares' => $subscribedShares,
             'subscribed_amount' => $subscribedAmount,
             'paid_up_shares'    => $paidUpShares,
