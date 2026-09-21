@@ -227,7 +227,7 @@ export default function App() {
       />
 
       {/* Main View Area with Persistent Collapsible Sidebar */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+      <div className="flex-1 flex max-w-[1920px] w-full mx-auto">
         <Sidebar
           activeTab={activeTab}
           onSelectTab={setActiveTab}

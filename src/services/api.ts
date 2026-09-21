@@ -141,14 +141,14 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
 export const api = {
   // Seeders
   LoadSeeders: async () => {
-    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder', { method: 'POST' });
+    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder', { method: 'GET' });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('coop:data-changed'));
     }
     return res;
   },
   ResetSeeders: async () => {
-    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder/reset', { method: 'POST' });
+    const res = await fetchApi<{ success: boolean; data: any }>('/database/seeder/reset', { method: 'GET' });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('coop:data-changed'));
     }

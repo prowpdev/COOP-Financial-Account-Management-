@@ -106,7 +106,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
           <div className="flex-1 min-w-56">
             <label className="block text-xs font-semibold text-slate-300 mb-1">General Ledger Account</label>
             <select value={accountId} onChange={event => setAccountId(event.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
-              {accounts.map(item => <option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}
+              {accounts.map(item => <option key={item.id} value={item.id}>{item.account_code} — {item.name} </option>)}
             </select>
           </div>
           <div>
