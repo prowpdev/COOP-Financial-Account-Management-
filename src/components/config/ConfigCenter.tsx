@@ -2354,20 +2354,46 @@ function PaymentAllocationsConfig({
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
-  const activeRule = rules.find(r => r.is_default) || rules[0];
-  const normalizePriorities = (items: PaymentAllocationRule['priorities']) =>
-    items.map((item, index) => typeof item === 'string'
-      ? { priority: index + 1, component: item, label: item }
+ const activeRule = rules.find(r => r.is_default) || rules[0];
+
+const normalizePriorities = (
+  items: PaymentAllocationRule['priority_order']
+) => {
+  let normalizedItems = items;
+
+  // Handle JSON stored as a string
+  if (typeof normalizedItems === 'string') {
+    try {
+      normalizedItems = JSON.parse(normalizedItems);
+    } catch {
+      normalizedItems = [];
+    }
+  }
+
+  // Make sure we actually have an array
+  if (!Array.isArray(normalizedItems)) {
+    return [];
+  }
+
+  return normalizedItems.map((item, index) =>
+    typeof item === 'string'
+      ? {
+          priority: index + 1,
+          component: item,
+          label: item,
+        }
       : item
-    );
+  );
+};
   const [priorities, setPriorities] = useState(() =>
-    normalizePriorities(activeRule?.priorities || [])
+    normalizePriorities(activeRule?.priority_order || [])
   );
 
   useEffect(() => {
-    setPriorities(normalizePriorities(activeRule?.priorities || []));
+    setPriorities(normalizePriorities(activeRule?.priority_order || []));
   }, [activeRule]);
 
+  
   const moveUp = (index: number) => {
     if (index === 0) return;
     const copy = [...priorities];
@@ -2396,14 +2422,14 @@ function PaymentAllocationsConfig({
   const handleSavePriorities = async () => {
     if (!activeRule) return;
     try {
-      await api.updatePaymentAllocationRule(activeRule.id, priorities);
+      const res = await api.updatePaymentAllocationRule(activeRule.id, priorities);
       showNotice('success', 'Payment allocation priority re-ordered in database.');
       onRefresh();
     } catch (err: any) {
       showNotice('error', err.message);
     }
   };
-  console.log(rules)
+  
 
   return (
     <div className="space-y-6">
@@ -2422,7 +2448,7 @@ function PaymentAllocationsConfig({
           Every loan payment received will systematically cascade across these buckets in the sequence defined below:
         </p>
 
-        <div className="space-y-2">
+        <div className="space-y-2 test">
           {priorities.map((item, idx) => (
             <div
               test={item}

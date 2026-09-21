@@ -149,7 +149,13 @@ html.light .border-emerald-500\/20 {
 html.light .text-emerald-300 {
   color: #047857 !important;
 }
-html.light .bg-emerald-500\/20 {
+html.light .bg-slate-800,
+html.light .bg-slate-900\/50{
+  background-color: #FFF !important;
+}
+html.light .bg-emerald-500\/10,
+html.light .bg-emerald-500\/20
+{
   background-color: #047857 !important;
 }
 html.light .text-emerald-400 {
