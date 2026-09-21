@@ -2329,7 +2329,7 @@ function FeesAndPenaltiesConfig({
                 </div>
                 <div>
                   <span className="text-slate-400">Rate:</span>{' '}
-                  <span className="text-emerald-400 font-semibold">{p.rate}% / {p.calculation_frequency}</span>
+                  <span className="text-emerald-400 font-semibold">{p.penalty_rate_percentage}% / {p.grace_period_days}</span>
                 </div>
               </div>
             </div>
@@ -2403,6 +2403,7 @@ function PaymentAllocationsConfig({
       showNotice('error', err.message);
     }
   };
+  console.log(rules)
 
   return (
     <div className="space-y-6">
@@ -2424,6 +2425,7 @@ function PaymentAllocationsConfig({
         <div className="space-y-2">
           {priorities.map((item, idx) => (
             <div
+              test={item}
               key={item.component}
               className="flex items-center justify-between bg-slate-900 px-3.5 py-2.5 rounded-lg border border-slate-700"
             >
@@ -2749,12 +2751,12 @@ function CustomFieldsConfig({
           {fields.map(f => (
             <div key={f.id} className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">{f.field_label}</span>
+                <span className="text-xs font-bold text-white">{f.label}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">
                   {f.field_type}
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400 font-mono mt-1">field_name: {f.field_name}</div>
+              <div className="text-[11px] text-slate-400 font-mono mt-1">field_name: {f.field_key}</div>
               <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-slate-700/60 text-[11px]">
                 <span className={`px-1.5 py-0.2 rounded font-medium ${f.required ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
                   {f.required ? 'Required' : 'Optional'}

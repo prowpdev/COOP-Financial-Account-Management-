@@ -71,7 +71,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xs text-slate-400 font-medium">Requirement #39 Strictly Compliant</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight mt-1">
-            Cooperative Operations Overview
+            System Operations Overview
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Displaying authoritative figures for <strong className="text-slate-200">{activeBranchName}</strong>. Zero synthetic mock figures.

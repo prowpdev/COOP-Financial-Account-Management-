@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="truncate">
               <div className="flex items-center space-x-2 truncate">
                 <span className="font-bold text-base tracking-tight text-white truncate">
-                  {cooperativeName || 'Mayap Care Agriculture Coop.'}
+                  {cooperativeName || 'Multipurpose Cooperative System.'}
                 </span>
                 <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                   Agri-Coop Core
@@ -156,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Persona / User Switcher */}
-            <div className="hidden lg:flex items-center bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
+            <div className="hide hidden lg:flex items-center bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
               <UserCircle className="w-4 h-4 text-blue-400 mr-2 shrink-0" />
               <span className="text-xs text-slate-400 mr-1 hidden sm:inline">Role:</span>
               <select
@@ -182,7 +182,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-open-auth-modal"
                 onClick={onOpenAuthModal}
                 title="Sign in or Register new user account"
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+                className="hide flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
               >
                 <LogIn className="w-3.5 h-3.5 text-emerald-400" />
                 <span className="hidden xl:inline">Login / Register</span>
@@ -197,7 +197,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowApiModal(true);
               }}
               title="Click to view or edit API endpoint"
-              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+              className="hide hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
             >
               <Server className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-mono text-[11px] text-emerald-300 truncate max-w-[130px]">
@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="btn-sql-schema"
               onClick={() => setShowSqlModal(true)}
               title="View SQL Schema & PHP MVC Backend Guide"
-              className="hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
+              className="hide hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs"
             >
               <Database className="w-3.5 h-3.5 text-amber-400" />
               <span className="font-semibold text-[11px] text-slate-200">Database (SQL)</span>
@@ -252,7 +252,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="open-setup-wizard-btn"
                 onClick={onOpenSetupWizard}
                 title="System Setup Wizard & Data Reset Center"
-                className="flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+                className="hide flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
               >
                 <Wand2 className="w-3.5 h-3.5 text-emerald-200" />
                 <span className="hidden sm:inline">Setup Wizard</span>
@@ -263,7 +263,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="open-verification-btn"
               onClick={onOpenVerification}
-              className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+              className="hide flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4 text-emerald-200" />
               <span className="hidden md:inline">15 Criteria</span>

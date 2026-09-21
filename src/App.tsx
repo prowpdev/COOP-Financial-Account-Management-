@@ -36,16 +36,16 @@ export default function App() {
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
-    name: 'Mayap Care Agriculture Coop.',
+    name: 'Multipurpose Cooperative System',
     registration_no: 'CDA-REG-9502-100234',
     currency_code: 'PHP',
     currency_symbol: '₱',
     operating_mode: 'multi_branch',
     tax_exempt: true,
     fiscal_year_start_month: 1,
-    contact_email: 'contact@mayapcare.coop',
+    contact_email: 'admin@gmail.com',
     contact_phone: '+63 (045) 982-1200',
-    address: 'Poblacion Plaza, Tarlac City, Philippines'
+    address: 'Barangay Care zone 5, Tarlac City, Tarlac, 2300 Philippines'
   });
 
   // UI Settings (Theme, Sidebar, Typography)

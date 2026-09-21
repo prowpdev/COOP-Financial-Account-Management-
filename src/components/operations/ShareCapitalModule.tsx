@@ -684,12 +684,13 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
               </div>
 
               {/* Branch Selection (Requirement 3: Save to Database) */}
-              <div>
+              <div className="hidden">
                 <label className="text-xs text-slate-300 font-medium flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-amber-400" />
                   <span>Member Branch (Saved to Database)</span>
                 </label>
                 <select
+                  
                   value={newAccount.branch_id}
                   onChange={e => setNewAccount({ ...newAccount, branch_id: e.target.value })}
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"

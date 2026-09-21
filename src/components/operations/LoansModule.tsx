@@ -59,16 +59,81 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
 
   // Repayment Modal State
   const [selectedLoanForRepay, setSelectedLoanForRepay] = useState<Loan | null>(null);
-  const [repayAmount, setRepayAmount] = useState(2500);
+  const [repayAmount, setRepayAmount] = useState('');
   const [repayCashAccount, setRepayCashAccount] = useState('');
   const [repayError, setRepayError] = useState<string | null>(null);
   const [isRepaying, setIsRepaying] = useState(false);
 
   // Schedule View Modal State
   const [selectedLoanForSchedule, setSelectedLoanForSchedule] = useState<Loan | null>(null);
-  const [loanScheduleData, setLoanScheduleData] = useState<any[]>([]);
+  const [loanScheduleData, setLoanScheduleData] = useState<any[]>([]); // total_installment
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
+  const [currentBillDue, setCurrentBillDue] = useState('');
+  const [maxRepayAmount, setMaxRepayAmount] = useState();
 
+
+
+const handleRepayBtn = async (
+  event: React.MouseEvent<HTMLButtonElement>,
+  row: Loan
+) => {
+  event.preventDefault();
+
+  setSelectedLoanForRepay(row);
+  setRepayError(null);
+
+  try {
+    const res = await api.getLoanSchedule(row.id);
+
+    const schedules = Array.isArray(res.data) ? res.data : [];
+
+    // Find the first installment that is not fully paid
+    const nextSchedule = schedules.find(
+      (item) => String(item.status).toLowerCase() !== 'paid'
+    );
+
+    if (!nextSchedule) {
+      setCurrentBillDue(0);
+      setMaxRepayAmount(0);
+      setRepayError('This loan has no remaining unpaid installments.');
+      return;
+    }
+
+    const principal = Number(nextSchedule.principal || 0);
+    const interest = Number(nextSchedule.interest || 0);
+    const fee = Number(nextSchedule.fee || 0);
+
+    const paidPrincipal = Number(nextSchedule.paid_principal || 0);
+    const paidInterest = Number(nextSchedule.paid_interest || 0);
+    const paidFee = Number(nextSchedule.paid_fee || 0);
+
+    // Calculate what remains for THIS installment
+    const remainingPrincipal = Math.max(0, principal - paidPrincipal);
+    const remainingInterest = Math.max(0, interest - paidInterest);
+    const remainingFee = Math.max(0, fee - paidFee);
+
+    const remainingDue =
+      remainingPrincipal +
+      remainingInterest +
+      remainingFee;
+
+    setCurrentBillDue(Number(remainingDue.toFixed(2)));
+
+    // Maximum payment can be the remaining loan balance/payment due,
+    // depending on your business rule.
+    setMaxRepayAmount(Number(remainingDue.toFixed(2)));
+
+    console.log('Next installment:', nextSchedule);
+    console.log('Remaining principal:', remainingPrincipal);
+    console.log('Remaining interest:', remainingInterest);
+    console.log('Remaining fee:', remainingFee);
+    console.log('Remaining due:', remainingDue);
+
+  } catch (error) {
+    console.error('Failed to load loan schedule:', error);
+    setRepayError('Unable to load the loan schedule.');
+  }
+};
   useEffect(() => {
     if (selectedBranchId !== undefined) {
       setSelectedBranch(selectedBranchId);
@@ -258,8 +323,10 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     }
   };
 
+
   const handleRepay = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRepayAmount(currentBillDue);
     if (!selectedLoanForRepay) return;
     setRepayError(null);
 
@@ -267,7 +334,8 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
       setRepayError('Repayment amount must be greater than zero.');
       return;
     }
-
+   
+    
     setIsRepaying(true);
     try {
       const res = await api.repayLoan(selectedLoanForRepay.id, {
@@ -288,13 +356,17 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
       setIsRepaying(false);
     }
   };
-
+  // const loadLoanSchedule = async (loan:Loan) =>{
+    
+  // };
   const handleViewSchedule = async (loan: Loan) => {
     setSelectedLoanForSchedule(loan);
     setIsLoadingSchedule(true);
     try {
       const res = await api.getLoanSchedule(loan.id);
       setLoanScheduleData(Array.isArray(res.data) ? res.data : []);
+      
+      
     } catch (err) {
       console.warn('Failed to fetch schedule:', err);
       setLoanScheduleData([]);
@@ -423,11 +495,7 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
           {row.current_balance > 0 ? (
             <button
               id={`btn-repay-loan-${row.id}`}
-              onClick={() => {
-                setSelectedLoanForRepay(row);
-                setRepayError(null);
-                setRepayAmount(Math.min(5000, row.current_balance));
-              }}
+              onClick={(event) => handleRepayBtn(event, row)}
               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow transition"
             >
               Repay
@@ -805,11 +873,12 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
                 <label className="text-xs text-slate-300 font-medium">Repayment Amount (₱)</label>
                 <input
                   type="number"
-                  step="50"
                   min="1"
+                  step="0.01"
+                  max={maxRepayAmount}
                   required
-                  value={repayAmount}
-                  onChange={e => setRepayAmount(parseFloat(e.target.value) || 0)}
+                  value={currentBillDue}
+                  onChange={e => setCurrentBillDue(parseFloat(e.target.value) || 0)}
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-emerald-400 focus:border-emerald-500 focus:outline-none"
                 />
               </div>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
-
+.hide{
+  display: none !important;
+}
 /* ----------------------------------------------------
    Base Font & Accessibility Sizing
    ---------------------------------------------------- */

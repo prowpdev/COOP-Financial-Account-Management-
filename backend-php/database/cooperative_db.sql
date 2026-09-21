@@ -301,7 +301,7 @@ CREATE TABLE `cooperatives` (
 --
 
 INSERT INTO `cooperatives` (`id`, `name`, `cda_registration_no`, `tax_identification_no`, `coop_type`, `address`, `contact_phone`, `contact_email`, `fiscal_year_start`, `base_currency`, `created_at`, `updated_at`) VALUES
-('coop_01', 'Mayap Care Agriculture Coop.', 'CDA-REG-CAR-2018-09142', '009-881-209-000', 'Agricultural / Multi-Purpose', 'National Highway, San Vicente, Tarlac City, Tarlac', '+63 (045) 982-1144', 'contact@mayapcare.coop', '01-01', 'PHP', '2026-09-12 08:07:46', '2026-09-12 08:07:46');
+('coop_01', 'Multipurpose Cooperative System', 'CDA-REG-CAR-2018-09142', '009-881-209-000', 'Agricultural / Multi-Purpose', 'National Highway, San Vicente, Tarlac City, Tarlac', '+63 (045) 982-1144', 'contact@mayapcare.coop', '01-01', 'PHP', '2026-09-12 08:07:46', '2026-09-12 08:07:46');
 
 -- --------------------------------------------------------
 

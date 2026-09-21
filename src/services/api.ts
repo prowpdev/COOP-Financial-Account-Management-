@@ -1,24 +1,11 @@
 import { ShareCapitalSetting } from '../types';
 
-export const DEFAULT_API_BASE = '/api';
+export const DEFAULT_API_BASE = 'http://coop-backend.test/api/';
 
-const getInitialApiBase = () => {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('coop_api_endpoint');
-    if (saved) {
-      // If the saved endpoint was an unreachable external domain or mixed content in HTTPS, purge it
-      if (saved.includes('cooperative-api.test') || (window.location.protocol === 'https:' && saved.startsWith('http://'))) {
-        try {
-          localStorage.removeItem('coop_api_endpoint');
-        } catch {
-          // ignore
-        }
-      } else {
-        return saved.replace(/\/$/, '');
-      }
-    }
-  }
-  return (((import.meta as any).env?.VITE_API_BASE_URL as string) || DEFAULT_API_BASE).replace(/\/$/, '');
+const getInitialApiBase = (): string => {
+  const envApiBase = import.meta.env.VITE_API_BASE_URL;
+
+  return (envApiBase || DEFAULT_API_BASE).replace(/\/+$/, '');
 };
 
 let activeApiBase = getInitialApiBase();

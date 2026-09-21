@@ -4,7 +4,7 @@ export const initialSeedData: DatabaseSchema = {
   cooperatives: [
     {
       id: 'coop_01',
-      name: 'Mayap Care Agriculture Coop.',
+      name: 'Multipurpose Cooperative System',
       registration_no: 'CDA-REG-9502-100234',
       tax_identification_number: '005-891-234-000',
       address: 'Poblacion Plaza, Tarlac City, Philippines',
@@ -55,7 +55,7 @@ export const initialSeedData: DatabaseSchema = {
   ],
 
   system_settings: [
-    { key: 'cooperative_name', value: 'Mayap Care Agriculture Coop.', category: 'Cooperative' },
+    { key: 'cooperative_name', value: 'Multipurpose Cooperative System.', category: 'Cooperative' },
     { key: 'currency', value: 'PHP', category: 'Accounting' },
     { key: 'currency_symbol', value: '₱', category: 'Accounting' },
     { key: 'decimal_precision', value: '2', category: 'Accounting' },

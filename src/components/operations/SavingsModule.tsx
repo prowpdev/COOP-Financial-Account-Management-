@@ -32,6 +32,7 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
   const [coaAccounts, setCoaAccounts] = useState<Account[]>([]);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+  const [memberId, setMemberId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState({
     code: '',
     name: '',
@@ -107,6 +108,7 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
 
     try {
       const res = await api.transactSavings({
+        member_id: memberId,
         savings_account_id: activeAccount.id,
         transaction_type: txType,
         amount,
@@ -237,6 +239,7 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
             setActiveAccount(row);
             setAmount(1000);
             setTxType('DEPOSIT');
+            setMemberId(row.member_id)
           }}
           className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow transition"
         >
