@@ -144,6 +144,9 @@ html.light .border-emerald-500\/30,
 html.light .border-emerald-500\/20 {
   border-color: #a7f3d0 !important;
 }
+:disabled{
+  cursor:not-allowed
+}
 
 /* Light Mode Accent Text adjustments for high contrast legibility */
 html.light .text-emerald-300 {

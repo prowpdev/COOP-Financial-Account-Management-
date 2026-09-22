@@ -381,51 +381,195 @@ export const api = {
       return { success: false, data: [] };
     }
   },
-  getMemberReport: async (memberId: string) => {
-    const res = await fetchApi<{ success: boolean; data: any }>(`/members/${memberId}/report`);
-    const report = res.data || {};
-    const transactions = Array.isArray(report.transactions)
-      ? report.transactions.map((transaction: any) => {
-          const type = transaction.type || transaction.transaction_type || 'Transaction';
-          const source = String(transaction.category || transaction.source || '').toLowerCase();
-          const category = transaction.category || (
-            source.includes('loan') ? 'Loans' :
-            source.includes('saving') ? 'Savings' :
-            source.includes('share') ? 'Share Capital' :
-            'Journal'
-          );
-          const amount = Number(transaction.amount || transaction.total_amount || 0);
-          const isLoanRelease = type === 'LOAN_RELEASE' || String(type).toLowerCase().includes('loan release');
-          const isLoanPayment = type === 'LOAN_PAYMENT' || String(type).toLowerCase().includes('loan payment');
+getMemberReport: async (memberId: string) => {
+  const res = await fetchApi<{ success: boolean; data: any }>(
+    `/members/${memberId}/report`
+  );
 
-          return {
-            ...transaction,
-            id: transaction.id || transaction.transaction_id || transaction.reference_number,
-            date: transaction.date || transaction.transaction_date,
-            type: isLoanRelease ? 'Loan released' : isLoanPayment ? 'Loan payment' : type,
-            reference: transaction.reference || transaction.reference_number || transaction.voucher_number,
-            category,
-            amount,
-            debit: transaction.debit !== undefined ? Number(transaction.debit) : isLoanRelease ? amount : 0,
-            credit: transaction.credit !== undefined ? Number(transaction.credit) : isLoanPayment ? amount : 0
-          };
-        })
+  const report = res.data || {};
+
+  // ==========================================
+  // JOURNAL VOUCHERS
+  // ==========================================
+
+  const journalVouchers = Array.isArray(report.journal_vouchers)
+    ? report.journal_vouchers
+    : Array.isArray(report.journalVouchers)
+      ? report.journalVouchers
       : [];
 
-    return {
-      ...res,
-      data: {
-        ...report,
-        transactions
-      }
-    };
-  },
+  // ==========================================
+  // JOURNAL TRANSACTION LINES
+  // ==========================================
+
+  const journalTransactions = Array.isArray(report.journal_voucher_lines)
+    ? report.journal_voucher_lines
+    : Array.isArray(report.journalVoucherLines)
+      ? report.journalVoucherLines
+      : journalVouchers.flatMap(
+          (voucher: any) =>
+            Array.isArray(voucher.lines)
+              ? voucher.lines.map((line: any) => ({
+                  ...line,
+                  journal_entry_id:
+                    line.journal_entry_id || voucher.id,
+                  voucher_id: voucher.id,
+                  voucher_number: voucher.voucher_number,
+                  date: voucher.posting_date,
+                  description: voucher.description || '',
+                  status: voucher.status || null
+                }))
+              : []
+        );
+
+  // ==========================================
+  // TRANSACTIONS
+  // ==========================================
+
+  const transactions = Array.isArray(report.transactions)
+    ? report.transactions.map((transaction: any) => {
+        const type =
+          transaction.type ||
+          transaction.transaction_type ||
+          'Transaction';
+
+        const source = String(
+          transaction.category ||
+          transaction.source ||
+          ''
+        ).toLowerCase();
+
+        const category = transaction.category || (
+          source.includes('loan') ? 'Loans' :
+          source.includes('saving') ? 'Savings' :
+          source.includes('share') ? 'Share Capital' :
+          'Journal'
+        );
+
+        const amount = Number(
+          transaction.amount ||
+          transaction.total_amount ||
+          0
+        );
+
+        const isLoanRelease =
+          type === 'LOAN_RELEASE' ||
+          String(type).toLowerCase().includes('loan release');
+
+        const isLoanPayment =
+          type === 'LOAN_PAYMENT' ||
+          String(type).toLowerCase().includes('loan payment');
+
+        // ==========================================
+        // MATCH JOURNAL LINES TO TRANSACTION
+        // ==========================================
+
+        const lines = journalTransactions.filter(
+          (line: any) => {
+
+            // Match by journal entry ID
+            if (
+              line.journal_entry_id &&
+              line.journal_entry_id === transaction.transaction_id
+            ) {
+              return true;
+            }
+
+            // Match by voucher ID
+            if (
+              line.voucher_id &&
+              line.voucher_id === transaction.transaction_id
+            ) {
+              return true;
+            }
+
+            // Match by voucher number
+            if (
+              line.voucher_number &&
+              line.voucher_number === transaction.reference_number
+            ) {
+              return true;
+            }
+
+            return false;
+          }
+        );
+
+        return {
+          ...transaction,
+
+          id:
+            transaction.id ||
+            transaction.transaction_id ||
+            transaction.reference_number,
+
+          date:
+            transaction.date ||
+            transaction.transaction_date,
+
+          type: isLoanRelease
+            ? 'Loan released'
+            : isLoanPayment
+              ? 'Loan payment'
+              : type,
+
+          reference:
+            transaction.reference ||
+            transaction.reference_number ||
+            transaction.voucher_number,
+
+          category,
+
+          amount,
+
+          // ==========================================
+          // JOURNAL LINES
+          // ==========================================
+          lines,
+
+          debit:
+            transaction.debit !== undefined
+              ? Number(transaction.debit)
+              : isLoanRelease
+                ? amount
+                : 0,
+
+          credit:
+            transaction.credit !== undefined
+              ? Number(transaction.credit)
+              : isLoanPayment
+                ? amount
+                : 0
+        };
+      })
+    : [];
+
+  return {
+    ...res,
+
+    data: {
+      ...report,
+
+      transactions,
+
+      journalVouchers,
+
+      journalTransactions
+    }
+  };
+},
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
       method: 'POST',
       body: JSON.stringify(member)
     }),
-
+  // update loan status
+  updateLoan:async(loanId:number,status:any)=>{
+    fetchApi<{ success: boolean; data: any }>(`/loan/${loanId}`, {
+        method: 'PUT',
+        body: JSON.stringify(status)
+    });
+  },
   // Operations: Loans
   getLoans: async () => {
     try {

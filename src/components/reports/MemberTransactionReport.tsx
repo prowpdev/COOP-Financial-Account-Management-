@@ -220,7 +220,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
       ]);
     }
   };
-
+  
   const exportCsv = () => {
     const csv = [
       ['Member Transaction Ledger & Journal Voucher Report', `${member?.first_name || ''} ${member?.last_name || ''}`],

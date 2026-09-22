@@ -63,20 +63,43 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
     .sort((a, b) => a.date.localeCompare(b.date) || a.voucher.localeCompare(b.voucher)),
     [journals, accountId, branches, selectedBranch]);
 
-  const normalMultiplier = account?.normal_balance === 'Credit' ? -1 : 1;
-  const openingBalance = sourceRows
-    .filter(row => !fromDate || row.date < fromDate)
-    .reduce((sum, row) => sum + (row.debit - row.credit) * normalMultiplier, 0);
+ const normalMultiplier =
+  account?.normal_balance === 'Credit' ? -1 : 1;
 
-  const rows = useMemo(() => {
-    let balance = openingBalance;
-    return sourceRows
-      .filter(row => (!fromDate || row.date >= fromDate) && (!toDate || row.date <= toDate))
-      .map(row => {
-        balance += (row.debit - row.credit) * normalMultiplier;
-        return { ...row, balance } as LedgerRow;
-      });
-  }, [sourceRows, fromDate, toDate, openingBalance, normalMultiplier]);
+const openingBalance = useMemo(() => {
+  return sourceRows
+    .filter(row => fromDate && row.date < fromDate)
+    .reduce(
+      (sum, row) =>
+        sum + (row.debit - row.credit) * normalMultiplier,
+      0
+    );
+}, [sourceRows, fromDate, normalMultiplier]);
+
+const rows = useMemo(() => {
+  let balance = openingBalance;
+
+  return sourceRows
+    .filter(row =>
+      (!fromDate || row.date >= fromDate) &&
+      (!toDate || row.date <= toDate)
+    )
+    .map(row => {
+      balance +=
+        (row.debit - row.credit) * normalMultiplier;
+
+      return {
+        ...row,
+        balance
+      } as LedgerRow;
+    });
+}, [
+  sourceRows,
+  fromDate,
+  toDate,
+  openingBalance,
+  normalMultiplier
+]);
 
   const totals = rows.reduce((sum, row) => ({ debit: sum.debit + row.debit, credit: sum.credit + row.credit }), { debit: 0, credit: 0 });
   const branchLabel = selectedBranch === 'all' ? 'All Branches' : branches.find(branch => branch.id === selectedBranch)?.name || 'Branch';
