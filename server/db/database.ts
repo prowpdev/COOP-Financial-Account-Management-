@@ -116,8 +116,9 @@ class DatabaseEngine {
         this.data = { ...this.data, ...parsed };
         this.initialized = true;
         return this.data;
-      } catch (err) {
-        console.error('Error reading database file, re-initializing', err);
+      } catch (err: any) {
+        console.error('Error reading database file:', err);
+        throw new Error(`Failed to load database file (${DB_FILE}): ${err.message}`);
       }
     }
     return this.data;

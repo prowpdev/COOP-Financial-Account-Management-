@@ -45,8 +45,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Login Form
   const [loginForm, setLoginForm] = useState({
-    username: 'admin',
-    password: 'Admin@123456'
+    username: '',
+    password: ''
   });
 
   // Register Form
@@ -82,37 +82,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         }, 1200);
       } else {
-        throw new Error(res.message || 'Login failed');
+        throw new Error(res.message || 'Invalid credentials.');
       }
     } catch (err: any) {
-      // Fallback: match against known user list if in standalone mode
-      const matched = users.find(
-        u => (u.id === loginForm.username || u.email === loginForm.username || (u as any).username === loginForm.username)
-      );
-      if (matched && (loginForm.password === 'Admin@123456' || loginForm.password === 'admin' || loginForm.password.length >= 4)) {
-        setSuccessMessage(`Authenticated as ${matched.name}`);
-        onLoginSuccess(matched);
-        setTimeout(() => {
-          onClose();
-        }, 1200);
-      } else {
-        setErrorMessage(err.message || 'Invalid username or password. You may use admin / Admin@123456');
-      }
+      setErrorMessage(err.message || 'Authentication failed. Please verify your username and password.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (u: User) => {
-    setLoginForm({
-      username: (u as any).username || u.id || 'admin',
-      password: 'Admin@123456'
-    });
-    setSuccessMessage(`Switched active profile to ${u.name}`);
-    onLoginSuccess(u);
-    setTimeout(() => {
-      onClose();
-    }, 1000);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -300,33 +276,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <LogIn className="w-4 h-4" />
                   <span>{isLoading ? 'Signing In...' : 'Sign In to Cooperative Core'}</span>
                 </button>
-              </div>
-
-              {/* Quick 1-Click Persona Sign-In */}
-              <div className="pt-4 border-t border-slate-800/80">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center">
-                    <Sparkles className="w-3 h-3 mr-1 text-amber-400" />
-                    Quick Role Sign-In
-                  </span>
-                  <span className="text-[10px] text-slate-500">1-click test roles</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {users.slice(0, 4).map(u => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => handleQuickLogin(u)}
-                      className="text-left p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-center space-x-2"
-                    >
-                      <UserCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <div className="truncate">
-                        <div className="text-xs font-medium text-white truncate">{u.name}</div>
-                        <div className="text-[10px] text-slate-400 truncate">{u.role_name}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
               </div>
             </form>
           ) : (

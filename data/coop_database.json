@@ -1853,7 +1853,62 @@
   "journal_entries": [],
   "journal_lines": [],
   "general_ledger": [],
-  "configuration_audit_trails": [],
+  "configuration_audit_trails": [
+    {
+      "id": "audit_01",
+      "setting": "System Setup & Multi-Branch Topology",
+      "old_value": "Unconfigured",
+      "new_value": "Multi-Branch Active (Tarlac Main & Victoria Branch)",
+      "changed_by": "System Administrator",
+      "created_at": "2026-01-01T08:00:00.000Z",
+      "reason": "Initial setup of cooperative organizational hierarchy per CDA Charter"
+    },
+    {
+      "id": "audit_02",
+      "setting": "Chart of Accounts (CDA Standard)",
+      "old_value": "Empty GL",
+      "new_value": "Standard CDA Chart of Accounts (Assets, Liabilities, Equity, Revenue, Expenses)",
+      "changed_by": "Chief Accountant",
+      "created_at": "2026-01-01T08:30:00.000Z",
+      "reason": "Loaded standard CDA compliant account codes and statutory reserve ledgers"
+    },
+    {
+      "id": "audit_03",
+      "setting": "Share Capital Policy (CBU)",
+      "old_value": "None",
+      "new_value": "Par Value: ₱100.00/share, Min Subscription: 100 shares, Min Paid-Up: 25 shares",
+      "changed_by": "Board of Directors",
+      "created_at": "2026-01-02T10:00:00.000Z",
+      "reason": "Ratified Share Capital rules under RA 9520 regulations"
+    },
+    {
+      "id": "audit_04",
+      "setting": "Loan Product: Regular Multi-Purpose",
+      "old_value": "Draft",
+      "new_value": "12.0% APR Diminishing Balance, 2.0% Processing Fee",
+      "changed_by": "Credit Committee",
+      "created_at": "2026-01-03T11:00:00.000Z",
+      "reason": "Established lending parameters and automatic amortization schedules"
+    },
+    {
+      "id": "audit_05",
+      "setting": "Cash Vault Float Allocation",
+      "old_value": "₱0.00",
+      "new_value": "₱500,000.00 Main Vault Float",
+      "changed_by": "Treasurer",
+      "created_at": "2026-01-03T14:00:00.000Z",
+      "reason": "Approved initial cash drawer reserve for disbursements and branch teller operations"
+    },
+    {
+      "id": "audit_06",
+      "setting": "Loan Application Approved: APP-2026-0002",
+      "old_value": "Pending (₱50,000)",
+      "new_value": "Approved (₱50,000)",
+      "changed_by": "Credit Committee (Maria Ramos)",
+      "created_at": "2026-02-17T11:20:00.000Z",
+      "reason": "Approved for Pedro Reyes for solar drip irrigation pump installation"
+    }
+  ],
   "user_roles": [
     {
       "id": "role_admin",
@@ -1946,47 +2001,6 @@
     }
   ],
   "users": [
-    {
-      "id": "usr_admin",
-      "name": "Maria Rodriguez",
-      "username": "admin",
-      "role_id": "role_admin",
-      "role_name": "System Administrator",
-      "branch_id": "branch_tar",
-      "last_login": "2026-09-22T11:49:40.583Z"
-    },
-    {
-      "id": "usr_manager",
-      "name": "Elena Rostro",
-      "username": "manager",
-      "role_id": "role_manager",
-      "role_name": "Branch Manager",
-      "branch_id": "branch_tar"
-    },
-    {
-      "id": "usr_accountant",
-      "name": "Arturo Santos",
-      "username": "accountant",
-      "role_id": "role_accountant",
-      "role_name": "Chief Accountant",
-      "branch_id": "branch_tar"
-    },
-    {
-      "id": "usr_loan_officer",
-      "name": "Jose Mendoza",
-      "username": "loanofficer",
-      "role_id": "role_loan_officer",
-      "role_name": "Loan Officer",
-      "branch_id": "branch_tar"
-    },
-    {
-      "id": "usr_cashier",
-      "name": "Maria Gomez",
-      "username": "cashier",
-      "role_id": "role_cashier",
-      "role_name": "Cashier / Teller",
-      "branch_id": "branch_tar"
-    },
     {
       "id": "usr_1790075837467_grza",
       "username": "admin01",

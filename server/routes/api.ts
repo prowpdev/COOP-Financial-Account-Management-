@@ -3299,8 +3299,8 @@ router.post('/auth/login', (req: Request, res: Response) => {
     return res.status(401).json({ success: false, message: 'Invalid username or password.' });
   }
 
-  // Accepts 'Admin@123456', 'admin', 'password', or matching password
-  const isValid = pass === 'Admin@123456' || pass === 'admin' || pass === 'password' || pass === user.password_hash || (user.raw_password && pass === user.raw_password);
+  // Verify matching password
+  const isValid = pass === user.password_hash || (user.raw_password && pass === user.raw_password);
   if (!isValid) {
     return res.status(401).json({ success: false, message: 'Invalid username or password.' });
   }
@@ -3455,14 +3455,13 @@ router.post('/auth/member-login', (req: Request, res: Response) => {
     });
   }
 
-  // Password validation: allow member password, or default demo password '123456', 'member', 'admin', 'password', or birthdate
-  const isDemoPass = !pass || pass === '123456' || pass === 'member' || pass === 'password' || pass === 'Admin@123456' || pass === 'admin';
+  // Password validation: match member password or birthdate (YYYYMMDD)
   const isMatchingPass = (member.password && member.password === pass) || (member.birthdate && pass === member.birthdate.replace(/-/g, ''));
   
-  if (!isDemoPass && !isMatchingPass) {
+  if (!isMatchingPass) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid password. (Tip: Demo password is "123456")'
+      message: 'Invalid password. Please check your credentials.'
     });
   }
 
@@ -3760,35 +3759,37 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
 
   // Loans released
   memberLoans.forEach(l => {
+    const pAmt = Number(l.principal_amount || 0);
     unifiedTransactions.push({
       id: `tx_loan_rel_${l.id}`,
-      date: l.disbursement_date,
+      date: l.disbursement_date || l.created_at || new Date().toISOString().split('T')[0],
       type: 'Loan Released',
       category: 'Loans',
-      facility: l.product_name || 'Loan',
-      reference: l.loan_account_no,
+      facility: l.product_name || 'Loan Facility',
+      reference: l.loan_account_no || l.id,
       description: `Principal disbursement of ${l.product_name || 'Loan'}`,
-      amount: l.principal_amount,
-      debit: l.principal_amount,
+      amount: pAmt,
+      debit: pAmt,
       credit: 0,
       status: 'Completed',
-      notes: `Net proceeds ₱${(l.net_disbursed || l.principal_amount).toLocaleString()}`
+      notes: `Net proceeds ₱${Number(l.net_disbursed || pAmt).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
     });
   });
 
   // Loan payments
   allPayments.filter(p => loanIds.has(p.loan_id)).forEach(p => {
+    const payAmt = Number(p.amount || 0);
     unifiedTransactions.push({
       id: `tx_loan_pay_${p.id}`,
-      date: p.payment_date,
+      date: p.payment_date || p.created_at || '',
       type: 'Loan Repayment',
       category: 'Loans',
       facility: 'Loan Payment',
       reference: p.receipt_no || p.id,
-      description: `Amortization payment (Principal: ₱${Number(p.principal_amount || 0).toLocaleString()}, Interest: ₱${Number(p.interest_amount || 0).toLocaleString()})`,
-      amount: p.amount,
+      description: `Amortization payment (Principal: ₱${Number(p.principal_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}, Interest: ₱${Number(p.interest_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })})`,
+      amount: payAmt,
       debit: 0,
-      credit: p.amount,
+      credit: payAmt,
       status: 'Completed',
       notes: p.notes || `Received by ${p.received_by || 'Teller'}`
     });
@@ -3796,55 +3797,60 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
 
   // Savings transactions
   savingsTransactions.forEach(st => {
-    const isWithdrawal = st.type === 'WITHDRAWAL' || st.type === 'Withdrawal';
+    const isWithdrawal = String(st.type || '').toUpperCase().includes('WITHDRAW');
+    const amt = Number(st.amount || 0);
     unifiedTransactions.push({
       id: `tx_sav_${st.id}`,
-      date: st.transaction_date,
-      type: `Savings ${st.type}`,
+      date: st.transaction_date || st.created_at?.split(' ')[0] || '',
+      type: `Savings ${st.type || 'Transaction'}`,
       category: 'Savings',
       facility: 'Regular Savings',
       reference: st.transaction_no || st.id,
-      description: st.notes || `Savings account ${st.type}`,
-      amount: st.amount,
-      debit: isWithdrawal ? st.amount : 0,
-      credit: isWithdrawal ? 0 : st.amount,
-      running_balance: st.balance_after,
+      description: st.notes || `Savings account ${st.type || 'transaction'}`,
+      amount: amt,
+      debit: isWithdrawal ? amt : 0,
+      credit: isWithdrawal ? 0 : amt,
+      running_balance: Number(st.balance_after || 0),
       status: 'Completed',
-      notes: `Passbook balance: ₱${Number(st.balance_after || 0).toLocaleString()}`
+      notes: `Passbook balance: ₱${Number(st.balance_after || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
     });
   });
 
   // Share capital transactions
   shareTransactions.forEach(sct => {
+    const amt = Number(sct.amount || 0);
+    const shares = Number(sct.shares || Math.floor(amt / (shareAccounts[0]?.par_value || 100)));
     unifiedTransactions.push({
       id: `tx_cbu_${sct.id}`,
-      date: sct.transaction_date,
+      date: sct.transaction_date || sct.created_at?.split(' ')[0] || '',
       type: 'Share Capital Payment',
       category: 'Share Capital',
       facility: 'Capital Build-Up (CBU)',
       reference: sct.receipt_no || sct.id,
-      description: sct.notes || `CBU payment for ${sct.shares || 0} shares`,
-      amount: sct.amount,
+      description: sct.notes || `CBU contribution (+${shares} shares)`,
+      amount: amt,
       debit: 0,
-      credit: sct.amount,
+      credit: amt,
       status: 'Completed',
-      notes: `${sct.shares || 0} shares @ ₱100.00 par value`
+      notes: `${shares} shares @ ₱${shareAccounts[0]?.par_value || 100}.00 par value`
     });
   });
 
   // Manual JVs
   relevantJVs.forEach(jv => {
+    const dVal = Number(jv.total_debit || 0);
+    const cVal = Number(jv.total_credit || 0);
     unifiedTransactions.push({
       id: `tx_jv_${jv.id}`,
-      date: jv.posting_date,
+      date: jv.posting_date || jv.created_at?.split(' ')[0] || '',
       type: 'Journal Voucher (JV)',
       category: 'Journal Vouchers',
       facility: 'Coop Accounting JV',
       reference: jv.voucher_number || jv.id,
       description: jv.description || 'Manual accounting journal entry',
-      amount: jv.total_debit || jv.total_credit || 0,
-      debit: jv.total_debit || 0,
-      credit: jv.total_credit || 0,
+      amount: dVal || cVal || 0,
+      debit: dVal,
+      credit: cVal,
       status: jv.status || 'Posted',
       notes: jv.notes || 'Posted to official General Ledger'
     });
@@ -3909,8 +3915,13 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
         accounts: shareAccounts,
         transactions: shareTransactions
       },
+      share_capital_accounts: shareAccounts.map(sca => ({
+        ...sca,
+        transactions: shareTransactions.filter(st => st.share_account_id === sca.id)
+      })),
       journal_entries: relevantJVs,
-      all_transactions: unifiedTransactions
+      all_transactions: unifiedTransactions,
+      transactions: unifiedTransactions
     }
   });
 });
@@ -4072,8 +4083,34 @@ router.post('/member-portal/:memberId/pay-share-capital', (req: Request, res: Re
     return res.status(422).json({ success: false, message: 'Valid payment amount is required.' });
   }
 
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === memberId || m.member_no === memberId);
+  const aliasIds = new Set([memberId]);
+  if (member) {
+    aliasIds.add(member.id);
+    aliasIds.add(member.member_no);
+  }
+
   const shareAccounts = db.getTable('share_capital_accounts') || [];
-  const account = shareAccounts.find(s => s.member_id === memberId || s.id === `sca_${memberId}`);
+  let account = shareAccounts.find(s => aliasIds.has(s.member_id) || s.id === `sca_${memberId}` || (member && s.id === `sca_${member.id}`));
+  if (!account && member) {
+    account = {
+      id: `sca_${member.id}`,
+      account_number: `CBU-${(member.member_no || '2026-0001').replace('MB-', '').replace('MEM-', '')}`,
+      member_id: member.id,
+      member_name: `${member.first_name} ${member.last_name}`,
+      branch_id: member.branch_id || 'branch_tar',
+      subscribed_shares: 100,
+      subscribed_amount: 10000,
+      paid_up_shares: 0,
+      paid_up_amount: 0,
+      par_value: 100,
+      status: 'Active',
+      created_at: member.joined_date || new Date().toISOString().split('T')[0]
+    };
+    db.insert('share_capital_accounts', account);
+  }
+
   if (!account) {
     return res.status(404).json({ success: false, message: 'Share capital account not found' });
   }
@@ -4405,9 +4442,9 @@ router.post('/system/setup/complete-all', (req: Request, res: Response) => {
   // 1. Ensure Cooperative Profile & Branches exist
   let coops = db.getTable('cooperatives');
   if (!coops || coops.length === 0) {
-    coops = db.resetToSeed(initialSeedData) as any;
+    return res.status(400).json({ success: false, message: 'Cooperative profile has not been configured yet. Please configure cooperative profile first.' });
   }
-  const coop = db.getTable('cooperatives')[0];
+  const coop = coops[0];
 
   let branches = db.getTable('branches');
   if (!branches || branches.length === 0) {
@@ -4923,44 +4960,13 @@ router.post('/system/setup/step', (req: Request, res: Response) => {
   }
 
   if (step === 4) {
-    // Step 4: Member Types & Founding Members
-    const members = db.getTable('members');
-    if (members.length === 0) {
-      // Seed founding members
-      const sample = initialSeedData.members;
-      sample.forEach(m => {
-        db.insert('members', m);
-        // Add linked CBU and Savings
-        db.insert('savings_accounts', {
-          id: `sav_${m.id}`,
-          member_id: m.id,
-          member_name: `${m.first_name} ${m.last_name}`,
-          account_number: `SA-2026-${m.member_no.replace('MB-2026-', '')}`,
-          product_id: 'sp_regular',
-          product_name: 'Regular Savings Deposit',
-          branch_id: m.branch_id,
-          balance: 5000,
-          status: 'Active',
-          created_at: new Date().toISOString()
-        });
-        db.insert('share_capital_accounts', {
-          id: `cbu_${m.id}`,
-          member_id: m.id,
-          member_name: `${m.first_name} ${m.last_name}`,
-          account_number: `CBU-2026-${m.member_no.replace('MB-2026-', '')}`,
-          branch_id: m.branch_id,
-          subscribed_shares: 100,
-          subscribed_amount: 10000,
-          paid_up_shares: 50,
-          paid_up_amount: 5000,
-          par_value: 100,
-          status: 'Active',
-          created_at: new Date().toISOString()
-        });
-      });
+    // Step 4: Member Types Configuration
+    const memberTypes = db.getTable('member_types');
+    if (!memberTypes || memberTypes.length === 0) {
+      (db as any).data.member_types = initialSeedData.member_types;
     }
     (db as any).save();
-    return res.json({ success: true, message: 'Member classifications & founding members registered.' });
+    return res.json({ success: true, message: 'Member classifications verified.' });
   }
 
   if (step === 5) {

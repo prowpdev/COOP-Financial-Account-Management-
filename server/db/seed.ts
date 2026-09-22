@@ -924,11 +924,5 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  users: [
-    { id: 'usr_admin', name: 'Maria Rodriguez', username: 'admin', role_id: 'role_admin', role_name: 'System Administrator', branch_id: 'branch_tar' },
-    { id: 'usr_manager', name: 'Elena Rostro', username: 'manager', role_id: 'role_manager', role_name: 'Branch Manager', branch_id: 'branch_tar' },
-    { id: 'usr_accountant', name: 'Arturo Santos', username: 'accountant', role_id: 'role_accountant', role_name: 'Chief Accountant', branch_id: 'branch_tar' },
-    { id: 'usr_loan_officer', name: 'Jose Mendoza', username: 'loanofficer', role_id: 'role_loan_officer', role_name: 'Loan Officer', branch_id: 'branch_tar' },
-    { id: 'usr_cashier', name: 'Maria Gomez', username: 'cashier', role_id: 'role_cashier', role_name: 'Cashier / Teller', branch_id: 'branch_tar' }
-  ]
+  users: []
 };

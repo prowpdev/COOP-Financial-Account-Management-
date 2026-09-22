@@ -670,12 +670,12 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(params)
     }),
-  approveLoanApplication: (params: { application_id: string; approved_amount: number; approved_by?: string; reviewed_by?: string; reviewed_date?: string; remarks?: string }) =>
+  approveLoanApplication: (params: { application_id: string; approved_amount: number; approved_by?: string; reviewed_by?: string; reviewed_date?: string; remarks?: string; performed_by?: string }) =>
     fetchApi<{ success: boolean; data: any; message?: string }>('/loan/applications/approve', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
-  rejectLoanApplication: (params: { application_id: string; reviewed_by?: string; remarks?: string }) =>
+  rejectLoanApplication: (params: { application_id: string; reviewed_by?: string; remarks?: string; performed_by?: string }) =>
     fetchApi<{ success: boolean; data: any; message?: string }>('/loan/applications/reject', {
       method: 'POST',
       body: JSON.stringify(params)

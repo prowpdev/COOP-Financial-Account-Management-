@@ -44,8 +44,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [memberTypes, setMemberTypes] = useState<any[]>([]);
 
   // Staff Login fields
-  const [staffIdentifier, setStaffIdentifier] = useState('admin01');
-  const [staffPassword, setStaffPassword] = useState('admin01');
+  const [staffIdentifier, setStaffIdentifier] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
 
   // Staff Register fields
   const [staffFullName, setStaffFullName] = useState('');
@@ -56,23 +56,23 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [staffRegBranchId, setStaffRegBranchId] = useState('branch_tar');
 
   // Member Login fields
-  const [memberIdentifier, setMemberIdentifier] = useState('MEM-2026-0001');
-  const [memberPassword, setMemberPassword] = useState('123456');
+  const [memberIdentifier, setMemberIdentifier] = useState('');
+  const [memberPassword, setMemberPassword] = useState('');
 
   // Member Register fields
   const [memFirstName, setMemFirstName] = useState('');
   const [memMiddleName, setMemMiddleName] = useState('');
   const [memLastName, setMemLastName] = useState('');
   const [memGender, setMemGender] = useState('Male');
-  const [memBirthdate, setMemBirthdate] = useState('1988-05-12');
-  const [memPhone, setMemPhone] = useState('+63 917 ');
+  const [memBirthdate, setMemBirthdate] = useState('');
+  const [memPhone, setMemPhone] = useState('');
   const [memEmail, setMemEmail] = useState('');
-  const [memAddress, setMemAddress] = useState('Poblacion, Victoria, Tarlac');
+  const [memAddress, setMemAddress] = useState('');
   const [memBranchId, setMemBranchId] = useState('branch_tar');
   const [memTypeId, setMemTypeId] = useState('mt_regular');
-  const [memFarmHectares, setMemFarmHectares] = useState('2.5');
-  const [memPrimaryCrop, setMemPrimaryCrop] = useState('Rice & Organic Vegetables');
-  const [memPassword, setMemPassword] = useState('123456');
+  const [memFarmHectares, setMemFarmHectares] = useState('');
+  const [memPrimaryCrop, setMemPrimaryCrop] = useState('');
+  const [memPassword, setMemPassword] = useState('');
 
   // Fetch branches, roles, and member types for dropdowns
   useEffect(() => {
@@ -245,34 +245,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Quick Staff Logins
-  const quickStaffLogin = (userRole: string, username: string) => {
-    setStaffIdentifier(username);
-    setStaffPassword('Admin@123456');
-    setAuthMode('login');
-    setTimeout(() => {
-      api.login({ username, password: 'Admin@123456' }).then((res) => {
-        if (res.success && res.data?.user) {
-          onSuccess({ type: 'staff', user: res.data.user, token: res.data.token });
-        }
-      });
-    }, 50);
-  };
-
-  // Quick Member Logins
-  const quickMemberLogin = (memberNo: string) => {
-    setMemberIdentifier(memberNo);
-    setMemberPassword('123456');
-    setAuthMode('login');
-    setTimeout(() => {
-      api.memberLogin({ identifier: memberNo, password: '123456' }).then((res) => {
-        if (res.success && res.data?.member) {
-          onSuccess({ type: 'member', member: res.data.member, token: res.data.token });
-        }
-      });
-    }, 50);
   };
 
   return (
@@ -483,50 +455,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       </>
                     )}
                   </button>
-
-                  {/* 1-Click Demo Staff Role Selector */}
-                  <div className="pt-4 border-t border-slate-800/80">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                      Quick Demo Role Access (1-Click Sign In):
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => quickStaffLogin('role_admin', 'admin')}
-                        className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left transition flex items-center space-x-2 cursor-pointer"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                        <div className="truncate">
-                          <p className="font-semibold text-slate-200">Admin</p>
-                          <p className="text-[10px] text-slate-400">admin</p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => quickStaffLogin('role_loan_officer', 'loan_officer')}
-                        className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left transition flex items-center space-x-2 cursor-pointer"
-                      >
-                        <Briefcase className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <div className="truncate">
-                          <p className="font-semibold text-slate-200">Loan Officer</p>
-                          <p className="text-[10px] text-slate-400">loan_officer</p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => quickStaffLogin('role_teller', 'teller')}
-                        className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left transition flex items-center space-x-2 cursor-pointer"
-                      >
-                        <KeyRound className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <div className="truncate">
-                          <p className="font-semibold text-slate-200">Cashier / Teller</p>
-                          <p className="text-[10px] text-slate-400">teller</p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
                 </form>
               )}
 
@@ -700,9 +628,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       <label className="text-xs font-semibold text-slate-300">
                         Password or PIN
                       </label>
-                      <span className="text-[11px] text-slate-500">
-                        Default Demo PIN: <code className="text-emerald-400 font-mono">123456</code>
-                      </span>
                     </div>
                     <div className="relative">
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -711,7 +636,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         type="password"
                         value={memberPassword}
                         onChange={(e) => setMemberPassword(e.target.value)}
-                        placeholder="Enter password (default 123456)"
+                        placeholder="Enter member password or PIN"
                         required
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                       />
@@ -733,74 +658,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       </>
                     )}
                   </button>
-
-                  {/* 1-Click Quick Member Selector */}
-                  <div className="hide pt-4 border-t border-slate-800/80">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                      Select Sample Cooperative Member (1-Click Test):
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <button
-                        type="button"
-                        id="quick-member-juan"
-                        onClick={() => quickMemberLogin('MEM-2026-0001')}
-                        className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-600/50 transition flex items-center justify-between text-left cursor-pointer group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-300 font-bold flex items-center justify-center text-xs">
-                            JD
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-200 group-hover:text-white">Juan Dela Cruz</p>
-                            <p className="text-[11px] text-slate-400">MEM-2026-0001 • Agri Member (Rice & Corn)</p>
-                          </div>
-                        </div>
-                        <span className="text-[11px] px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold">
-                          Active Loan & Savings
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        id="quick-member-maria"
-                        onClick={() => quickMemberLogin('MB-2026-0002')}
-                        className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-600/50 transition flex items-center justify-between text-left cursor-pointer group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-teal-500/20 text-teal-300 font-bold flex items-center justify-center text-xs">
-                            MS
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-200 group-hover:text-white">Maria Santos Reyes</p>
-                            <p className="text-[11px] text-slate-400">MB-2026-0002 • Organic Vegetables</p>
-                          </div>
-                        </div>
-                        <span className="text-[11px] px-2 py-0.5 rounded-lg bg-teal-500/20 text-teal-300 font-semibold">
-                          Regular Loan & CBU
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        id="quick-member-rodrigo"
-                        onClick={() => quickMemberLogin('MB-2026-0003')}
-                        className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-600/50 transition flex items-center justify-between text-left cursor-pointer group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-300 font-bold flex items-center justify-center text-xs">
-                            RM
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-200 group-hover:text-white">Rodrigo Mendoza</p>
-                            <p className="text-[11px] text-slate-400">MB-2026-0003 • Agri-Farm Supplies</p>
-                          </div>
-                        </div>
-                        <span className="text-[11px] px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 font-semibold">
-                          Emergency Loan & CBU
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </form>
               )}
 
