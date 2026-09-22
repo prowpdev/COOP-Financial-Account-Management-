@@ -411,41 +411,81 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                     Dynamic Cooperative Custom Fields
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {customFields.map(cf => (
-                      <div key={cf.id}>
-                        <label className="text-xs text-slate-300 font-medium">
-                          {cf.field_label} {cf.required && <span className="text-rose-400">*</span>}
-                        </label>
-                        {cf.field_type === 'Dropdown' ? (
-                          <select
-                            required={cf.required}
-                            value={form.custom_field_values[cf.field_name] || ''}
-                            onChange={e => setForm({
-                              ...form,
-                              custom_field_values: { ...form.custom_field_values, [cf.field_name]: e.target.value }
-                            })}
-                            className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-                          >
-                            <option value="">Select option...</option>
-                            {cf.options.map((opt: string) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type={cf.field_type === 'Number' || cf.field_type === 'Currency' ? 'number' : 'text'}
-                            required={cf.required}
-                            placeholder={cf.field_label}
-                            value={form.custom_field_values[cf.field_name] || ''}
-                            onChange={e => setForm({
-                              ...form,
-                              custom_field_values: { ...form.custom_field_values, [cf.field_name]: e.target.value }
-                            })}
-                            className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-                          />
+                 {customFields.map(cf => {
+                  const options =
+                    cf.field_type === 'Dropdown'
+                      ? (() => {
+                          try {
+                            return Array.isArray(cf.options)
+                              ? cf.options
+                              : JSON.parse(cf.options || '[]');
+                          } catch {
+                            return [];
+                          }
+                        })()
+                      : [];
+
+                  const fieldKey = cf.field_key;
+                  const isRequired = Number(cf.is_required) === 1;
+                  const fieldType = cf.field_type;
+
+                  return (
+                    <div key={cf.id}>
+                      <label className="text-xs text-slate-300 font-medium">
+                        {cf.label}
+                        {isRequired && (
+                          <span className="text-rose-400 ml-1">*</span>
                         )}
-                      </div>
-                    ))}
+                      </label>
+
+                      {fieldType === 'Dropdown' ? (
+                        <select
+                          required={isRequired}
+                          value={form.custom_field_values[fieldKey] || ''}
+                          onChange={e =>
+                            setForm({
+                              ...form,
+                              custom_field_values: {
+                                ...form.custom_field_values,
+                                [fieldKey]: e.target.value
+                              }
+                            })
+                          }
+                          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
+                        >
+                          <option value="">Select option...</option>
+
+                          {options.map((opt: string) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={
+                            fieldType === 'Number' || fieldType === 'Currency'
+                              ? 'number'
+                              : 'text'
+                          }
+                          required={isRequired}
+                          placeholder={cf.label}
+                          value={form.custom_field_values[fieldKey] || ''}
+                          onChange={e =>
+                            setForm({
+                              ...form,
+                              custom_field_values: {
+                                ...form.custom_field_values,
+                                [fieldKey]: e.target.value
+                              }
+                            })
+                          }
+                          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
                   </div>
                 </div>
               )}
