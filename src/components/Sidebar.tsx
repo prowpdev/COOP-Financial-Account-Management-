@@ -10,6 +10,7 @@ import {
   BarChart3,
   CheckCircle,
   FileSpreadsheet,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -25,6 +26,7 @@ export type TabKey =
   | 'share_capital'
   | 'accounting'
   | 'reports'
+  | 'audit_logs'
   | 'verification';
 
 interface SidebarProps {
@@ -112,6 +114,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Reports',
       icon: BarChart3,
       featureKey: 'feature_reports'
+    },
+    {
+      id: 'audit_logs' as TabKey,
+      label: 'Audit Logs',
+      shortLabel: 'Audit Logs',
+      icon: ShieldCheck,
+      badge: 'CDA',
+      alwaysShow: true
     },
     {
       id: 'verification' as TabKey,

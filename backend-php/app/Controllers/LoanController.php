@@ -304,6 +304,42 @@ class LoanController extends BaseController
         }
     }
 
+    /**
+     * GET /api/loans/applications
+     */
+    public function applications(): never
+    {
+        $branchId = $_GET['branchId'] ?? null;
+        $status = $_GET['status'] ?? null;
+        $memberId = $_GET['memberId'] ?? null;
+
+        try {
+            $apps = $this->loans->allApplications($branchId, $status, $memberId);
+            $this->success($apps);
+        } catch (\Throwable $e) {
+            $this->error('Failed to load loan applications: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/loans/applications/reject
+     */
+    public function rejectApplication(): never
+    {
+        $input = $this->getRequestBody();
+
+        if (empty($input['application_id']) && empty($input['id'])) {
+            $this->error('Loan application ID is required.', 422);
+        }
+        $input['application_id'] = $input['application_id'] ?? $input['id'];
+
+        try {
+            $app = $this->loans->rejectApplication($input);
+            $this->success($app, 'Loan application rejected successfully.');
+        } catch (\Throwable $e) {
+            $this->error('Rejecting loan application failed: ' . $e->getMessage(), 500);
+        }
+    }
 
     /**
      * POST /api/loans/originate

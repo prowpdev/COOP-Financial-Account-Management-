@@ -185,6 +185,30 @@ export interface LoanProduct {
   effective_until: string | null;
 }
 
+export interface LoanApplication {
+  id: string;
+  application_no: string;
+  member_id: string;
+  member_name?: string;
+  member_no?: string;
+  loan_product_id: string;
+  loan_product_name?: string;
+  loan_product_code?: string;
+  product_name?: string;
+  branch_id: string;
+  branch_name?: string;
+  applied_amount: number;
+  term_months: number;
+  purpose?: string | null;
+  status: 'Pending' | 'Draft' | 'Submitted' | 'Under Review' | 'Approved' | 'Rejected' | 'Released';
+  submitted_date?: string | null;
+  reviewed_by?: string | null;
+  reviewed_date?: string | null;
+  approved_amount?: number | null;
+  remarks?: string | null;
+  created_at?: string;
+}
+
 export interface Loan {
   id: string;
   loan_account_no: string;
@@ -207,7 +231,7 @@ export interface Loan {
   processing_fee: number;
   service_fee: number;
   net_disbursed: number;
-  status: 'Draft' | 'Submitted' | 'Under Review' | 'Approved' | 'Released' | 'Active' | 'Past Due' | 'Fully Paid';
+  status: 'Draft' | 'Submitted' | 'Pending' | 'Under Review' | 'Approved' | 'Rejected' | 'Released' | 'Active' | 'Past Due' | 'Fully Paid';
   current_balance: number;
   total_principal_paid: number;
   total_interest_paid: number;

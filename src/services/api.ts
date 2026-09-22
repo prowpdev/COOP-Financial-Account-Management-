@@ -623,7 +623,41 @@ getMemberReport: async (memberId: string) => {
       body: JSON.stringify(params)
     }),
   applyLoan: (params: any) =>
-    fetchApi<{ success: boolean; data: any; schedule: any[]; accounting_posting: any }>('/loans/apply', {
+    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any }>('/loans/apply', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  getLoanApplications: async (params?: { branchId?: string; status?: string; memberId?: string }) => {
+    try {
+      const queryParts: string[] = [];
+      if (params?.branchId && params.branchId !== 'all') queryParts.push(`branchId=${encodeURIComponent(params.branchId)}`);
+      if (params?.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
+      if (params?.memberId) queryParts.push(`memberId=${encodeURIComponent(params.memberId)}`);
+      const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+      const res = await fetchApi<{ success: boolean; data: any[] }>(`/loans/applications${qs}`);
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getLoanApplications fallback:', err);
+      return { success: false, data: [] };
+    }
+  },
+  applyLoanApplication: (params: any) =>
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/apply', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  approveLoanApplication: (params: { application_id: string; approved_amount: number; approved_by?: string; reviewed_by?: string; reviewed_date?: string; remarks?: string }) =>
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/applications/approve', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  rejectLoanApplication: (params: { application_id: string; reviewed_by?: string; remarks?: string }) =>
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/applications/reject', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  originateApprovedLoan: (params: { application_id: string; cash_account_id: string; disbursement_date?: string; first_due_date?: string; performed_by?: string }) =>
+    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any; message?: string }>('/loans/originate', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
@@ -633,6 +667,20 @@ getMemberReport: async (memberId: string) => {
     fetchApi<{ success: boolean; data: any[] }>(`/loans/${loanId}/schedule`),
   repayLoan: (loanId: string, params: any) =>
     fetchApi<{ success: boolean; payment: any; allocation: any; loan_updated: any; journal_entry: any }>(`/loans/${loanId}/repay`, {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+  getAuditLogs: async () => {
+    try {
+      const res = await fetchApi<{ success: boolean; data: any[] }>('/audit-logs');
+      return { ...res, data: safeArray(res) };
+    } catch (err) {
+      console.warn('[API] getAuditLogs fallback:', err);
+      return { success: false, data: [] };
+    }
+  },
+  recordAuditLog: (params: { setting: string; old_value?: any; new_value?: any; changed_by?: string; reason?: string }) =>
+    fetchApi<{ success: boolean; data: any }>('/audit-logs', {
       method: 'POST',
       body: JSON.stringify(params)
     }),

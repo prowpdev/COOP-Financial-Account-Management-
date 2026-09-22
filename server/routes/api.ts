@@ -1562,6 +1562,266 @@ router.post('/loans/calculate-schedule', (req: Request, res: Response) => {
   res.json({ success: true, data: result });
 });
 
+// Get all loan applications
+router.get(['/loans/applications', '/loan-applications'], (req: Request, res: Response) => {
+  const { branchId, status, memberId } = req.query;
+  const applications = db.getTable('loan_applications') || [];
+  const members = db.getTable('members') || [];
+  const products = db.getTable('loan_products') || [];
+  const branches = db.getTable('branches') || [];
+
+  let filtered = [...applications];
+  if (branchId && branchId !== 'all') {
+    filtered = filtered.filter(a => a.branch_id === branchId);
+  }
+  if (status && status !== 'all') {
+    filtered = filtered.filter(a => String(a.status).toLowerCase() === String(status).toLowerCase());
+  }
+  if (memberId) {
+    filtered = filtered.filter(a => a.member_id === memberId);
+  }
+
+  const enriched = filtered.map(app => {
+    const mem = members.find(m => m.id === app.member_id);
+    const prod = products.find(p => p.id === app.loan_product_id);
+    const br = branches.find(b => b.id === app.branch_id);
+    return {
+      ...app,
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      member_no: mem ? mem.member_no : '',
+      loan_product_name: prod ? prod.name : 'Credit Facility',
+      product_name: prod ? prod.name : 'Credit Facility',
+      loan_product_code: prod ? prod.code : '',
+      branch_name: br ? br.name : 'Main Branch'
+    };
+  });
+
+  res.json({ success: true, data: enriched });
+});
+
+// Create/Submit new loan application (Pending status, does not disburse)
+const handleCreateLoanApplication = (req: Request, res: Response) => {
+  const {
+    member_id,
+    loan_product_id,
+    principal_amount,
+    applied_amount,
+    term_months,
+    branch_id,
+    purpose,
+    performed_by
+  } = req.body;
+
+  const principal = Number(applied_amount ?? principal_amount);
+  if (!member_id) {
+    return res.status(400).json({ success: false, error: 'Borrower (member_id) is required.' });
+  }
+  if (!loan_product_id) {
+    return res.status(400).json({ success: false, error: 'Loan product (loan_product_id) is required.' });
+  }
+  if (!principal || isNaN(principal) || principal <= 0) {
+    return res.status(400).json({ success: false, error: 'Valid principal/applied amount is required.' });
+  }
+
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === member_id);
+  if (!member) {
+    return res.status(404).json({ success: false, error: 'Borrower not found in cooperative member registry.' });
+  }
+
+  const products = db.getTable('loan_products') || [];
+  const product = products.find(p => p.id === loan_product_id);
+  if (!product) {
+    return res.status(404).json({ success: false, error: 'Loan product not found.' });
+  }
+
+  if (product.min_amount && principal < product.min_amount) {
+    return res.status(400).json({
+      success: false,
+      error: `Principal amount (₱${principal.toLocaleString()}) cannot be less than minimum ₱${product.min_amount.toLocaleString()} for ${product.name}.`
+    });
+  }
+  if (product.max_amount && principal > product.max_amount) {
+    return res.status(400).json({
+      success: false,
+      error: `Principal amount (₱${principal.toLocaleString()}) cannot exceed maximum ₱${product.max_amount.toLocaleString()} for ${product.name}.`
+    });
+  }
+
+  const branches = db.getTable('branches') || [];
+  const branch = branches.find(b => b.id === (branch_id || member.branch_id)) || branches[0];
+  const term = Number(term_months || product.default_term_months || 12);
+  const today = new Date().toISOString().split('T')[0];
+  const appNo = NumberingService.getNextNumber('APP', branch ? branch.code : 'TAR');
+  const appId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+  const newApp = {
+    id: appId,
+    application_no: appNo,
+    member_id,
+    loan_product_id,
+    branch_id: branch ? branch.id : 'branch_tar',
+    applied_amount: principal,
+    term_months: term,
+    purpose: purpose || 'Cooperative Credit Facility Application',
+    status: 'Pending',
+    submitted_date: today,
+    reviewed_by: null,
+    reviewed_date: null,
+    approved_amount: null,
+    remarks: null,
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('loan_applications', newApp);
+
+  db.recordAudit(
+    `Loan Application Submitted: ${appNo}`,
+    'None',
+    `₱${principal.toLocaleString()} (${product.name})`,
+    performed_by || `${member.first_name} ${member.last_name}`,
+    purpose || 'New loan application submitted for credit review'
+  );
+
+  const enriched = {
+    ...newApp,
+    member_name: `${member.first_name} ${member.last_name}`,
+    member_no: member.member_no,
+    loan_product_name: product.name,
+    product_name: product.name,
+    loan_product_code: product.code,
+    branch_name: branch ? branch.name : 'Main Branch'
+  };
+
+  res.status(201).json({
+    success: true,
+    data: enriched,
+    message: `Loan application ${appNo} submitted successfully.`
+  });
+};
+
+router.post('/loans/apply', handleCreateLoanApplication);
+router.post('/loans/applications', handleCreateLoanApplication);
+
+// Approve Loan Application
+const handleApproveLoanApplication = (req: Request, res: Response) => {
+  const applicationId = req.body.application_id || req.params.id;
+  const { approved_amount, approved_by, reviewed_by, reviewed_date, remarks, performed_by } = req.body;
+
+  if (!applicationId) {
+    return res.status(400).json({ success: false, error: 'Application ID is required.' });
+  }
+
+  const applications = db.getTable('loan_applications') || [];
+  const app = applications.find(a => a.id === applicationId || a.application_no === applicationId);
+
+  if (!app) {
+    return res.status(404).json({ success: false, error: 'Loan application not found.' });
+  }
+
+  if (app.status !== 'Pending' && app.status !== 'Submitted' && app.status !== 'Draft') {
+    return res.status(400).json({
+      success: false,
+      error: `Only pending applications can be approved. Current status is ${app.status}.`
+    });
+  }
+
+  const approvedAmt = Number(approved_amount !== undefined ? approved_amount : app.applied_amount);
+  if (!approvedAmt || isNaN(approvedAmt) || approvedAmt <= 0) {
+    return res.status(400).json({ success: false, error: 'Approved amount must be a positive number greater than zero.' });
+  }
+
+  const reviewer = approved_by || reviewed_by || performed_by || 'Credit Committee';
+  const reviewDate = reviewed_date || new Date().toISOString().split('T')[0];
+
+  app.status = 'Approved';
+  app.approved_amount = approvedAmt;
+  app.reviewed_by = reviewer;
+  app.reviewed_date = reviewDate;
+  if (remarks !== undefined) app.remarks = remarks;
+
+  db.save();
+
+  db.recordAudit(
+    `Loan Application Approved: ${app.application_no}`,
+    `Pending (₱${Number(app.applied_amount).toLocaleString()})`,
+    `Approved (₱${approvedAmt.toLocaleString()})`,
+    reviewer,
+    remarks || 'Approved by Credit Committee for origination/disbursement'
+  );
+
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === app.member_id);
+  const products = db.getTable('loan_products') || [];
+  const product = products.find(p => p.id === app.loan_product_id);
+  const branches = db.getTable('branches') || [];
+  const branch = branches.find(b => b.id === app.branch_id);
+
+  const enriched = {
+    ...app,
+    member_name: member ? `${member.first_name} ${member.last_name}` : 'Unknown Member',
+    member_no: member ? member.member_no : '',
+    loan_product_name: product ? product.name : 'Credit Facility',
+    product_name: product ? product.name : 'Credit Facility',
+    loan_product_code: product ? product.code : '',
+    branch_name: branch ? branch.name : 'Main Branch'
+  };
+
+  res.json({
+    success: true,
+    data: enriched,
+    message: `Loan application ${app.application_no} approved for ₱${approvedAmt.toLocaleString()}.`
+  });
+};
+
+router.post('/loans/applications/approve', handleApproveLoanApplication);
+router.post('/loans/applications/:id/approve', handleApproveLoanApplication);
+
+// Reject Loan Application
+const handleRejectLoanApplication = (req: Request, res: Response) => {
+  const applicationId = req.body.application_id || req.params.id;
+  const { reviewed_by, performed_by, remarks } = req.body;
+
+  if (!applicationId) {
+    return res.status(400).json({ success: false, error: 'Application ID is required.' });
+  }
+
+  const applications = db.getTable('loan_applications') || [];
+  const app = applications.find(a => a.id === applicationId || a.application_no === applicationId);
+
+  if (!app) {
+    return res.status(404).json({ success: false, error: 'Loan application not found.' });
+  }
+
+  const reviewer = reviewed_by || performed_by || 'Credit Committee';
+  const today = new Date().toISOString().split('T')[0];
+
+  const prevStatus = app.status;
+  app.status = 'Rejected';
+  app.reviewed_by = reviewer;
+  app.reviewed_date = today;
+  if (remarks) app.remarks = remarks;
+
+  db.save();
+
+  db.recordAudit(
+    `Loan Application Rejected: ${app.application_no}`,
+    prevStatus,
+    'Rejected',
+    reviewer,
+    remarks || 'Credit application declined by committee review'
+  );
+
+  res.json({
+    success: true,
+    data: app,
+    message: `Loan application ${app.application_no} rejected.`
+  });
+};
+
+router.post('/loans/applications/reject', handleRejectLoanApplication);
+router.post('/loans/applications/:id/reject', handleRejectLoanApplication);
+
 // Get all loans
 router.get('/loans', (req: Request, res: Response) => {
   const loans = db.getTable('loans');
@@ -1587,7 +1847,8 @@ router.get('/loans', (req: Request, res: Response) => {
 
 // Originate / Apply for new loan handler
 const handleLoanOriginate = (req: Request, res: Response) => {
-  const {
+  let {
+    application_id,
     member_id,
     loan_product_id,
     principal_amount,
@@ -1598,6 +1859,35 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     disbursement_date,
     notes
   } = req.body;
+
+  let loanApp: any = null;
+  if (application_id) {
+    const apps = db.getTable('loan_applications') || [];
+    loanApp = apps.find(a => a.id === application_id || a.application_no === application_id);
+    if (!loanApp) {
+      return res.status(404).json({ success: false, error: 'Loan application not found.' });
+    }
+    if (loanApp.status !== 'Approved') {
+      return res.status(400).json({
+        success: false,
+        error: `Only approved loan applications can be disbursed. Current status: ${loanApp.status}`
+      });
+    }
+    // Prevent double disbursement
+    const existingLoans = db.getTable('loans') || [];
+    const alreadyDisbursed = existingLoans.find(l => (l as any).application_id === loanApp.id);
+    if (alreadyDisbursed) {
+      return res.status(400).json({
+        success: false,
+        error: `This loan application (${loanApp.application_no}) has already been disbursed into active credit.`
+      });
+    }
+    member_id = loanApp.member_id;
+    loan_product_id = loanApp.loan_product_id;
+    principal_amount = loanApp.approved_amount || loanApp.applied_amount;
+    term_months = loanApp.term_months;
+    branch_id = loanApp.branch_id;
+  }
 
   // 1. Validate Member
   if (!member_id) {
@@ -1715,6 +2005,7 @@ const handleLoanOriginate = (req: Request, res: Response) => {
   const newLoan = {
     id: loanId,
     loan_account_no: loanNo,
+    application_id: loanApp ? loanApp.id : undefined,
     member_id: member.id,
     loan_product_id: product.id,
     product_version: product.version || 1,
@@ -1737,12 +2028,34 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     total_interest_paid: 0,
     total_penalty_paid: 0,
     total_fees_paid: totalFees,
-    approved_by: `${requiredRole} (${performed_by || 'System'})`,
-    approved_date: today,
-    notes: notes || undefined
+    approved_by: loanApp?.reviewed_by || `${requiredRole} (${performed_by || 'System'})`,
+    approved_date: loanApp?.reviewed_date || today,
+    notes: notes || loanApp?.purpose || undefined
   };
 
   db.insert('loans', newLoan);
+
+  // Mark application as Released if originating from application
+  if (loanApp) {
+    loanApp.status = 'Released';
+    db.save();
+
+    db.recordAudit(
+      `Loan Originated & Disbursed: ${loanNo}`,
+      `Application ${loanApp.application_no} (Approved ₱${principal.toLocaleString()})`,
+      `Active Credit Facility #${loanNo}`,
+      performed_by || 'Disbursement Officer',
+      `Funds disbursed from ${selectedCashId}. Amortization schedule initialized and General Ledger voucher posted.`
+    );
+  } else {
+    db.recordAudit(
+      `Loan Originated (Direct): ${loanNo}`,
+      'None',
+      `Active Credit #${loanNo} (₱${principal.toLocaleString()})`,
+      performed_by || 'Loan Officer',
+      `Direct origination for ${member.first_name} ${member.last_name}`
+    );
+  }
 
   // Store amortization schedule
   for (const item of schedResult.schedule) {
@@ -1776,12 +2089,12 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     success: true,
     data: enrichedLoan,
     schedule: schedResult.schedule,
-    accounting_posting: postResult
+    accounting_posting: postResult,
+    message: `Loan ${loanNo} originated and disbursed successfully!`
   });
 };
 
 router.post('/loans/originate', handleLoanOriginate);
-router.post('/loans/apply', handleLoanOriginate);
 router.post('/loans', handleLoanOriginate);
 
 // Get single loan by ID with schedule and member details
@@ -4996,6 +5309,37 @@ router.post('/system/run-verification-tests', (req: Request, res: Response) => {
     passed_count: results.filter(r => r.passed).length,
     all_passed: results.every(r => r.passed),
     results
+  });
+});
+
+// System Audit Logs & Regulatory Compliance Trail (CDA compliance)
+router.get(['/audit-logs', '/configuration_audit_trails', '/compliance/audit-logs'], (req: Request, res: Response) => {
+  const auditLogs = db.getTable('configuration_audit_trails') || [];
+  // Sort newest first
+  const sorted = [...auditLogs].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  res.json({
+    success: true,
+    data: sorted,
+    total: sorted.length
+  });
+});
+
+router.post(['/audit-logs', '/configuration_audit_trails'], (req: Request, res: Response) => {
+  const { setting, old_value, new_value, changed_by, reason } = req.body;
+  if (!setting) {
+    return res.status(400).json({ success: false, error: 'Setting/action description is required.' });
+  }
+  const record = db.recordAudit(
+    setting,
+    old_value || 'None',
+    new_value || 'None',
+    changed_by || 'Administrator',
+    reason || 'Manual compliance audit entry'
+  );
+  res.status(201).json({
+    success: true,
+    data: record,
+    message: 'Audit log record committed successfully.'
   });
 });
 

@@ -10,6 +10,7 @@ import { SavingsModule } from './components/operations/SavingsModule';
 import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
 import { AccountingModule } from './components/operations/AccountingModule';
 import { FinancialReportsView } from './components/reports/FinancialReportsView';
+import { AuditLogsView } from './components/compliance/AuditLogsView';
 import { FlexibilityTestSuite } from './components/verification/FlexibilityTestSuite';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthPortal } from './components/auth/AuthPortal';
@@ -416,6 +417,13 @@ export default function App() {
               selectedBranchId={selectedBranchId}
               branches={branches}
               onSelectBranch={setSelectedBranchId}
+            />
+          )}
+
+          {activeTab === 'audit_logs' && (
+            <AuditLogsView
+              currentUser={currentUser}
+              branches={branches}
             />
           )}
 

@@ -14,9 +14,11 @@ import {
   RefreshCw,
   Eye,
   FileText,
-  Pencil
+  Pencil,
+  Layers
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
+import { LoanApplicationsView } from './LoanApplicationsView';
 import { api } from '../../services/api';
 import { Branch, CashAccount, Loan, LoanProduct, Member, User } from '../../types';
 
@@ -52,6 +54,10 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Sub-tab Navigation (Active Loans vs Loan Applications)
+  const [loansSubTab, setLoansSubTab] = useState<'active' | 'applications'>('active');
+  const [pendingAppsCount, setPendingAppsCount] = useState<number>(0);
 
   const [editLoan, setEditLoan] = useState(null)
 
@@ -199,11 +205,17 @@ const handleRepayBtn = async (
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [lRes, mRes] = await Promise.all([api.getLoans(), api.getMembers()]);
+      const [lRes, mRes, aRes] = await Promise.all([
+        api.getLoans(),
+        api.getMembers(),
+        api.getLoanApplications({ status: 'Pending' })
+      ]);
       const safeLoans = Array.isArray(lRes.data) ? lRes.data : [];
       const safeMembers = Array.isArray(mRes.data) ? mRes.data : [];
+      const pendingApps = Array.isArray(aRes.data) ? aRes.data : [];
       setLoans(safeLoans);
       setMembers(safeMembers);
+      setPendingAppsCount(pendingApps.length);
     } catch (err) {
       console.error(err);
       setLoans([]);
@@ -437,6 +449,26 @@ const handleRepayBtn = async (
     console.error('Error updating loan:', error);
   }
 };
+
+  const handleUpdateLoanStatus = async (e: React.MouseEvent, row: Loan, newStatus: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.updateLoan(Number(row.id) || (row.id as any), { status: newStatus });
+      setNotice(`Loan ${row.loan_account_no} status updated to ${newStatus}`);
+      setTimeout(() => setNotice(null), 5000);
+      await loadData();
+    } catch (error) {
+      console.error('Error updating loan status:', error);
+    }
+  };
+
+  const handleSubmitLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Submitted');
+  const handleReviewLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Under Review');
+  const handleApproveLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Approved');
+  const handleRejectLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Rejected');
+  const handleReleaseLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Released');
+  const handleActivateLoan = (e: React.MouseEvent, row: Loan) => handleUpdateLoanStatus(e, row, 'Active');
   const handleEditLoan = async (event,row) => {
   setEditLoan(row)
   setupdateLoanForm(
@@ -797,7 +829,65 @@ const handleRepayBtn = async (
         </div>
       )}
 
-      {/* Origination Wizard Modal */}
+      {/* Sub-navigation tabs: Active Loans vs Loan Applications */}
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
+        <button
+          id="tab-active-loans"
+          onClick={() => setLoansSubTab('active')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            loansSubTab === 'active'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>Active Loans Portfolio</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+            loansSubTab === 'active' ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-400'
+          }`}>
+            {filteredLoans.length}
+          </span>
+        </button>
+
+        <button
+          id="tab-loan-applications"
+          onClick={() => setLoansSubTab('applications')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            loansSubTab === 'applications'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Loan Applications & Approval Workflow</span>
+          {pendingAppsCount > 0 ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-slate-950 font-extrabold animate-pulse">
+              {pendingAppsCount} PENDING
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400">
+              0
+            </span>
+          )}
+        </button>
+      </div>
+
+      {loansSubTab === 'applications' ? (
+        <LoanApplicationsView
+          branches={branches}
+          loanProducts={loanProducts}
+          cashAccounts={cashAccounts}
+          currentUser={currentUser}
+          selectedBranchId={selectedBranch}
+          onSelectBranch={handleBranchChange}
+          onLoanOriginated={() => {
+            loadData();
+          }}
+          onSwitchToActiveLoans={() => setLoansSubTab('active')}
+        />
+      ) : (
+        <>
+          {/* Origination Wizard Modal */}
      {isOriginating && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 max-h-[92vh] overflow-y-auto space-y-4">
@@ -1548,6 +1638,8 @@ const handleRepayBtn = async (
         columns={loanCols}
         defaultSortKey="loan_account_no"
       />
+        </>
+      )}
     </div>
   );
 };

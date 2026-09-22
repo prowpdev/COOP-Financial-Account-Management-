@@ -128,6 +128,142 @@ try {
       ];
       db.save();
     }
+
+    // Initialize sample loan_applications if empty
+    if (!currentData.loan_applications || currentData.loan_applications.length === 0) {
+      currentData.loan_applications = [
+        {
+          id: 'app_seed_01',
+          application_no: 'APP-2026-0001',
+          member_id: 'mem_02',
+          loan_product_id: 'lp_regular',
+          branch_id: 'branch_tar',
+          applied_amount: 25000,
+          term_months: 12,
+          purpose: 'Working capital and seasonal corn fertilizer procurement',
+          status: 'Pending',
+          submitted_date: '2026-02-18',
+          reviewed_by: null,
+          reviewed_date: null,
+          approved_amount: null,
+          remarks: null,
+          created_at: '2026-02-18T08:30:00.000Z'
+        },
+        {
+          id: 'app_seed_02',
+          application_no: 'APP-2026-0002',
+          member_id: 'mem_03',
+          loan_product_id: 'lp_agri',
+          branch_id: 'branch_tar',
+          applied_amount: 50000,
+          term_months: 12,
+          purpose: 'Solar drip irrigation system expansion',
+          status: 'Approved',
+          submitted_date: '2026-02-15',
+          reviewed_by: 'Credit Committee (Maria Ramos)',
+          reviewed_date: '2026-02-17',
+          approved_amount: 50000,
+          remarks: 'Approved by Credit Committee subject to standard CBU pledge verification',
+          created_at: '2026-02-15T10:15:00.000Z'
+        },
+        {
+          id: 'app_seed_03',
+          application_no: 'APP-2026-0003',
+          member_id: 'mem_04',
+          loan_product_id: 'lp_emergency',
+          branch_id: 'branch_vic',
+          applied_amount: 15000,
+          term_months: 6,
+          purpose: 'Emergency medical assistance and hospital medication',
+          status: 'Pending',
+          submitted_date: '2026-02-19',
+          reviewed_by: null,
+          reviewed_date: null,
+          approved_amount: null,
+          remarks: null,
+          created_at: '2026-02-19T09:00:00.000Z'
+        },
+        {
+          id: 'app_seed_04',
+          application_no: 'APP-2026-0004',
+          member_id: 'mem_01',
+          loan_product_id: 'lp_regular',
+          branch_id: 'branch_tar',
+          applied_amount: 30000,
+          term_months: 12,
+          purpose: 'Cooperative store merchandise restocking',
+          status: 'Released',
+          submitted_date: '2026-01-10',
+          reviewed_by: 'Administrator',
+          reviewed_date: '2026-01-12',
+          approved_amount: 30000,
+          remarks: 'Disbursed into active loan LN-2026-0001',
+          created_at: '2026-01-10T14:20:00.000Z'
+        }
+      ];
+      db.save();
+    }
+
+    // Seed baseline compliance audit trails if empty
+    if (!currentData.configuration_audit_trails || currentData.configuration_audit_trails.length === 0) {
+      currentData.configuration_audit_trails = [
+        {
+          id: 'audit_01',
+          setting: 'System Setup & Multi-Branch Topology',
+          old_value: 'Unconfigured',
+          new_value: 'Multi-Branch Active (Tarlac Main & Victoria Branch)',
+          changed_by: 'System Administrator',
+          created_at: '2026-01-01T08:00:00.000Z',
+          reason: 'Initial setup of cooperative organizational hierarchy per CDA Charter'
+        },
+        {
+          id: 'audit_02',
+          setting: 'Chart of Accounts (CDA Standard)',
+          old_value: 'Empty GL',
+          new_value: 'Standard CDA Chart of Accounts (Assets, Liabilities, Equity, Revenue, Expenses)',
+          changed_by: 'Chief Accountant',
+          created_at: '2026-01-01T08:30:00.000Z',
+          reason: 'Loaded standard CDA compliant account codes and statutory reserve ledgers'
+        },
+        {
+          id: 'audit_03',
+          setting: 'Share Capital Policy (CBU)',
+          old_value: 'None',
+          new_value: 'Par Value: ₱100.00/share, Min Subscription: 100 shares, Min Paid-Up: 25 shares',
+          changed_by: 'Board of Directors',
+          created_at: '2026-01-02T10:00:00.000Z',
+          reason: 'Ratified Share Capital rules under RA 9520 regulations'
+        },
+        {
+          id: 'audit_04',
+          setting: 'Loan Product: Regular Multi-Purpose',
+          old_value: 'Draft',
+          new_value: '12.0% APR Diminishing Balance, 2.0% Processing Fee',
+          changed_by: 'Credit Committee',
+          created_at: '2026-01-03T11:00:00.000Z',
+          reason: 'Established lending parameters and automatic amortization schedules'
+        },
+        {
+          id: 'audit_05',
+          setting: 'Cash Vault Float Allocation',
+          old_value: '₱0.00',
+          new_value: '₱500,000.00 Main Vault Float',
+          changed_by: 'Treasurer',
+          created_at: '2026-01-03T14:00:00.000Z',
+          reason: 'Approved initial cash drawer reserve for disbursements and branch teller operations'
+        },
+        {
+          id: 'audit_06',
+          setting: 'Loan Application Approved: APP-2026-0002',
+          old_value: 'Pending (₱50,000)',
+          new_value: 'Approved (₱50,000)',
+          changed_by: 'Credit Committee (Maria Ramos)',
+          created_at: '2026-02-17T11:20:00.000Z',
+          reason: 'Approved for Pedro Reyes for solar drip irrigation pump installation'
+        }
+      ];
+      db.save();
+    }
   }
 } catch (dbErr) {
   console.error('[server] Error during database initialization:', dbErr);
