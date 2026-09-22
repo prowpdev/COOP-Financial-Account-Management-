@@ -2,7 +2,7 @@
   "cooperatives": [
     {
       "id": "coop_01",
-      "name": "Mayap Care Agriculture Coop.",
+      "name": "Multipurpose Cooperative System",
       "registration_no": "CDA-REG-9502-100234",
       "tax_identification_number": "005-891-234-000",
       "address": "Poblacion Plaza, Tarlac City, Philippines",
@@ -53,7 +53,7 @@
   "system_settings": [
     {
       "key": "cooperative_name",
-      "value": "Mayap Care Agriculture Coop.",
+      "value": "Multipurpose Cooperative System.",
       "category": "Cooperative"
     },
     {
@@ -998,7 +998,7 @@
       "prefix": "JV",
       "pattern": "{BRANCH}-JV-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 46
+      "current_seq": 42
     },
     {
       "id": "num_cd",
@@ -1202,7 +1202,7 @@
   "members": [
     {
       "id": "mem_sample_01",
-      "member_no": "MB-2026-0001",
+      "member_no": "MEM-2026-0001",
       "branch_id": "branch_tar",
       "branch_name": "Tarlac Main Branch",
       "member_type_id": "mt_regular",
@@ -1411,35 +1411,7 @@
     }
   ],
   "share_capital_accounts": [],
-  "share_capital_transactions": [
-    {
-      "id": "sct_1789988975643_8hn8i",
-      "share_account_id": "sca_mem_000002",
-      "transaction_type": "PAYMENT",
-      "amount": 1000,
-      "receipt_no": "SFE-JV-2026-000044",
-      "transaction_date": "2026-09-21",
-      "notes": "Manual JV (SFE-JV-2026-000044): Maria Santos paid membership and share capital"
-    },
-    {
-      "id": "sct_1789989007341_msra3",
-      "share_account_id": "sca_mem_000003",
-      "transaction_type": "PAYMENT",
-      "amount": 1000,
-      "receipt_no": "SFE-JV-2026-000045",
-      "transaction_date": "2026-09-21",
-      "notes": "Manual JV (SFE-JV-2026-000045): Pedro Reyes paid membership and share capital"
-    },
-    {
-      "id": "sct_1789989282577_ywa16",
-      "share_account_id": "sca_mem_000002",
-      "transaction_type": "PAYMENT",
-      "amount": 1000,
-      "receipt_no": "SFE-JV-2026-000046",
-      "transaction_date": "2026-09-21",
-      "notes": "Manual JV (SFE-JV-2026-000046): Maria Santos paid membership and share capital"
-    }
-  ],
+  "share_capital_transactions": [],
   "cash_accounts": [
     {
       "id": "cash_01",
@@ -1878,177 +1850,8 @@
       "active": true
     }
   ],
-  "journal_entries": [
-    {
-      "id": "jv_1789988928080",
-      "voucher_number": "SFE-JV-2026-000043",
-      "branch_id": "branch_sfe",
-      "posting_date": "2026-09-21",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "mem_000002",
-      "member_id": "mem_000002",
-      "member_name": null,
-      "description": "Maria Santos paid membership and share capital",
-      "total_debit": 1500,
-      "total_credit": 1500,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Chief Accountant",
-      "posted_at": "2026-09-21T11:08:48.080Z"
-    },
-    {
-      "id": "jv_1789988975626",
-      "voucher_number": "SFE-JV-2026-000044",
-      "branch_id": "branch_sfe",
-      "posting_date": "2026-09-21",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "mem_000002",
-      "member_id": "mem_000002",
-      "member_name": null,
-      "description": "Maria Santos paid membership and share capital",
-      "total_debit": 1500,
-      "total_credit": 1500,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Chief Accountant",
-      "posted_at": "2026-09-21T11:09:35.626Z"
-    },
-    {
-      "id": "jv_1789989007322",
-      "voucher_number": "SFE-JV-2026-000045",
-      "branch_id": "branch_sfe",
-      "posting_date": "2026-09-21",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "mem_000003",
-      "member_id": "mem_000003",
-      "member_name": null,
-      "description": "Pedro Reyes paid membership and share capital",
-      "total_debit": 1500,
-      "total_credit": 1500,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Chief Accountant",
-      "posted_at": "2026-09-21T11:10:07.322Z"
-    },
-    {
-      "id": "jv_1789989282566",
-      "voucher_number": "SFE-JV-2026-000046",
-      "branch_id": "branch_sfe",
-      "posting_date": "2026-09-21",
-      "reference_type": "MANUAL_JOURNAL",
-      "reference_id": "mem_000002",
-      "member_id": "mem_000002",
-      "member_name": null,
-      "description": "Maria Santos paid membership and share capital",
-      "total_debit": 1500,
-      "total_credit": 1500,
-      "period_id": "period_current",
-      "status": "Posted",
-      "created_by": "Chief Accountant",
-      "posted_at": "2026-09-21T11:14:42.566Z"
-    }
-  ],
-  "journal_lines": [
-    {
-      "id": "jl_1789988928085_4u1ib",
-      "journal_entry_id": "jv_1789988928080",
-      "account_id": "acc_5110",
-      "debit": 1500,
-      "credit": 0,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    },
-    {
-      "id": "jl_1789988928090_2b87m",
-      "journal_entry_id": "jv_1789988928080",
-      "account_id": "acc_1110",
-      "debit": 0,
-      "credit": 1500,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    },
-    {
-      "id": "jl_1789988975628_fikzd",
-      "journal_entry_id": "jv_1789988975626",
-      "account_id": "acc_1110",
-      "debit": 1500,
-      "credit": 0,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
-    },
-    {
-      "id": "jl_1789988975632_6udis",
-      "journal_entry_id": "jv_1789988975626",
-      "account_id": "acc_4210",
-      "debit": 0,
-      "credit": 500,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    },
-    {
-      "id": "jl_1789988975639_t2d4t",
-      "journal_entry_id": "jv_1789988975626",
-      "account_id": "acc_3110",
-      "debit": 0,
-      "credit": 1000,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    },
-    {
-      "id": "jl_1789989007325_mq2gn",
-      "journal_entry_id": "jv_1789989007322",
-      "account_id": "acc_1110",
-      "debit": 1500,
-      "credit": 0,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
-    },
-    {
-      "id": "jl_1789989007328_e5hgx",
-      "journal_entry_id": "jv_1789989007322",
-      "account_id": "acc_4210",
-      "debit": 0,
-      "credit": 500,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000003"
-    },
-    {
-      "id": "jl_1789989007332_41fcx",
-      "journal_entry_id": "jv_1789989007322",
-      "account_id": "acc_3110",
-      "debit": 0,
-      "credit": 1000,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000003"
-    },
-    {
-      "id": "jl_1789989282568_mi8qz",
-      "journal_entry_id": "jv_1789989282566",
-      "account_id": "acc_1110",
-      "debit": 1500,
-      "credit": 0,
-      "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
-    },
-    {
-      "id": "jl_1789989282571_q7f1d",
-      "journal_entry_id": "jv_1789989282566",
-      "account_id": "acc_4210",
-      "debit": 0,
-      "credit": 500,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    },
-    {
-      "id": "jl_1789989282574_08gue",
-      "journal_entry_id": "jv_1789989282566",
-      "account_id": "acc_3110",
-      "debit": 0,
-      "credit": 1000,
-      "subsidiary_type": "Member",
-      "subsidiary_id": "mem_000002"
-    }
-  ],
+  "journal_entries": [],
+  "journal_lines": [],
   "general_ledger": [],
   "configuration_audit_trails": [],
   "user_roles": [
@@ -2150,7 +1953,7 @@
       "role_id": "role_admin",
       "role_name": "System Administrator",
       "branch_id": "branch_tar",
-      "last_login": "2026-09-22T02:52:02.862Z"
+      "last_login": "2026-09-22T11:49:40.583Z"
     },
     {
       "id": "usr_manager",
@@ -2183,6 +1986,19 @@
       "role_id": "role_cashier",
       "role_name": "Cashier / Teller",
       "branch_id": "branch_tar"
+    },
+    {
+      "id": "usr_1790075837467_grza",
+      "username": "admin01",
+      "password_hash": "admin01",
+      "raw_password": "admin01",
+      "full_name": "Jhomel Ignacio",
+      "email": "jhomignacio08@gmail.com",
+      "role_id": "role_admin",
+      "branch_id": "branch_tar",
+      "active": true,
+      "last_login": "2026-09-22T11:17:17.467Z",
+      "created_at": "2026-09-22T11:17:17.468Z"
     }
   ]
 }

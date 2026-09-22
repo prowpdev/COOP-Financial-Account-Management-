@@ -212,10 +212,13 @@ const handleRepayBtn = async (
       ]);
       const safeLoans = Array.isArray(lRes.data) ? lRes.data : [];
       const safeMembers = Array.isArray(mRes.data) ? mRes.data : [];
-      const pendingApps = Array.isArray(aRes.data) ? aRes.data : [];
+      const applications = Array.isArray(aRes.data) ? aRes.data : [];
       setLoans(safeLoans);
       setMembers(safeMembers);
-      setPendingAppsCount(pendingApps.length);
+      const pendingApps = applications.filter(
+        app => app.status === 'Pending'
+      ).length;
+      setPendingAppsCount(pendingApps);
     } catch (err) {
       console.error(err);
       setLoans([]);

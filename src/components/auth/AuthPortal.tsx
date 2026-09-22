@@ -44,8 +44,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [memberTypes, setMemberTypes] = useState<any[]>([]);
 
   // Staff Login fields
-  const [staffIdentifier, setStaffIdentifier] = useState('admin');
-  const [staffPassword, setStaffPassword] = useState('Admin@123456');
+  const [staffIdentifier, setStaffIdentifier] = useState('admin01');
+  const [staffPassword, setStaffPassword] = useState('admin01');
 
   // Staff Register fields
   const [staffFullName, setStaffFullName] = useState('');
@@ -451,7 +451,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         Password
                       </label>
                       <span className="text-[11px] text-slate-500">
-                        Demo: <code className="text-emerald-400 font-mono">Admin@123456</code>
+                        Demo: <code className="text-emerald-400 font-mono">admin01</code>
                       </span>
                     </div>
                     <div className="relative">

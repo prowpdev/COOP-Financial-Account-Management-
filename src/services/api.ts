@@ -618,46 +618,70 @@ getMemberReport: async (memberId: string) => {
     };
   },
   originateLoan: (params: any) =>
-    fetchApi<{ success: boolean; data: any; schedule: any[]; accounting_posting: any }>('/loans/originate', {
+    fetchApi<{ success: boolean; data: any; schedule: any[]; accounting_posting: any }>('/loan/originate', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
   applyLoan: (params: any) =>
-    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any }>('/loans/apply', {
+    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any }>('/loan/apply', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
-  getLoanApplications: async (params?: { branchId?: string; status?: string; memberId?: string }) => {
-    try {
-      const queryParts: string[] = [];
-      if (params?.branchId && params.branchId !== 'all') queryParts.push(`branchId=${encodeURIComponent(params.branchId)}`);
-      if (params?.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
-      if (params?.memberId) queryParts.push(`memberId=${encodeURIComponent(params.memberId)}`);
-      const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
-      const res = await fetchApi<{ success: boolean; data: any[] }>(`/loans/applications${qs}`);
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getLoanApplications fallback:', err);
-      return { success: false, data: [] };
-    }
-  },
+getLoanApplications: async (params?: {
+  branchId?: string;
+  status?: string;
+  memberId?: string;
+}) => {
+  try {
+    const payload = {
+      branch_id: params?.branchId && params.branchId !== 'all'
+        ? params.branchId
+        : undefined,
+
+      status: params?.status && params.status !== 'all'
+        ? params.status
+        : undefined,
+
+      member_id: params?.memberId || undefined,
+    };
+
+    const res = await fetchApi<{ success: boolean; data: any[] }>(
+      '/loan/applications',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+
+    return {
+      ...res,
+      data: safeArray(res),
+    };
+  } catch (err) {
+    console.warn('[API] getLoanApplications fallback:', err);
+    return {
+      success: false,
+      data: [],
+    };
+  }
+},
   applyLoanApplication: (params: any) =>
-    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/apply', {
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loan/apply', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
   approveLoanApplication: (params: { application_id: string; approved_amount: number; approved_by?: string; reviewed_by?: string; reviewed_date?: string; remarks?: string }) =>
-    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/applications/approve', {
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loan/applications/approve', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
   rejectLoanApplication: (params: { application_id: string; reviewed_by?: string; remarks?: string }) =>
-    fetchApi<{ success: boolean; data: any; message?: string }>('/loans/applications/reject', {
+    fetchApi<{ success: boolean; data: any; message?: string }>('/loan/applications/reject', {
       method: 'POST',
       body: JSON.stringify(params)
     }),
   originateApprovedLoan: (params: { application_id: string; cash_account_id: string; disbursement_date?: string; first_due_date?: string; performed_by?: string }) =>
-    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any; message?: string }>('/loans/originate', {
+    fetchApi<{ success: boolean; data: any; schedule?: any[]; accounting_posting?: any; message?: string }>('/loan/originate', {
       method: 'POST',
       body: JSON.stringify(params)
     }),

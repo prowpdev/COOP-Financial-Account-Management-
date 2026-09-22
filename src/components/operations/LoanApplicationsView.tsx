@@ -203,7 +203,8 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
         approved_amount: approveForm.approved_amount,
         reviewed_by: approveForm.reviewed_by,
         reviewed_date: approveForm.reviewed_date,
-        remarks: approveForm.remarks
+        remarks: approveForm.remarks,
+        performed_by: currentUser.name || 'Credit Committee'
       });
 
       if (res.data?.success === false) {
@@ -475,7 +476,7 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
             <span>Refresh</span>
           </button>
-
+{/* 
           <button
             id="btn-new-loan-application"
             onClick={() => {
@@ -486,7 +487,7 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>+ New Loan Application</span>
-          </button>
+          </button> */}
         </div>
       </div>
 
