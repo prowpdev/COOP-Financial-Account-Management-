@@ -151,6 +151,7 @@ class AuthController extends BaseController
     public function memberLogin(): never
     {
         $input = $this->getRequestBody();
+        // print_r($input);
 
         $identifier = trim($input['identifier'] ?? $input['member_no'] ?? $input['email'] ?? $input['phone'] ?? $input['username'] ?? '');
         $password = $input['password'] ?? $input['pin'] ?? '';

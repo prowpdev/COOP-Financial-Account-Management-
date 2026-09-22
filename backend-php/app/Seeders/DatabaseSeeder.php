@@ -31,6 +31,7 @@ use App\Seeders\SystemSettingSeeder;
 use App\Seeders\TransactionTypeSeeder;
 use App\Seeders\UserRoleSeeder;
 use App\Seeders\UserSeeder;
+use App\Seeders\ShareCapitalSettingSeeder;
 
 
 
@@ -78,13 +79,10 @@ class DatabaseSeeder
         $results['approval_workflows'] =(new ApprovalWorkflowSeeder($this->db))->run();
         
         $results['approval_rules'] =(new ApprovalRuleSeeder($this->db))->run();
-
        
-
         $results['document_requirements'] =(new DocumentRequirementSeeder($this->db))->run();
   
         $results['feature_toggles'] =(new FeatureToggleSeeder($this->db))->run();
-
 
         $results['configuration_audit_trails'] =(new ConfigurationAuditTrailSeeder($this->db))->run();
 
@@ -98,6 +96,7 @@ class DatabaseSeeder
 
         $results['users'] = (new UserSeeder($this->db))->run();
 
+        $results['share_capital_settings'] =(new ShareCapitalSettingSeeder($this->db))->run();
 
         return $results;
     }
