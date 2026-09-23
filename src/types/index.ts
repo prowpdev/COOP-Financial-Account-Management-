@@ -352,10 +352,13 @@ export interface PaymentAllocationRule {
 export interface JournalEntry {
   id: string;
   voucher_number: string;
+  voucher_type?: 'JV' | 'OR' | 'CD' | string;
   branch_id: string;
   posting_date: string;
   reference_type: string;
   reference_id: string;
+  member_id?: string | null;
+  member_name?: string | null;
   description: string;
   total_debit: number;
   total_credit: number;

@@ -103,8 +103,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'accounting' as TabKey,
-      label: 'General Accounting & GL',
-      shortLabel: 'Accounting',
+      label: 'Books of Accounts & General Ledger',
+      shortLabel: 'Journals & GL',
       icon: BookOpen,
       featureKey: 'feature_accounting'
     },

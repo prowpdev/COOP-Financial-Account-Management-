@@ -3000,15 +3000,23 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
 
   const branches = db.getTable('branches');
   const branch = branches.find(b => b.id === branch_id) || branches[0];
-  const voucherNo = NumberingService.getNextNumber('JV', branch.code);
+
+  // Resolve voucher type prefix: JV (General Journal), OR (Cash Receipt), CD (Cash Disbursement)
+  const voucherPrefix = req.body.voucher_type === 'CD' || req.body.voucher_type === 'CDJ' ? 'CD' :
+                        req.body.voucher_type === 'OR' || req.body.voucher_type === 'CRJ' ? 'OR' : 'JV';
+  const voucherNo = req.body.voucher_number || NumberingService.getNextNumber(voucherPrefix, branch.code);
   const jvId = `jv_${Date.now()}`;
+
+  const defaultRefType = voucherPrefix === 'OR' ? 'CASH_RECEIPT' :
+                         voucherPrefix === 'CD' ? 'CASH_DISBURSEMENT' : 'MANUAL_JOURNAL';
 
   const entry = {
     id: jvId,
     voucher_number: voucherNo,
+    voucher_type: voucherPrefix,
     branch_id: branch.id,
     posting_date: posting_date || new Date().toISOString().split('T')[0],
-    reference_type: reference_type || 'MANUAL_JOURNAL',
+    reference_type: reference_type || defaultRefType,
     reference_id: resolvedMemberId || jvId,
     member_id: resolvedMemberId,
     member_name: resolvedMemberName,

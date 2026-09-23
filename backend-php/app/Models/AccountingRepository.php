@@ -184,10 +184,21 @@ class AccountingRepository
 
         try {
             $id = $data['id'] ?? ('je_' . bin2hex(random_bytes(6)));
-            $voucherNo = $data['voucher_number'] ?? ('JV-' . date('Ymd') . '-' . str_pad((string)mt_rand(1, 9999), 4, '0', STR_PAD_LEFT));
+            $vType = strtoupper($data['voucher_type'] ?? 'JV');
+            if ($vType === 'OR' || $vType === 'CRJ') {
+                $prefix = 'OR';
+                $defaultRef = 'CASH_RECEIPT';
+            } elseif ($vType === 'CD' || $vType === 'CDJ') {
+                $prefix = 'CD';
+                $defaultRef = 'CASH_DISBURSEMENT';
+            } else {
+                $prefix = 'JV';
+                $defaultRef = 'Manual JV';
+            }
+            $voucherNo = $data['voucher_number'] ?? ($prefix . '-' . date('Ymd') . '-' . str_pad((string)mt_rand(1, 9999), 4, '0', STR_PAD_LEFT));
             $postingDate = $data['posting_date'] ?? date('Y-m-d');
             $branchId = $data['branch_id'] ?? 'br_main';
-            $created_by = $data['created_by'];
+            $created_by = $data['created_by'] ?? ($data['performed_by'] ?? 'System User');
 
             $sql = "
                 INSERT INTO journal_entries (
@@ -205,8 +216,8 @@ class AccountingRepository
                 'voucher_number' => $voucherNo,
                 'branch_id'      => $branchId,
                 'posting_date'   => $postingDate,
-                'reference_type' => $data['reference_type'] ?? 'Manual JV',
-                'description'    => $data['description'] ?? 'Manual Journal Voucher',
+                'reference_type' => $data['reference_type'] ?? $defaultRef,
+                'description'    => $data['description'] ?? ($prefix . ' Entry'),
                 'total_debit'    => $totalDebit,
                 'total_credit'   => $totalCredit,
                 'period_id'      => $data['period_id'] ?? ('period_' . date('Y_m')),
