@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Plus, X, Building2, Pencil, Trash2, CheckCircle, AlertTriangle, UserCheck, Percent, Settings, ShieldCheck } from 'lucide-react';
+import { Coins, Plus, X, Building2, Pencil, Trash2, CheckCircle, AlertTriangle, UserCheck, Percent, Settings, ShieldCheck, FileText } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
 import { Account, Branch, CashAccount, Member, ShareCapitalAccount, ShareCapitalSetting, User } from '../../types';
 import { ShareCapitalSettingsView } from '../config/ShareCapitalSettingsView';
+import { IndividualShareDepositLedgerModal } from './IndividualShareDepositLedgerModal';
 
 interface ShareCapitalModuleProps {
   branches?: Branch[];
@@ -27,6 +28,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isLoading, setIsLoading] = useState(true);
   const [activeAccount, setActiveAccount] = useState<ShareCapitalAccount | null>(null);
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState<ShareCapitalAccount | null>(null);
   const [editingAccount, setEditingAccount] = useState<ShareCapitalAccount | null>(null);
   const [payAmount, setPayAmount] = useState(1000);
   const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id || 'cash_01');
@@ -427,10 +429,18 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     {
       key: 'id',
       header: 'Actions',
-      width: '210px',
+      width: '260px',
       align: 'center',
       render: (_, row) => (
         <div className="flex items-center justify-center gap-1.5">
+          <button
+            onClick={() => setSelectedAccountForLedger(row)}
+            title="View Individual Member Share Deposit Ledger"
+            className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg text-xs font-medium border border-amber-500/30 cursor-pointer transition"
+          >
+            <FileText className="w-3 h-3 text-amber-400" />
+            <span>Ledger</span>
+          </button>
           <button
             onClick={() => handleOpenEdit(row)}
             title="Edit Subscribed Shares, Paid-Up, Par Value, or Branch"
@@ -1166,6 +1176,20 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
         columns={shareCols}
         defaultSortKey="account_number"
       />
+
+      {/* Individual Member Share Deposit & Subscription Ledger Modal */}
+      {selectedAccountForLedger && (
+        <IndividualShareDepositLedgerModal
+          account={selectedAccountForLedger}
+          onClose={() => setSelectedAccountForLedger(null)}
+          onNewDeposit={() => {
+            const acc = selectedAccountForLedger;
+            setSelectedAccountForLedger(null);
+            setActiveAccount(acc);
+            setPayAmount(1000);
+          }}
+        />
+      )}
     </div>
   );
 };

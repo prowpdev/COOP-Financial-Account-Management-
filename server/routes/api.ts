@@ -2123,6 +2123,106 @@ router.get('/loans/:id', (req: Request, res: Response) => {
   });
 });
 
+// Dedicated Loan Amortization Schedule Endpoint
+router.get('/loans/:id/schedule', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const loans = db.getTable('loans');
+  const loan = loans.find(l => l.id === id || l.loan_account_no === id);
+  if (!loan) {
+    return res.status(404).json({ success: false, error: 'Loan not found' });
+  }
+  const schedules = db.getTable('loan_amortization_schedules').filter(s => s.loan_id === loan.id);
+  res.json({
+    success: true,
+    data: schedules.sort((a, b) => a.installment_no - b.installment_no)
+  });
+});
+
+// Dedicated Individual Loan Ledger with Amortization Schedule & Repayments Breakdown
+router.get('/loans/:id/ledger', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const loans = db.getTable('loans');
+  const loan = loans.find(l => l.id === id || l.loan_account_no === id);
+  if (!loan) {
+    return res.status(404).json({ success: false, error: 'Loan not found' });
+  }
+
+  const members = db.getTable('members');
+  const member = members.find(m => m.id === loan.member_id);
+  const products = db.getTable('loan_products');
+  const product = products.find(p => p.id === loan.loan_product_id);
+  const branches = db.getTable('branches');
+  const branch = branches.find(b => b.id === loan.branch_id);
+
+  const schedules = db.getTable('loan_amortization_schedules').filter(s => s.loan_id === loan.id);
+  const payments = db.getTable('loan_payments').filter(p => p.loan_id === loan.id);
+  const allocations = db.getTable('loan_payment_allocations').filter(a => a.loan_id === loan.id);
+
+  const enrichedPayments = payments.map(pmt => {
+    const alloc = allocations.find(a => a.payment_id === pmt.id);
+    return {
+      ...pmt,
+      principal_paid: alloc ? alloc.principal_amount : (pmt.amount || 0),
+      interest_paid: alloc ? alloc.interest_amount : 0,
+      penalty_paid: alloc ? alloc.penalty_amount : 0,
+      fee_paid: alloc ? alloc.fee_amount : 0
+    };
+  }).sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+
+  // Running balance statement lines
+  const ledgerLines: any[] = [];
+  
+  // 1. Loan Disbursement Line
+  ledgerLines.push({
+    id: `disb_${loan.id}`,
+    date: loan.disbursement_date || loan.created_at?.split(' ')[0] || new Date().toISOString().split('T')[0],
+    ref_no: loan.loan_account_no,
+    type: 'DISBURSEMENT',
+    description: `Loan Disbursement - ${product?.name || 'Loan'}`,
+    debit_principal: Number(loan.principal_amount) || 0,
+    credit_principal: 0,
+    interest_applied: 0,
+    penalty_applied: 0,
+    principal_balance: Number(loan.principal_amount) || 0,
+    received_by: loan.approved_by || 'Loan Officer'
+  });
+
+  let runningPrincipal = Number(loan.principal_amount) || 0;
+
+  enrichedPayments.forEach(pmt => {
+    runningPrincipal = Math.max(0, Number((runningPrincipal - (pmt.principal_paid || 0)).toFixed(2)));
+    ledgerLines.push({
+      id: pmt.id,
+      date: pmt.payment_date,
+      ref_no: pmt.receipt_number || pmt.id,
+      type: 'REPAYMENT',
+      description: pmt.notes || `Repayment via ${pmt.cash_account_id || 'Cash'}`,
+      debit_principal: 0,
+      credit_principal: pmt.principal_paid || 0,
+      interest_applied: pmt.interest_paid || 0,
+      penalty_applied: pmt.penalty_paid || 0,
+      principal_balance: runningPrincipal,
+      received_by: pmt.received_by || 'Cashier'
+    });
+  });
+
+  res.json({
+    success: true,
+    data: {
+      loan: {
+        ...loan,
+        member_name: member ? `${member.first_name} ${member.last_name}` : 'Unknown',
+        member_no: member ? member.member_no : '',
+        product_name: product ? product.name : 'Custom Loan',
+        branch_name: branch ? branch.name : 'Main Branch'
+      },
+      schedule: schedules.sort((a, b) => a.installment_no - b.installment_no),
+      payments: enrichedPayments,
+      ledger: ledgerLines
+    }
+  });
+});
+
 // Loan Repayment with Dynamic Allocation Engine (Req 8, 27)
 router.post('/loans/:id/repay', (req: Request, res: Response) => {
   const { id } = req.params;
@@ -2606,6 +2706,74 @@ router.get('/share-capital/accounts/:id', (req: Request, res: Response) => {
   });
 });
 
+// Dedicated Individual Share Capital Deposit & Subscription Ledger
+router.get('/share-capital/accounts/:id/ledger', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('share_capital_accounts');
+  const account = accounts.find(a => a.id === id || a.account_number === id);
+  if (!account) {
+    return res.status(404).json({ success: false, error: 'Share capital account not found.' });
+  }
+
+  const members = db.getTable('members');
+  const branches = db.getTable('branches');
+  const transactions = db.getTable('share_capital_transactions');
+
+  const mem = members.find(m => m.id === account.member_id);
+  const br = branches.find(b => b.id === (account.branch_id || mem?.branch_id));
+  const rawTxs = transactions.filter(t => t.share_capital_account_id === account.id || t.share_account_id === account.id);
+
+  // Compute itemized ledger lines with running paid-up share capital balance
+  const sortedTxs = [...rawTxs].sort((a, b) => new Date(a.transaction_date || a.created_at).getTime() - new Date(b.transaction_date || b.created_at).getTime());
+
+  let runningShares = 0;
+  let runningPaidUpAmount = 0;
+
+  const ledgerLines = sortedTxs.map((tx, idx) => {
+    const isPayment = (tx.type || '').toUpperCase() === 'PAYMENT' || (tx.type || '').toUpperCase() === 'DEPOSIT' || (tx.amount || 0) > 0;
+    const txAmount = Math.abs(Number(tx.amount) || 0);
+    const txShares = Math.abs(Number(tx.shares) || 0);
+
+    if (isPayment) {
+      runningShares += txShares;
+      runningPaidUpAmount += txAmount;
+    } else {
+      runningShares = Math.max(0, runningShares - txShares);
+      runningPaidUpAmount = Math.max(0, runningPaidUpAmount - txAmount);
+    }
+
+    return {
+      id: tx.id || `sct_line_${idx}`,
+      date: tx.transaction_date || tx.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+      reference_no: tx.receipt_no || tx.reference_no || `OR-CBU-${idx + 1}`,
+      type: tx.type || 'PAYMENT',
+      description: tx.notes || `Share capital contribution (${txShares} shares)`,
+      shares_in: isPayment ? txShares : 0,
+      shares_out: !isPayment ? txShares : 0,
+      running_shares: runningShares,
+      amount_in: isPayment ? txAmount : 0,
+      amount_out: !isPayment ? txAmount : 0,
+      running_paid_up_amount: runningPaidUpAmount,
+      cash_account_id: tx.cash_account_id || 'cash_01',
+      performed_by: tx.performed_by || 'Cashier'
+    };
+  });
+
+  res.json({
+    success: true,
+    data: {
+      account: {
+        ...account,
+        branch_id: account.branch_id || mem?.branch_id || 'branch_tar',
+        branch_name: br ? br.name : 'Main Branch',
+        member_name: mem ? `${mem.first_name} ${mem.last_name}` : (account.member_name || 'Unknown'),
+        member_no: mem ? mem.member_no : ''
+      },
+      ledger: ledgerLines
+    }
+  });
+});
+
 // POST /share-capital/accounts: Create new account with duplicate prevention and branch persistence
 router.post('/share-capital/accounts', (req: Request, res: Response) => {
   const {
@@ -2902,11 +3070,24 @@ router.post('/share-capital/pay', (req: Request, res: Response) => {
     shares: payShares,
     amount: payAmount,
     transaction_date: today,
-    cash_account_id: cash_account_id || 'cash_01'
+    cash_account_id: cash_account_id || 'cash_01',
+    performed_by: performed_by || 'Cashier',
+    notes: `Official Receipt ${receiptNo} for share capital contribution`
   };
   db.insert('share_capital_transactions', tx);
 
-  res.json({ success: true, data: tx, account });
+  // Record automated audit log with GL posting details
+  const members = db.getTable('members');
+  const mem = members.find(m => m.id === account.member_id);
+  db.recordAudit(
+    'Share Capital (CBU)',
+    `Paid-Up: ₱${(account.paid_up_amount - payAmount).toLocaleString()} (${account.paid_up_shares - payShares} sh)`,
+    `Paid-Up: ₱${account.paid_up_amount.toLocaleString()} (${account.paid_up_shares} sh) | OR: ${receiptNo} | GL: ${postResult.journal_entry?.entry_number || 'JV'}`,
+    performed_by || 'Cashier',
+    `Automated GL Posting & CBU deposit collection for ${mem ? `${mem.first_name} ${mem.last_name}` : account.account_number}`
+  );
+
+  res.json({ success: true, data: tx, account, journal_entry: postResult.journal_entry });
 });
 
 // ==========================================

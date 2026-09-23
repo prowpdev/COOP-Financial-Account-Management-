@@ -15,7 +15,8 @@ import {
   Landmark,
   ArrowDownLeft,
   ArrowUpRight,
-  DollarSign
+  DollarSign,
+  Activity
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { AccountLedgerReport } from '../reports/AccountLedgerReport';
@@ -23,6 +24,7 @@ import { AccountingMappingsView } from '../config/AccountingMappingsView';
 import { CashAccountsConfigView } from '../config/CashAccountsConfigView';
 import { CashReceiptJournal } from './CashReceiptJournal';
 import { CashDisbursementJournal } from './CashDisbursementJournal';
+import { AccountingOverviewDashboard } from './AccountingOverviewDashboard';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
 
@@ -35,6 +37,7 @@ interface AccountingModuleProps {
 }
 
 export type AccountingTabKey =
+  | 'overview'
   | 'general_ledger'
   | 'general_journal'
   | 'cash_receipt_journal'
@@ -59,7 +62,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [voucherTypeToCreate, setVoucherTypeToCreate] = useState<'JV' | 'OR' | 'CD'>('JV');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<AccountingTabKey>('general_ledger');
+  const [viewMode, setViewMode] = useState<AccountingTabKey>('overview');
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -497,6 +500,19 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       {/* Primary Books Navigation Bar */}
       <div className="flex items-center overflow-x-auto pb-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 shadow-inner gap-1.5">
         <button
+          id="tab-accounting-overview"
+          onClick={() => setViewMode('overview')}
+          className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+            viewMode === 'overview'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+          }`}
+        >
+          <Activity className="w-4 h-4 text-emerald-300" />
+          <span>Accounting Overview</span>
+        </button>
+
+        <button
           id="tab-general-ledger"
           onClick={() => setViewMode('general_ledger')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
@@ -852,6 +868,17 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       )}
 
       {/* Main View Area Routing Based on viewMode */}
+      {viewMode === 'overview' && (
+        <AccountingOverviewDashboard
+          accounts={accounts}
+          journals={journals}
+          branches={branches}
+          selectedBranch={selectedBranch}
+          onNavigateToTab={(tab) => setViewMode(tab)}
+          onNewVoucher={(type) => openCreateModal(type)}
+        />
+      )}
+
       {viewMode === 'general_ledger' && (
         <ExcelGridTable
           title="General Ledger (GL)"

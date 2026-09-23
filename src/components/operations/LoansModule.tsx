@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { LoanApplicationsView } from './LoanApplicationsView';
+import { IndividualLoanLedgerModal } from './IndividualLoanLedgerModal';
 import { api } from '../../services/api';
 import { Branch, CashAccount, Loan, LoanProduct, Member, User } from '../../types';
 
@@ -121,6 +122,7 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
 
   // Schedule View Modal State
   const [selectedLoanForSchedule, setSelectedLoanForSchedule] = useState<Loan | null>(null);
+  const [selectedLoanForLedger, setSelectedLoanForLedger] = useState<Loan | null>(null);
   const [loanScheduleData, setLoanScheduleData] = useState<any[]>([]); // total_installment
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [currentBillDue, setCurrentBillDue] = useState('');
@@ -637,26 +639,42 @@ const handleRepayBtn = async (
     {
       key: 'id',
       header: 'Actions',
-      width: '140px',
+      width: '180px',
       align: 'center',
       render: (_, row) => (
         <div className="flex items-center space-x-1.5 justify-center">
-            <button
-      type="button"
-      title="Edit Loan"
-      onClick={(event) => handleEditLoan(event,row)}
-      className="inline-flex items-center justify-center
-                 w-7 h-7 rounded-md
-                 bg-blue-500/10 text-blue-400
-                 border border-blue-500/30
-                 hover:bg-blue-500/20
-                 hover:text-blue-300
-                 hover:border-blue-500/50
-                 transition-all duration-150
-                 cursor-pointer"
-    >
-      <Pencil size={14} strokeWidth={2.5} />
-    </button>
+          <button
+            type="button"
+            title="Individual Loan Subsidiary Ledger"
+            onClick={() => setSelectedLoanForLedger(row)}
+            className="inline-flex items-center justify-center
+                       w-7 h-7 rounded-md
+                       bg-emerald-500/10 text-emerald-400
+                       border border-emerald-500/30
+                       hover:bg-emerald-500/20
+                       hover:text-emerald-300
+                       hover:border-emerald-500/50
+                       transition-all duration-150
+                       cursor-pointer"
+          >
+            <FileText size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            title="Edit Loan"
+            onClick={(event) => handleEditLoan(event,row)}
+            className="inline-flex items-center justify-center
+                       w-7 h-7 rounded-md
+                       bg-blue-500/10 text-blue-400
+                       border border-blue-500/30
+                       hover:bg-blue-500/20
+                       hover:text-blue-300
+                       hover:border-blue-500/50
+                       transition-all duration-150
+                       cursor-pointer"
+          >
+            <Pencil size={14} strokeWidth={2.5} />
+          </button>
           <button
             onClick={() => handleViewSchedule(row)}
             title="View Amortization Schedule"
@@ -1641,6 +1659,19 @@ const handleRepayBtn = async (
         columns={loanCols}
         defaultSortKey="loan_account_no"
       />
+
+      {/* Individual Borrower Loan Subsidiary Ledger Modal */}
+      {selectedLoanForLedger && (
+        <IndividualLoanLedgerModal
+          loan={selectedLoanForLedger}
+          onClose={() => setSelectedLoanForLedger(null)}
+          onRepay={() => {
+            const l = selectedLoanForLedger;
+            setSelectedLoanForLedger(null);
+            handleRepayBtn({ preventDefault: () => {} } as any, l);
+          }}
+        />
+      )}
         </>
       )}
     </div>

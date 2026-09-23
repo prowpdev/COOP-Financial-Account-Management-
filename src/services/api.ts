@@ -689,6 +689,8 @@ getLoanApplications: async (params?: {
     fetchApi<{ success: boolean; data: any }>(`/loans/${loanId}`),
   getLoanSchedule: (loanId: string) =>
     fetchApi<{ success: boolean; data: any[] }>(`/loans/${loanId}/schedule`),
+  getLoanLedger: (loanId: string) =>
+    fetchApi<{ success: boolean; data: { loan: any; schedule: any[]; payments: any[]; ledger: any[] } }>(`/loans/${loanId}/ledger`),
   repayLoan: (loanId: string, params: any) =>
     fetchApi<{ success: boolean; payment: any; allocation: any; loan_updated: any; journal_entry: any }>(`/loans/${loanId}/repay`, {
       method: 'POST',
@@ -735,6 +737,10 @@ getLoanApplications: async (params?: {
       return { success: false, data: [] };
     }
   },
+  getShareCapitalAccount: (id: string) =>
+    fetchApi<{ success: boolean; data: any }>(`/share-capital/accounts/${id}`),
+  getShareCapitalLedger: (id: string) =>
+    fetchApi<{ success: boolean; data: { account: any; ledger: any[] } }>(`/share-capital/accounts/${id}/ledger`),
   createShareCapitalAccount: (account: any) =>
     fetchApi<{ success: boolean; data: any }>('/share-capital/accounts', {
       method: 'POST',
