@@ -103,11 +103,11 @@ $router->delete('/api/loans/:id', [LoanController::class, 'destroy']);
 // 
 $router->put('/api/loan/:id', [LoanController::class, 'updateLoanStatus']);
 //New implementation of Loan process
-$router->get('/api/loans/applications', [LoanController::class, 'applications']);
-$router->post('/api/loans/apply', [LoanController::class, 'apply']);
-$router->post('/api/loans/applications/approve', [LoanController::class, 'approveApplication']);
-$router->post('/api/loans/applications/reject', [LoanController::class, 'rejectApplication']);
-$router->post('/api/loans/originate', [LoanController::class, 'originate']);
+$router->post('/api/loan/applications', [LoanController::class, 'applications']);
+$router->post('/api/loan/apply', [LoanController::class, 'apply']);
+$router->post('/api/loan/applications/approve', [LoanController::class, 'approveApplication']);
+$router->post('/api/loan/applications/reject', [LoanController::class, 'rejectApplication']);
+$router->post('/api/loan/originate', [LoanController::class, 'originate']);
 
 // Audit Logs & Regulatory Compliance
 $router->get('/api/audit-logs', [ConfigController::class, 'auditLogs']);

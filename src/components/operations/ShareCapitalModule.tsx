@@ -39,6 +39,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
 
   const [newAccount, setNewAccount] = useState({
     member_id: '',
+    cash_account_id:'cash_01',
     account_number: '',
     branch_id: '',
     par_value: 100,
@@ -290,6 +291,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
       await api.createShareCapitalAccount({
         member_id: newAccount.member_id,
         account_number: newAccount.account_number ? newAccount.account_number.trim() : undefined,
+        cash_account_id: newAccount.cash_account_id || 'cash_01',
         branch_id: branchToSave, // Save member branch directly to database
         par_value: par,
         subscribed_shares: subShares,
@@ -782,6 +784,19 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                     ₱{((newAccount.subscribed_shares - newAccount.paid_up_shares) * newAccount.par_value).toLocaleString()}
                   </span>
                 </div>
+              </div>
+              {/* cash account id  */}
+                <div>
+                <label className="text-xs text-slate-300 font-medium">Receiving Cash Account</label>
+                <select
+                  value={newAccount.cash_account_id}
+                  onChange={e => setNewAccount({ ...newAccount, cash_account_id: e.target.value })}
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
+                >
+                  {(availableCashAccounts.length > 0 ? availableCashAccounts : cashAccounts).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

@@ -309,9 +309,10 @@ class LoanController extends BaseController
      */
     public function applications(): never
     {
-        $branchId = $_GET['branchId'] ?? null;
-        $status = $_GET['status'] ?? null;
-        $memberId = $_GET['memberId'] ?? null;
+        $branchId = $_POST['branchId'] ?? null;
+        $status = $_POST['status'] ?? null;
+        $memberId = $_POST['memberId'] ?? null;
+        // print_r($memberId);
 
         try {
             $apps = $this->loans->allApplications($branchId, $status, $memberId);
