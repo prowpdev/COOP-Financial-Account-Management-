@@ -891,8 +891,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
               <button
                 id="btn-action-apply-loan"
-                onClick={() => setShowApplyLoanModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
+                onClick={() => setShowApplyLoanModal(false)}
+                className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>Apply for Loan</span>
@@ -909,8 +909,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
               <button
                 id="btn-action-deposit"
-                onClick={() => setShowDepositModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                onClick={() => setShowDepositModal(false)}
+                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <PiggyBank className="w-3.5 h-3.5 text-teal-400" />
                 <span>Deposit Savings</span>
@@ -919,9 +919,9 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 id="btn-action-cbu"
                 onClick={() => setShowCbuModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
-                <Wallet className="w-3.5 h-3.5 text-purple-400" />
+                <Wallet className="hide w-3.5 h-3.5 text-purple-400" />
                 <span>Add Share Capital</span>
               </button>
 
@@ -1391,7 +1391,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 </button>
                 <button
                   onClick={() => setShowApplyLoanModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer whitespace-nowrap"
+                  className="hide px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer whitespace-nowrap"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>Apply Now</span>
@@ -1447,7 +1447,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             <button
                               id={`btn-pay-loan-${loan.id}`}
                               onClick={() => openLoanPayment(loan)}
-                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
+                              className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>Make Payment</span>
@@ -1693,7 +1693,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
                   <button
                     onClick={() => setShowDepositModal(true)}
-                    className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
+                    className="hide px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Make a Deposit</span>
@@ -1852,7 +1852,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
                       <button
                         onClick={() => setShowCbuModal(true)}
-                        className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
+                        className="hide px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
                       >
                         <PlusCircle className="w-3.5 h-3.5" />
                         <span>Contribute to CBU</span>
@@ -2121,7 +2121,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       {/* MODAL: APPLY FOR LOAN */}
       {/* ---------------------------------------------------- */}
       {showApplyLoanModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="hide fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -2227,7 +2227,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       {/* MODAL: DEPOSIT SAVINGS */}
       {/* ---------------------------------------------------- */}
       {showDepositModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="hide fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>

@@ -283,6 +283,17 @@ export const Header: React.FC<HeaderProps> = ({
                 {isSeeding ? 'Seeding...' : 'Populate Sample'}
               </span>
             </button>
+              <button
+              id="btn-reset-database"
+              disabled={isSeeding || isResetting}
+              onClick={() => handleResetSeedDatabase()}
+              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Server className={`w-3.5 h-3.5 text-rose-400 ${isResetting ? 'animate-spin' : ''}`} />
+              <span className="font-mono text-[11px] text-rose-300 truncate max-w-[130px]">
+                {isResetting ? 'Resetting...' : 'Reset Database'}
+              </span>
+            </button>
 
             {/* Setup Wizard Button (Desktop) */}
             {onOpenSetupWizard && (
@@ -290,7 +301,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="open-setup-wizard-btn"
                 onClick={onOpenSetupWizard}
                 title="System Setup Wizard & Data Reset Center"
-                className="hidden md:flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+                className="hide hidden md:flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
               >
                 <Wand2 className="w-3.5 h-3.5 text-emerald-200" />
                 <span>Setup Wizard</span>
@@ -301,7 +312,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="open-verification-btn"
               onClick={onOpenVerification}
-              className="hidden lg:flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+              className="hide hidden lg:flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4 text-emerald-200" />
               <span className="hidden xl:inline">15 Criteria</span>

@@ -138,7 +138,7 @@ export const LoanCalculator: React.FC<LoanCalculatorProps> = ({
                 term: Number(termMonths)
               })
             }
-            className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center space-x-2 shadow-lg shadow-emerald-950/40 cursor-pointer self-start sm:self-auto"
+            className="hide px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center space-x-2 shadow-lg shadow-emerald-950/40 cursor-pointer self-start sm:self-auto"
           >
             <span>Apply with This Simulation</span>
             <ArrowRight className="w-4 h-4" />
