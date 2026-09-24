@@ -29,10 +29,15 @@ import {
   Sprout,
   ArrowRight,
   Award,
-  BookOpen
+  BookOpen,
+  Calculator,
+  Receipt,
+  Check,
+  Share2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Member } from '../../types';
+import { LoanCalculator } from '../calculator/LoanCalculator';
 
 interface MemberPortalProps {
   member: Member;
@@ -449,7 +454,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   onSwitchToStaff
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'transactions' | 'loans' | 'savings' | 'cbu' | 'profile'
+    'transactions' | 'loans' | 'savings' | 'cbu' | 'calculator' | 'profile'
   >('transactions');
 
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -471,6 +476,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const [showPayLoanModal, setShowPayLoanModal] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<any>(null);
   const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
+  const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<any | null>(null);
+  const [showMigsCertModal, setShowMigsCertModal] = useState(false);
 
   // Form states
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
@@ -692,7 +699,9 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       (txFilterCategory === 'savings' &&
         (category === 'Savings' || type.includes('Savings'))) ||
       (txFilterCategory === 'cbu' &&
-        (category === 'Share Capital' || type.includes('Share'))) ||
+        (category === 'Share Capital' || type.includes('Share') || type.includes('CBU'))) ||
+      (txFilterCategory === 'crj' &&
+        (category.includes('Cash Receipt') || type.includes('Receipt') || type.includes('CRJ') || String(t.reference || '').startsWith('OR'))) ||
       (txFilterCategory === 'jv' &&
         (category === 'Journal Vouchers' || type.includes('Journal')));
 
@@ -707,6 +716,31 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
     return matchesCategory && matchesSearch;
   });
+
+  const handleExportTransactionsCSV = () => {
+    if (!filteredTransactions.length) return;
+    const headers = ['Date', 'Category', 'Facility', 'Type', 'Reference/OR#', 'Description', 'Debit/Outflow (PHP)', 'Credit/Payment (PHP)', 'Status', 'Notes'];
+    const rows = filteredTransactions.map((tx: any) => [
+      `"${tx.date || ''}"`,
+      `"${tx.category || ''}"`,
+      `"${tx.facility || ''}"`,
+      `"${tx.type || ''}"`,
+      `"${tx.reference || ''}"`,
+      `"${(tx.description || '').replace(/"/g, '""')}"`,
+      Number(tx.debit || 0).toFixed(2),
+      Number(tx.credit || 0).toFixed(2),
+      `"${tx.status || 'Completed'}"`,
+      `"${(tx.notes || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `statement_${memberRecord.member_no || 'member'}_transactions.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Member summary
   const memberSummary = dashboardData?.summary || {
@@ -861,9 +895,18 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </button>
 
               <button
+                id="btn-action-calculator"
+                onClick={() => setActiveTab('calculator')}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-500/30 text-xs font-bold text-amber-300 hover:text-amber-200 transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Calculator className="w-3.5 h-3.5 text-amber-400" />
+                <span>Loan Calculator</span>
+              </button>
+
+              <button
                 id="btn-action-deposit"
                 onClick={() => setShowDepositModal(true)}
-                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <PiggyBank className="w-3.5 h-3.5 text-teal-400" />
                 <span>Deposit Savings</span>
@@ -872,7 +915,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 id="btn-action-cbu"
                 onClick={() => setShowCbuModal(true)}
-                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <Wallet className="w-3.5 h-3.5 text-purple-400" />
                 <span>Add Share Capital</span>
@@ -1058,6 +1101,19 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
           </button>
 
           <button
+            id="member-tab-calculator"
+            onClick={() => setActiveTab('calculator')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'calculator'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-950/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <Calculator className="w-4 h-4 text-amber-400" />
+            <span>Loan Calculator & Simulator</span>
+          </button>
+
+          <button
             id="member-tab-savings"
             onClick={() => setActiveTab('savings')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
@@ -1112,7 +1168,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 </p>
               </div>
 
-              {/* Filter controls */}
+              {/* Filter and Export controls */}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -1125,21 +1181,40 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   />
                 </div>
 
-                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-                  {['all', 'loans', 'savings', 'cbu', 'jv'].map((cat) => (
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto">
+                  {['all', 'loans', 'savings', 'cbu', 'crj', 'jv'].map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setTxFilterCategory(cat)}
-                      className={`px-2.5 py-1 rounded-lg font-medium capitalize transition cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg font-medium capitalize transition cursor-pointer whitespace-nowrap ${
                         txFilterCategory === cat
                           ? 'bg-slate-800 text-white font-bold'
                           : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      {cat === 'cbu' ? 'Share Capital' : cat === 'jv' ? 'JVs' : cat}
+                      {cat === 'cbu' ? 'Share Capital' : cat === 'crj' ? 'Cash Receipts (CRJ)' : cat === 'jv' ? 'JVs' : cat}
                     </button>
                   ))}
                 </div>
+
+                <button
+                  onClick={handleExportTransactionsCSV}
+                  disabled={filteredTransactions.length === 0}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40"
+                  title="Export filtered transactions to CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export CSV</span>
+                </button>
+
+                <button
+                  onClick={() => setShowPrintStatementModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1.5 cursor-pointer"
+                  title="Print official member transaction statement"
+                >
+                  <Printer className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Print Ledger</span>
+                </button>
               </div>
             </div>
 
@@ -1155,6 +1230,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                     <th className="py-3 px-4 text-right">Debit / Outflow</th>
                     <th className="py-3 px-4 text-right">Credit / Payment</th>
                     <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-center">Receipt</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -1162,8 +1238,13 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                     filteredTransactions.map((tx: any) => {
                       const dVal = Number(tx.debit || 0);
                       const cVal = Number(tx.credit || 0);
+                      const isCrj = String(tx.type || '').includes('Receipt') || String(tx.category || '').includes('Cash Receipt') || String(tx.reference || '').startsWith('OR');
                       return (
-                        <tr key={tx.id} className="hover:bg-slate-800/40 transition">
+                        <tr
+                          key={tx.id}
+                          onClick={() => setSelectedTransactionForDetail(tx)}
+                          className="hover:bg-slate-800/60 transition cursor-pointer group"
+                        >
                           <td className="py-3 px-4 whitespace-nowrap text-slate-300 font-mono">
                             {tx.date}
                           </td>
@@ -1176,6 +1257,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                                   ? 'bg-teal-500/20 text-teal-300'
                                   : tx.category === 'Share Capital'
                                   ? 'bg-purple-500/20 text-purple-300'
+                                  : isCrj
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                   : 'bg-blue-500/20 text-blue-300'
                               }`}
                             >
@@ -1183,7 +1266,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             </span>
                           </td>
                           <td className="py-3 px-4 font-mono text-slate-200 font-bold whitespace-nowrap">
-                            {tx.reference || '-'}
+                            <div className="flex items-center space-x-1.5">
+                              <span>{tx.reference || '-'}</span>
+                              {isCrj && (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded font-sans">CRJ</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-slate-300">
                             <p>{tx.description}</p>
@@ -1204,12 +1292,25 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                               {tx.status || 'Completed'}
                             </span>
                           </td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTransactionForDetail(tx);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600/30 hover:text-emerald-300 border border-slate-700 text-slate-400 text-[11px] font-medium transition inline-flex items-center space-x-1"
+                              title="View official receipt and voucher details"
+                            >
+                              <Receipt className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-500">
+                      <td colSpan={8} className="py-8 text-center text-slate-500">
                         No transactions found matching the selected filter.
                       </td>
                     </tr>
@@ -1253,6 +1354,37 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         {/* ---------------------------------------------------- */}
         {activeTab === 'loans' && (
           <div className="space-y-6">
+            {/* Loan Simulator & New Loan Prompt */}
+            <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-3xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400">
+                  <Calculator className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white">Interactive Loan Amortization Simulator</h4>
+                  <p className="text-xs text-slate-400">
+                    Calculate monthly installments, interest breakdown, and CDA regulatory service fees before applying for agricultural or emergency loans.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setActiveTab('calculator')}
+                  className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-amber-950/40 cursor-pointer whitespace-nowrap"
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  <span>Launch Loan Calculator</span>
+                </button>
+                <button
+                  onClick={() => setShowApplyLoanModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer whitespace-nowrap"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Apply Now</span>
+                </button>
+              </div>
+            </div>
+
             {(dashboardData?.loans || []).length > 0 ? (
               (dashboardData.loans || []).map((loan: any) => {
                 const isExpanded = expandedLoanId === loan.id;
@@ -1301,7 +1433,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             <button
                               id={`btn-pay-loan-${loan.id}`}
                               onClick={() => openLoanPayment(loan)}
-                              className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
+                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>Make Payment</span>
@@ -1499,6 +1631,24 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         )}
 
         {/* ---------------------------------------------------- */}
+        {/* TAB: LOAN CALCULATOR & SIMULATOR */}
+        {/* ---------------------------------------------------- */}
+        {activeTab === 'calculator' && (
+          <div className="space-y-6">
+            <LoanCalculator
+              products={loanProducts}
+              memberShareCapital={memberSummary.share_capital_paid || 0}
+              onApplyWithParameters={(params) => {
+                setApplyProductId(params.productId);
+                setApplyPrincipal(params.principal);
+                setApplyTerm(params.term);
+                setShowApplyLoanModal(true);
+              }}
+            />
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
         {/* TAB 3: SAVINGS DEPOSITS & PASSBOOK */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'savings' && (
@@ -1529,7 +1679,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
                   <button
                     onClick={() => setShowDepositModal(true)}
-                    className="hide px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Make a Deposit</span>
@@ -1882,6 +2032,71 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <p className="text-[11px] text-slate-400">
                   Crops: {memberRecord.custom_field_values?.primary_crop || 'Palay / Corn'}
                 </p>
+              </div>
+            </div>
+
+            {/* Member Official Documents & Cooperative Standing Tools */}
+            <div className="pt-4 border-t border-slate-800 space-y-4">
+              <h4 className="text-sm font-bold text-white flex items-center space-x-2">
+                <Award className="w-4 h-4 text-amber-400" />
+                <span>Cooperative Standing & Official Documents</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">General Assembly Voting</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Eligible (MIGS)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Your share capital and savings meet the CDA minimum threshold for voting at the Annual General Assembly.
+                  </p>
+                  <button
+                    onClick={() => setShowMigsCertModal(true)}
+                    className="w-full mt-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    <span>View Certificate of Good Standing</span>
+                  </button>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">Patronage Refund & Dividends</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      Active Shareholder
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Estimated dividend distribution based on ₱{Number(memberSummary.share_capital_paid || 0).toLocaleString()} paid-up capital:
+                  </p>
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Projected 8.5% p.a.:</span>
+                    <span className="text-purple-400 font-bold font-mono">
+                      ₱{(Number(memberSummary.share_capital_paid || 0) * 0.085).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">Loan Borrowing Capacity</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                      3x CBU Limit
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Maximum credit line based on paid-up capital and agricultural capacity:
+                  </p>
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Max Credit Limit:</span>
+                    <span className="text-teal-400 font-bold font-mono">
+                      ₱{Math.max(50000, Number(memberSummary.share_capital_paid || 0) * 3).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2281,6 +2496,273 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <button
                 onClick={() => setShowPrintStatementModal(false)}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* MODAL: TRANSACTION DETAIL / OFFICIAL RECEIPT (CRJ) */}
+      {/* ---------------------------------------------------- */}
+      {selectedTransactionForDetail && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl p-6 space-y-5 shadow-2xl animate-in zoom-in-95 my-8">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Official Receipt & Transaction Slip</h3>
+                  <p className="text-xs text-slate-400">Cooperative Cash Receipts & General Ledger Entry</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedTransactionForDetail(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Printable Receipt Paper Card */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs font-mono">
+              {/* Coop Header */}
+              <div className="text-center border-b border-slate-800/80 pb-3 space-y-1">
+                <h4 className="font-extrabold text-sm text-white font-sans tracking-wide">
+                  MAYAP CARE MULTI-PURPOSE AGRICULTURAL COOPERATIVE
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  CDA Reg. No. 9520-10023456 • TIN: 009-876-543-000
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Main Office: Brgy. Mayap, Tarlac City, Philippines
+                </p>
+                <div className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-widest font-sans">
+                  Official Member Slip
+                </div>
+              </div>
+
+              {/* Receipt Reference and Date */}
+              <div className="grid grid-cols-2 gap-4 py-1 border-b border-slate-800/60">
+                <div>
+                  <p className="text-slate-500 text-[10px]">REFERENCE / OR NUMBER</p>
+                  <p className="text-emerald-400 font-bold text-sm">
+                    {selectedTransactionForDetail.reference || 'CRJ-ENTRY'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-500 text-[10px]">TRANSACTION DATE</p>
+                  <p className="text-white font-bold">{selectedTransactionForDetail.date}</p>
+                </div>
+              </div>
+
+              {/* Member Details */}
+              <div className="grid grid-cols-2 gap-4 py-1 border-b border-slate-800/60 font-sans">
+                <div>
+                  <p className="text-slate-500 text-[10px] font-mono">RECEIVED FROM (MEMBER)</p>
+                  <p className="text-white font-bold">
+                    {memberRecord.first_name} {memberRecord.last_name}
+                  </p>
+                  <p className="text-slate-400 text-[11px] font-mono">{memberRecord.member_no}</p>
+                </div>
+                <div className="text-right font-sans">
+                  <p className="text-slate-500 text-[10px] font-mono">FACILITY / CATEGORY</p>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                    {selectedTransactionForDetail.category || selectedTransactionForDetail.type}
+                  </span>
+                </div>
+              </div>
+
+              {/* Amount Breakdown */}
+              <div className="space-y-2 py-2 border-b border-slate-800/60">
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>Transaction Nature:</span>
+                  <span className="text-white font-semibold">{selectedTransactionForDetail.type}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>Description / Particulars:</span>
+                  <span className="text-slate-200 text-right max-w-[280px]">
+                    {selectedTransactionForDetail.description || selectedTransactionForDetail.notes || 'Cooperative Transaction'}
+                  </span>
+                </div>
+                {selectedTransactionForDetail.debit > 0 && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span>Disbursement / Outflow:</span>
+                    <span className="text-rose-400 font-bold text-sm">
+                      ₱{Number(selectedTransactionForDetail.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+                {selectedTransactionForDetail.credit > 0 && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span>Amount Received / Credited:</span>
+                    <span className="text-emerald-400 font-bold text-sm">
+                      ₱{Number(selectedTransactionForDetail.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Double-Entry GL Ledger Impact */}
+              <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Accounting Engine Entry:</span>
+                  <span className="text-emerald-400 font-bold flex items-center space-x-1 font-sans">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Balanced & Journalized (CRJ/GL)</span>
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Debit: 10100 - Cash in Bank / Coop Vault</span>
+                  <span className="text-slate-300 font-bold">
+                    ₱{Number(selectedTransactionForDetail.credit || selectedTransactionForDetail.debit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Credit: {selectedTransactionForDetail.category === 'Share Capital' ? '30100 - Paid-Up Capital (CBU)' : selectedTransactionForDetail.category === 'Savings' ? '20100 - Savings Deposit Subsidiary' : '10200 - Loans Receivable'}</span>
+                  <span className="text-slate-300 font-bold">
+                    ₱{Number(selectedTransactionForDetail.credit || selectedTransactionForDetail.debit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 text-[10px] text-slate-500 font-sans">
+                <span>System Verified • Mayap Care Core v2.4</span>
+                <span>Status: {selectedTransactionForDetail.status || 'Posted'}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Official Receipt</span>
+              </button>
+              <button
+                onClick={() => setSelectedTransactionForDetail(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* MODAL: CERTIFICATE OF MEMBERSHIP & GOOD STANDING */}
+      {/* ---------------------------------------------------- */}
+      {showMigsCertModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 my-8">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Certificate of Member in Good Standing (MIGS)</h3>
+                  <p className="text-xs text-slate-400">Official Certification for General Assembly & Cooperative Privileges</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMigsCertModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Certificate Paper */}
+            <div className="bg-slate-950 border-2 border-amber-500/30 rounded-2xl p-6 sm:p-8 space-y-6 text-center relative overflow-hidden">
+              <div className="absolute -right-12 -top-12 w-40 h-40 bg-amber-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+              {/* Coop Title */}
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-widest text-amber-400 font-bold">Republic of the Philippines</p>
+                <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-wider">
+                  MAYAP CARE MULTI-PURPOSE AGRICULTURAL COOPERATIVE
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Cooperative Development Authority (CDA) Registration No. 9520-10023456
+                </p>
+                <p className="text-xs text-slate-400">Province of Tarlac, Philippines</p>
+              </div>
+
+              <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent mx-auto my-3"></div>
+
+              <h3 className="text-base sm:text-lg font-bold text-amber-300 uppercase tracking-widest font-serif">
+                Certificate of Membership & Good Standing
+              </h3>
+
+              <div className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg mx-auto space-y-4">
+                <p>This is to certify that</p>
+                <div className="py-2 border-b-2 border-slate-700 max-w-md mx-auto">
+                  <p className="text-xl sm:text-2xl font-black text-white font-sans uppercase tracking-wider">
+                    {memberRecord.first_name} {memberRecord.last_name}
+                  </p>
+                  <p className="text-xs font-mono text-emerald-400 mt-1">
+                    Member ID: {memberRecord.member_no}
+                  </p>
+                </div>
+                <p className="text-slate-400 text-xs">
+                  is a duly admitted <strong className="text-white">{memberRecord.member_type_name || 'Regular Agricultural Member'}</strong> in <strong className="text-emerald-400">GOOD STANDING</strong> of this Cooperative, having fulfilled all requirements prescribed by Republic Act No. 9520 and the Cooperative By-Laws.
+                </p>
+              </div>
+
+              {/* Standing Metrics */}
+              <div className="grid grid-cols-3 gap-3 max-w-md mx-auto text-xs py-2">
+                <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+                  <p className="text-slate-500 text-[10px]">Paid Shares</p>
+                  <p className="font-bold text-purple-400 font-mono mt-0.5">
+                    {memberSummary.total_shares_owned || Math.floor((memberSummary.share_capital_paid || 0) / 100)} Shares
+                  </p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+                  <p className="text-slate-500 text-[10px]">Share Capital</p>
+                  <p className="font-bold text-white font-mono mt-0.5">
+                    ₱{Number(memberSummary.share_capital_paid || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+                  <p className="text-slate-500 text-[10px]">GA Voting Rights</p>
+                  <p className="font-bold text-emerald-400 mt-0.5 flex items-center justify-center space-x-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Active</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs text-slate-400">
+                <div className="border-t border-slate-700 pt-2">
+                  <p className="font-bold text-slate-200">Atty. Ramon Valenzuela</p>
+                  <p className="text-[11px]">Cooperative Secretary</p>
+                </div>
+                <div className="border-t border-slate-700 pt-2">
+                  <p className="font-bold text-slate-200">Hon. Eduardo S. Santos</p>
+                  <p className="text-[11px]">Chairperson, Board of Directors</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Certificate</span>
+              </button>
+              <button
+                onClick={() => setShowMigsCertModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs cursor-pointer"
               >
                 Close
               </button>

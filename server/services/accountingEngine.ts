@@ -247,7 +247,11 @@ export class AccountingEngine {
         subsidiary_type: 'Cash',
         subsidiary_id: cash_account_id
       });
-    } else if (transaction_type === 'SHARE_CAPITAL_PAYMENT') {
+    } else if (
+      transaction_type === 'SHARE_CAPITAL_PAYMENT' ||
+      transaction_type === 'SHARE_CAPITAL_DEPOSIT' ||
+      transaction_type === 'SHARE_CAPITAL_CONTRIBUTION'
+    ) {
       const debitAcc = cashGlAccountId || txTypeMapping?.debit_account_id || 'acc_1110';
       const creditAcc = req.custom_credit_account_id || txTypeMapping?.credit_account_id || 'acc_3110';
 
@@ -307,25 +311,52 @@ export class AccountingEngine {
     }
 
     // 6. Generate Numbering based on pattern
-    const prefixType = transaction_type.includes('PAYMENT') || transaction_type.includes('DEPOSIT') ? 'OR' :
-                       transaction_type.includes('RELEASE') || transaction_type.includes('EXPENSE') ? 'CD' : 'JV';
-    const voucherNumber = NumberingService.getNextNumber(prefixType, branchCode);
+    const isReceipt = transaction_type.includes('PAYMENT') || 
+                      transaction_type.includes('DEPOSIT') || 
+                      transaction_type.includes('CAPITAL') || 
+                      transaction_type.includes('RECEIPT') ||
+                      transaction_type.includes('CONTRIBUTION');
+    const isDisbursement = transaction_type.includes('RELEASE') || 
+                          transaction_type.includes('EXPENSE') || 
+                          transaction_type.includes('DISBURSE') ||
+                          transaction_type.includes('WITHDRAW');
+    const prefixType = isReceipt ? 'OR' : isDisbursement ? 'CD' : 'JV';
+    const voucherType = isReceipt ? 'CRJ' : isDisbursement ? 'CDJ' : 'JV';
+
+    // If reference_id is already a valid OR/CD/JV number, we can preserve it or generate via sequence
+    let voucherNumber = reference_id && (reference_id.startsWith('OR-') || reference_id.startsWith('CD-') || reference_id.startsWith('JV-'))
+      ? reference_id
+      : NumberingService.getNextNumber(prefixType, branchCode);
+
+    // Resolve member details if member subsidiary or passed in request
+    let memberId: string | undefined = subsidiary?.type === 'Member' ? subsidiary.id : (req as any).member_id;
+    let memberName: string | undefined = undefined;
+    if (memberId) {
+      const allMembers = db.getTable('members') || [];
+      const mem = allMembers.find(m => m.id === memberId || m.member_no === memberId);
+      if (mem) {
+        memberName = `${mem.first_name} ${mem.last_name}`;
+      }
+    }
 
     // 7. Insert Journal Entry
     const journalEntry = {
       id: journalId,
       voucher_number: voucherNumber,
+      voucher_type: voucherType,
       branch_id: branch?.id || 'branch_tar',
       posting_date,
       reference_type: transaction_type,
-      reference_id,
+      reference_id: reference_id || voucherNumber,
       description,
       total_debit: totalDebit,
       total_credit: totalCredit,
       period_id: targetPeriod?.id || 'period_current',
       status: 'Posted',
       created_by: performed_by || 'Accounting System',
-      posted_at: new Date().toISOString()
+      posted_at: new Date().toISOString(),
+      member_id: memberId,
+      member_name: memberName
     };
 
     db.insert('journal_entries', journalEntry);

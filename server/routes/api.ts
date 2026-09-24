@@ -2853,8 +2853,27 @@ router.post('/share-capital/accounts', (req: Request, res: Response) => {
 
   db.insert('share_capital_accounts', newAccount);
 
-  // If initial paid up amount > 0, record initial transaction
+  // If initial paid up amount > 0, record initial transaction and post to Cash Receipts Journal (CRJ)
+  let initialReceiptNo = `OR-INIT-CBU-${Date.now().toString().slice(-4)}`;
   if (calcPaidUpAmount > 0) {
+    const branches = db.getTable('branches');
+    const br = branches.find(b => b.id === resolvedBranchId);
+    const branchCode = br ? br.code : 'TAR';
+    initialReceiptNo = NumberingService.getNextNumber('OR', branchCode);
+
+    // Post to Cash Receipts Journal (CRJ)
+    AccountingEngine.post({
+      transaction_type: 'SHARE_CAPITAL_PAYMENT',
+      posting_date: new Date().toISOString().split('T')[0],
+      branch_id: resolvedBranchId,
+      reference_id: initialReceiptNo,
+      description: `Official Receipt ${initialReceiptNo}: Initial Share Capital deposit (${numPaidUp} shares) for ${member.first_name} ${member.last_name} (${accNo})`,
+      performed_by: performed_by || 'System Administrator',
+      cash_account_id: req.body.cash_account_id || 'cash_01',
+      amount_breakdown: { total: calcPaidUpAmount },
+      subsidiary: { type: 'Member', id: member.id }
+    });
+
     db.insert('share_capital_transactions', {
       id: `sct_${Date.now()}`,
       share_capital_account_id: newAccount.id,
@@ -2865,9 +2884,9 @@ router.post('/share-capital/accounts', (req: Request, res: Response) => {
       shares: numPaidUp,
       amount: calcPaidUpAmount,
       balance_after: calcPaidUpAmount,
-      reference_no: `OR-INIT-CBU-${Date.now().toString().slice(-4)}`,
-      receipt_no: `OR-INIT-CBU-${Date.now().toString().slice(-4)}`,
-      notes: 'Initial paid-up share capital on account creation',
+      reference_no: initialReceiptNo,
+      receipt_no: initialReceiptNo,
+      notes: `Initial paid-up share capital (${numPaidUp} shares @ ₱${numParValue}) on account creation`,
       transaction_date: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       performed_by: performed_by
@@ -3042,11 +3061,16 @@ router.post('/share-capital/pay', (req: Request, res: Response) => {
   const today = new Date().toISOString().split('T')[0];
   const receiptNo = NumberingService.getNextNumber('OR', 'TAR');
 
+  const members = db.getTable('members') || [];
+  const mem = members.find(m => m.id === account.member_id);
+  const memberName = mem ? `${mem.first_name} ${mem.last_name}` : 'Member';
+
   const postResult = AccountingEngine.post({
     transaction_type: 'SHARE_CAPITAL_PAYMENT',
     posting_date: today,
+    branch_id: account.branch_id || mem?.branch_id || 'branch_tar',
     reference_id: receiptNo,
-    description: `Share capital contribution ${receiptNo} for account ${account.account_number}`,
+    description: `Official Receipt ${receiptNo}: Share capital contribution (+${payShares} shares) for ${account.account_number} (${memberName})`,
     performed_by: performed_by || 'Cashier',
     cash_account_id: cash_account_id || 'cash_01',
     amount_breakdown: { total: payAmount },
@@ -3077,8 +3101,6 @@ router.post('/share-capital/pay', (req: Request, res: Response) => {
   db.insert('share_capital_transactions', tx);
 
   // Record automated audit log with GL posting details
-  const members = db.getTable('members');
-  const mem = members.find(m => m.id === account.member_id);
   db.recordAudit(
     'Share Capital (CBU)',
     `Paid-Up: ₱${(account.paid_up_amount - payAmount).toLocaleString()} (${account.paid_up_shares - payShares} sh)`,
@@ -3979,15 +4001,34 @@ router.post('/auth/member-register', (req: Request, res: Response) => {
   };
   db.insert('share_capital_accounts', cbuAccount);
 
-  // Initial Share Capital Contribution Transaction
+  // Initial Share Capital Contribution Transaction & CRJ Posting
+  const branchCode = assignedBranch?.code || 'TAR';
+  const cbuReceiptNo = NumberingService.getNextNumber('OR', branchCode);
+
+  AccountingEngine.post({
+    transaction_type: 'SHARE_CAPITAL_PAYMENT',
+    posting_date: today,
+    branch_id: assignedBranch.id,
+    reference_id: cbuReceiptNo,
+    description: `Official Receipt ${cbuReceiptNo}: Initial Share Capital deposit (25 shares) upon membership enrollment for ${newMember.first_name} ${newMember.last_name}`,
+    performed_by: 'Membership Admission Officer',
+    cash_account_id: 'cash_01',
+    amount_breakdown: { total: 2500 },
+    subsidiary: { type: 'Member', id: memberId }
+  });
+
   db.insert('share_capital_transactions', {
     id: `sct_${memberId}_01`,
     share_account_id: cbuAccount.id,
-    receipt_no: `OR-CBU-${Date.now().toString().slice(-6)}`,
+    share_capital_account_id: cbuAccount.id,
+    receipt_no: cbuReceiptNo,
+    reference_no: cbuReceiptNo,
     member_id: memberId,
     type: 'Subscription Initial Payment',
+    transaction_type: 'Contribution',
     shares: 25,
     amount: 2500,
+    balance_after: 2500,
     transaction_date: today,
     cash_account_id: 'cash_01',
     created_at: `${today} 10:00:00`,
@@ -4089,9 +4130,51 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
   }
 
   const scaIds = new Set(shareAccounts.map(s => s.id));
-  const shareTransactions = (db.getTable('share_capital_transactions') || []).filter(t => 
+  let shareTransactions = (db.getTable('share_capital_transactions') || []).filter(t => 
     scaIds.has(t.share_account_id) || aliasIds.has(t.member_id)
   );
+
+  // If CBU account has paid up amount but no transaction record, create opening transaction & CRJ post
+  if (shareTransactions.length === 0 && shareAccounts.length > 0 && Number(shareAccounts[0].paid_up_amount || 0) > 0) {
+    const sca = shareAccounts[0];
+    const receiptNo = `OR-${(member.member_no || '2026-0001').replace('MB-', '').replace('MEM-', '')}-CBU`;
+    const initSct = {
+      id: `sct_init_${sca.id}`,
+      share_capital_account_id: sca.id,
+      share_account_id: sca.id,
+      member_id: member.id,
+      type: 'Subscription Payment',
+      transaction_type: 'Contribution',
+      shares: sca.paid_up_shares || 50,
+      amount: sca.paid_up_amount || 5000,
+      balance_after: sca.paid_up_amount || 5000,
+      receipt_no: receiptNo,
+      reference_no: receiptNo,
+      notes: `Initial paid-up share capital (${sca.paid_up_shares || 50} shares @ ₱${sca.par_value || 100})`,
+      transaction_date: sca.created_at?.split(' ')[0] || member.joined_date || '2026-01-01',
+      created_at: `${sca.created_at?.split(' ')[0] || '2026-01-01'} 09:00:00`,
+      cash_account_id: 'cash_01'
+    };
+    db.insert('share_capital_transactions', initSct);
+    shareTransactions = [initSct];
+
+    // Ensure CRJ entry exists
+    const allJvs = db.getTable('journal_entries') || [];
+    const hasJv = allJvs.some(j => j.reference_id === receiptNo || j.voucher_number === receiptNo);
+    if (!hasJv) {
+      AccountingEngine.post({
+        transaction_type: 'SHARE_CAPITAL_PAYMENT',
+        posting_date: initSct.transaction_date,
+        branch_id: sca.branch_id || member.branch_id || 'branch_tar',
+        reference_id: receiptNo,
+        description: `Official Receipt ${receiptNo}: Initial Share Capital deposit (${sca.paid_up_shares || 50} shares) for ${member.first_name} ${member.last_name}`,
+        performed_by: 'Membership Admission Officer',
+        cash_account_id: 'cash_01',
+        amount_breakdown: { total: sca.paid_up_amount || 5000 },
+        subsidiary: { type: 'Member', id: member.id }
+      });
+    }
+  }
 
   // 2. Savings Accounts & Transactions
   let savingsAccounts = (db.getTable('savings_accounts') || []).filter(s => aliasIds.has(s.member_id));
@@ -4113,9 +4196,29 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
   }
 
   const saIds = new Set(savingsAccounts.map(s => s.id));
-  const savingsTransactions = (db.getTable('savings_transactions') || []).filter(t => 
+  let savingsTransactions = (db.getTable('savings_transactions') || []).filter(t => 
     saIds.has(t.savings_account_id) || aliasIds.has(t.member_id)
   );
+
+  // If savings account has balance but no transactions, record opening deposit
+  if (savingsTransactions.length === 0 && savingsAccounts.length > 0 && Number(savingsAccounts[0].balance || 0) > 0) {
+    const sa = savingsAccounts[0];
+    const initSt = {
+      id: `st_init_${sa.id}`,
+      transaction_no: `TX-INIT-${sa.account_number}`,
+      savings_account_id: sa.id,
+      member_id: member.id,
+      type: 'Deposit',
+      amount: sa.balance || 5000,
+      balance_after: sa.balance || 5000,
+      cash_account_id: 'cash_01',
+      transaction_date: sa.opened_date || member.joined_date || '2026-01-01',
+      notes: 'Initial account opening deposit',
+      created_at: `${sa.opened_date || '2026-01-01'} 09:30:00`
+    };
+    db.insert('savings_transactions', initSt);
+    savingsTransactions = [initSt];
+  }
 
   // 3. Loans, Schedules & Payments
   const allLoans = db.getTable('loans') || [];
@@ -4141,7 +4244,7 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
     };
   });
 
-  // 4. Relevant Manual Journal Vouchers
+  // 4. Relevant Manual Journal Vouchers & CRJ Receipts
   const journalEntries = db.getTable('journal_entries') || [];
   const journalLines = db.getTable('journal_lines') || [];
   const accountMap = new Map((db.getTable('chart_of_accounts') || []).map(a => [a.id, a]));
@@ -4152,7 +4255,9 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
     const notesLower = (entry.notes || '').toLowerCase();
     const hasName = descLower.includes(memberName) || notesLower.includes(memberName);
     const hasRef = aliasIds.has(entry.member_id) || aliasIds.has(entry.reference_id) || aliasIds.has(entry.subsidiary_id);
-    return hasName || hasRef;
+    const lines = journalLines.filter(l => l.journal_entry_id === entry.id);
+    const hasLineSub = lines.some(l => l.subsidiary_type === 'Member' && aliasIds.has(l.subsidiary_id));
+    return hasName || hasRef || hasLineSub;
   }).map(entry => {
     const lines = journalLines.filter(l => l.journal_entry_id === entry.id).map(l => {
       const acc = accountMap.get(l.account_id);
@@ -4186,7 +4291,7 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
       debit: pAmt,
       credit: 0,
       status: 'Completed',
-      notes: `Net proceeds ₱${Number(l.net_disbursed || pAmt).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+      notes: `Net proceeds: ₱${Number(l.net_disbursed || pAmt).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
     });
   });
 
@@ -4240,7 +4345,7 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
       type: 'Share Capital Payment',
       category: 'Share Capital',
       facility: 'Capital Build-Up (CBU)',
-      reference: sct.receipt_no || sct.id,
+      reference: sct.receipt_no || sct.reference_no || sct.id,
       description: sct.notes || `CBU contribution (+${shares} shares)`,
       amount: amt,
       debit: 0,
@@ -4250,23 +4355,42 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
     });
   });
 
-  // Manual JVs
+  // Check existing references in unifiedTransactions to avoid exact duplicates
+  const existingRefs = new Set(unifiedTransactions.map(t => String(t.reference || '').trim()));
+
   relevantJVs.forEach(jv => {
+    const vNum = String(jv.voucher_number || '').trim();
+    const refId = String(jv.reference_id || '').trim();
+    const isAlreadyCovered = (vNum && existingRefs.has(vNum)) || (refId && existingRefs.has(refId));
+
+    if (isAlreadyCovered) {
+      // Find matching transaction and enrich with journal entry
+      const match = unifiedTransactions.find(t => t.reference === vNum || t.reference === refId);
+      if (match) {
+        match.journal_entry_id = jv.id;
+        match.voucher_number = jv.voucher_number;
+        match.gl_status = jv.status || 'Posted';
+      }
+      return;
+    }
+
     const dVal = Number(jv.total_debit || 0);
     const cVal = Number(jv.total_credit || 0);
+    const isCrj = jv.voucher_type === 'CRJ' || vNum.startsWith('OR') || String(jv.reference_type || '').includes('PAYMENT') || String(jv.reference_type || '').includes('DEPOSIT') || String(jv.reference_type || '').includes('CAPITAL');
+
     unifiedTransactions.push({
       id: `tx_jv_${jv.id}`,
       date: jv.posting_date || jv.created_at?.split(' ')[0] || '',
-      type: 'Journal Voucher (JV)',
-      category: 'Journal Vouchers',
-      facility: 'Coop Accounting JV',
-      reference: jv.voucher_number || jv.id,
-      description: jv.description || 'Manual accounting journal entry',
-      amount: dVal || cVal || 0,
-      debit: dVal,
-      credit: cVal,
+      type: isCrj ? 'Cash Receipt (CRJ)' : 'Journal Voucher (JV)',
+      category: isCrj ? 'Cash Receipts (CRJ)' : 'Journal Vouchers',
+      facility: isCrj ? 'Cash Receipts Journal' : 'Coop General Ledger',
+      reference: jv.voucher_number || jv.reference_id || jv.id,
+      description: jv.description || (isCrj ? 'Cash Receipt Journal Entry' : 'Manual accounting journal entry'),
+      amount: cVal || dVal || 0,
+      debit: isCrj ? 0 : dVal,
+      credit: isCrj ? (cVal || dVal) : cVal,
       status: jv.status || 'Posted',
-      notes: jv.notes || 'Posted to official General Ledger'
+      notes: `Official GL ${jv.voucher_number || 'JV'}`
     });
   });
 
@@ -4463,18 +4587,36 @@ router.post('/member-portal/:memberId/deposit', (req: Request, res: Response) =>
   db.update('savings_accounts', sa => sa.id === account.id, () => ({ ...account, balance: newBalance }));
 
   const today = new Date().toISOString().split('T')[0];
-  const txNo = `TX-SA-${Date.now().toString().slice(-6)}`;
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === memberId || m.member_no === memberId);
+  const branchCode = member?.branch_id === 'branch_con' ? 'CON' : member?.branch_id === 'branch_cap' ? 'CAP' : 'TAR';
+  const receiptNo = NumberingService.getNextNumber('OR', branchCode);
+
+  // Post to Accounting Engine / Cash Receipts Journal (CRJ)
+  const postResult = AccountingEngine.post({
+    transaction_type: 'SAVINGS_DEPOSIT',
+    posting_date: today,
+    branch_id: account.branch_id || member?.branch_id || 'branch_tar',
+    reference_id: receiptNo,
+    description: `Official Receipt ${receiptNo}: Savings deposit of ₱${depAmount.toLocaleString()} to ${account.account_number} (${member?.first_name || 'Member'} ${member?.last_name || ''}) via Member Portal`,
+    performed_by: `${member?.first_name || 'Member'} ${member?.last_name || ''} (Member Portal)`,
+    cash_account_id: 'cash_01',
+    amount_breakdown: { total: depAmount },
+    subsidiary: { type: 'Member', id: member ? member.id : memberId }
+  });
+
   const tx = {
     id: `st_${Date.now()}`,
-    transaction_no: txNo,
+    transaction_no: receiptNo,
+    reference_no: receiptNo,
     savings_account_id: account.id,
-    member_id: memberId,
+    member_id: member ? member.id : memberId,
     type: 'Deposit',
     amount: depAmount,
     balance_after: newBalance,
     cash_account_id: 'cash_01',
     transaction_date: today,
-    notes: notes || 'Over-the-counter / online deposit via Member Portal',
+    notes: notes || `Official Receipt ${receiptNo}: Online deposit via Member Portal`,
     created_at: `${today} 12:00:00`
   };
 
@@ -4482,8 +4624,8 @@ router.post('/member-portal/:memberId/deposit', (req: Request, res: Response) =>
 
   res.json({
     success: true,
-    message: `Deposit of ₱${depAmount.toLocaleString()} recorded successfully. New balance: ₱${newBalance.toLocaleString()}`,
-    data: { transaction: tx, balance: newBalance }
+    message: `Deposit of ₱${depAmount.toLocaleString()} (Official Receipt: ${receiptNo}) recorded successfully. New balance: ₱${newBalance.toLocaleString()}`,
+    data: { transaction: tx, balance: newBalance, journal_entry: postResult.journal_entry }
   });
 });
 
@@ -4541,15 +4683,34 @@ router.post('/member-portal/:memberId/pay-share-capital', (req: Request, res: Re
   }));
 
   const today = new Date().toISOString().split('T')[0];
-  const receiptNo = `OR-CBU-${Date.now().toString().slice(-6)}`;
+  const branchCode = member?.branch_id === 'branch_con' ? 'CON' : member?.branch_id === 'branch_cap' ? 'CAP' : 'TAR';
+  const receiptNo = NumberingService.getNextNumber('OR', branchCode);
+
+  // Post to Accounting Engine / Cash Receipts Journal (CRJ)
+  const postResult = AccountingEngine.post({
+    transaction_type: 'SHARE_CAPITAL_PAYMENT',
+    posting_date: today,
+    branch_id: account.branch_id || member?.branch_id || 'branch_tar',
+    reference_id: receiptNo,
+    description: `Official Receipt ${receiptNo}: Share capital deposit (+${additionalShares} shares) for ${account.account_number} (${member?.first_name || 'Member'} ${member?.last_name || ''}) via Member Portal`,
+    performed_by: `${member?.first_name || 'Member'} ${member?.last_name || ''} (Member Portal)`,
+    cash_account_id: 'cash_01',
+    amount_breakdown: { total: payAmount },
+    subsidiary: { type: 'Member', id: member ? member.id : memberId }
+  });
+
   const tx = {
     id: `sct_${Date.now()}`,
     share_account_id: account.id,
+    share_capital_account_id: account.id,
     receipt_no: receiptNo,
-    member_id: memberId,
+    reference_no: receiptNo,
+    member_id: member ? member.id : memberId,
     type: 'Subscription Payment',
+    transaction_type: 'Contribution',
     shares: additionalShares,
     amount: payAmount,
+    balance_after: newPaidAmount,
     transaction_date: today,
     cash_account_id: 'cash_01',
     created_at: `${today} 12:00:00`,
@@ -4560,8 +4721,12 @@ router.post('/member-portal/:memberId/pay-share-capital', (req: Request, res: Re
 
   res.json({
     success: true,
-    message: `Share capital contribution of ₱${payAmount.toLocaleString()} (+${additionalShares} shares) received! Total Paid-up: ₱${newPaidAmount.toLocaleString()}`,
-    data: { transaction: tx, account: { ...account, paid_up_amount: newPaidAmount, paid_up_shares: newPaidShares } }
+    message: `Share capital contribution of ₱${payAmount.toLocaleString()} (+${additionalShares} shares, Official Receipt: ${receiptNo}) received and posted to Cash Receipts Journal! Total Paid-up: ₱${newPaidAmount.toLocaleString()}`,
+    data: {
+      transaction: tx,
+      journal_entry: postResult.journal_entry,
+      account: { ...account, paid_up_amount: newPaidAmount, paid_up_shares: newPaidShares }
+    }
   });
 });
 
@@ -4581,7 +4746,10 @@ router.post('/member-portal/:memberId/loan-payment', (req: Request, res: Respons
   const nextUnpaid = schedules.find(s => s.status !== 'Paid');
 
   const today = new Date().toISOString().split('T')[0];
-  const receiptNo = `OR-PAY-${Date.now().toString().slice(-6)}`;
+  const members = db.getTable('members') || [];
+  const member = members.find(m => m.id === memberId || m.member_no === memberId);
+  const branchCode = member?.branch_id === 'branch_con' ? 'CON' : member?.branch_id === 'branch_cap' ? 'CAP' : 'TAR';
+  const receiptNo = NumberingService.getNextNumber('OR', branchCode);
 
   let principalPart = payAmount;
   let interestPart = 0;
@@ -4599,6 +4767,23 @@ router.post('/member-portal/:memberId/loan-payment', (req: Request, res: Respons
       paid_date: today
     }));
   }
+
+  // Post to Accounting Engine / Cash Receipts Journal (CRJ)
+  const postResult = AccountingEngine.post({
+    transaction_type: 'LOAN_PAYMENT',
+    posting_date: today,
+    branch_id: loan.branch_id || member?.branch_id || 'branch_tar',
+    reference_id: receiptNo,
+    description: `Official Receipt ${receiptNo}: Loan repayment for ${loan.loan_account_no} (${member?.first_name || 'Member'} ${member?.last_name || ''}) via Member Portal`,
+    performed_by: `${member?.first_name || 'Member'} ${member?.last_name || ''} (Member Portal)`,
+    cash_account_id: 'cash_01',
+    amount_breakdown: {
+      total: payAmount,
+      principal: principalPart,
+      interest: interestPart
+    },
+    subsidiary: { type: 'Member', id: member ? member.id : memberId }
+  });
 
   const newBalance = Math.max(0, Number(loan.current_balance || 0) - principalPart);
   const newPrincipalPaid = Number(loan.total_principal_paid || 0) + principalPart;
