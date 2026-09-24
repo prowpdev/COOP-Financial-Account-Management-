@@ -17,12 +17,14 @@ import { api } from '../../services/api';
 interface LoanCalculatorProps {
   products: any[];
   memberShareCapital?: number;
+  readOnly?: boolean;
   onApplyWithParameters?: (params: { productId: string; principal: number; term: number }) => void;
 }
 
 export const LoanCalculator: React.FC<LoanCalculatorProps> = ({
   products,
   memberShareCapital = 0,
+  readOnly = false,
   onApplyWithParameters
 }) => {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
@@ -129,7 +131,7 @@ export const LoanCalculator: React.FC<LoanCalculatorProps> = ({
           </p>
         </div>
 
-        {onApplyWithParameters && (
+        {!readOnly && onApplyWithParameters && (
           <button
             onClick={() =>
               onApplyWithParameters({
@@ -138,7 +140,7 @@ export const LoanCalculator: React.FC<LoanCalculatorProps> = ({
                 term: Number(termMonths)
               })
             }
-            className="hide px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center space-x-2 shadow-lg shadow-emerald-950/40 cursor-pointer self-start sm:self-auto"
+            className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center space-x-2 shadow-lg shadow-emerald-950/40 cursor-pointer self-start sm:self-auto"
           >
             <span>Apply with This Simulation</span>
             <ArrowRight className="w-4 h-4" />

@@ -453,9 +453,29 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   onLogout,
   onSwitchToStaff
 }) => {
+  const getInitialTab = (): 'transactions' | 'loans' | 'savings' | 'cbu' | 'calculator' | 'profile' => {
+    try {
+      const hash = window.location.hash || '';
+      if (hash.includes('/calculator')) return 'calculator';
+      if (hash.includes('/loans')) return 'loans';
+      if (hash.includes('/savings')) return 'savings';
+      if (hash.includes('/cbu')) return 'cbu';
+      if (hash.includes('/profile')) return 'profile';
+      if (hash.includes('/transactions')) return 'transactions';
+      const stored = localStorage.getItem('mayap_active_route');
+      if (stored && stored.startsWith('member-portal/')) {
+        const sub = stored.split('/')[1] as any;
+        if (['transactions', 'loans', 'savings', 'cbu', 'calculator', 'profile'].includes(sub)) {
+          return sub;
+        }
+      }
+    } catch (e) {}
+    return 'transactions';
+  };
+
   const [activeTab, setActiveTab] = useState<
     'transactions' | 'loans' | 'savings' | 'cbu' | 'calculator' | 'profile'
-  >('transactions');
+  >(getInitialTab());
 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -469,30 +489,47 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   // Loan expanded state
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
 
-  // Modals
-  const [showApplyLoanModal, setShowApplyLoanModal] = useState(false);
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [showCbuModal, setShowCbuModal] = useState(false);
-  const [showPayLoanModal, setShowPayLoanModal] = useState(false);
-  const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<any>(null);
+  // Read-only Modals
   const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
   const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<any | null>(null);
   const [showMigsCertModal, setShowMigsCertModal] = useState(false);
 
-  // Form states
+  // Loan products for calculator simulator
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
-  const [applyProductId, setApplyProductId] = useState('');
-  const [applyPrincipal, setApplyPrincipal] = useState(30000);
-  const [applyTerm, setApplyTerm] = useState(12);
-  const [applyNotes, setApplyNotes] = useState(
-    'Farm inputs & fertilizer support'
-  );
 
-  const [depositAmount, setDepositAmount] = useState(1000);
-  const [cbuAmount, setCbuAmount] = useState(2500);
-  const [loanPayAmount, setLoanPayAmount] = useState(0);
+  // Navigation tab switcher that syncs URL hash
+  const handleSelectTab = (tab: 'transactions' | 'loans' | 'savings' | 'cbu' | 'calculator' | 'profile') => {
+    setActiveTab(tab);
+    window.location.hash = `#/member-portal/${tab}`;
+    try {
+      localStorage.setItem('mayap_active_route', `member-portal/${tab}`);
+    } catch (e) {}
+  };
 
-  const [actionLoading, setActionLoading] = useState(false);
+  // Sync route on hashchange
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash || '';
+      if (hash.startsWith('#/member-portal')) {
+        if (hash.includes('/calculator')) setActiveTab('calculator');
+        else if (hash.includes('/loans')) setActiveTab('loans');
+        else if (hash.includes('/savings')) setActiveTab('savings');
+        else if (hash.includes('/cbu')) setActiveTab('cbu');
+        else if (hash.includes('/profile')) setActiveTab('profile');
+        else if (hash.includes('/transactions')) setActiveTab('transactions');
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Update hash initially if not set
+  useEffect(() => {
+    const currentHash = window.location.hash || '';
+    if (!currentHash.startsWith('#/member-portal')) {
+      window.location.hash = `#/member-portal/${activeTab}`;
+    }
+  }, [activeTab]);
 
   // Fetch Member Dashboard Data
   const loadDashboard = async () => {
@@ -532,158 +569,13 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   useEffect(() => {
     loadDashboard();
 
-    // Load loan products
+    // Load loan products for Loan Calculator
     api.getLoanProducts().then((res) => {
       if (res.data && res.data.length > 0) {
         setLoanProducts(res.data);
-        setApplyProductId(res.data[0].id);
       }
     });
   }, [member.id]);
-
-  // Apply for a loan
-  const handleApplyLoan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setActionLoading(true);
-
-    try {
-      const res = await api.memberApplyLoan(member.id, {
-        loan_product_id: applyProductId,
-        principal_amount: Number(applyPrincipal),
-        term_months: Number(applyTerm),
-        notes: applyNotes
-      });
-
-      if (res.success) {
-        setSuccessMessage(
-          res.message || 'Loan application submitted successfully!'
-        );
-        setShowApplyLoanModal(false);
-        await loadDashboard();
-        setActiveTab('loans');
-      } else {
-        setErrorMessage(res.message || 'Loan application failed.');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error applying for loan.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Deposit savings
-  const handleDepositSavings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setActionLoading(true);
-
-    try {
-      const targetAccId =
-        dashboardData?.savings_accounts?.[0]?.id;
-
-      if (!targetAccId) {
-        setErrorMessage('No active savings account found.');
-        return;
-      }
-
-      const res = await api.memberDepositSavings(member.id, {
-        savings_account_id: targetAccId,
-        amount: Number(depositAmount),
-        notes: 'Deposit via Online Member Portal'
-      });
-
-      if (res.success) {
-        setSuccessMessage(
-          res.message || 'Deposit processed successfully!'
-        );
-        setShowDepositModal(false);
-        await loadDashboard();
-        setActiveTab('savings');
-      } else {
-        setErrorMessage(res.message || 'Deposit failed.');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error processing deposit.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Pay share capital
-  const handlePayCbu = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setActionLoading(true);
-
-    try {
-      const res = await api.memberPayShareCapital(member.id, {
-        amount: Number(cbuAmount),
-        notes: 'Share capital contribution via Online Member Portal'
-      });
-
-      if (res.success) {
-        setSuccessMessage(
-          res.message || 'Share capital contribution recorded!'
-        );
-        setShowCbuModal(false);
-        await loadDashboard();
-        setActiveTab('cbu');
-      } else {
-        setErrorMessage(res.message || 'Contribution failed.');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error contributing share capital.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Pay loan installment
-  const handlePayLoanInstallment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedLoanForPayment) return;
-
-    setActionLoading(true);
-
-    try {
-      const res = await api.memberMakeLoanPayment(member.id, {
-        loan_id: selectedLoanForPayment.id,
-        amount: Number(loanPayAmount),
-        notes: `Online installment repayment for ${selectedLoanForPayment.loan_account_no}`
-      });
-
-      if (res.success) {
-        setSuccessMessage(
-          res.message || 'Loan installment paid successfully!'
-        );
-        setShowPayLoanModal(false);
-        await loadDashboard();
-        setActiveTab('loans');
-      } else {
-        setErrorMessage(res.message || 'Repayment failed.');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error processing repayment.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Open loan payment modal
-  const openLoanPayment = (loan: any) => {
-    setSelectedLoanForPayment(loan);
-
-    const nextSched = (
-      loan.amortization_schedule || []
-    ).find((s: any) => s.status !== 'Paid');
-
-    setLoanPayAmount(
-      nextSched
-        ? Number(nextSched.total_installment)
-        : Number(loan.current_balance || 0)
-    );
-
-    setShowPayLoanModal(true);
-  };
 
   // Filter transactions
   const allTx = dashboardData?.all_transactions || [];
@@ -887,20 +779,16 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </div>
             </div>
 
-            {/* Quick Action Buttons */}
+            {/* Quick Action & Tracking Buttons */}
             <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
-              <button
-                id="btn-action-apply-loan"
-                onClick={() => setShowApplyLoanModal(false)}
-                className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Apply for Loan</span>
-              </button>
+              <span className="px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+                <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Read-Only Passbook</span>
+              </span>
 
               <button
                 id="btn-action-calculator"
-                onClick={() => setActiveTab('calculator')}
+                onClick={() => handleSelectTab('calculator')}
                 className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-500/30 text-xs font-bold text-amber-300 hover:text-amber-200 transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
               >
                 <Calculator className="w-3.5 h-3.5 text-amber-400" />
@@ -908,21 +796,23 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </button>
 
               <button
-                id="btn-action-deposit"
-                onClick={() => setShowDepositModal(false)}
-                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                id="btn-action-statement"
+                onClick={() => setShowPrintStatementModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                title="Print Official Statement of Account"
               >
-                <PiggyBank className="w-3.5 h-3.5 text-teal-400" />
-                <span>Deposit Savings</span>
+                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Statement</span>
               </button>
 
               <button
-                id="btn-action-cbu"
-                onClick={() => setShowCbuModal(true)}
-                className="hide px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                id="btn-action-migs"
+                onClick={() => setShowMigsCertModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+                title="View MIGS Certificate of Good Standing"
               >
-                <Wallet className="hide w-3.5 h-3.5 text-purple-400" />
-                <span>Add Share Capital</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                <span>MIGS Cert</span>
               </button>
 
               <button
@@ -930,7 +820,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 onClick={loadDashboard}
                 disabled={isLoading}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
-                title="Refresh financial data"
+                title="Refresh financial ledger"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -1051,13 +941,10 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
                   <span>Due on {memberSummary.next_payment_due.due_date}</span>
                   <button
-                    onClick={() => {
-                      const l = (dashboardData?.loans || []).find((x: any) => x.loan_account_no === memberSummary.next_payment_due.loan_no);
-                      if (l) openLoanPayment(l);
-                    }}
+                    onClick={() => handleSelectTab('loans')}
                     className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
                   >
-                    Pay Now →
+                    View Schedule →
                   </button>
                 </div>
               </>
@@ -1080,7 +967,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         <div className="flex items-center space-x-2 border-b border-slate-800 pb-2 overflow-x-auto">
           <button
             id="member-tab-transactions"
-            onClick={() => setActiveTab('transactions')}
+            onClick={() => handleSelectTab('transactions')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'transactions'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
@@ -1093,7 +980,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
           <button
             id="member-tab-loans"
-            onClick={() => setActiveTab('loans')}
+            onClick={() => handleSelectTab('loans')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'loans'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
@@ -1106,7 +993,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
           <button
             id="member-tab-calculator"
-            onClick={() => setActiveTab('calculator')}
+            onClick={() => handleSelectTab('calculator')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'calculator'
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-950/40'
@@ -1119,7 +1006,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
           <button
             id="member-tab-savings"
-            onClick={() => setActiveTab('savings')}
+            onClick={() => handleSelectTab('savings')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'savings'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
@@ -1132,7 +1019,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
           <button
             id="member-tab-cbu"
-            onClick={() => setActiveTab('cbu')}
+            onClick={() => handleSelectTab('cbu')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'cbu'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
@@ -1145,7 +1032,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
           <button
             id="member-tab-profile"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleSelectTab('profile')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'profile'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
@@ -1383,18 +1270,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </div>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setActiveTab('calculator')}
+                  onClick={() => handleSelectTab('calculator')}
                   className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-amber-950/40 cursor-pointer whitespace-nowrap"
                 >
                   <Calculator className="w-3.5 h-3.5" />
                   <span>Launch Loan Calculator</span>
-                </button>
-                <button
-                  onClick={() => setShowApplyLoanModal(true)}
-                  className="hide px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-950/40 cursor-pointer whitespace-nowrap"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Apply Now</span>
                 </button>
               </div>
             </div>
@@ -1443,17 +1323,6 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          {loan.current_balance > 0 && (
-                            <button
-                              id={`btn-pay-loan-${loan.id}`}
-                              onClick={() => openLoanPayment(loan)}
-                              className="hide px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
-                            >
-                              <DollarSign className="w-3.5 h-3.5" />
-                              <span>Make Payment</span>
-                            </button>
-                          )}
-
                           <button
                             onClick={() => setExpandedLoanId(isExpanded ? null : loan.id)}
                             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1 cursor-pointer"
@@ -1632,13 +1501,9 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <p className="text-xs text-slate-400 max-w-md mx-auto">
                   You do not currently have an active credit facility with Mayap Care Agriculture Cooperative.
                 </p>
-                <button
-                  onClick={() => setShowApplyLoanModal(true)}
-                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition inline-flex items-center space-x-1.5"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Submit Loan Application</span>
-                </button>
+                <div className="mt-2 text-xs text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800 max-w-md mx-auto">
+                  <span>Loan inquiries and credit facility approvals are handled directly at the cooperative branch counter.</span>
+                </div>
               </div>
             )}
           </div>
@@ -1652,12 +1517,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
             <LoanCalculator
               products={loanProducts}
               memberShareCapital={memberSummary.share_capital_paid || 0}
-              onApplyWithParameters={(params) => {
-                setApplyProductId(params.productId);
-                setApplyPrincipal(params.principal);
-                setApplyTerm(params.term);
-                setShowApplyLoanModal(true);
-              }}
+              readOnly={true}
             />
           </div>
         )}
@@ -1690,14 +1550,6 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                       <span className="text-xs font-normal text-slate-400 ml-2">Current Passbook Balance</span>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setShowDepositModal(true)}
-                    className="hide px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Make a Deposit</span>
-                  </button>
                 </div>
 
                 {/* Savings Transactions Passbook */}
@@ -1849,14 +1701,6 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                           </span>
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => setShowCbuModal(true)}
-                        className="hide px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md self-start sm:self-auto cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Contribute to CBU</span>
-                      </button>
                     </div>
 
                     {/* Progress Bar */}
@@ -2116,281 +1960,6 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
           </div>
         )}
       </main>
-
-      {/* ---------------------------------------------------- */}
-      {/* MODAL: APPLY FOR LOAN */}
-      {/* ---------------------------------------------------- */}
-      {showApplyLoanModal && (
-        <div className="hide fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-                  <CreditCard className="w-5 h-5 text-emerald-400" />
-                  <span>Member Loan Self-Application</span>
-                </h3>
-                <p className="text-xs text-slate-400">Automated schedule calculation and instant approval</p>
-              </div>
-              <button onClick={() => setShowApplyLoanModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleApplyLoan} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Select Loan Product</label>
-                <select
-                  value={applyProductId}
-                  onChange={(e) => setApplyProductId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                >
-                  {loanProducts.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-slate-900">
-                      {p.name} ({p.annual_interest_rate}% p.a. • max ₱{p.max_amount?.toLocaleString()})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Principal Amount (₱)</label>
-                  <input
-                    type="number"
-                    step="1000"
-                    min="5000"
-                    max="500000"
-                    value={applyPrincipal}
-                    onChange={(e) => setApplyPrincipal(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Term (Months)</label>
-                  <select
-                    value={applyTerm}
-                    onChange={(e) => setApplyTerm(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value={6}>6 Months</option>
-                    <option value={12}>12 Months (1 Year)</option>
-                    <option value={24}>24 Months (2 Years)</option>
-                    <option value={36}>36 Months (3 Years)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Purpose / Notes</label>
-                <textarea
-                  rows={2}
-                  value={applyNotes}
-                  onChange={(e) => setApplyNotes(e.target.value)}
-                  placeholder="e.g. Purchase of seeds, fertilizers, and equipment maintenance"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-[11px] space-y-1">
-                <p className="font-bold text-emerald-300">Amortization Preview</p>
-                <p>
-                  Estimated Monthly Installment:{' '}
-                  <strong className="font-mono text-white">
-                    ₱{Math.round((applyPrincipal / applyTerm) + (applyPrincipal * 0.1 / 12)).toLocaleString()}
-                  </strong>
-                </p>
-                <p className="text-slate-400">Processing & service fees will be deducted automatically from net proceeds.</p>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowApplyLoanModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {actionLoading ? 'Processing...' : 'Submit Application'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- */}
-      {/* MODAL: DEPOSIT SAVINGS */}
-      {/* ---------------------------------------------------- */}
-      {showDepositModal && (
-        <div className="hide fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-                  <PiggyBank className="w-5 h-5 text-teal-400" />
-                  <span>Deposit into Savings Passbook</span>
-                </h3>
-                <p className="text-xs text-slate-400">Member savings deposit credit</p>
-              </div>
-              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleDepositSavings} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Deposit Amount (₱)</label>
-                <input
-                  type="number"
-                  step="100"
-                  min="100"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(Number(e.target.value))}
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-base focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDepositModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {actionLoading ? 'Processing...' : 'Confirm Deposit'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- */}
-      {/* MODAL: CONTRIBUTE TO SHARE CAPITAL (CBU) */}
-      {/* ---------------------------------------------------- */}
-      {showCbuModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-                  <Wallet className="w-5 h-5 text-purple-400" />
-                  <span>Contribute to Share Capital (CBU)</span>
-                </h3>
-                <p className="text-xs text-slate-400">₱100.00 par value per common share</p>
-              </div>
-              <button onClick={() => setShowCbuModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePayCbu} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Contribution Amount (₱)</label>
-                <input
-                  type="number"
-                  step="100"
-                  min="100"
-                  value={cbuAmount}
-                  onChange={(e) => setCbuAmount(Number(e.target.value))}
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-base focus:outline-none focus:border-purple-500"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  This contribution adds <strong className="text-purple-300 font-mono">+{Math.floor(cbuAmount / 100)}</strong> shares to your ownership in the cooperative.
-                </p>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCbuModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {actionLoading ? 'Processing...' : 'Confirm Contribution'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- */}
-      {/* MODAL: PAY LOAN INSTALLMENT */}
-      {/* ---------------------------------------------------- */}
-      {showPayLoanModal && selectedLoanForPayment && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-                  <DollarSign className="w-5 h-5 text-emerald-400" />
-                  <span>Repay Loan Installment</span>
-                </h3>
-                <p className="text-xs text-slate-400 font-mono">{selectedLoanForPayment.loan_account_no} • {selectedLoanForPayment.product_name}</p>
-              </div>
-              <button onClick={() => setShowPayLoanModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePayLoanInstallment} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Repayment Amount (₱)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="10"
-                  max={selectedLoanForPayment.current_balance}
-                  value={loanPayAmount}
-                  onChange={(e) => setLoanPayAmount(Number(e.target.value))}
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-base focus:outline-none focus:border-emerald-500"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Remaining loan balance: <strong className="text-white font-mono">₱{Number(selectedLoanForPayment.current_balance).toLocaleString()}</strong>
-                </p>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPayLoanModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {actionLoading ? 'Processing...' : 'Record Payment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ---------------------------------------------------- */}
       {/* MODAL: STATEMENT OF ACCOUNT (PRINTABLE) */}

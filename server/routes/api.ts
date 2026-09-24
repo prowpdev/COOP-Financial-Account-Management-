@@ -6031,7 +6031,7 @@ router.post(['/audit-logs', '/configuration_audit_trails'], (req: Request, res: 
 });
 
 // ==========================================
-// SYSTEM NOTIFICATIONS ENGINE (Loan Applications & Interest Received)
+// SYSTEM NOTIFICATIONS ENGINE (Comprehensive Cooperative Alert & Notification Hub)
 // ==========================================
 router.get(['/notifications', '/api/notifications'], (req: Request, res: Response) => {
   const loanApps = db.getTable('loan_applications') || [];
@@ -6041,9 +6041,16 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
   const savingsTxs = db.getTable('savings_transactions') || [];
   const loanPayments = db.getTable('loan_payments') || [];
   const allocations = db.getTable('loan_payment_allocations') || [];
-  const readIds = new Set<string>((db as any).data.read_notifications || []);
+  const loanSchedules = db.getTable('loan_amortization_schedules') || [];
+  const shareTxs = db.getTable('share_capital_transactions') || [];
+  const customNotifs = (db as any).data.custom_notifications || [];
 
-  const notifications: any[] = [];
+  const readIds = new Set<string>((db as any).data.read_notifications || []);
+  const dismissedIds = new Set<string>((db as any).data.dismissed_notifications || []);
+
+  const { category, unread_only, member_id, limit } = req.query;
+
+  let notifications: any[] = [];
 
   // 1. Loan Applications (Pending, Approved, Rejected, Disbursed)
   loanApps.forEach(app => {
@@ -6052,6 +6059,8 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
     const isPending = app.status === 'Pending' || app.status === 'Submitted' || !app.status;
     const isApproved = app.status === 'Approved';
     const notifId = `notif_app_${app.id}`;
+
+    if (dismissedIds.has(notifId)) return;
 
     notifications.push({
       id: notifId,
@@ -6089,6 +6098,8 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
       const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Savings Member';
       const notifId = `notif_sav_int_${tx.id}`;
 
+      if (dismissedIds.has(notifId)) return;
+
       notifications.push({
         id: notifId,
         type: 'interest_received',
@@ -6098,6 +6109,8 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
         message: `₱${Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} interest credited to ${memName}'s savings account (${sa?.account_number || tx.savings_account_id})`,
         amount: Number(tx.amount || 0),
         member_name: memName,
+        member_no: mem ? mem.member_no : '',
+        member_id: mem?.id || tx.member_id,
         timestamp: tx.transaction_date || tx.created_at || new Date().toISOString(),
         read: readIds.has(notifId),
         data: {
@@ -6121,6 +6134,8 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
       const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Borrower';
       const notifId = `notif_loan_int_${alloc.id}`;
 
+      if (dismissedIds.has(notifId)) return;
+
       notifications.push({
         id: notifId,
         type: 'interest_received',
@@ -6130,6 +6145,8 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
         message: `₱${interestAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })} loan interest received on payment ${pmt?.receipt_no || ''} from ${memName}`,
         amount: interestAmt,
         member_name: memName,
+        member_no: mem ? mem.member_no : '',
+        member_id: mem?.id,
         timestamp: pmt?.payment_date || alloc.created_at || new Date().toISOString(),
         read: readIds.has(notifId),
         data: {
@@ -6141,16 +6158,111 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
       });
     });
 
+  // 4. Upcoming / Overdue Loan Amortization Schedules
+  const todayStr = new Date().toISOString().split('T')[0];
+  loanSchedules
+    .filter(s => s.status === 'Pending' || s.status === 'Overdue')
+    .slice(0, 50)
+    .forEach(sched => {
+      const loan = loans.find(l => l.id === sched.loan_id);
+      if (!loan || loan.status !== 'Active') return;
+      const mem = members.find(m => m.id === loan.member_id);
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Borrower';
+      const isPastDue = sched.due_date < todayStr;
+      const notifId = `notif_sched_${sched.id}`;
+
+      if (dismissedIds.has(notifId)) return;
+
+      notifications.push({
+        id: notifId,
+        type: isPastDue ? 'loan_overdue' : 'loan_due_soon',
+        category: 'loans',
+        sub_type: 'amortization_schedule',
+        status: isPastDue ? 'Overdue' : 'Due Soon',
+        title: isPastDue
+          ? `Overdue Installment: ${loan.loan_account_no} (#${sched.installment_number})`
+          : `Upcoming Installment Due: ${loan.loan_account_no} (#${sched.installment_number})`,
+        message: `${memName} has installment #${sched.installment_number} due on ${sched.due_date} for ₱${Number(sched.total_installment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}.`,
+        amount: Number(sched.total_installment || 0),
+        member_name: memName,
+        member_no: mem ? mem.member_no : '',
+        member_id: mem?.id,
+        timestamp: sched.due_date || new Date().toISOString(),
+        read: readIds.has(notifId),
+        data: {
+          loan_id: loan.id,
+          loan_account_no: loan.loan_account_no,
+          schedule_id: sched.id,
+          installment_number: sched.installment_number,
+          due_date: sched.due_date,
+          amount_due: sched.total_installment
+        }
+      });
+    });
+
+  // 5. Share Capital Contributions
+  shareTxs.slice(-30).forEach(tx => {
+    const mem = members.find(m => m.id === tx.member_id);
+    const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Member';
+    const notifId = `notif_share_${tx.id}`;
+
+    if (dismissedIds.has(notifId)) return;
+
+    notifications.push({
+      id: notifId,
+      type: 'share_capital_payment',
+      category: 'cbu',
+      title: `Share Capital Contribution: ${memName}`,
+      message: `₱${Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} contributed (${tx.shares || 0} shares) under receipt ${tx.receipt_no || tx.reference_no || 'CBU'}.`,
+      amount: Number(tx.amount || 0),
+      member_name: memName,
+      member_no: mem ? mem.member_no : '',
+      member_id: tx.member_id,
+      timestamp: tx.transaction_date || tx.created_at || new Date().toISOString(),
+      read: readIds.has(notifId),
+      data: {
+        share_transaction_id: tx.id,
+        shares: tx.shares,
+        amount: tx.amount
+      }
+    });
+  });
+
+  // 6. Custom Announcements & System Notices
+  customNotifs.forEach((cn: any) => {
+    if (dismissedIds.has(cn.id)) return;
+    notifications.push({
+      ...cn,
+      read: readIds.has(cn.id)
+    });
+  });
+
+  // Apply filters
+  if (category && category !== 'all') {
+    notifications = notifications.filter(n => n.category === category);
+  }
+  if (unread_only === 'true') {
+    notifications = notifications.filter(n => !n.read);
+  }
+  if (member_id) {
+    notifications = notifications.filter(n => n.member_id === member_id);
+  }
+
   // Sort newest first
   notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+  const totalCount = notifications.length;
   const unreadCount = notifications.filter(n => !n.read).length;
   const loanCount = notifications.filter(n => n.category === 'loans' && !n.read).length;
   const interestCount = notifications.filter(n => n.category === 'interest' && !n.read).length;
 
+  if (limit) {
+    notifications = notifications.slice(0, Number(limit));
+  }
+
   res.json({
     success: true,
-    total: notifications.length,
+    total: totalCount,
     unread_count: unreadCount,
     loan_applications_count: loanCount,
     interest_notifications_count: interestCount,
@@ -6158,19 +6270,61 @@ router.get(['/notifications', '/api/notifications'], (req: Request, res: Respons
   });
 });
 
-// Mark notification as read
+// Quick Notification Summary Statistics
+router.get(['/notifications/summary', '/api/notifications/summary'], (req: Request, res: Response) => {
+  const loanApps = db.getTable('loan_applications') || [];
+  const allocations = db.getTable('loan_payment_allocations') || [];
+  const savingsTxs = db.getTable('savings_transactions') || [];
+  const readIds = new Set<string>((db as any).data.read_notifications || []);
+  const dismissedIds = new Set<string>((db as any).data.dismissed_notifications || []);
+
+  const pendingApps = loanApps.filter(a => {
+    const id = `notif_app_${a.id}`;
+    return !dismissedIds.has(id) && !readIds.has(id) && (a.status === 'Pending' || a.status === 'Submitted' || !a.status);
+  }).length;
+
+  const unreadSavInterest = savingsTxs.filter(t => {
+    const id = `notif_sav_int_${t.id}`;
+    return !dismissedIds.has(id) && !readIds.has(id) && ((t.type || '').toUpperCase() === 'INTEREST' || (t.notes || '').toLowerCase().includes('interest'));
+  }).length;
+
+  const unreadLoanInterest = allocations.filter(a => {
+    const id = `notif_loan_int_${a.id}`;
+    return !dismissedIds.has(id) && !readIds.has(id) && Number(a.interest_amount || a.allocated_amount || 0) > 0;
+  }).length;
+
+  res.json({
+    success: true,
+    summary: {
+      unread_total: pendingApps + unreadSavInterest + unreadLoanInterest,
+      pending_loan_applications: pendingApps,
+      unread_savings_interest: unreadSavInterest,
+      unread_loan_interest: unreadLoanInterest
+    }
+  });
+});
+
+// Mark notification(s) as read
 router.post(['/notifications/mark-read', '/api/notifications/mark-read'], (req: Request, res: Response) => {
-  const { id, all } = req.body;
+  const { id, ids, all } = req.body;
   const currentRead = new Set<string>((db as any).data.read_notifications || []);
 
   if (all) {
     const loanApps = db.getTable('loan_applications') || [];
     const savingsTxs = db.getTable('savings_transactions') || [];
     const allocations = db.getTable('loan_payment_allocations') || [];
+    const schedules = db.getTable('loan_amortization_schedules') || [];
+    const shareTxs = db.getTable('share_capital_transactions') || [];
+    const customNotifs = (db as any).data.custom_notifications || [];
 
     loanApps.forEach(a => currentRead.add(`notif_app_${a.id}`));
     savingsTxs.forEach(t => currentRead.add(`notif_sav_int_${t.id}`));
     allocations.forEach(a => currentRead.add(`notif_loan_int_${a.id}`));
+    schedules.forEach(s => currentRead.add(`notif_sched_${s.id}`));
+    shareTxs.forEach(st => currentRead.add(`notif_share_${st.id}`));
+    customNotifs.forEach((cn: any) => currentRead.add(cn.id));
+  } else if (Array.isArray(ids)) {
+    ids.forEach(item => currentRead.add(item));
   } else if (id) {
     currentRead.add(id);
   }
@@ -6179,6 +6333,116 @@ router.post(['/notifications/mark-read', '/api/notifications/mark-read'], (req: 
   db.save();
 
   res.json({ success: true, message: 'Notification(s) marked as read' });
+});
+
+// Mark notification(s) as unread
+router.post(['/notifications/mark-unread', '/api/notifications/mark-unread'], (req: Request, res: Response) => {
+  const { id, ids } = req.body;
+  const currentRead = new Set<string>((db as any).data.read_notifications || []);
+
+  if (Array.isArray(ids)) {
+    ids.forEach(item => currentRead.delete(item));
+  } else if (id) {
+    currentRead.delete(id);
+  }
+
+  (db as any).data.read_notifications = Array.from(currentRead);
+  db.save();
+
+  res.json({ success: true, message: 'Notification(s) marked as unread' });
+});
+
+// Dismiss / Delete specific notification
+router.delete(['/notifications/:id', '/api/notifications/:id'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  const dismissed = new Set<string>((db as any).data.dismissed_notifications || []);
+  dismissed.add(id);
+  (db as any).data.dismissed_notifications = Array.from(dismissed);
+  db.save();
+  res.json({ success: true, message: `Notification ${id} dismissed` });
+});
+
+// Dismiss notification(s) via POST
+router.post(['/notifications/dismiss', '/api/notifications/dismiss'], (req: Request, res: Response) => {
+  const { id, ids, all } = req.body;
+  const dismissed = new Set<string>((db as any).data.dismissed_notifications || []);
+
+  if (all) {
+    const loanApps = db.getTable('loan_applications') || [];
+    const savingsTxs = db.getTable('savings_transactions') || [];
+    const allocations = db.getTable('loan_payment_allocations') || [];
+    const schedules = db.getTable('loan_amortization_schedules') || [];
+    const shareTxs = db.getTable('share_capital_transactions') || [];
+    const customNotifs = (db as any).data.custom_notifications || [];
+
+    loanApps.forEach(a => dismissed.add(`notif_app_${a.id}`));
+    savingsTxs.forEach(t => dismissed.add(`notif_sav_int_${t.id}`));
+    allocations.forEach(a => dismissed.add(`notif_loan_int_${a.id}`));
+    schedules.forEach(s => dismissed.add(`notif_sched_${s.id}`));
+    shareTxs.forEach(st => dismissed.add(`notif_share_${st.id}`));
+    customNotifs.forEach((cn: any) => dismissed.add(cn.id));
+  } else if (Array.isArray(ids)) {
+    ids.forEach(item => dismissed.add(item));
+  } else if (id) {
+    dismissed.add(id);
+  }
+
+  (db as any).data.dismissed_notifications = Array.from(dismissed);
+  db.save();
+
+  res.json({ success: true, message: 'Notification(s) dismissed' });
+});
+
+// Clear all notifications
+router.post(['/notifications/clear-all', '/api/notifications/clear-all'], (req: Request, res: Response) => {
+  const loanApps = db.getTable('loan_applications') || [];
+  const savingsTxs = db.getTable('savings_transactions') || [];
+  const allocations = db.getTable('loan_payment_allocations') || [];
+  const schedules = db.getTable('loan_amortization_schedules') || [];
+  const shareTxs = db.getTable('share_capital_transactions') || [];
+  const customNotifs = (db as any).data.custom_notifications || [];
+
+  const dismissed = new Set<string>((db as any).data.dismissed_notifications || []);
+  loanApps.forEach(a => dismissed.add(`notif_app_${a.id}`));
+  savingsTxs.forEach(t => dismissed.add(`notif_sav_int_${t.id}`));
+  allocations.forEach(a => dismissed.add(`notif_loan_int_${a.id}`));
+  schedules.forEach(s => dismissed.add(`notif_sched_${s.id}`));
+  shareTxs.forEach(st => dismissed.add(`notif_share_${st.id}`));
+  customNotifs.forEach((cn: any) => dismissed.add(cn.id));
+
+  (db as any).data.dismissed_notifications = Array.from(dismissed);
+  db.save();
+
+  res.json({ success: true, message: 'All notifications cleared' });
+});
+
+// Create custom notification / announcement
+router.post(['/notifications/create', '/api/notifications/create'], (req: Request, res: Response) => {
+  const { title, message, category = 'system', type = 'announcement', member_id, member_name, amount } = req.body;
+  if (!title || !message) {
+    return res.status(400).json({ success: false, error: 'Title and message are required.' });
+  }
+
+  const newNotif = {
+    id: `notif_custom_${Date.now()}`,
+    type,
+    category,
+    title,
+    message,
+    amount: amount ? Number(amount) : undefined,
+    member_id,
+    member_name,
+    timestamp: new Date().toISOString(),
+    read: false,
+    data: req.body.data || {}
+  };
+
+  const customNotifs = (db as any).data.custom_notifications || [];
+  customNotifs.push(newNotif);
+  (db as any).data.custom_notifications = customNotifs;
+  db.save();
+
+  res.json({ success: true, data: newNotif });
 });
 
 // Batch Post Savings Interest (CDA Interest Accrual and Credit Run)

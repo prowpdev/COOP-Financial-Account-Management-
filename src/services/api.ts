@@ -1050,8 +1050,15 @@ getLoanApplications: async (params?: {
     }),
 
   // System Notifications (Loan Applications & Interest Received)
-  getNotifications: async () => {
+  getNotifications: async (params?: { category?: string; unread_only?: boolean; member_id?: string; limit?: number }) => {
     try {
+      const queryParts: string[] = [];
+      if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`);
+      if (params?.unread_only) queryParts.push('unread_only=true');
+      if (params?.member_id) queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
+      if (params?.limit) queryParts.push(`limit=${params.limit}`);
+      const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+
       const res = await fetchApi<{
         success: boolean;
         total: number;
@@ -1059,7 +1066,7 @@ getLoanApplications: async (params?: {
         loan_applications_count: number;
         interest_notifications_count: number;
         data: any[];
-      }>('/notifications');
+      }>(`/notifications${qs}`);
       return {
         ...res,
         data: safeArray(res)
@@ -1076,10 +1083,30 @@ getLoanApplications: async (params?: {
       };
     }
   },
-  markNotificationRead: (id?: string, all?: boolean) =>
+  getNotificationsSummary: () =>
+    fetchApi<{ success: boolean; summary: any }>('/notifications/summary'),
+  markNotificationRead: (id?: string, all?: boolean, ids?: string[]) =>
     fetchApi<{ success: boolean; message: string }>('/notifications/mark-read', {
       method: 'POST',
-      body: JSON.stringify({ id, all })
+      body: JSON.stringify({ id, all, ids })
+    }),
+  markNotificationUnread: (id?: string, ids?: string[]) =>
+    fetchApi<{ success: boolean; message: string }>('/notifications/mark-unread', {
+      method: 'POST',
+      body: JSON.stringify({ id, ids })
+    }),
+  dismissNotification: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/notifications/${id}`, {
+      method: 'DELETE'
+    }),
+  clearAllNotifications: () =>
+    fetchApi<{ success: boolean; message: string }>('/notifications/clear-all', {
+      method: 'POST'
+    }),
+  createNotification: (data: { title: string; message: string; category?: string; type?: string; member_id?: string; member_name?: string; amount?: number }) =>
+    fetchApi<{ success: boolean; data: any }>('/notifications/create', {
+      method: 'POST',
+      body: JSON.stringify(data)
     }),
   postSavingsInterestBatch: (params?: { period_months?: number; performed_by?: string }) =>
     fetchApi<{ success: boolean; total_credited: number; accounts_credited: number; message: string; transactions?: any[] }>('/savings/post-interest-batch', {
