@@ -1530,6 +1530,51 @@ router.post('/members', (req: Request, res: Response) => {
     });
   }
 
+  // If initial share capital contribution is submitted upon registration, post to Cash Receipts Journal (CRJ)
+  const initShareCapital = Number(req.body.initial_share_capital || req.body.paid_up_amount || 0);
+  const initShares = Number(req.body.paid_up_shares || Math.floor(initShareCapital / 100));
+
+  if (initShareCapital > 0) {
+    const sca = db.getTable('share_capital_accounts').find(a => a.member_id === newMember.id);
+    if (sca) {
+      sca.paid_up_shares = initShares;
+      sca.paid_up_amount = initShareCapital;
+      db.update('share_capital_accounts', a => a.id === sca.id, () => sca);
+    }
+    const branchCode = branch ? branch.code : 'TAR';
+    const orReceipt = NumberingService.getNextNumber('OR', branchCode);
+    AccountingEngine.post({
+      transaction_type: 'SHARE_CAPITAL_PAYMENT',
+      posting_date: newMember.joined_date,
+      branch_id: newMember.branch_id,
+      reference_id: orReceipt,
+      description: `Official Receipt ${orReceipt}: Initial Share Capital deposit (${initShares} shares) upon registration of ${newMember.first_name} ${newMember.last_name}`,
+      performed_by: performed_by || 'System Administrator',
+      cash_account_id: req.body.cash_account_id || 'cash_01',
+      amount_breakdown: { total: initShareCapital },
+      subsidiary: { type: 'Member', id: newMember.id },
+      member_id: newMember.id,
+      member_name: `${newMember.first_name} ${newMember.last_name}`
+    });
+    db.insert('share_capital_transactions', {
+      id: `sct_${Date.now()}`,
+      share_capital_account_id: `sca_${newMember.id}`,
+      share_account_id: `sca_${newMember.id}`,
+      member_id: newMember.id,
+      type: 'PAYMENT',
+      transaction_type: 'Contribution',
+      shares: initShares,
+      amount: initShareCapital,
+      balance_after: initShareCapital,
+      reference_no: orReceipt,
+      receipt_no: orReceipt,
+      notes: `Initial share capital contribution (${initShares} shares @ ₱100) upon member admission`,
+      transaction_date: newMember.joined_date,
+      created_at: new Date().toISOString(),
+      performed_by: performed_by || 'System Administrator'
+    });
+  }
+
   res.json({ success: true, data: newMember });
 });
 
@@ -1562,9 +1607,11 @@ router.post('/loans/calculate-schedule', (req: Request, res: Response) => {
   res.json({ success: true, data: result });
 });
 
-// Get all loan applications
-router.get(['/loans/applications', '/loan-applications'], (req: Request, res: Response) => {
-  const { branchId, status, memberId } = req.query;
+// Get all loan applications (supports GET and POST queries)
+const handleGetLoanApplications = (req: Request, res: Response) => {
+  const branchId = req.query.branchId || req.body?.branch_id || req.body?.branchId;
+  const status = req.query.status || req.body?.status;
+  const memberId = req.query.memberId || req.body?.member_id || req.body?.memberId;
   const applications = db.getTable('loan_applications') || [];
   const members = db.getTable('members') || [];
   const products = db.getTable('loan_products') || [];
@@ -1597,6 +1644,16 @@ router.get(['/loans/applications', '/loan-applications'], (req: Request, res: Re
   });
 
   res.json({ success: true, data: enriched });
+};
+
+router.get(['/loans/applications', '/loan-applications', '/loan/applications'], handleGetLoanApplications);
+router.post('/loans/applications/query', handleGetLoanApplications);
+router.post('/loan/applications', (req: Request, res: Response, next) => {
+  // If it's a query with branch_id or status or member_id without applied_amount, handle as query
+  if (req.body && (req.body.branch_id || req.body.status || req.body.member_id) && !req.body.loan_product_id && !req.body.applied_amount && !req.body.principal_amount) {
+    return handleGetLoanApplications(req, res);
+  }
+  return handleCreateLoanApplication(req, res);
 });
 
 // Create/Submit new loan application (Pending status, does not disburse)
@@ -4355,6 +4412,30 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
     });
   });
 
+  // Loan Applications tracking
+  const allApplications = db.getTable('loan_applications') || [];
+  const memberApplications = allApplications.filter(a => aliasIds.has(a.member_id));
+
+  memberApplications.forEach(app => {
+    const isDisbursed = app.status === 'Disbursed' || app.status === 'Released';
+    if (!isDisbursed) {
+      unifiedTransactions.push({
+        id: `tx_app_${app.id}`,
+        date: app.application_date || app.created_at?.split(' ')[0] || '',
+        type: `Loan Application (${app.status || 'Pending'})`,
+        category: 'Applications',
+        facility: app.product_name || 'Loan Application Facility',
+        reference: app.application_no || app.id,
+        description: `Loan Application for ${app.product_name || 'Loan'} (Principal: ₱${Number(app.principal_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })})`,
+        amount: Number(app.principal_amount || 0),
+        debit: 0,
+        credit: 0,
+        status: app.status || 'Under Review',
+        notes: `Purpose: ${app.purpose || 'Agricultural & livelihood financing'}. Status: ${app.status || 'Pending'}`
+      });
+    }
+  });
+
   // Check existing references in unifiedTransactions to avoid exact duplicates
   const existingRefs = new Set(unifiedTransactions.map(t => String(t.reference || '').trim()));
 
@@ -4458,6 +4539,7 @@ router.get('/member-portal/:memberId/dashboard', (req: Request, res: Response) =
         transactions: shareTransactions.filter(st => st.share_account_id === sca.id)
       })),
       journal_entries: relevantJVs,
+      loan_applications: memberApplications,
       all_transactions: unifiedTransactions,
       transactions: unifiedTransactions
     }
@@ -5945,6 +6027,233 @@ router.post(['/audit-logs', '/configuration_audit_trails'], (req: Request, res: 
     success: true,
     data: record,
     message: 'Audit log record committed successfully.'
+  });
+});
+
+// ==========================================
+// SYSTEM NOTIFICATIONS ENGINE (Loan Applications & Interest Received)
+// ==========================================
+router.get(['/notifications', '/api/notifications'], (req: Request, res: Response) => {
+  const loanApps = db.getTable('loan_applications') || [];
+  const loans = db.getTable('loans') || [];
+  const members = db.getTable('members') || [];
+  const savingsAccounts = db.getTable('savings_accounts') || [];
+  const savingsTxs = db.getTable('savings_transactions') || [];
+  const loanPayments = db.getTable('loan_payments') || [];
+  const allocations = db.getTable('loan_payment_allocations') || [];
+  const readIds = new Set<string>((db as any).data.read_notifications || []);
+
+  const notifications: any[] = [];
+
+  // 1. Loan Applications (Pending, Approved, Rejected, Disbursed)
+  loanApps.forEach(app => {
+    const mem = members.find(m => m.id === app.member_id);
+    const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Cooperative Member';
+    const isPending = app.status === 'Pending' || app.status === 'Submitted' || !app.status;
+    const isApproved = app.status === 'Approved';
+    const notifId = `notif_app_${app.id}`;
+
+    notifications.push({
+      id: notifId,
+      type: 'loan_application',
+      category: 'loans',
+      status: app.status || 'Pending',
+      title: isPending
+        ? `New Loan Application: ${app.application_no || 'Pending'}`
+        : isApproved
+        ? `Loan Application Approved: ${app.application_no}`
+        : `Loan Application ${app.status}: ${app.application_no}`,
+      message: `${memName} applied for ₱${Number(app.applied_amount || 0).toLocaleString()} (${app.purpose || 'Credit Facility'}). Status: ${app.status || 'Pending Approval'}`,
+      amount: Number(app.applied_amount || 0),
+      member_name: memName,
+      member_no: mem ? mem.member_no : '',
+      member_id: app.member_id,
+      timestamp: app.submitted_date || app.created_at || new Date().toISOString(),
+      read: readIds.has(notifId),
+      data: {
+        application_id: app.id,
+        application_no: app.application_no,
+        member_id: app.member_id,
+        applied_amount: app.applied_amount,
+        status: app.status
+      }
+    });
+  });
+
+  // 2. Interest Received: Savings Interest Credited to Member Accounts
+  savingsTxs
+    .filter(tx => (tx.type || '').toUpperCase() === 'INTEREST' || (tx.notes || '').toLowerCase().includes('interest'))
+    .forEach(tx => {
+      const sa = savingsAccounts.find(s => s.id === tx.savings_account_id);
+      const mem = members.find(m => m.id === tx.member_id || (sa && m.id === sa.member_id));
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Savings Member';
+      const notifId = `notif_sav_int_${tx.id}`;
+
+      notifications.push({
+        id: notifId,
+        type: 'interest_received',
+        category: 'interest',
+        sub_type: 'savings_interest',
+        title: `Savings Interest Credited`,
+        message: `₱${Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} interest credited to ${memName}'s savings account (${sa?.account_number || tx.savings_account_id})`,
+        amount: Number(tx.amount || 0),
+        member_name: memName,
+        timestamp: tx.transaction_date || tx.created_at || new Date().toISOString(),
+        read: readIds.has(notifId),
+        data: {
+          transaction_id: tx.id,
+          savings_account_id: tx.savings_account_id,
+          amount: tx.amount,
+          type: 'savings_interest'
+        }
+      });
+    });
+
+  // 3. Interest Received: Loan Payments with Interest Collected
+  allocations
+    .filter(a => Number(a.interest_amount || a.allocated_amount || 0) > 0 && (a.fee_type === 'Interest' || a.interest_amount !== undefined))
+    .forEach(alloc => {
+      const interestAmt = Number(alloc.interest_amount !== undefined ? alloc.interest_amount : alloc.allocated_amount);
+      if (interestAmt <= 0) return;
+      const pmt = loanPayments.find(p => p.id === alloc.payment_id);
+      const loan = loans.find(l => l.id === alloc.loan_id);
+      const mem = members.find(m => m.id === (pmt?.member_id || loan?.member_id));
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Borrower';
+      const notifId = `notif_loan_int_${alloc.id}`;
+
+      notifications.push({
+        id: notifId,
+        type: 'interest_received',
+        category: 'interest',
+        sub_type: 'loan_interest',
+        title: `Loan Interest Payment Received`,
+        message: `₱${interestAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })} loan interest received on payment ${pmt?.receipt_no || ''} from ${memName}`,
+        amount: interestAmt,
+        member_name: memName,
+        timestamp: pmt?.payment_date || alloc.created_at || new Date().toISOString(),
+        read: readIds.has(notifId),
+        data: {
+          payment_id: alloc.payment_id,
+          loan_id: alloc.loan_id,
+          interest_amount: interestAmt,
+          type: 'loan_interest'
+        }
+      });
+    });
+
+  // Sort newest first
+  notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const loanCount = notifications.filter(n => n.category === 'loans' && !n.read).length;
+  const interestCount = notifications.filter(n => n.category === 'interest' && !n.read).length;
+
+  res.json({
+    success: true,
+    total: notifications.length,
+    unread_count: unreadCount,
+    loan_applications_count: loanCount,
+    interest_notifications_count: interestCount,
+    data: notifications
+  });
+});
+
+// Mark notification as read
+router.post(['/notifications/mark-read', '/api/notifications/mark-read'], (req: Request, res: Response) => {
+  const { id, all } = req.body;
+  const currentRead = new Set<string>((db as any).data.read_notifications || []);
+
+  if (all) {
+    const loanApps = db.getTable('loan_applications') || [];
+    const savingsTxs = db.getTable('savings_transactions') || [];
+    const allocations = db.getTable('loan_payment_allocations') || [];
+
+    loanApps.forEach(a => currentRead.add(`notif_app_${a.id}`));
+    savingsTxs.forEach(t => currentRead.add(`notif_sav_int_${t.id}`));
+    allocations.forEach(a => currentRead.add(`notif_loan_int_${a.id}`));
+  } else if (id) {
+    currentRead.add(id);
+  }
+
+  (db as any).data.read_notifications = Array.from(currentRead);
+  db.save();
+
+  res.json({ success: true, message: 'Notification(s) marked as read' });
+});
+
+// Batch Post Savings Interest (CDA Interest Accrual and Credit Run)
+router.post(['/savings/post-interest-batch', '/api/savings/post-interest-batch'], (req: Request, res: Response) => {
+  const { performed_by = 'System Administrator', period_months = 1 } = req.body;
+  const savingsAccounts = db.getTable('savings_accounts') || [];
+  const savingsProducts = db.getTable('savings_products') || [];
+  const today = new Date().toISOString().split('T')[0];
+
+  let totalCredited = 0;
+  let accountsCredited = 0;
+  const createdTxs: any[] = [];
+
+  savingsAccounts.forEach(account => {
+    if (account.status && account.status !== 'Active') return;
+    const balance = Number(account.balance || 0);
+    const prod = savingsProducts.find(p => p.id === account.savings_product_id) || savingsProducts[0];
+    const minBal = Number(prod?.min_balance_to_earn_interest || 1000);
+    const rate = Number(prod?.annual_interest_rate || 2.5);
+
+    if (balance >= minBal && rate > 0) {
+      // Calculate interest: (balance * rate% * (period_months / 12))
+      const interestEarned = Number(((balance * (rate / 100) * (period_months / 12))).toFixed(2));
+      if (interestEarned > 0) {
+        account.balance = Number((balance + interestEarned).toFixed(2));
+        accountsCredited++;
+        totalCredited = Number((totalCredited + interestEarned).toFixed(2));
+
+        const txNo = NumberingService.getNextNumber('INT', 'TAR');
+        const txRecord = {
+          id: `st_int_${Date.now()}_${account.id}`,
+          transaction_no: txNo,
+          savings_account_id: account.id,
+          member_id: account.member_id,
+          type: 'INTEREST',
+          amount: interestEarned,
+          balance_after: account.balance,
+          cash_account_id: 'cash_01',
+          transaction_date: today,
+          notes: `Periodic savings interest credited at ${rate}% p.a. (Accrued: ₱${interestEarned})`
+        };
+        db.insert('savings_transactions', txRecord);
+        createdTxs.push(txRecord);
+
+        // Accounting Posting: Debit 50100 (Interest Expense), Credit 20100 (Savings Deposits)
+        AccountingEngine.post({
+          transaction_type: 'SAVINGS_INTEREST',
+          posting_date: today,
+          branch_id: account.branch_id || 'branch_tar',
+          reference_id: txNo,
+          description: `Savings Interest Credited - Account #${account.account_number}`,
+          performed_by,
+          amount_breakdown: { total: interestEarned },
+          subsidiary: { type: 'Savings', id: account.id }
+        });
+      }
+    }
+  });
+
+  db.save();
+
+  db.recordAudit(
+    'Savings Interest Batch Run',
+    'Pending Accrual',
+    `₱${totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })} across ${accountsCredited} member accounts`,
+    performed_by,
+    'Periodic cooperative savings interest accrual and credit'
+  );
+
+  res.json({
+    success: true,
+    total_credited: totalCredited,
+    accounts_credited: accountsCredited,
+    transactions: createdTxs,
+    message: `Successfully posted ₱${totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })} interest to ${accountsCredited} savings accounts.`
   });
 });
 

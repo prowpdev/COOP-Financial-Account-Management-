@@ -73,6 +73,7 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('mayap_sidebar_collapsed') === 'true';
   });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isLargeText, setIsLargeText] = useState<boolean>(() => {
     return localStorage.getItem('mayap_large_text') === 'true';
   });
@@ -105,6 +106,14 @@ export default function App() {
       localStorage.setItem('mayap_sidebar_collapsed', String(next));
       return next;
     });
+  };
+
+  const handleToggleSidebar = () => {
+    if (window.innerWidth < 768) {
+      setIsMobileSidebarOpen(prev => !prev);
+    } else {
+      toggleSidebar();
+    }
   };
 
   const toggleTextSize = () => {
@@ -315,7 +324,8 @@ export default function App() {
         onResetSeed={handleReloadApp}
         isResetting={isResetting}
         isSidebarCollapsed={isSidebarCollapsed}
-        onToggleSidebar={toggleSidebar}
+        onToggleSidebar={handleToggleSidebar}
+        isOpenMobileSidebar={isMobileSidebarOpen}
         theme={theme}
         onToggleTheme={toggleTheme}
         isLargeText={isLargeText}
@@ -323,20 +333,29 @@ export default function App() {
         onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
-        onOpenMemberPortal={handleOpenMemberPortal}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          setIsMobileSidebarOpen(false);
+        }}
       />
 
       {/* Main View Area with Persistent Collapsible Sidebar */}
-      <div className="flex-1 flex max-w-[1920px] w-full mx-auto">
+      <div className="flex-1 flex max-w-[1920px] w-full mx-auto relative">
         <Sidebar
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            setIsMobileSidebarOpen(false);
+          }}
           featureToggles={featureToggles}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
+          onOpenMemberPortal={handleOpenMemberPortal}
+          isOpenMobile={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
-        <main className="flex-1 p-6 overflow-x-hidden min-w-0">
+        <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-x-hidden min-w-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               selectedBranchId={selectedBranchId}

@@ -702,6 +702,10 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         (category === 'Share Capital' || type.includes('Share') || type.includes('CBU'))) ||
       (txFilterCategory === 'crj' &&
         (category.includes('Cash Receipt') || type.includes('Receipt') || type.includes('CRJ') || String(t.reference || '').startsWith('OR'))) ||
+      (txFilterCategory === 'interest' &&
+        (type.toLowerCase().includes('interest') || String(t.description || '').toLowerCase().includes('interest') || String(t.notes || '').toLowerCase().includes('interest'))) ||
+      (txFilterCategory === 'applications' &&
+        (type.includes('Application') || category.includes('Application'))) ||
       (txFilterCategory === 'jv' &&
         (category === 'Journal Vouchers' || type.includes('Journal')));
 
@@ -1181,8 +1185,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   />
                 </div>
 
-                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto">
-                  {['all', 'loans', 'savings', 'cbu', 'crj', 'jv'].map((cat) => (
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
+                  {['all', 'loans', 'savings', 'cbu', 'crj', 'interest', 'applications', 'jv'].map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setTxFilterCategory(cat)}
@@ -1192,7 +1196,17 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                           : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      {cat === 'cbu' ? 'Share Capital' : cat === 'crj' ? 'Cash Receipts (CRJ)' : cat === 'jv' ? 'JVs' : cat}
+                      {cat === 'cbu'
+                        ? 'Share Capital'
+                        : cat === 'crj'
+                        ? 'Cash Receipts (CRJ)'
+                        : cat === 'interest'
+                        ? 'Interest Earned'
+                        : cat === 'applications'
+                        ? 'Loan Apps'
+                        : cat === 'jv'
+                        ? 'JVs'
+                        : cat}
                     </button>
                   ))}
                 </div>

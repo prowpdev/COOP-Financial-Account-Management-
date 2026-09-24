@@ -314,6 +314,34 @@ export function runComprehensiveDatabaseSeeder() {
     savingsTransactions.push(st);
   });
 
+  // Sample quarterly savings interest credited (real interest notification data)
+  savingsTransactions.push({
+    id: 'st_int_sample_01',
+    transaction_no: 'INT-2026-0001',
+    savings_account_id: 'sa_mem_000001',
+    member_id: 'mem_000001',
+    type: 'INTEREST',
+    amount: 145.25,
+    balance_after: 5145.25,
+    cash_account_id: 'cash_01',
+    transaction_date: today,
+    notes: 'Quarterly savings deposit interest credited (2.5% p.a.)',
+    created_at: `${today} 14:00:00`
+  });
+  savingsTransactions.push({
+    id: 'st_int_sample_02',
+    transaction_no: 'INT-2026-0002',
+    savings_account_id: 'sa_mem_000002',
+    member_id: 'mem_000002',
+    type: 'INTEREST',
+    amount: 98.50,
+    balance_after: 3598.50,
+    cash_account_id: 'cash_01',
+    transaction_date: today,
+    notes: 'Quarterly savings deposit interest credited (2.5% p.a.)',
+    created_at: `${today} 14:05:00`
+  });
+
   (db as any).data.savings_accounts = savingsAccounts;
   (db as any).data.savings_transactions = savingsTransactions;
 
@@ -420,6 +448,7 @@ export function runComprehensiveDatabaseSeeder() {
       payment_id: payId,
       loan_id: loan1.id,
       fee_type: 'Interest',
+      interest_amount: l1MonthlyInt,
       allocated_amount: l1MonthlyInt
     });
   }
@@ -548,6 +577,52 @@ export function runComprehensiveDatabaseSeeder() {
   (db as any).data.loan_amortization_schedules = schedules;
   (db as any).data.loan_payments = payments;
   (db as any).data.loan_payment_allocations = allocations;
+
+  // Realistic sample loan applications for Credit Committee review & alerts
+  const sampleLoanApplications = [
+    {
+      id: 'app_seed_001',
+      application_no: 'APP-2026-0001',
+      member_id: 'mem_000004',
+      loan_product_id: 'lp_crop',
+      branch_id: 'branch_tar',
+      applied_amount: 35000,
+      term_months: 6,
+      purpose: 'Palay Crop Production Financing (Fertilizer and Seeds)',
+      status: 'Pending',
+      submitted_date: today,
+      created_at: `${today} 08:30:00`
+    },
+    {
+      id: 'app_seed_002',
+      application_no: 'APP-2026-0002',
+      member_id: 'mem_000005',
+      loan_product_id: 'lp_regular',
+      branch_id: 'branch_tar',
+      applied_amount: 50000,
+      term_months: 12,
+      purpose: 'Farm Equipment Modernization & Solar Irrigation Pump',
+      status: 'Pending',
+      submitted_date: today,
+      created_at: `${today} 09:15:00`
+    },
+    {
+      id: 'app_seed_003',
+      application_no: 'APP-2026-0003',
+      member_id: 'mem_000006',
+      loan_product_id: 'lp_micro',
+      branch_id: 'branch_urd',
+      applied_amount: 20000,
+      term_months: 6,
+      purpose: 'Agri-Supply Store Inventory Expansion',
+      status: 'Approved',
+      approved_amount: 20000,
+      reviewed_by: 'Credit Committee',
+      submitted_date: today,
+      created_at: `${today} 10:00:00`
+    }
+  ];
+  (db as any).data.loan_applications = sampleLoanApplications;
 
   // 6. Cash Accounts with realistic balances
   const cashAccounts = [

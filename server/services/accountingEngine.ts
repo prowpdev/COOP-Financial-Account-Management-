@@ -22,6 +22,8 @@ export interface PostTransactionRequest {
     id: string;
     account_id?: string;
   };
+  member_id?: string;
+  member_name?: string;
   cash_account_id?: string;
 }
 
@@ -330,8 +332,8 @@ export class AccountingEngine {
 
     // Resolve member details if member subsidiary or passed in request
     let memberId: string | undefined = subsidiary?.type === 'Member' ? subsidiary.id : (req as any).member_id;
-    let memberName: string | undefined = undefined;
-    if (memberId) {
+    let memberName: string | undefined = (req as any).member_name;
+    if (memberId && !memberName) {
       const allMembers = db.getTable('members') || [];
       const mem = allMembers.find(m => m.id === memberId || m.member_no === memberId);
       if (mem) {

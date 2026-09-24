@@ -1047,5 +1047,43 @@ getLoanApplications: async (params?: {
   runVerificationTests: () =>
     fetchApi<{ success: boolean; total_tests: number; passed_count: number; all_passed: boolean; results: any[] }>('/system/run-verification-tests', {
       method: 'POST'
+    }),
+
+  // System Notifications (Loan Applications & Interest Received)
+  getNotifications: async () => {
+    try {
+      const res = await fetchApi<{
+        success: boolean;
+        total: number;
+        unread_count: number;
+        loan_applications_count: number;
+        interest_notifications_count: number;
+        data: any[];
+      }>('/notifications');
+      return {
+        ...res,
+        data: safeArray(res)
+      };
+    } catch (err) {
+      console.warn('[API] getNotifications fallback:', err);
+      return {
+        success: false,
+        total: 0,
+        unread_count: 0,
+        loan_applications_count: 0,
+        interest_notifications_count: 0,
+        data: []
+      };
+    }
+  },
+  markNotificationRead: (id?: string, all?: boolean) =>
+    fetchApi<{ success: boolean; message: string }>('/notifications/mark-read', {
+      method: 'POST',
+      body: JSON.stringify({ id, all })
+    }),
+  postSavingsInterestBatch: (params?: { period_months?: number; performed_by?: string }) =>
+    fetchApi<{ success: boolean; total_credited: number; accounts_credited: number; message: string; transactions?: any[] }>('/savings/post-interest-batch', {
+      method: 'POST',
+      body: JSON.stringify(params || {})
     })
 };
