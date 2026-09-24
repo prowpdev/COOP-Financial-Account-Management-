@@ -16,7 +16,8 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   DollarSign,
-  Activity
+  Activity,
+  Scale
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { AccountLedgerReport } from '../reports/AccountLedgerReport';
@@ -25,6 +26,7 @@ import { CashAccountsConfigView } from '../config/CashAccountsConfigView';
 import { CashReceiptJournal } from './CashReceiptJournal';
 import { CashDisbursementJournal } from './CashDisbursementJournal';
 import { AccountingOverviewDashboard } from './AccountingOverviewDashboard';
+import { GLReconciliationView } from './GLReconciliationView';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
 
@@ -38,6 +40,7 @@ interface AccountingModuleProps {
 
 export type AccountingTabKey =
   | 'overview'
+  | 'reconciliation'
   | 'general_ledger'
   | 'general_journal'
   | 'cash_receipt_journal'
@@ -513,6 +516,20 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         </button>
 
         <button
+          id="tab-gl-reconciliation"
+          onClick={() => setViewMode('reconciliation')}
+          className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+            viewMode === 'reconciliation'
+              ? 'bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/40'
+              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+          }`}
+        >
+          <Scale className="w-4 h-4 text-amber-400" />
+          <span>GL Reconciliation</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">Auto</span>
+        </button>
+
+        <button
           id="tab-general-ledger"
           onClick={() => setViewMode('general_ledger')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
@@ -876,6 +893,18 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           selectedBranch={selectedBranch}
           onNavigateToTab={(tab) => setViewMode(tab)}
           onNewVoucher={(type) => openCreateModal(type)}
+        />
+      )}
+
+      {viewMode === 'reconciliation' && (
+        <GLReconciliationView
+          branches={branches}
+          selectedBranch={selectedBranch}
+          onSelectBranch={(id) => {
+            setSelectedBranch(id);
+            if (onSelectBranch) onSelectBranch(id);
+          }}
+          onNavigateToTab={(tab) => setViewMode(tab)}
         />
       )}
 

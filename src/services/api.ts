@@ -795,6 +795,29 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(params)
     }),
+  getGLReconciliation: (branch_id?: string) =>
+    fetchApi<{
+      success: boolean;
+      data: {
+        timestamp: string;
+        branch_id: string;
+        all_reconciled: boolean;
+        total_variance_magnitude: number;
+        checks: Array<{
+          id: string;
+          name: string;
+          control_gl_code: string;
+          control_gl_name: string;
+          normal_balance: string;
+          subledger_balance: number;
+          gl_balance: number;
+          variance: number;
+          is_reconciled: boolean;
+          items_count: number;
+          breakdown: any[];
+        }>;
+      };
+    }>(`/accounting/reconciliation${branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : ''}`),
 
   // Reports
   getTrialBalance: (branch_id?: string) =>

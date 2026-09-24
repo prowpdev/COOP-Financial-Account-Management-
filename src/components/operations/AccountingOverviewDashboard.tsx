@@ -501,6 +501,29 @@ export const AccountingOverviewDashboard: React.FC<AccountingOverviewDashboardPr
                 <span className="text-[10px] text-slate-500">Open Book &rarr;</span>
               </div>
             </div>
+
+            {/* Sub-Ledger Reconciliation Tool */}
+            <div
+              onClick={() => onNavigateToTab('reconciliation')}
+              className="p-3 bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 rounded-xl cursor-pointer transition flex items-center justify-between group"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-105 transition">
+                  <Scale className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>GL Reconciliation</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 rounded">Auto</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Sub-ledgers vs Control Accounts</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-mono font-bold text-amber-400">Verify &rarr;</div>
+                <span className="text-[10px] text-slate-500">Integrity Check</span>
+              </div>
+            </div>
           </div>
 
           {/* Quick Info Box */}
