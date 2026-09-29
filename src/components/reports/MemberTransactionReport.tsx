@@ -455,6 +455,9 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
               Branch: <span className="text-slate-300 print:text-black">{member?.branch_name || 'Main Branch'}</span> ·
               Member Type: <span className="text-slate-300 print:text-black">{member?.member_type_name || 'Regular Member'}</span> ·
               TIN: <span className="font-mono text-amber-300 print:text-black font-semibold">{member?.tin_number || member?.tin || member?.custom_field_values?.tin_number || 'Not Set'}</span>
+              {(member?.notes || member?.custom_field_values?.notes) && (
+                <> · Notes: <span className="text-cyan-300 print:text-black italic font-medium">"{member.notes || member.custom_field_values?.notes}"</span></>
+              )}
             </p>
           </div>
 

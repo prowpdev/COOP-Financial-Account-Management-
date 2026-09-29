@@ -151,6 +151,7 @@ export interface Member {
   phone: string;
   tin_number?: string;
   tin?: string;
+  notes?: string;
   address: string;
   status: string;
   joined_date: string;

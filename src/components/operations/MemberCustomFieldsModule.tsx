@@ -66,6 +66,7 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
   // Member Inspector / Quick TIN & Attribute Editor
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [memberTinInput, setMemberTinInput] = useState<string>('');
+  const [memberNotesInput, setMemberNotesInput] = useState<string>('');
   const [memberCustomInputs, setMemberCustomInputs] = useState<Record<string, any>>({});
   const [isSavingMember, setIsSavingMember] = useState(false);
 
@@ -100,7 +101,9 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
       const m = members.find(item => item.id === selectedMemberId);
       if (m) {
         const tin = m.tin_number || m.tin || m.custom_field_values?.tin_number || '';
+        const notes = m.notes || m.custom_field_values?.notes || '';
         setMemberTinInput(tin);
+        setMemberNotesInput(notes);
         setMemberCustomInputs({ ...(m.custom_field_values || {}) });
       }
     }
@@ -202,18 +205,20 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
     try {
       const mergedCustom = {
         ...memberCustomInputs,
-        tin_number: memberTinInput.trim()
+        tin_number: memberTinInput.trim(),
+        notes: memberNotesInput.trim()
       };
 
       await api.updateMember(selectedMemberId, {
         tin_number: memberTinInput.trim(),
         tin: memberTinInput.trim(),
+        notes: memberNotesInput.trim(),
         custom_field_values: mergedCustom,
         performed_by: currentUser.name,
-        reason: 'Updated member TIN and custom fields via Member Custom Fields Module'
+        reason: 'Updated member TIN, notes, and custom fields via Member Custom Fields Module'
       });
 
-      showNotice('success', `Member record and Tax Identification Number (TIN: ${memberTinInput || 'N/A'}) saved to database!`);
+      showNotice('success', `Member record, TIN (${memberTinInput || 'N/A'}), and notes saved to database!`);
       await loadMembers();
       onRefresh();
     } catch (err: any) {
@@ -401,6 +406,14 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 cursor-pointer"
           >
             <span>+ Emergency Contact</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenNewField({ label: 'Member Notes / Remarks', name: 'notes', type: 'Text', req: false })}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-cyan-300 border border-slate-700 hover:bg-slate-700 cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5 text-cyan-400" />
+            <span>+ Member Notes / Remarks</span>
           </button>
         </div>
       </div>
@@ -600,11 +613,32 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
                 </p>
               </div>
 
+              {/* Member Notes / Remarks Inspector Field */}
+              <div className="p-3.5 bg-slate-950 border border-slate-700/80 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
+                    <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Member Notes & Remarks</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">Synced to Excel Column</span>
+                </div>
+                <textarea
+                  rows={2}
+                  placeholder="Enter remarks, membership annotations, farm observations..."
+                  value={memberNotesInput}
+                  onChange={e => setMemberNotesInput(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 focus:border-cyan-400 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Directly saved to member database and visible across member spreadsheets and statements.
+                </p>
+              </div>
+
               {/* Other Dynamic Custom Fields for this Member */}
               {memberFields
                 .filter(f => {
                   const key = f.field_key || f.field_name || '';
-                  return key !== 'tin_number' && !key.includes('tin');
+                  return key !== 'tin_number' && !key.includes('tin') && key !== 'notes';
                 })
                 .map(f => {
                   const key = f.field_key || f.field_name || '';

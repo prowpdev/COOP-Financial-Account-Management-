@@ -121,6 +121,26 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     { key: 'phone', header: 'Contact Telephone', width: '150px', type: 'text' },
     { key: 'email', header: 'Email Address', width: '200px', type: 'text' },
     { key: 'address', header: 'Residence Address', width: '260px', type: 'text' },
+    {
+      key: 'notes',
+      header: 'Notes / Remarks',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (_, row) => {
+        const notes = row.notes || row.custom_field_values?.notes;
+        return notes ? (
+          <div className="flex items-center space-x-1.5 max-w-[230px]" title={notes}>
+            <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="truncate text-slate-200 text-xs">
+              {notes}
+            </span>
+          </div>
+        ) : (
+          <span className="text-slate-500 text-[11px] italic">No notes</span>
+        );
+      }
+    },
     { key: 'joined_date', header: 'Date Enrolled', width: '120px', type: 'date', align: 'center', sortable: true },
     { key: 'active', header: 'Status', width: '90px', type: 'boolean', align: 'center', sortable: true },
     {
@@ -153,6 +173,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     phone: '',
     address: '',
     tin_number: '',
+    notes: '',
     custom_field_values: {} as Record<string, any>
   });
 
@@ -169,12 +190,14 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     phone: '',
     address: '',
     tin_number: '',
+    notes: '',
     custom_field_values: {} as Record<string, any>
   });
 
   const handleOpenEdit = (m: Member) => {
     setEditingMember(m);
     const tin = m.tin_number || m.tin || m.custom_field_values?.tin_number || '';
+    const notes = m.notes || m.custom_field_values?.notes || '';
     setEditForm({
       id: m.id,
       branch_id: m.branch_id || branches[0]?.id || 'branch_tar',
@@ -188,7 +211,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
       phone: m.phone || '',
       address: m.address || '',
       tin_number: tin,
-      custom_field_values: { ...(m.custom_field_values || {}), tin_number: tin }
+      notes: notes,
+      custom_field_values: { ...(m.custom_field_values || {}), tin_number: tin, notes: notes }
     });
     setIsEditing(true);
   };
@@ -250,9 +274,11 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         ...form,
         tin_number: form.tin_number,
         tin: form.tin_number,
+        notes: form.notes,
         custom_field_values: {
           ...form.custom_field_values,
-          tin_number: form.tin_number
+          tin_number: form.tin_number,
+          notes: form.notes
         },
         performed_by: currentUser.name
       });
@@ -273,14 +299,16 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         ...editForm,
         tin_number: editForm.tin_number,
         tin: editForm.tin_number,
+        notes: editForm.notes,
         custom_field_values: {
           ...editForm.custom_field_values,
-          tin_number: editForm.tin_number
+          tin_number: editForm.tin_number,
+          notes: editForm.notes
         },
         performed_by: currentUser.name
       });
       setIsEditing(false);
-      setNotice(`Member "${editForm.first_name} ${editForm.last_name}" profile and TIN record updated successfully.`);
+      setNotice(`Member "${editForm.first_name} ${editForm.last_name}" profile, notes, and TIN record updated successfully.`);
       setTimeout(() => setNotice(null), 4000);
       loadMembers();
     } catch (err: any) {
@@ -388,6 +416,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                 phone: '',
                 address: '',
                 tin_number: '',
+                notes: '',
                 custom_field_values: {}
               });
               setIsRegistering(true);
@@ -547,17 +576,43 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                     Official Bureau of Internal Revenue (BIR) member registration identifier for tax exemption certificates.
                   </p>
                 </div>
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-300 font-medium flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Member Notes & Remarks</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">Optional internal notes</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter internal remarks, farm notes, special considerations, or membership annotations..."
+                    value={form.notes}
+                    onChange={e => setForm({
+                      ...form,
+                      notes: e.target.value,
+                      custom_field_values: {
+                        ...form.custom_field_values,
+                        notes: e.target.value
+                      }
+                    })}
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 focus:border-cyan-400 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Included as a column in the member spreadsheet grid and transaction reports.
+                  </p>
+                </div>
               </div>
 
               {/* Dynamic Custom Form Fields (Req 13, Test 8) */}
-              {customFields.filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin')).length > 0 && (
+              {customFields.filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin') && cf.field_key !== 'notes' && cf.field_name !== 'notes' && !(cf.label || cf.field_label || '').toLowerCase().includes('notes')).length > 0 && (
                 <div className="pt-3 border-t border-slate-800">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
                     Dynamic Cooperative Custom Fields
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  {customFields
-                  .filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin'))
+                  .filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin') && cf.field_key !== 'notes' && cf.field_name !== 'notes' && !(cf.label || cf.field_label || '').toLowerCase().includes('notes'))
                   .map(cf => {
                   const options =
                     cf.field_type === 'Dropdown'
@@ -796,17 +851,43 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                     Official Bureau of Internal Revenue (BIR) member registration identifier for tax exemption certificates.
                   </p>
                 </div>
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-300 font-medium flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Member Notes & Remarks</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">Optional internal notes</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter internal remarks, farm notes, special considerations, or membership annotations..."
+                    value={editForm.notes}
+                    onChange={e => setEditForm({
+                      ...editForm,
+                      notes: e.target.value,
+                      custom_field_values: {
+                        ...editForm.custom_field_values,
+                        notes: e.target.value
+                      }
+                    })}
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 focus:border-cyan-400 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Included as a column in the member spreadsheet grid and transaction reports.
+                  </p>
+                </div>
               </div>
 
               {/* Dynamic Custom Form Fields */}
-              {customFields.filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin')).length > 0 && (
+              {customFields.filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin') && cf.field_key !== 'notes' && cf.field_name !== 'notes' && !(cf.label || cf.field_label || '').toLowerCase().includes('notes')).length > 0 && (
                 <div className="pt-3 border-t border-slate-800">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
                     Dynamic Cooperative Custom Fields
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {customFields
-                      .filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin'))
+                      .filter(cf => cf.field_key !== 'tin_number' && cf.field_name !== 'tin_number' && !(cf.label || cf.field_label || '').toLowerCase().includes('tin') && cf.field_key !== 'notes' && cf.field_name !== 'notes' && !(cf.label || cf.field_label || '').toLowerCase().includes('notes'))
                       .map(cf => {
                         const fieldKey = cf.field_key || cf.field_name || '';
                         const isRequired = Number(cf.is_required) === 1 || Boolean(cf.required);
@@ -1020,10 +1101,20 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                       </span>
                     </div>
 
+                    {/* Member Notes / Remarks */}
+                    {(m.notes || m.custom_field_values?.notes) && (
+                      <div className="mt-2 px-2.5 py-1.5 rounded-xl bg-cyan-950/30 border border-cyan-500/25 flex items-start space-x-1.5 text-xs">
+                        <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+                        <span className="text-[11px] text-slate-300 line-clamp-2" title={m.notes || m.custom_field_values?.notes}>
+                          {m.notes || m.custom_field_values?.notes}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Custom field attributes */}
-                    {m.custom_field_values && Object.keys(m.custom_field_values).filter(k => k !== 'tin_number').length > 0 && (
+                    {m.custom_field_values && Object.keys(m.custom_field_values).filter(k => k !== 'tin_number' && k !== 'notes').length > 0 && (
                       <div className="mt-2.5 pt-2 border-t border-slate-800/60 text-[11px] space-y-1">
-                        {Object.entries(m.custom_field_values).filter(([k]) => k !== 'tin_number').map(([k, v]) => (
+                        {Object.entries(m.custom_field_values).filter(([k]) => k !== 'tin_number' && k !== 'notes').map(([k, v]) => (
                           <div key={k} className="flex justify-between text-slate-400">
                             <span className="capitalize">{k.replace(/_/g, ' ')}:</span>
                             <span className="text-slate-200 font-medium">{String(v)}</span>

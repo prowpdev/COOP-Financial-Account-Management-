@@ -18,19 +18,23 @@ import {
   Activity,
   Layers,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Printer
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { Branch, ConfigurationAuditTrail, User } from '../../types';
+import { Branch, ConfigurationAuditTrail, User, CoopProfile } from '../../types';
+import { AuditReportPrintModal } from './AuditReportPrintModal';
 
 interface AuditLogsViewProps {
   currentUser: User;
   branches?: Branch[];
+  coopProfile?: CoopProfile;
 }
 
 export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   currentUser,
-  branches = []
+  branches = [],
+  coopProfile
 }) => {
   const [logs, setLogs] = useState<ConfigurationAuditTrail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +43,18 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('all');
   const [selectedLogForDetails, setSelectedLogForDetails] = useState<ConfigurationAuditTrail | null>(null);
+  
+  // PDF Printable Report State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [profile, setProfile] = useState<CoopProfile | null>(coopProfile || null);
+
+  useEffect(() => {
+    if (!profile) {
+      api.getCoopProfile().then(res => {
+        if (res && res.data) setProfile(res.data);
+      }).catch(err => console.error('Failed to fetch coop profile:', err));
+    }
+  }, [coopProfile]);
   
   // Manual Log Entry Modal State
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -247,6 +263,16 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
           </button>
 
           <button
+            id="btn-open-pdf-summary"
+            onClick={() => setIsPrintModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition cursor-pointer shadow-sm"
+            title="Export filtered audit trail as a printable PDF summary report"
+          >
+            <Printer className="w-3.5 h-3.5 text-amber-400" />
+            <span>Export PDF Summary</span>
+          </button>
+
+          <button
             onClick={handleExportCSV}
             className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition cursor-pointer"
             title="Export CSV report for CDA inspection"
@@ -395,12 +421,22 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
         </div>
 
         {/* Filter Summary & Result Count */}
-        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
-          <div>
-            Showing <span className="font-semibold text-white">{filteredLogs.length}</span> of {logs.length} audit entries
-            {(selectedCategory !== 'all' || selectedUser !== 'all' || selectedDateRange !== 'all' || searchTerm) && (
-              <span className="text-emerald-400 ml-2 font-medium">(Filtered)</span>
-            )}
+        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Showing <span className="font-semibold text-white">{filteredLogs.length}</span> of {logs.length} audit entries
+              {(selectedCategory !== 'all' || selectedUser !== 'all' || selectedDateRange !== 'all' || searchTerm) && (
+                <span className="text-emerald-400 ml-1.5 font-medium">(Filtered)</span>
+              )}
+            </span>
+            <button
+              onClick={() => setIsPrintModalOpen(true)}
+              className="inline-flex items-center space-x-1 text-amber-400 hover:text-amber-300 font-semibold cursor-pointer pl-2.5 border-l border-slate-800 transition"
+              title="Export filtered records as a printable PDF report"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Export Filtered PDF ({filteredLogs.length})</span>
+            </button>
           </div>
           {(selectedCategory !== 'all' || selectedUser !== 'all' || selectedDateRange !== 'all' || searchTerm) && (
             <button
@@ -735,6 +771,23 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Printable PDF Audit Summary Report Modal */}
+      <AuditReportPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        logs={filteredLogs}
+        allLogsCount={logs.length}
+        currentUser={currentUser}
+        coopProfile={profile}
+        activeFilters={{
+          category: selectedCategory,
+          operator: selectedUser,
+          dateRange: selectedDateRange,
+          searchQuery: searchTerm
+        }}
+        onExportCSV={handleExportCSV}
+      />
     </div>
   );
 };

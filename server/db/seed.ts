@@ -329,6 +329,17 @@ export const initialSeedData: DatabaseSchema = {
       active: true
     },
     {
+      id: 'cf_notes',
+      entity: 'Member',
+      field_name: 'notes',
+      field_label: 'Member Notes / Remarks',
+      field_type: 'Text',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
       id: 'cf_collateral_desc',
       entity: 'Loan',
       field_name: 'collateral_description',
@@ -398,7 +409,8 @@ export const initialSeedData: DatabaseSchema = {
       address: 'Poblacion, Victoria, Tarlac',
       tin_number: '104-582-913-000',
       tin: '104-582-913-000',
-      custom_field_values: { tin_number: '104-582-913-000', farm_hectares: 3.5, primary_crop: 'Rice & Corn' },
+      notes: 'Good credit standing. Cluster leader for Victoria rice farmers.',
+      custom_field_values: { tin_number: '104-582-913-000', notes: 'Good credit standing. Cluster leader for Victoria rice farmers.', farm_hectares: 3.5, primary_crop: 'Rice & Corn' },
       joined_date: '2026-01-10',
       active: true
     },
@@ -419,7 +431,8 @@ export const initialSeedData: DatabaseSchema = {
       address: 'Brgy. San Vicente, Tarlac City',
       tin_number: '218-904-761-000',
       tin: '218-904-761-000',
-      custom_field_values: { tin_number: '218-904-761-000', farm_hectares: 2.0, primary_crop: 'Organic Vegetables' },
+      notes: 'Organic high-value crops producer; recommended for green agri-loan.',
+      custom_field_values: { tin_number: '218-904-761-000', notes: 'Organic high-value crops producer; recommended for green agri-loan.', farm_hectares: 2.0, primary_crop: 'Organic Vegetables' },
       joined_date: '2026-01-15',
       active: true
     },
@@ -440,7 +453,8 @@ export const initialSeedData: DatabaseSchema = {
       address: 'Brgy. Danzo, Gerona, Tarlac',
       tin_number: '331-450-892-000',
       tin: '331-450-892-000',
-      custom_field_values: { tin_number: '331-450-892-000', business_nature: 'Agri-Farm Supplies' },
+      notes: 'Commercial agri-supply retail partner; eligible for credit facility review.',
+      custom_field_values: { tin_number: '331-450-892-000', notes: 'Commercial agri-supply retail partner; eligible for credit facility review.', business_nature: 'Agri-Farm Supplies' },
       joined_date: '2026-02-01',
       active: true
     }

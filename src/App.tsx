@@ -571,6 +571,7 @@ export default function App() {
             <AuditLogsView
               currentUser={currentUser}
               branches={branches}
+              coopProfile={profile}
             />
           )}
 

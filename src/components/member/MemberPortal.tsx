@@ -1899,6 +1899,13 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   Crops: {memberRecord.custom_field_values?.primary_crop || 'Palay / Corn'}
                 </p>
               </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1 sm:col-span-2">
+                <p className="text-slate-500 font-medium">Cooperative Standing & Membership Notes</p>
+                <p className="text-xs font-semibold text-slate-200 italic">
+                  "{memberRecord.notes || memberRecord.custom_field_values?.notes || 'Active member in good standing with verified cooperative records.'}"
+                </p>
+              </div>
             </div>
 
             {/* Member Official Documents & Cooperative Standing Tools */}

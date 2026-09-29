@@ -1540,6 +1540,7 @@ router.post('/members', (req: Request, res: Response) => {
   const memberNo = NumberingService.getNextNumber('MEM', branch?.code || 'MAIN');
 
   const tinNumber = req.body.tin_number || req.body.tin || custom_field_values?.tin_number || '';
+  const notes = req.body.notes || req.body.member_notes || custom_field_values?.notes || '';
 
   const newMember = {
     id: `mem_${Date.now()}`,
@@ -1555,12 +1556,14 @@ router.post('/members', (req: Request, res: Response) => {
     phone: phone || '',
     tin_number: tinNumber,
     tin: tinNumber,
+    notes: notes,
     address: address || '',
     status: 'Active',
     joined_date: new Date().toISOString().split('T')[0],
     custom_field_values: {
       ...(custom_field_values || {}),
-      ...(tinNumber ? { tin_number: tinNumber } : {})
+      ...(tinNumber ? { tin_number: tinNumber } : {}),
+      ...(notes ? { notes: notes } : {})
     }
   };
 
@@ -1657,11 +1660,13 @@ router.put('/members/:id', (req: Request, res: Response) => {
   const oldSnapshot = { ...member };
   const incomingCustom = req.body.custom_field_values || {};
   const tinNumber = req.body.tin_number ?? req.body.tin ?? incomingCustom.tin_number ?? member.tin_number ?? member.tin ?? member.custom_field_values?.tin_number ?? '';
+  const notes = req.body.notes ?? incomingCustom.notes ?? member.notes ?? member.custom_field_values?.notes ?? '';
 
   const mergedCustom = {
     ...(member.custom_field_values || {}),
     ...incomingCustom,
-    ...(tinNumber ? { tin_number: tinNumber } : {})
+    ...(tinNumber ? { tin_number: tinNumber } : {}),
+    ...(notes !== undefined ? { notes: notes } : {})
   };
 
   const updated = {
@@ -1671,6 +1676,7 @@ router.put('/members/:id', (req: Request, res: Response) => {
     member_no: member.member_no, // Preserve original ID and member_no
     tin_number: tinNumber,
     tin: tinNumber,
+    notes: notes,
     custom_field_values: mergedCustom
   };
 
