@@ -396,7 +396,9 @@ export const initialSeedData: DatabaseSchema = {
       phone: '+63 917 555 1234',
       email: 'juan.delacruz@tar-agri.ph',
       address: 'Poblacion, Victoria, Tarlac',
-      custom_field_values: { farm_hectares: 3.5, primary_crop: 'Rice & Corn' },
+      tin_number: '104-582-913-000',
+      tin: '104-582-913-000',
+      custom_field_values: { tin_number: '104-582-913-000', farm_hectares: 3.5, primary_crop: 'Rice & Corn' },
       joined_date: '2026-01-10',
       active: true
     },
@@ -415,7 +417,9 @@ export const initialSeedData: DatabaseSchema = {
       phone: '+63 920 444 8899',
       email: 'maria.reyes@organic-farm.ph',
       address: 'Brgy. San Vicente, Tarlac City',
-      custom_field_values: { farm_hectares: 2.0, primary_crop: 'Organic Vegetables' },
+      tin_number: '218-904-761-000',
+      tin: '218-904-761-000',
+      custom_field_values: { tin_number: '218-904-761-000', farm_hectares: 2.0, primary_crop: 'Organic Vegetables' },
       joined_date: '2026-01-15',
       active: true
     },
@@ -434,7 +438,9 @@ export const initialSeedData: DatabaseSchema = {
       phone: '+63 918 222 3344',
       email: 'rodrigo.mendoza@agri-supply.ph',
       address: 'Brgy. Danzo, Gerona, Tarlac',
-      custom_field_values: { business_nature: 'Agri-Farm Supplies' },
+      tin_number: '331-450-892-000',
+      tin: '331-450-892-000',
+      custom_field_values: { tin_number: '331-450-892-000', business_nature: 'Agri-Farm Supplies' },
       joined_date: '2026-02-01',
       active: true
     }

@@ -1215,7 +1215,10 @@
       "phone": "+63 917 555 1234",
       "email": "juan.delacruz@tar-agri.ph",
       "address": "Poblacion, Victoria, Tarlac",
+      "tin_number": "104-582-913-000",
+      "tin": "104-582-913-000",
       "custom_field_values": {
+        "tin_number": "104-582-913-000",
         "farm_hectares": 3.5,
         "primary_crop": "Rice & Corn"
       },
@@ -1237,7 +1240,10 @@
       "phone": "+63 920 444 8899",
       "email": "maria.reyes@organic-farm.ph",
       "address": "Brgy. San Vicente, Tarlac City",
+      "tin_number": "218-904-761-000",
+      "tin": "218-904-761-000",
       "custom_field_values": {
+        "tin_number": "218-904-761-000",
         "farm_hectares": 2,
         "primary_crop": "Organic Vegetables"
       },
@@ -1259,7 +1265,10 @@
       "phone": "+63 918 222 3344",
       "email": "rodrigo.mendoza@agri-supply.ph",
       "address": "Brgy. Danzo, Gerona, Tarlac",
+      "tin_number": "331-450-892-000",
+      "tin": "331-450-892-000",
       "custom_field_values": {
+        "tin_number": "331-450-892-000",
         "business_nature": "Agri-Farm Supplies"
       },
       "joined_date": "2026-02-01",

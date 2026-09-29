@@ -5,6 +5,7 @@ import { DashboardView } from './components/DashboardView';
 import { ConfigCenter } from './components/config/ConfigCenter';
 import { ExcelWorkbench } from './components/config/ExcelWorkbench';
 import { MembersModule } from './components/operations/MembersModule';
+import { MemberCustomFieldsModule } from './components/operations/MemberCustomFieldsModule';
 import { LoansModule } from './components/operations/LoansModule';
 import { SavingsModule } from './components/operations/SavingsModule';
 import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
@@ -32,8 +33,83 @@ import {
 } from './types';
 import { RefreshCw } from 'lucide-react';
 
+const VALID_TABS: TabKey[] = [
+  'dashboard',
+  'configuration',
+  'excel_workbench',
+  'members',
+  'member_fields',
+  'loans',
+  'savings',
+  'share_capital',
+  'accounting',
+  'reports',
+  'audit_logs',
+  'verification'
+];
+
+const TAB_ALIASES: Record<string, TabKey> = {
+  cbu: 'share_capital',
+  sharecapital: 'share_capital',
+  capital: 'share_capital',
+  settings: 'configuration',
+  config: 'configuration',
+  excel: 'excel_workbench',
+  workbench: 'excel_workbench',
+  ledger: 'accounting',
+  finance: 'accounting',
+  audit: 'audit_logs',
+  logs: 'audit_logs',
+  diagnostics: 'verification',
+  tests: 'verification',
+  test: 'verification',
+  custom_fields: 'member_fields',
+  customfields: 'member_fields',
+  fields: 'member_fields',
+  memberfields: 'member_fields',
+  member_custom_fields: 'member_fields',
+  tin: 'member_fields'
+};
+
+const getInitialTab = (): TabKey => {
+  try {
+    // 1. Check URL Search Parameters (?tab=... or ?module=...)
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get('tab') || searchParams.get('module');
+    if (tabParam) {
+      const normalized = tabParam.toLowerCase().trim();
+      if (VALID_TABS.includes(normalized as TabKey)) {
+        return normalized as TabKey;
+      }
+      if (TAB_ALIASES[normalized]) {
+        return TAB_ALIASES[normalized];
+      }
+    }
+
+    // 2. Secondary fallback: URL Hash (#/loans, #loans, etc.)
+    const hash = window.location.hash.replace(/^#\/?/, '').split('/')[0].toLowerCase().trim();
+    if (hash) {
+      if (VALID_TABS.includes(hash as TabKey)) {
+        return hash as TabKey;
+      }
+      if (TAB_ALIASES[hash]) {
+        return TAB_ALIASES[hash];
+      }
+    }
+
+    // 3. Fallback to localStorage
+    const saved = localStorage.getItem('mayap_active_tab');
+    if (saved && VALID_TABS.includes(saved as TabKey)) {
+      return saved as TabKey;
+    }
+  } catch (e) {
+    console.error('Error resolving initial tab from URL:', e);
+  }
+  return 'dashboard';
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -95,6 +171,47 @@ export default function App() {
     }
     localStorage.setItem('mayap_large_text', String(isLargeText));
   }, [isLargeText]);
+
+  // Synchronize activeTab to URL Search Parameters (?tab=...) & document title
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== activeTab) {
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({ tab: activeTab }, '', url.toString());
+      }
+      localStorage.setItem('mayap_active_tab', activeTab);
+
+      const titleMap: Record<string, string> = {
+        dashboard: 'Executive Dashboard',
+        configuration: 'System Configuration',
+        excel_workbench: 'Excel Grid Workbench',
+        members: 'Member Registry',
+        member_fields: 'Member Custom Fields & TIN',
+        loans: 'Loans & Credit Facility',
+        savings: 'Savings & Deposits',
+        share_capital: 'Share Capital (CBU)',
+        accounting: 'Books of Accounts & General Ledger',
+        reports: 'Financial Statements',
+        audit_logs: 'CDA Audit Trail',
+        verification: 'Flexibility Test Suite'
+      };
+      const titleName = titleMap[activeTab] || 'Management';
+      document.title = `${titleName} | ${profile.name || 'Cooperative System'}`;
+    } catch (e) {
+      console.error('Error synchronizing activeTab to URL:', e);
+    }
+  }, [activeTab, profile.name]);
+
+  // Listen to popstate (back/forward browser navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      const resolved = getInitialTab();
+      setActiveTab(resolved);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
@@ -387,6 +504,17 @@ export default function App() {
               currentUser={currentUser}
               selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
+              onNavigateToFields={() => setActiveTab('member_fields')}
+            />
+          )}
+
+          {activeTab === 'member_fields' && (
+            <MemberCustomFieldsModule
+              customFields={customFields}
+              currentUser={currentUser}
+              branches={branches}
+              onRefresh={refreshGlobalState}
+              onNavigateToMembers={() => setActiveTab('members')}
             />
           )}
 

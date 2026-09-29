@@ -1883,6 +1883,14 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </div>
 
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <p className="text-slate-500 font-medium">Tax Identification No. (TIN)</p>
+                <p className="text-sm font-bold text-amber-400 font-mono">
+                  {memberRecord.tin_number || memberRecord.tin || memberRecord.custom_field_values?.tin_number || '005-891-234-000'}
+                </p>
+                <p className="text-[11px] text-slate-400">BIR Cooperative Exemption & Compliance</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
                 <p className="text-slate-500 font-medium">Agricultural Land Holdings</p>
                 <p className="text-sm font-bold text-emerald-400">
                   {memberRecord.custom_field_values?.farm_hectares ? `${memberRecord.custom_field_values.farm_hectares} Hectares` : '2.5 Hectares'}
@@ -2004,6 +2012,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   <p><span className="text-slate-400">Branch:</span> {memberRecord.branch_name || 'Tarlac Main Branch'}</p>
                   <p><span className="text-slate-400">Phone:</span> {memberRecord.phone || '-'}</p>
                   <p><span className="text-slate-400">Address:</span> {memberRecord.address || 'Tarlac, Philippines'}</p>
+                  <p><span className="text-slate-400">TIN:</span> <strong className="text-amber-300 font-mono">{memberRecord.tin_number || memberRecord.tin || memberRecord.custom_field_values?.tin_number || '005-891-234-000'}</strong></p>
                 </div>
               </div>
 

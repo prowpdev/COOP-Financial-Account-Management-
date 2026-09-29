@@ -328,6 +328,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(field)
     }),
+  updateCustomField: (id: string, field: any) =>
+    fetchApi<{ success: boolean; data: any }>(`/config/custom-fields/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(field)
+    }),
+  deleteCustomField: (id: string, changed_by?: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/custom-fields/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ changed_by })
+    }),
 
   // Savings Products
   createSavingsProduct: (product: any) =>
@@ -561,6 +571,11 @@ getMemberReport: async (memberId: string) => {
   createMember: (member: any) =>
     fetchApi<{ success: boolean; data: any }>('/members', {
       method: 'POST',
+      body: JSON.stringify(member)
+    }),
+  updateMember: (id: string, member: any) =>
+    fetchApi<{ success: boolean; data: any }>(`/members/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(member)
     }),
   // update loan status

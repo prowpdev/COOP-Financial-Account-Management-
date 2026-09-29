@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Settings2,
   Users,
+  Sliders,
   CreditCard,
   PiggyBank,
   Coins,
@@ -23,6 +24,7 @@ export type TabKey =
   | 'configuration'
   | 'excel_workbench'
   | 'members'
+  | 'member_fields'
   | 'loans'
   | 'savings'
   | 'share_capital'
@@ -86,6 +88,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Member Registry',
       shortLabel: 'Members',
       icon: Users,
+      alwaysShow: true
+    },
+    {
+      id: 'member_fields' as TabKey,
+      label: 'Member Custom Fields',
+      shortLabel: 'Custom Fields',
+      icon: Sliders,
+      badge: 'Fields',
       alwaysShow: true
     },
     {

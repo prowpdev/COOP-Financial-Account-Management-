@@ -453,7 +453,8 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
             <p className="text-xs text-slate-400 print:text-slate-600 mt-0.5">
               Member ID: <span className="font-mono text-emerald-400 print:text-black font-semibold">{member?.member_no || '—'}</span> ·
               Branch: <span className="text-slate-300 print:text-black">{member?.branch_name || 'Main Branch'}</span> ·
-              Member Type: <span className="text-slate-300 print:text-black">{member?.member_type_name || 'Regular Member'}</span>
+              Member Type: <span className="text-slate-300 print:text-black">{member?.member_type_name || 'Regular Member'}</span> ·
+              TIN: <span className="font-mono text-amber-300 print:text-black font-semibold">{member?.tin_number || member?.tin || member?.custom_field_values?.tin_number || 'Not Set'}</span>
             </p>
           </div>
 

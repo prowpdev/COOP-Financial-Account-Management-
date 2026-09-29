@@ -117,6 +117,7 @@ export interface CustomField {
   field_type: 'Text' | 'Number' | 'Date' | 'Dropdown' | 'Radio' | 'Checkbox' | 'Currency' | 'Phone' | 'Email';
   options: string[];
   required: boolean;
+  is_required?: boolean | number;
   default_value: string;
   active: boolean;
 }
@@ -148,6 +149,8 @@ export interface Member {
   birthdate: string;
   email: string;
   phone: string;
+  tin_number?: string;
+  tin?: string;
   address: string;
   status: string;
   joined_date: string;

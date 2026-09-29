@@ -1014,6 +1014,11 @@ router.put('/config/approval-rules/:id', (req: Request, res: Response) => {
 // 8. DYNAMIC CUSTOM FIELDS (Test 8)
 // ==========================================
 
+router.get(['/config/custom-fields', '/custom-fields'], (req: Request, res: Response) => {
+  const fields = db.getTable('custom_fields') || [];
+  res.json({ success: true, data: fields });
+});
+
 router.post('/config/custom-fields', (req: Request, res: Response) => {
   const {
     entity,
@@ -1027,14 +1032,18 @@ router.post('/config/custom-fields', (req: Request, res: Response) => {
     reason
   } = req.body;
 
+  const key = (field_name || field_label || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
   const newField = {
     id: `cf_${Date.now()}`,
     entity: entity || 'Member',
-    field_name: (field_name || '').toLowerCase().replace(/\s+/g, '_'),
-    field_label,
+    field_name: key,
+    field_key: key,
+    field_label: field_label || field_name || 'Custom Field',
+    label: field_label || field_name || 'Custom Field',
     field_type: field_type || 'Text',
     options: Array.isArray(options) ? options : [],
     required: Boolean(required),
+    is_required: Boolean(required),
     default_value: default_value || '',
     active: true
   };
@@ -1043,6 +1052,58 @@ router.post('/config/custom-fields', (req: Request, res: Response) => {
   db.recordAudit(`Custom Field Created: ${newField.field_label}`, 'None', newField, changed_by || 'Admin', reason || 'Added new custom attribute');
 
   res.json({ success: true, data: newField });
+});
+
+router.put('/config/custom-fields/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const fields = db.getTable('custom_fields');
+  const field = fields.find(f => f.id === id);
+
+  if (!field) {
+    return res.status(404).json({ success: false, error: 'Custom field not found' });
+  }
+
+  const oldSnapshot = { ...field };
+  const updated = {
+    ...field,
+    ...req.body,
+    id: field.id,
+    field_key: req.body.field_name || req.body.field_key || field.field_key || field.field_name,
+    label: req.body.field_label || req.body.label || field.field_label || field.label,
+    is_required: req.body.required !== undefined ? Boolean(req.body.required) : field.required
+  };
+
+  db.update('custom_fields', f => f.id === id, () => updated);
+  db.recordAudit(
+    `Custom Field Updated: ${field.field_label || field.label}`,
+    oldSnapshot,
+    updated,
+    req.body.changed_by || 'Admin',
+    req.body.reason || 'Updated custom field definition'
+  );
+
+  res.json({ success: true, data: updated });
+});
+
+router.delete('/config/custom-fields/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const fields = db.getTable('custom_fields');
+  const field = fields.find(f => f.id === id);
+
+  if (!field) {
+    return res.status(404).json({ success: false, error: 'Custom field not found' });
+  }
+
+  db.delete('custom_fields', f => f.id === id);
+  db.recordAudit(
+    `Custom Field Deleted: ${field.field_label || field.label}`,
+    field,
+    null,
+    req.body?.changed_by || 'Admin',
+    'Deleted custom field'
+  );
+
+  res.json({ success: true, message: `Custom field ${field.field_label || field.label} deleted successfully.` });
 });
 
 // ==========================================
@@ -1478,6 +1539,8 @@ router.post('/members', (req: Request, res: Response) => {
   const branch = branches.find(b => b.id === branch_id) || branches[0];
   const memberNo = NumberingService.getNextNumber('MEM', branch?.code || 'MAIN');
 
+  const tinNumber = req.body.tin_number || req.body.tin || custom_field_values?.tin_number || '';
+
   const newMember = {
     id: `mem_${Date.now()}`,
     member_no: memberNo,
@@ -1490,10 +1553,15 @@ router.post('/members', (req: Request, res: Response) => {
     birthdate: birthdate || '1990-01-01',
     email: email || '',
     phone: phone || '',
+    tin_number: tinNumber,
+    tin: tinNumber,
     address: address || '',
     status: 'Active',
     joined_date: new Date().toISOString().split('T')[0],
-    custom_field_values: custom_field_values || {}
+    custom_field_values: {
+      ...(custom_field_values || {}),
+      ...(tinNumber ? { tin_number: tinNumber } : {})
+    }
   };
 
   db.insert('members', newMember);
@@ -1576,6 +1644,46 @@ router.post('/members', (req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: newMember });
+});
+
+router.put('/members/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const members = db.getTable('members');
+  const member = members.find(m => m.id === id || m.member_no === id);
+  if (!member) {
+    return res.status(404).json({ success: false, error: 'Member not found' });
+  }
+
+  const oldSnapshot = { ...member };
+  const incomingCustom = req.body.custom_field_values || {};
+  const tinNumber = req.body.tin_number ?? req.body.tin ?? incomingCustom.tin_number ?? member.tin_number ?? member.tin ?? member.custom_field_values?.tin_number ?? '';
+
+  const mergedCustom = {
+    ...(member.custom_field_values || {}),
+    ...incomingCustom,
+    ...(tinNumber ? { tin_number: tinNumber } : {})
+  };
+
+  const updated = {
+    ...member,
+    ...req.body,
+    id: member.id,
+    member_no: member.member_no, // Preserve original ID and member_no
+    tin_number: tinNumber,
+    tin: tinNumber,
+    custom_field_values: mergedCustom
+  };
+
+  db.update('members', m => m.id === member.id, () => updated);
+  db.recordAudit(
+    `Member Profile Updated: ${updated.first_name} ${updated.last_name} (${updated.member_no})`,
+    oldSnapshot,
+    updated,
+    req.body.performed_by || req.body.changed_by || 'Admin',
+    req.body.reason || 'Updated member profile and custom fields'
+  );
+
+  res.json({ success: true, data: updated });
 });
 
 // ==========================================
