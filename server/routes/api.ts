@@ -3570,9 +3570,21 @@ router.get('/reports/financial-statements', (req: Request, res: Response) => {
     };
   });
 
-  // Group accounts strictly by dynamic financial statement mappings
+  // Assign each account to its explicit report group, then fall back to its type.
+  const accountGroups = new Map<string, string>();
+  accountBalances.forEach(acc => {
+    const explicitGroup = mappings.find(m => m.category === acc.report_group);
+    const typeGroup = mappings.find(m =>
+      Array.isArray(m.account_types) && m.account_types.some((type: string) =>
+        type === acc.category || type === acc.type
+      )
+    );
+    const group = explicitGroup || typeGroup;
+    if (group) accountGroups.set(acc.id, group.category);
+  });
+
   const categories = mappings.map(m => {
-    const matchedAccounts = accountBalances.filter(acc => acc.category === m.category);
+    const matchedAccounts = accountBalances.filter(acc => accountGroups.get(acc.id) === m.category);
     const total = Number(matchedAccounts.reduce((sum, a) => sum + a.balance, 0).toFixed(2));
     return {
       category: m.category,
@@ -3607,6 +3619,9 @@ router.get('/reports/financial-statements', (req: Request, res: Response) => {
         total_liabilities_and_equity: totalLiabAndEquity
       },
       statement_of_operations: {
+        categories: categories.filter(c => c.category === 'Income' || c.category === 'Expenses'),
+        revenue: categories.find(c => c.category === 'Income')?.accounts || [],
+        expenses: categories.find(c => c.category === 'Expenses')?.accounts || [],
         total_income: income,
         total_expenses: expenses,
         net_surplus: netSurplus

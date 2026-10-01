@@ -154,7 +154,7 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
           field_type: fieldForm.field_type,
           options,
           required: fieldForm.required,
-          default_value: fieldForm.default_value,
+     
           changed_by: currentUser.name,
           reason: 'Updated member custom field configuration'
         });

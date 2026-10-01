@@ -58,7 +58,9 @@ export function formatMemberFullName(
     if (cleanMid.length > 0) {
       mi = withPeriod ? ` ${cleanMid[0].toUpperCase()}.` : ` ${cleanMid[0].toUpperCase()}`;
     }
+    mi = ` ${cleanMid}`;
   }
+ ;
 
   if (last && first) {
     return `${last}, ${first}${mi}`;

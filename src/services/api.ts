@@ -877,15 +877,15 @@ getLoanApplications: async (params?: {
       };
     }
     if (type === 'income_statement') {
-      const rev = pos?.categories?.find((c: any) => c.category === 'Income')?.accounts || [];
-      const exp = pos?.categories?.find((c: any) => c.category === 'Expenses')?.accounts || [];
+      const rev = ops?.categories?.find((c: any) => c.category === 'Income')?.accounts || [];
+      const exp = ops?.categories?.find((c: any) => c.category === 'Expenses')?.accounts || [];
       return {
         success: true,
         data: {
           revenues: rev,
-          total_income: ops?.total_income || 0,
+          total_revenue: ops?.total_income || 0,
           expenses: exp,
-          total_expenses: ops?.total_expenses || 0,
+          total_expense: ops?.total_expenses || 0,
           net_surplus: ops?.net_surplus || 0
         }
       };
