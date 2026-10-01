@@ -17,7 +17,11 @@ import {
   FileSpreadsheet,
   Calculator,
   RefreshCw,
-  Edit2
+  Edit2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export type ColumnType = 'text' | 'number' | 'currency' | 'percent' | 'badge' | 'boolean' | 'date';
@@ -49,6 +53,9 @@ export interface ExcelGridTableProps<T> {
   defaultSortKey?: string;
   defaultSortDir?: 'asc' | 'desc';
   defaultDensity?: 'compact' | 'normal' | 'spacious';
+  defaultPageSize?: number | 'all';
+  enablePagination?: boolean;
+  onCustomExport?: () => void;
   toolbarExtra?: React.ReactNode;
   emptyMessage?: string;
   isLoading?: boolean;
@@ -67,6 +74,9 @@ export function ExcelGridTable<T extends Record<string, any>>({
   defaultSortKey,
   defaultSortDir = 'asc',
   defaultDensity = 'compact',
+  defaultPageSize = 25,
+  enablePagination = true,
+  onCustomExport,
   toolbarExtra,
   emptyMessage = 'No matching records found in this view',
   isLoading = false,
@@ -187,6 +197,30 @@ export function ExcelGridTable<T extends Record<string, any>>({
 
     return result;
   }, [data, columns, searchQuery, columnFilters, sortKey, sortDir]);
+
+  // Pagination & Rows Per Page State
+  const [pageSize, setPageSize] = useState<number | 'all'>(defaultPageSize);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset page to 1 when filters, search, or sorting changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, columnFilters, sortKey, sortDir, pageSize]);
+
+  const totalRows = processedData.length;
+  const isAll = pageSize === 'all' || !enablePagination;
+  const numericPageSize = isAll ? (totalRows || 1) : Number(pageSize);
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(totalRows / numericPageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedData = useMemo(() => {
+    if (isAll) return processedData;
+    const start = (safeCurrentPage - 1) * numericPageSize;
+    return processedData.slice(start, start + numericPageSize);
+  }, [processedData, isAll, safeCurrentPage, numericPageSize]);
+
+  const startRecord = totalRows === 0 ? 0 : (isAll ? 1 : (safeCurrentPage - 1) * numericPageSize + 1);
+  const endRecord = isAll ? totalRows : Math.min(safeCurrentPage * numericPageSize, totalRows);
 
   // Excel Calculations (SUM, AVG, COUNT, MIN, MAX) for visible numeric columns
   const columnStats = useMemo(() => {
@@ -566,14 +600,25 @@ export function ExcelGridTable<T extends Record<string, any>>({
           </button>
 
           {/* Export to CSV Button */}
-          <button
-            onClick={handleExportCSV}
-            title="Download CSV for Microsoft Excel"
-            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </button>
+          {onCustomExport ? (
+            <button
+              onClick={onCustomExport}
+              title="Export CSV with customizable columns and 'Last name, First name MI' formatting"
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleExportCSV}
+              title="Download CSV for Microsoft Excel"
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          )}
 
           {/* Full Screen Toggle */}
           <button
@@ -762,7 +807,8 @@ export function ExcelGridTable<T extends Record<string, any>>({
                 </td>
               </tr>
             ) : (
-              processedData.map((item, rowIndex) => {
+              paginatedData.map((item, localIndex) => {
+                const rowIndex = isAll ? localIndex : (safeCurrentPage - 1) * numericPageSize + localIndex;
                 const rowId = getRowId(item, rowIndex);
                 const isSelectedRow = activeCell?.rowIndex === rowIndex;
 
@@ -881,6 +927,87 @@ export function ExcelGridTable<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
+
+      {/* Excel Pagination & Limit per page bar */}
+      {enablePagination && totalRows > 0 && (
+        <div className="bg-slate-950/90 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-3">
+          {/* Left: Page Size Selector */}
+          <div className="flex items-center space-x-2.5">
+            <span className="text-slate-400 text-[11px] font-medium">Rows per page:</span>
+            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+              {[5, 10, 25, 50, 100, 'all'].map(size => {
+                const isSelected = pageSize === size;
+                return (
+                  <button
+                    key={size}
+                    onClick={() => setPageSize(size as any)}
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-semibold transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {size === 'all' ? 'All' : size}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[11px] text-slate-500 font-mono">
+              (Showing {startRecord} – {endRecord} of {totalRows})
+            </span>
+          </div>
+
+          {/* Right: Page Navigation Controls */}
+          {!isAll && (
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage === 1}
+                title="First Page"
+                className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={safeCurrentPage === 1}
+                title="Previous Page"
+                className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="flex items-center space-x-1 px-2 text-[11px] font-mono text-slate-300">
+                <span>Page</span>
+                <span className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded font-bold text-white">
+                  {safeCurrentPage}
+                </span>
+                <span>of</span>
+                <span className="font-bold text-white">{totalPages}</span>
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={safeCurrentPage === totalPages}
+                title="Next Page"
+                className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safeCurrentPage === totalPages}
+                title="Last Page"
+                className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Excel Bottom Summary & Status Bar */}
       <div className="bg-slate-950 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">

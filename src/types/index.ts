@@ -154,6 +154,7 @@ export interface Member {
   notes?: string;
   address: string;
   status: string;
+  active?: boolean;
   joined_date: string;
   custom_field_values: Record<string, any>;
 }

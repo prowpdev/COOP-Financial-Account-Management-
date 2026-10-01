@@ -19,10 +19,12 @@ import {
   RefreshCw,
   Sliders,
   Edit2,
-  Tag
+  Tag,
+  Download
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { MemberTransactionReport } from '../reports/MemberTransactionReport';
+import { MemberExportModal, formatMemberFullName } from './MemberExportModal';
 import { api } from '../../services/api';
 import { Branch, CustomField, Member, MemberType, User } from '../../types';
 
@@ -50,6 +52,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -85,9 +88,10 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
       width: '240px',
       type: 'text',
       sortable: true,
+      accessor: (row: Member) => formatMemberFullName(row),
       render: (_, row) => (
         <span className="font-semibold text-white">
-          {row.first_name} {row.middle_name ? row.middle_name + ' ' : ''}{row.last_name}
+          {formatMemberFullName(row)}
         </span>
       )
     },
@@ -400,6 +404,17 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
               </button>
             )}
           </div>
+
+          {/* Export Members to CSV (Custom Columns) */}
+          <button
+            id="btn-open-member-export-modal"
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-slate-950 hover:bg-slate-900 text-emerald-400 border border-emerald-500/30 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+            title="Export Members to CSV with custom column selection and 'Last name, First name MI' formatting"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Export CSV</span>
+          </button>
 
           <button
             id="btn-register-member"
@@ -1006,6 +1021,17 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           data={filtered}
           columns={memberCols}
           defaultSortKey="member_no"
+          onCustomExport={() => setIsExportModalOpen(true)}
+          toolbarExtra={
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              title="Custom column selection & 'Last name, First name MI' name formatting"
+              className="px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer"
+            >
+              <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden xl:inline">Choose Columns</span>
+            </button>
+          }
         />
       ) : (
         <>
@@ -1141,6 +1167,18 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           )}
         </>
       )}
+
+      {/* Member Custom CSV Export Modal */}
+      <MemberExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        filteredMembers={filtered}
+        allMembers={safeMembers}
+        branches={branches}
+        memberTypes={memberTypes}
+        customFields={customFields}
+        selectedBranchName={selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name || 'Filtered Branch'}
+      />
     </div>
   );
 };
