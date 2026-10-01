@@ -3,6 +3,7 @@ import { PiggyBank, Plus, ArrowUpRight, ArrowDownLeft, X, Building2 } from 'luci
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
 import { Account, Branch, CashAccount, Member, SavingsAccount, SavingsProduct, User } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface SavingsModuleProps {
   branches?: Branch[];
@@ -48,6 +49,31 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
   const [isOpening, setIsOpening] = useState(false);
   const [opening, setOpening] = useState({ member_id: '', savings_product_id: '', branch_id: '' });
   const [openError, setOpenError] = useState<string | null>(null);
+
+  const memberOptions: SearchableOption[] = React.useMemo(() => {
+    return members.map(m => {
+      const mid = m.middle_name ? ` ${m.middle_name[0].toUpperCase()}.` : '';
+      const name = m.last_name && m.first_name ? `${m.last_name}, ${m.first_name}${mid}` : `${m.first_name} ${m.last_name}`;
+      return {
+        value: m.id,
+        label: name,
+        code: m.member_no,
+        type: m.member_type_name || 'Member',
+        badge: m.branch_name,
+        searchTerms: `${m.member_no} ${m.first_name} ${m.last_name} ${m.branch_name || ''}`
+      };
+    });
+  }, [members]);
+
+  const coaOptions: SearchableOption[] = React.useMemo(() => {
+    return coaAccounts.map(a => ({
+      value: a.id,
+      label: a.name,
+      code: a.code || a.account_code,
+      type: a.type,
+      searchTerms: `${a.code || a.account_code || ''} ${a.name} ${a.type || ''}`
+    }));
+  }, [coaAccounts]);
   useEffect(() => {
     if (selectedBranchId !== undefined) {
       setSelectedBranch(selectedBranchId);
@@ -340,8 +366,34 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
               <div><label className="text-xs text-slate-300 font-medium">Interest Calculation Method</label><select value={newProduct.interest_calculation_method} onChange={e => setNewProduct({ ...newProduct, interest_calculation_method: e.target.value })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"><option>Average Daily Balance</option><option>Monthly Minimum Balance</option><option>Fixed Term Maturity</option></select></div>
               <div><label className="text-xs text-slate-300 font-medium">Minimum Opening Deposit</label><input type="number" step="0.01" value={newProduct.min_opening_deposit} onChange={e => setNewProduct({ ...newProduct, min_opening_deposit: Number(e.target.value) || 0 })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" /></div>
               <div><label className="text-xs text-slate-300 font-medium">Maintaining Balance</label><input type="number" step="0.01" value={newProduct.maintaining_balance} onChange={e => setNewProduct({ ...newProduct, maintaining_balance: Number(e.target.value) || 0 })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" /></div>
-              <div><label className="text-xs text-slate-300 font-medium">GL Liability Account</label><select required value={newProduct.gl_liability_account_id} onChange={e => setNewProduct({ ...newProduct, gl_liability_account_id: e.target.value })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"><option value="">Select account</option>{coaAccounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}</select></div>
-              <div><label className="text-xs text-slate-300 font-medium">GL Interest Expense Account</label><select required value={newProduct.gl_interest_expense_account_id} onChange={e => setNewProduct({ ...newProduct, gl_interest_expense_account_id: e.target.value })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"><option value="">Select account</option>{coaAccounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}</select></div>
+              <div>
+                <label className="text-xs text-slate-300 font-medium">GL Liability Account</label>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={coaOptions}
+                    value={newProduct.gl_liability_account_id}
+                    onChange={val => setNewProduct({ ...newProduct, gl_liability_account_id: val })}
+                    placeholder="Select liability account..."
+                    searchPlaceholder="Search GL accounts by code, name, or type..."
+                    showGLTypeBadge={true}
+                    minOptionsForSearch={6}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-300 font-medium">GL Interest Expense Account</label>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={coaOptions}
+                    value={newProduct.gl_interest_expense_account_id}
+                    onChange={val => setNewProduct({ ...newProduct, gl_interest_expense_account_id: val })}
+                    placeholder="Select expense account..."
+                    searchPlaceholder="Search GL accounts by code, name, or type..."
+                    showGLTypeBadge={true}
+                    minOptionsForSearch={6}
+                  />
+                </div>
+              </div>
               <div className="sm:col-span-2 flex items-center justify-between pt-3 border-t border-slate-800"><label className="text-xs text-slate-300"><input type="checkbox" checked={newProduct.active} onChange={e => setNewProduct({ ...newProduct, active: e.target.checked })} className="mr-2" />Active product</label><div className="flex gap-2"><button type="button" onClick={() => setIsCreatingProduct(false)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl">Cancel</button><button type="submit" className="px-5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl">Create Product</button></div></div>
             </form>
           </div>
@@ -364,9 +416,16 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
               <form onSubmit={openSavingsAccount} className="space-y-4">
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Member</label>
-                  <select value={opening.member_id} onChange={e => setOpening({ ...opening, member_id: e.target.value })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
-                    {members.map(member => <option key={member.id} value={member.id}>{member.member_no} - {member.first_name} {member.last_name}</option>)}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={memberOptions}
+                      value={opening.member_id}
+                      onChange={val => setOpening({ ...opening, member_id: val })}
+                      placeholder="Select member..."
+                      searchPlaceholder="Search member name or ID..."
+                      minOptionsForSearch={6}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Savings Product</label>

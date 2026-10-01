@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Printer } from 'lucide-react';
 import { Account, Branch, JournalEntry } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface AccountLedgerReportProps {
   accounts: Account[];
@@ -122,15 +123,33 @@ const rows = useMemo(() => {
     URL.revokeObjectURL(url);
   };
 
+  const accountOptions: SearchableOption[] = useMemo(() => {
+    return accounts.map(item => ({
+      value: item.id,
+      label: item.name,
+      code: item.account_code || item.code,
+      type: item.type,
+      searchTerms: `${item.account_code || item.code || ''} ${item.name} ${item.type || ''} ${item.normal_balance || ''}`
+    }));
+  }, [accounts]);
+
   return (
     <section className="space-y-4">
       <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 print:hidden">
         <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-          <div className="flex-1 min-w-56">
-            <label className="block text-xs font-semibold text-slate-300 mb-1">General Ledger Account</label>
-            <select value={accountId} onChange={event => setAccountId(event.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
-              {accounts.map(item => <option key={item.id} value={item.id}>{item.account_code} — {item.name} </option>)}
-            </select>
+          <div className="flex-1 min-w-64">
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              General Ledger Account <span className="text-slate-400 font-normal">(Includes GL Type)</span>
+            </label>
+            <SearchableSelect
+              options={accountOptions}
+              value={accountId}
+              onChange={setAccountId}
+              placeholder="Search or select GL account..."
+              searchPlaceholder="Filter accounts by code, name, or GL type (Asset, Expense, etc.)..."
+              showGLTypeBadge={true}
+              minOptionsForSearch={6}
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">From</label>

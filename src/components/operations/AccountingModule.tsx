@@ -27,6 +27,7 @@ import { CashReceiptJournal } from './CashReceiptJournal';
 import { CashDisbursementJournal } from './CashDisbursementJournal';
 import { AccountingOverviewDashboard } from './AccountingOverviewDashboard';
 import { GLReconciliationView } from './GLReconciliationView';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
 import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
 
@@ -87,6 +88,39 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       if (res && res.data) setMembersList(res.data);
     }).catch(err => console.error(err));
   }, []);
+
+  const accountOptions: SearchableOption[] = useMemo(() => {
+    return accounts.map(a => ({
+      value: a.id,
+      label: a.name,
+      code: a.code || a.account_code,
+      type: a.type,
+      searchTerms: `${a.code || a.account_code || ''} ${a.name} ${a.type || ''}`
+    }));
+  }, [accounts]);
+
+  const memberSelectOptions: SearchableOption[] = useMemo(() => {
+    const list: SearchableOption[] = [
+      {
+        value: '',
+        label: 'None / General Cooperative Entry',
+        description: 'Standard journal entry not tied to a specific member'
+      }
+    ];
+    membersList.forEach(m => {
+      const mid = m.middle_name ? ` ${m.middle_name[0].toUpperCase()}.` : '';
+      const name = m.last_name && m.first_name ? `${m.last_name}, ${m.first_name}${mid}` : `${m.first_name} ${m.last_name}`;
+      list.push({
+        value: m.id,
+        label: name,
+        code: m.member_no,
+        type: m.member_type_name || 'Member',
+        badge: m.branch_name,
+        searchTerms: `${m.member_no} ${m.first_name} ${m.last_name} ${m.branch_name || ''}`
+      });
+    });
+    return list;
+  }, [membersList]);
 
   const [jvForm, setJvForm] = useState({
     posting_date: new Date().toISOString().split('T')[0],
@@ -746,10 +780,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                       </button>
                     )}
                   </div>
-                  <select
+                  <SearchableSelect
+                    options={memberSelectOptions}
                     value={jvForm.member_id}
-                    onChange={e => {
-                      const mId = e.target.value;
+                    onChange={mId => {
                       const m = membersList.find(x => x.id === mId);
                       setJvForm(prev => ({
                         ...prev,
@@ -757,15 +791,11 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                         description: mId ? `${m?.first_name} ${m?.last_name} transaction` : prev.description
                       }));
                     }}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
-                  >
-                    <option value="">None / General Cooperative Entry</option>
-                    {membersList.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.first_name} {m.last_name} ({m.member_no}) - {m.branch_name || 'Member'}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search member name or ID..."
+                    searchPlaceholder="Filter members by name, ID, branch..."
+                    minOptionsForSearch={6}
+                    clearable={true}
+                  />
                 </div>
 
                 <div className="sm:col-span-3">
@@ -794,24 +824,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {jvForm.lines.map((line, idx) => (
                     <div key={idx} className="flex items-center space-x-2 bg-slate-800/80 p-2 rounded-xl border border-slate-700">
-                      <select
-                        value={line.account_id}
-                        onChange={e => {
-                          const copy = [...jvForm.lines];
-                          copy[idx].account_id = e.target.value;
-                          setJvForm({ ...jvForm, lines: copy });
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
-                      >
-                        {accounts.map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.code} - {a.name} ({a.type})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex-1 min-w-[200px]">
+                        <SearchableSelect
+                          options={accountOptions}
+                          value={line.account_id}
+                          onChange={accId => {
+                            const copy = [...jvForm.lines];
+                            copy[idx].account_id = accId;
+                            setJvForm({ ...jvForm, lines: copy });
+                          }}
+                          placeholder="Select GL account..."
+                          searchPlaceholder="Search by code, name, or GL type (Asset, Expense, etc.)..."
+                          showGLTypeBadge={true}
+                          minOptionsForSearch={6}
+                        />
+                      </div>
                       <input
                         type="number"
                         placeholder="Debit"

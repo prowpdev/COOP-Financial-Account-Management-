@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Member } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface Props {
   members: Member[];
@@ -54,6 +55,22 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
   ]);
   const [jvDescription, setJvDescription] = useState('');
   const [jvDate, setJvDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const memberOptions: SearchableOption[] = useMemo(() => {
+    return safeMembers.map(m => {
+      const mid = m.middle_name ? ` ${m.middle_name[0].toUpperCase()}.` : '';
+      const formattedName = m.last_name && m.first_name ? `${m.last_name}, ${m.first_name}${mid}` : `${m.first_name} ${m.last_name}`;
+      return {
+        value: m.id,
+        label: formattedName,
+        code: m.member_no,
+        type: m.member_type_name || 'Member',
+        badge: m.branch_name,
+        description: `TIN: ${m.tin_number || m.tin || 'Not Set'} • Branch: ${m.branch_name || 'Main Branch'}`,
+        searchTerms: `${m.member_no} ${m.first_name} ${m.last_name} ${m.middle_name || ''} ${m.branch_name || ''} ${m.tin_number || ''}`
+      };
+    });
+  }, [safeMembers]);
 
   useEffect(() => {
     if (initialMemberId) {
@@ -281,22 +298,17 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
           <div className="flex-1 max-w-md">
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Select Member Account
+              Select Member Account <span className="text-slate-400 font-normal">({safeMembers.length} enrolled)</span>
             </label>
-            <div className="relative">
-              <User className="w-4 h-4 text-emerald-400 absolute left-3 top-2.5" />
-              <select
-                value={memberId}
-                onChange={e => setMemberId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white cursor-pointer focus:outline-none focus:border-emerald-500"
-              >
-                {safeMembers.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.member_no} — {m.first_name} {m.last_name} ({m.branch_name || 'Member'})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              options={memberOptions}
+              value={memberId}
+              onChange={setMemberId}
+              placeholder="Search member name or ID..."
+              searchPlaceholder="Type member name, ID, branch, or TIN to search..."
+              icon={<User className="w-4 h-4 text-emerald-400" />}
+              minOptionsForSearch={6}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

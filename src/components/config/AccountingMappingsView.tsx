@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Account, AccountingMapping, User } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface AccountingMappingsViewProps {
   mappings?: AccountingMapping[];
@@ -46,6 +47,17 @@ export const AccountingMappingsView: React.FC<AccountingMappingsViewProps> = ({
 }) => {
   const safeMappings = Array.isArray(mappings) ? mappings : [];
   const safeAccounts = Array.isArray(accounts) ? accounts : [];
+
+  const accountSelectOptions: SearchableOption[] = useMemo(() => {
+    return safeAccounts.map(a => ({
+      value: a.id,
+      label: a.name,
+      code: a.code || a.account_code,
+      type: a.type || a.category,
+      description: `Normal balance: ${a.normal_balance || '—'}`,
+      searchTerms: `${a.code || a.account_code || ''} ${a.name} ${a.type || a.category || ''} ${a.normal_balance || ''}`
+    }));
+  }, [safeAccounts]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDomain, setActiveDomain] = useState<DomainFilter>('all');
@@ -712,17 +724,15 @@ export const AccountingMappingsView: React.FC<AccountingMappingsViewProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400">
                   Debit (Dr) Account
                 </label>
-                <select
+                <SearchableSelect
+                  options={accountSelectOptions}
                   value={editDebit}
-                  onChange={(e) => setEditDebit(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-sm text-white font-medium focus:outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  {safeAccounts.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.code || a.account_code} — {a.name} ({a.type || a.category} • {a.normal_balance})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEditDebit}
+                  placeholder="Select Debit Account..."
+                  searchPlaceholder="Filter accounts by code, name, or GL type..."
+                  showGLTypeBadge={true}
+                  minOptionsForSearch={6}
+                />
                 <p className="text-[11px] text-slate-400">Debiting this account increases Assets &amp; Expenses, and decreases Liabilities &amp; Equity.</p>
               </div>
 
@@ -731,17 +741,15 @@ export const AccountingMappingsView: React.FC<AccountingMappingsViewProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-blue-400">
                   Credit (Cr) Account
                 </label>
-                <select
+                <SearchableSelect
+                  options={accountSelectOptions}
                   value={editCredit}
-                  onChange={(e) => setEditCredit(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-sm text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {safeAccounts.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.code || a.account_code} — {a.name} ({a.type || a.category} • {a.normal_balance})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEditCredit}
+                  placeholder="Select Credit Account..."
+                  searchPlaceholder="Filter accounts by code, name, or GL type..."
+                  showGLTypeBadge={true}
+                  minOptionsForSearch={6}
+                />
                 <p className="text-[11px] text-slate-400">Crediting this account increases Liabilities, Equity, and Revenue, and decreases Assets.</p>
               </div>
             </div>
@@ -829,17 +837,15 @@ export const AccountingMappingsView: React.FC<AccountingMappingsViewProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400">
                   Debit (Dr) Account *
                 </label>
-                <select
+                <SearchableSelect
+                  options={accountSelectOptions}
                   value={newDebit}
-                  onChange={(e) => setNewDebit(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-sm text-white font-medium focus:outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  {safeAccounts.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.code || a.account_code} — {a.name} ({a.type || a.category} • {a.normal_balance})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setNewDebit}
+                  placeholder="Select Debit Account..."
+                  searchPlaceholder="Filter accounts by code, name, or GL type..."
+                  showGLTypeBadge={true}
+                  minOptionsForSearch={6}
+                />
               </div>
 
               {/* Credit Account Picker */}
@@ -847,17 +853,15 @@ export const AccountingMappingsView: React.FC<AccountingMappingsViewProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-blue-400">
                   Credit (Cr) Account *
                 </label>
-                <select
+                <SearchableSelect
+                  options={accountSelectOptions}
                   value={newCredit}
-                  onChange={(e) => setNewCredit(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-sm text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {safeAccounts.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.code || a.account_code} — {a.name} ({a.type || a.category} • {a.normal_balance})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setNewCredit}
+                  placeholder="Select Credit Account..."
+                  searchPlaceholder="Filter accounts by code, name, or GL type..."
+                  showGLTypeBadge={true}
+                  minOptionsForSearch={6}
+                />
               </div>
             </div>
 

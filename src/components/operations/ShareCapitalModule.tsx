@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Coins, Plus, X, Building2, Pencil, Trash2, CheckCircle, AlertTriangle, UserCheck, Percent, Settings, ShieldCheck, FileText } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { api } from '../../services/api';
 import { Account, Branch, CashAccount, Member, ShareCapitalAccount, ShareCapitalSetting, User } from '../../types';
 import { ShareCapitalSettingsView } from '../config/ShareCapitalSettingsView';
 import { IndividualShareDepositLedgerModal } from './IndividualShareDepositLedgerModal';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface ShareCapitalModuleProps {
   branches?: Branch[];
@@ -141,6 +142,24 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   // Existing member IDs with share capital accounts (to prevent duplication)
   const existingMemberIds = new Set(safeAccounts.map(a => a.member_id));
   const availableMembers = members.filter(m => !existingMemberIds.has(m.id));
+
+  const memberOptionsForCBU: SearchableOption[] = useMemo(() => {
+    return members.map(member => {
+      const alreadyHas = existingMemberIds.has(member.id);
+      const mid = member.middle_name ? ` ${member.middle_name[0].toUpperCase()}.` : '';
+      const name = member.last_name && member.first_name ? `${member.last_name}, ${member.first_name}${mid}` : `${member.first_name} ${member.last_name}`;
+      return {
+        value: member.id,
+        label: name,
+        code: member.member_no,
+        type: member.member_type_name || 'Member',
+        badge: alreadyHas ? 'Already Has CBU' : undefined,
+        description: alreadyHas ? 'Already has an established CBU Account' : `Branch: ${member.branch_name || 'Main'} • Eligible for CBU`,
+        disabled: alreadyHas,
+        searchTerms: `${member.member_no} ${member.first_name} ${member.last_name} ${member.branch_name || ''}`
+      };
+    });
+  }, [members, existingMemberIds]);
 
   // Initialize edit form when an account is selected for editing
   const handleOpenEdit = (acc: ShareCapitalAccount) => {
@@ -664,11 +683,10 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                     {availableMembers.length} eligible without CBU
                   </span>
                 </label>
-                <select
-                  required
+                <SearchableSelect
+                  options={memberOptionsForCBU}
                   value={newAccount.member_id}
-                  onChange={e => {
-                    const selectedId = e.target.value;
+                  onChange={selectedId => {
                     const selected = members.find(m => m.id === selectedId);
                     setNewAccount(prev => ({
                       ...prev,
@@ -676,23 +694,10 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                       branch_id: selected?.branch_id || prev.branch_id || branches[0]?.id || 'branch_tar'
                     }));
                   }}
-                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                >
-                  <option value="">-- Select member --</option>
-                  {members.map(member => {
-                    const alreadyHas = existingMemberIds.has(member.id);
-                    return (
-                      <option
-                        key={member.id}
-                        value={member.id}
-                        disabled={alreadyHas}
-                        className={alreadyHas ? 'text-slate-500 bg-slate-900' : 'text-white bg-slate-800'}
-                      >
-                        {member.member_no} - {member.first_name} {member.last_name} {alreadyHas ? ' (Already has CBU)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
+                  placeholder="Select eligible member..."
+                  searchPlaceholder="Search member name, ID, or branch..."
+                  minOptionsForSearch={6}
+                />
               </div>
 
               {/* Branch Selection (Requirement 3: Save to Database) */}

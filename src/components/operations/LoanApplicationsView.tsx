@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Branch, CashAccount, LoanApplication, LoanProduct, Member, User } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface LoanApplicationsViewProps {
   branches: Branch[];
@@ -86,6 +87,32 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
     first_due_date: '',
     notes: ''
   });
+
+  const borrowerOptions: SearchableOption[] = useMemo(() => {
+    return members.map(m => {
+      const mid = m.middle_name ? ` ${m.middle_name[0].toUpperCase()}.` : '';
+      const name = m.last_name && m.first_name ? `${m.last_name}, ${m.first_name}${mid}` : `${m.first_name} ${m.last_name}`;
+      return {
+        value: m.id,
+        label: name,
+        code: m.member_no,
+        type: m.membership_type || m.member_type_name || 'Regular',
+        badge: m.branch_name,
+        searchTerms: `${m.member_no} ${m.first_name} ${m.last_name} ${m.branch_name || ''} ${m.tin_number || ''}`
+      };
+    });
+  }, [members]);
+
+  const loanProductOptions: SearchableOption[] = useMemo(() => {
+    return loanProducts.map(p => ({
+      value: p.id,
+      label: p.name,
+      code: p.code,
+      type: `${p.annual_interest_rate}% APR`,
+      description: `Term: ${p.default_term_months} mos • ${p.interest_calculation_method} • Min: ₱${(p.min_amount || 0).toLocaleString()} – Max: ₱${(p.max_amount || 0).toLocaleString()}`,
+      searchTerms: `${p.name} ${p.code} ${p.interest_calculation_method}`
+    }));
+  }, [loanProducts]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -839,26 +866,21 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
                 <label className="block text-slate-300 font-semibold mb-1">
                   Applicant / Cooperative Member <span className="text-emerald-400">*</span>
                 </label>
-                <select
-                  required
+                <SearchableSelect
+                  options={borrowerOptions}
                   value={newAppForm.member_id}
-                  onChange={e => {
-                    const mem = members.find(m => m.id === e.target.value);
+                  onChange={val => {
+                    const mem = members.find(m => m.id === val);
                     setNewAppForm({
                       ...newAppForm,
-                      member_id: e.target.value,
+                      member_id: val,
                       branch_id: mem?.branch_id || newAppForm.branch_id
                     });
                   }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
-                >
-                  <option value="">Select Borrower...</option>
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.member_no} - {m.first_name} {m.last_name} ({m.membership_type || 'Regular'})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Borrower..."
+                  searchPlaceholder="Search member by name, ID, or branch..."
+                  minOptionsForSearch={6}
+                />
               </div>
 
               {/* Loan Product Selection */}
@@ -866,26 +888,22 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
                 <label className="block text-slate-300 font-semibold mb-1">
                   Loan Product <span className="text-emerald-400">*</span>
                 </label>
-                <select
-                  required
+                <SearchableSelect
+                  options={loanProductOptions}
                   value={newAppForm.loan_product_id}
-                  onChange={e => {
-                    const prod = loanProducts.find(p => p.id === e.target.value);
+                  onChange={val => {
+                    const prod = loanProducts.find(p => p.id === val);
                     setNewAppForm({
                       ...newAppForm,
-                      loan_product_id: e.target.value,
+                      loan_product_id: val,
                       term_months: prod?.default_term_months || newAppForm.term_months,
                       applied_amount: prod?.min_amount || newAppForm.applied_amount
                     });
                   }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
-                >
-                  {loanProducts.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.code}) — {p.annual_interest_rate}% APR, {p.interest_calculation_method}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Loan Product..."
+                  searchPlaceholder="Search product by name, code, method..."
+                  minOptionsForSearch={6}
+                />
               </div>
 
               {/* Applied Amount and Term */}

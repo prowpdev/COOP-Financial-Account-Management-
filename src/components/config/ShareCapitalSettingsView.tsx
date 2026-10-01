@@ -16,6 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import { Account, ShareCapitalSetting, User } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
 
 interface ShareCapitalSettingsViewProps {
@@ -39,6 +40,18 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const safeAccounts = Array.isArray(accounts) ? accounts : [];
+
+  const accountSelectOptions: SearchableOption[] = React.useMemo(() => {
+    return safeAccounts.map(acc => ({
+      value: acc.id,
+      label: acc.name,
+      code: acc.account_code || (acc as any).code,
+      type: (acc as any).type || acc.category,
+      searchTerms: `${acc.account_code || (acc as any).code || ''} ${acc.name} ${(acc as any).type || acc.category || ''}`
+    }));
+  }, [safeAccounts]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -544,17 +557,17 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
               {/* Linked GL Account */}
               <div>
                 <label className="text-xs font-semibold text-slate-300">Chart of Accounts (Equity GL Account) *</label>
-                <select
-                  value={formData.accounting_account_id}
-                  onChange={e => setFormData({ ...formData, accounting_account_id: e.target.value })}
-                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none focus:border-emerald-500"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.account_code || (acc as any).code} — {acc.name} ({acc.category || (acc as any).type})
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={accountSelectOptions}
+                    value={formData.accounting_account_id}
+                    onChange={val => setFormData({ ...formData, accounting_account_id: val })}
+                    placeholder="Select Equity GL Account..."
+                    searchPlaceholder="Filter accounts by code, name, or GL type..."
+                    showGLTypeBadge={true}
+                    minOptionsForSearch={6}
+                  />
+                </div>
                 <span className="text-[11px] text-slate-400 mt-1 block">
                   General Ledger account for Member Common Share Capital (usually 3110)
                 </span>

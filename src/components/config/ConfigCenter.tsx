@@ -904,7 +904,7 @@ function LoanProductsConfig({
                 onChange={e => setFormData({ ...formData, gl_receivable_account_id: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
               >
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name} ({account.type})</option>)}
               </select>
             </div>
             <div>
@@ -914,7 +914,7 @@ function LoanProductsConfig({
                 onChange={e => setFormData({ ...formData, gl_interest_income_account_id: e.target.value })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
               >
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name}</option>)}
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name} ({account.type})</option>)}
               </select>
             </div>
           </div>
@@ -3165,7 +3165,7 @@ function CashAccountsConfig({
               >
                 {accounts.filter(a => a.type === 'Asset').map(a => (
                   <option key={a.id} value={a.id}>
-                    {a.code} - {a.name}
+                    {a.code} - {a.name} ({a.type})
                   </option>
                 ))}
               </select>
