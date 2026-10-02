@@ -85,6 +85,9 @@ $router->get('/api/members/:id', [MemberController::class, 'show']);
 $router->put('/api/members/:id', [MemberController::class, 'update']);
 $router->delete('/api/members/:id', [MemberController::class, 'destroy']);
 $router->get('/api/members/:id/report', [MemberController::class, 'report']);
+$router->get('/api/members/:id/profile', [MemberController::class, 'profile']);
+$router->post('/api/members/:id/documents', [MemberController::class, 'uploadDocument']);
+$router->delete('/api/members/:id/documents/:docKey', [MemberController::class, 'deleteDocument']);
 
 // =========================================================================
 // 6. Loans & Credit Management

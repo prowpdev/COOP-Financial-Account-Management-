@@ -23,10 +23,13 @@ import {
   Tag,
   Save,
   RefreshCw,
-  FileText
+  FileText,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import { CustomField, Member, Branch, User } from '../../types';
 import { api } from '../../services/api';
+import { CustomFileUploadField } from '../common/CustomFileUploadField';
 
 interface MemberCustomFieldsModuleProps {
   customFields: CustomField[];
@@ -653,7 +656,20 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
                         {Boolean(f.required || f.is_required) && <span className="text-rose-400 ml-1">*</span>}
                       </label>
 
-                      {fieldType === 'Dropdown' ? (
+                      {['file', 'image', 'document', 'pdf'].includes(String(fieldType).toLowerCase()) ? (
+                        <CustomFileUploadField
+                          label={label}
+                          fieldType={fieldType}
+                          required={Boolean(f.required || f.is_required)}
+                          value={value}
+                          onChange={val =>
+                            setMemberCustomInputs({
+                              ...memberCustomInputs,
+                              [key]: val
+                            })
+                          }
+                        />
+                      ) : fieldType === 'Dropdown' ? (
                         <select
                           value={value}
                           onChange={e =>
@@ -732,6 +748,44 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
               </button>
             </div>
 
+            {/* Quick Templates / Presets */}
+            {!editingField && (
+              <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
+                <div className="text-[11px] font-semibold text-slate-300 flex items-center space-x-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Quick Document & Photo Presets:</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    { label: 'Government Valid ID Photo', key: 'id_photo', type: 'Image', req: true },
+                    { label: 'Member Photo (2x2 Portrait)', key: 'member_photo', type: 'Image', req: false },
+                    { label: 'Birth Certificate (PSA / NSO)', key: 'birth_certificate', type: 'PDF', req: false },
+                    { label: 'Marriage Certificate', key: 'marriage_certificate', type: 'PDF', req: false },
+                    { label: 'Supporting Documents / Attachments', key: 'supporting_docs', type: 'File', req: false },
+                    { label: 'Proof of Billing / Address', key: 'proof_of_billing', type: 'Document', req: false },
+                  ].map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      onClick={() => {
+                        setFieldForm({
+                          field_label: preset.label,
+                          field_name: preset.key,
+                          field_type: preset.type as any,
+                          required: preset.req,
+                          options_text: '',
+                          default_value: ''
+                        });
+                      }}
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[10px] font-medium transition cursor-pointer"
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSaveField} className="space-y-4">
               <div>
                 <label className="text-xs text-slate-300 font-medium">Field Label *</label>
@@ -773,13 +827,17 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
                     onChange={e => setFieldForm({ ...fieldForm, field_type: e.target.value as any })}
                     className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
                   >
-                    <option value="Text">Text</option>
-                    <option value="Number">Number</option>
-                    <option value="Date">Date</option>
-                    <option value="Dropdown">Dropdown</option>
-                    <option value="Currency">Currency</option>
-                    <option value="Phone">Phone</option>
-                    <option value="Email">Email</option>
+                    <option value="Text">Text (Single-line)</option>
+                    <option value="Number">Number (Numeric value)</option>
+                    <option value="Date">Date (Calendar picker)</option>
+                    <option value="Dropdown">Dropdown (Select options)</option>
+                    <option value="Currency">Currency (Amount ₱)</option>
+                    <option value="Phone">Phone (Mobile/Landline)</option>
+                    <option value="Email">Email Address</option>
+                    <option value="Image">Image / Photo (ID, 2x2, Pictures)</option>
+                    <option value="PDF">PDF (Birth Cert, Marriage, Permits)</option>
+                    <option value="Document">Document (Word, Excel, Scans)</option>
+                    <option value="File">File (Any attachment / archive)</option>
                   </select>
                 </div>
               </div>

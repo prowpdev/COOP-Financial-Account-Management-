@@ -114,7 +114,7 @@ export interface CustomField {
   field_key?: string;
   field_label?: string;
   label?: string;
-  field_type: 'Text' | 'Number' | 'Date' | 'Dropdown' | 'Radio' | 'Checkbox' | 'Currency' | 'Phone' | 'Email';
+  field_type: 'Text' | 'Number' | 'Date' | 'Dropdown' | 'Radio' | 'Checkbox' | 'Currency' | 'Phone' | 'Email' | 'File' | 'Image' | 'Document' | 'PDF';
   options: string[];
   required: boolean;
   is_required?: boolean | number;
@@ -146,9 +146,12 @@ export interface Member {
   last_name: string;
   middle_name?: string;
   gender: string;
+  civil_status?: string;
   birthdate: string;
   email: string;
   phone: string;
+  photo_url?: string;
+  id_photo_url?: string;
   tin_number?: string;
   tin?: string;
   notes?: string;

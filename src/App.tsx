@@ -5,6 +5,7 @@ import { DashboardView } from './components/DashboardView';
 import { ConfigCenter } from './components/config/ConfigCenter';
 import { ExcelWorkbench } from './components/config/ExcelWorkbench';
 import { MembersModule } from './components/operations/MembersModule';
+import { MemberProfileView } from './components/operations/MemberProfileView';
 import { MemberCustomFieldsModule } from './components/operations/MemberCustomFieldsModule';
 import { LoansModule } from './components/operations/LoansModule';
 import { SavingsModule } from './components/operations/SavingsModule';
@@ -38,6 +39,7 @@ const VALID_TABS: TabKey[] = [
   'configuration',
   'excel_workbench',
   'members',
+  'member_profile',
   'member_fields',
   'loans',
   'savings',
@@ -52,6 +54,10 @@ const TAB_ALIASES: Record<string, TabKey> = {
   cbu: 'share_capital',
   sharecapital: 'share_capital',
   capital: 'share_capital',
+  profile: 'member_profile',
+  memberprofile: 'member_profile',
+  dossier: 'member_profile',
+  kyc: 'member_profile',
   settings: 'configuration',
   config: 'configuration',
   excel: 'excel_workbench',
@@ -110,6 +116,7 @@ const getInitialTab = (): TabKey => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
+  const [selectedProfileMemberId, setSelectedProfileMemberId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -505,6 +512,24 @@ export default function App() {
               selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
               onNavigateToFields={() => setActiveTab('member_fields')}
+              onNavigateToProfile={(id) => {
+                setSelectedProfileMemberId(id);
+                setActiveTab('member_profile');
+              }}
+            />
+          )}
+
+          {activeTab === 'member_profile' && (
+            <MemberProfileView
+              initialMemberId={selectedProfileMemberId}
+              branches={branches}
+              memberTypes={memberTypes}
+              customFields={customFields}
+              currentUser={currentUser}
+              onNavigateToMembers={() => setActiveTab('members')}
+              onNavigateToShareCapital={() => setActiveTab('share_capital')}
+              onNavigateToSavings={() => setActiveTab('savings')}
+              onNavigateToLoans={() => setActiveTab('loans')}
             />
           )}
 

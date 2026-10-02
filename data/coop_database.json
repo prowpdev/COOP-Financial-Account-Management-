@@ -1233,10 +1233,18 @@
         "tin_number": "104-582-913-000",
         "notes": "Good credit standing. Cluster leader for Victoria rice farmers.",
         "farm_hectares": 3.5,
-        "primary_crop": "Rice & Corn"
+        "primary_crop": "Rice & Corn",
+        "id_photo": {
+          "name": "gov_id_juan_cruz.jpg",
+          "type": "image/jpeg",
+          "dataUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+          "size": 15420,
+          "uploadedAt": "2026-10-02T09:26:56.461Z"
+        }
       },
       "joined_date": "2026-01-10",
-      "active": true
+      "active": true,
+      "id_photo_url": "data:image/jpeg;base64,/9j/4AAQSkZJRg=="
     },
     {
       "id": "mem_sample_02",
@@ -1436,8 +1444,51 @@
       "accounting_account_id": "acc_3110"
     }
   ],
-  "share_capital_accounts": [],
-  "share_capital_transactions": [],
+  "share_capital_accounts": [
+    {
+      "id": "cbu_mem_sample_01",
+      "account_number": "CBU-2026-52053",
+      "member_id": "mem_sample_01",
+      "member_name": "Juan Cruz",
+      "branch_id": "branch_tar",
+      "par_value": 100,
+      "subscribed_shares": 100,
+      "subscribed_amount": 10000,
+      "paid_up_shares": 10,
+      "paid_shares": 10,
+      "paid_up_amount": 1000,
+      "status": "Active",
+      "created_at": "2026-10-02T09:26:43.524Z"
+    }
+  ],
+  "share_capital_transactions": [
+    {
+      "id": "sct_1790933186545_p5opv",
+      "share_account_id": "sca_mem_sample_01",
+      "transaction_type": "PAYMENT",
+      "amount": 1000,
+      "receipt_no": "OR-2026-TEST-001",
+      "transaction_date": "2026-10-02",
+      "notes": "Manual JV (OR-2026-TEST-001): Official Receipt: 1500 Cash Receipt (1000 Paidup Share Capital + 500 Membership Fee)"
+    },
+    {
+      "id": "sct_1790933203525_n3j9i",
+      "share_capital_account_id": "cbu_mem_sample_01",
+      "share_account_id": "cbu_mem_sample_01",
+      "member_id": "mem_sample_01",
+      "type": "PAYMENT",
+      "transaction_type": "PAYMENT",
+      "amount": 1000,
+      "shares": 10,
+      "balance_after": 1000,
+      "receipt_no": "OR-2026-TEST-002",
+      "reference_no": "OR-2026-TEST-002",
+      "transaction_date": "2026-10-02",
+      "created_at": "2026-10-02T09:26:43.525Z",
+      "performed_by": "Test Cashier",
+      "notes": "Journal Voucher (OR-2026-TEST-002): Paid-Up Share Capital Contribution (₱1,000)"
+    }
+  ],
   "cash_accounts": [
     {
       "id": "cash_01",
@@ -1876,8 +1927,100 @@
       "active": true
     }
   ],
-  "journal_entries": [],
-  "journal_lines": [],
+  "journal_entries": [
+    {
+      "id": "jv_1790933186542",
+      "voucher_number": "OR-2026-TEST-001",
+      "voucher_type": "OR",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-02",
+      "reference_type": "CASH_RECEIPT",
+      "reference_id": "mem_sample_01",
+      "member_id": "mem_sample_01",
+      "member_name": "Juan Cruz",
+      "description": "Official Receipt: 1500 Cash Receipt (1000 Paidup Share Capital + 500 Membership Fee)",
+      "total_debit": 1500,
+      "total_credit": 1500,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Test Cashier",
+      "posted_at": "2026-10-02T09:26:26.542Z"
+    },
+    {
+      "id": "jv_1790933203522",
+      "voucher_number": "OR-2026-TEST-002",
+      "voucher_type": "OR",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-02",
+      "reference_type": "CASH_RECEIPT",
+      "reference_id": "mem_sample_01",
+      "member_id": "mem_sample_01",
+      "member_name": "Juan Cruz",
+      "description": "Official Receipt: 1500 Cash Receipt (1000 Paidup Share Capital + 500 Membership Fee)",
+      "total_debit": 1500,
+      "total_credit": 1500,
+      "period_id": "period_current",
+      "status": "Posted",
+      "created_by": "Test Cashier",
+      "posted_at": "2026-10-02T09:26:43.522Z"
+    }
+  ],
+  "journal_lines": [
+    {
+      "id": "jl_1790933186543_9q9la",
+      "journal_entry_id": "jv_1790933186542",
+      "account_id": "acc_1110",
+      "debit": 1500,
+      "credit": 0,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    },
+    {
+      "id": "jl_1790933186543_4cpz0",
+      "journal_entry_id": "jv_1790933186542",
+      "account_id": "acc_3110",
+      "debit": 0,
+      "credit": 1000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    },
+    {
+      "id": "jl_1790933186544_nf77q",
+      "journal_entry_id": "jv_1790933186542",
+      "account_id": "acc_4210",
+      "debit": 0,
+      "credit": 500,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    },
+    {
+      "id": "jl_1790933203523_v3e84",
+      "journal_entry_id": "jv_1790933203522",
+      "account_id": "acc_1110",
+      "debit": 1500,
+      "credit": 0,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    },
+    {
+      "id": "jl_1790933203523_aq4h8",
+      "journal_entry_id": "jv_1790933203522",
+      "account_id": "acc_3110",
+      "debit": 0,
+      "credit": 1000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    },
+    {
+      "id": "jl_1790933203524_yt78x",
+      "journal_entry_id": "jv_1790933203522",
+      "account_id": "acc_4210",
+      "debit": 0,
+      "credit": 500,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_01"
+    }
+  ],
   "general_ledger": [],
   "configuration_audit_trails": [
     {
@@ -1933,6 +2076,24 @@
       "changed_by": "Credit Committee (Maria Ramos)",
       "created_at": "2026-02-17T11:20:00.000Z",
       "reason": "Approved for Pedro Reyes for solar drip irrigation pump installation"
+    },
+    {
+      "id": "audit_1790933203526_8951x5",
+      "setting": "Share Capital (CBU)",
+      "old_value": "Paid-Up: ₱0",
+      "new_value": "Paid-Up: ₱1,000 (+10 sh) | Ref: OR-2026-TEST-002",
+      "changed_by": "Test Cashier",
+      "created_at": "2026-10-02T09:26:43.526Z",
+      "reason": "Connected manual journal / receipt (OR-2026-TEST-002) to CBU account CBU-2026-52053 for member Juan Cruz"
+    },
+    {
+      "id": "audit_1790933216462_8udw49",
+      "setting": "Document Uploaded: gov_id_juan_cruz.jpg",
+      "old_value": "None",
+      "new_value": "id_photo attached to Juan Cruz",
+      "changed_by": "Admin",
+      "created_at": "2026-10-02T09:26:56.462Z",
+      "reason": "Member Profile document update"
     }
   ],
   "user_roles": [

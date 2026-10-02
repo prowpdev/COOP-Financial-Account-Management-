@@ -595,4 +595,167 @@ public function getMemberReport(string $id): array
             'jv_count' => count($journalVouchers),
         ];
     }
+
+    /**
+     * Get rich member profile for admin dashboard
+     */
+    public function getMemberProfile(string $id): ?array
+    {
+        $member = $this->find($id);
+        if (!$member) {
+            return null;
+        }
+
+        // Fetch custom fields config to resolve labels & document types
+        $cfStmt = $this->db->query("SELECT * FROM custom_fields ORDER BY display_order ASC");
+        $allCustomFields = $cfStmt ? $cfStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        // Parse custom field values
+        $customValues = is_array($member['custom_field_values'])
+            ? $member['custom_field_values']
+            : (json_decode($member['custom_field_values'] ?? '{}', true) ?: []);
+
+        // Financial accounts
+        $savingsStmt = $this->db->prepare("
+            SELECT sa.*, sp.name AS product_name
+            FROM savings_accounts sa
+            LEFT JOIN savings_products sp ON sa.savings_product_id = sp.id
+            WHERE sa.member_id = ?
+        ");
+        $savingsStmt->execute([$member['id']]);
+        $savings = $savingsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $scStmt = $this->db->prepare("
+            SELECT * FROM share_capital_accounts WHERE member_id = ?
+        ");
+        $scStmt->execute([$member['id']]);
+        $shareAccounts = $scStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $loanStmt = $this->db->prepare("
+            SELECT l.*, lp.name AS product_name
+            FROM loans l
+            LEFT JOIN loan_products lp ON l.loan_product_id = lp.id
+            WHERE l.member_id = ?
+            ORDER BY l.disbursement_date DESC
+        ");
+        $loanStmt->execute([$member['id']]);
+        $loans = $loanStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Document resolution (ID photo, member photo, birth cert, marriage cert, etc.)
+        $documents = [];
+        $standardDocKeys = ['member_photo', 'id_photo', 'birth_certificate', 'marriage_certificate', 'proof_of_billing'];
+
+        foreach ($allCustomFields as $cf) {
+            $key = $cf['field_key'] ?? $cf['field_name'] ?? '';
+            $type = strtoupper((string)($cf['field_type'] ?? ''));
+            $isDocType = in_array($type, ['FILE', 'IMAGE', 'DOCUMENT', 'PDF']) || in_array($key, $standardDocKeys);
+
+            if ($isDocType) {
+                $val = $customValues[$key] ?? null;
+                $documents[$key] = [
+                    'field_key'   => $key,
+                    'label'       => $cf['label'] ?? $cf['field_label'] ?? ucwords(str_replace('_', ' ', $key)),
+                    'type'        => $cf['field_type'] ?? 'File',
+                    'required'    => (bool)($cf['is_required'] ?? false),
+                    'value'       => $val,
+                    'has_file'    => !empty($val)
+                ];
+            }
+        }
+
+        // Add standard KYC keys if not already defined in custom_fields
+        $knownDocs = [
+            'member_photo'        => ['label' => 'Member Photo (2x2 / Portrait)', 'type' => 'Image'],
+            'id_photo'            => ['label' => 'Valid Government ID Photo', 'type' => 'Image'],
+            'birth_certificate'   => ['label' => 'Birth Certificate (PSA / NSO)', 'type' => 'PDF'],
+            'marriage_certificate'=> ['label' => 'Marriage Certificate / Contract', 'type' => 'PDF'],
+        ];
+
+        foreach ($knownDocs as $k => $info) {
+            if (!isset($documents[$k])) {
+                $val = $customValues[$k] ?? null;
+                $documents[$k] = [
+                    'field_key' => $k,
+                    'label'     => $info['label'],
+                    'type'      => $info['type'],
+                    'required'  => false,
+                    'value'     => $val,
+                    'has_file'  => !empty($val)
+                ];
+            }
+        }
+
+        $totalSavings = array_reduce($savings, fn($s, $a) => $s + (float)($a['balance'] ?? 0), 0.0);
+        $totalShareCapital = array_reduce($shareAccounts, fn($s, $a) => $s + (float)($a['paid_up_amount'] ?? 0), 0.0);
+        $totalLoanBalance = array_reduce($loans, fn($s, $l) => $s + (float)($l['current_balance'] ?? 0), 0.0);
+
+        return [
+            'member'            => $member,
+            'documents'         => $documents,
+            'savings_accounts'  => $savings,
+            'share_capital'     => $shareAccounts[0] ?? null,
+            'loans'             => $loans,
+            'stats'             => [
+                'total_savings'       => round($totalSavings, 2),
+                'total_share_capital' => round($totalShareCapital, 2),
+                'total_loan_balance'  => round($totalLoanBalance, 2),
+                'active_loans_count'  => count(array_filter($loans, fn($l) => in_array($l['status'] ?? '', ['Active', 'Disbursed', 'Current']))),
+            ]
+        ];
+    }
+
+    /**
+     * Attach / update document for a member
+     */
+    public function updateMemberDocument(string $id, string $docKey, array $docData): ?array
+    {
+        $member = $this->find($id);
+        if (!$member) {
+            return null;
+        }
+
+        $custom = is_array($member['custom_field_values'])
+            ? $member['custom_field_values']
+            : (json_decode($member['custom_field_values'] ?? '{}', true) ?: []);
+
+        $custom[$docKey] = $docData;
+
+        // Also update standard photo columns if applicable
+        $extraUpdates = [];
+        if ($docKey === 'member_photo' && !empty($docData['dataUrl'])) {
+            $extraUpdates['photo_url'] = $docData['dataUrl'];
+        }
+        if ($docKey === 'id_photo' && !empty($docData['dataUrl'])) {
+            $extraUpdates['id_photo_url'] = $docData['dataUrl'];
+        }
+
+        return $this->update($id, array_merge(['custom_field_values' => $custom], $extraUpdates));
+    }
+
+    /**
+     * Remove document from member profile
+     */
+    public function deleteMemberDocument(string $id, string $docKey): ?array
+    {
+        $member = $this->find($id);
+        if (!$member) {
+            return null;
+        }
+
+        $custom = is_array($member['custom_field_values'])
+            ? $member['custom_field_values']
+            : (json_decode($member['custom_field_values'] ?? '{}', true) ?: []);
+
+        unset($custom[$docKey]);
+
+        $extraUpdates = [];
+        if ($docKey === 'member_photo') {
+            $extraUpdates['photo_url'] = null;
+        }
+        if ($docKey === 'id_photo') {
+            $extraUpdates['id_photo_url'] = null;
+        }
+
+        return $this->update($id, array_merge(['custom_field_values' => $custom], $extraUpdates));
+    }
 }

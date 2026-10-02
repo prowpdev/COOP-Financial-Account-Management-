@@ -90,13 +90,17 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   }, []);
 
   const accountOptions: SearchableOption[] = useMemo(() => {
-    return accounts.map(a => ({
-      value: a.id,
-      label: a.name,
-      code: a.code || a.account_code,
-      type: a.type,
-      searchTerms: `${a.code || a.account_code || ''} ${a.name} ${a.type || ''}`
-    }));
+    return accounts.map(a => {
+      const glType = a.type || a.category || 'Asset';
+      return {
+        value: a.id,
+        label: `${a.name} (${glType})`,
+        code: a.code || a.account_code,
+        type: glType,
+        description: `GL Code: ${a.code || a.account_code || 'N/A'} • ${glType} • Normal: ${a.normal_balance || 'Credit'}`,
+        searchTerms: `${a.code || a.account_code || ''} ${a.name} ${glType} ${a.category || ''} ${a.normal_balance || ''}`
+      };
+    });
   }, [accounts]);
 
   const memberSelectOptions: SearchableOption[] = useMemo(() => {
@@ -430,6 +434,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       setSuccessMsg(`${label} ${res.data.voucher_number} posted successfully to the General Ledger.`);
       setTimeout(() => setSuccessMsg(null), 5000);
       loadJournals();
+      window.dispatchEvent(new CustomEvent('coop:data-changed'));
     } catch (err: any) {
       setErrorMsg(err.message || 'Error posting journal entry');
     }
@@ -793,6 +798,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                     }}
                     placeholder="Search member name or ID..."
                     searchPlaceholder="Filter members by name, ID, branch..."
+                    alwaysShowSearch={true}
                     minOptionsForSearch={6}
                     clearable={true}
                   />

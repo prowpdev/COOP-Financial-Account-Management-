@@ -20,7 +20,8 @@ import {
   Sliders,
   Edit2,
   Tag,
-  Download
+  Download,
+  UserCheck
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { MemberTransactionReport } from '../reports/MemberTransactionReport';
@@ -36,6 +37,7 @@ interface MembersModuleProps {
   selectedBranchId?: string;
   onSelectBranch?: (id: string) => void;
   onNavigateToFields?: () => void;
+  onNavigateToProfile?: (memberId: string) => void;
 }
 
 export const MembersModule: React.FC<MembersModuleProps> = ({
@@ -45,7 +47,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   currentUser,
   selectedBranchId,
   onSelectBranch,
-  onNavigateToFields
+  onNavigateToFields,
+  onNavigateToProfile
 }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -149,18 +152,28 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     { key: 'active', header: 'Status', width: '90px', type: 'boolean', align: 'center', sortable: true },
     {
       key: 'id',
-      header: 'Action',
-      width: '90px',
+      header: 'Actions',
+      width: '160px',
       align: 'center',
       render: (_, row) => (
-        <button
-          onClick={() => handleOpenEdit(row)}
-          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-medium flex items-center space-x-1 cursor-pointer transition"
-          title="Edit Member & TIN"
-        >
-          <Edit2 className="w-3 h-3 text-emerald-400" />
-          <span>Edit</span>
-        </button>
+        <div className="flex items-center justify-center space-x-1.5">
+          <button
+            onClick={() => onNavigateToProfile ? onNavigateToProfile(row.id) : handleOpenEdit(row)}
+            className="px-2 py-1 bg-emerald-950/40 hover:bg-emerald-800/60 text-emerald-300 hover:text-white rounded text-[11px] font-medium flex items-center space-x-1 border border-emerald-500/30 cursor-pointer transition shadow-xs"
+            title="View Member Profile & Attached Files"
+          >
+            <UserCheck className="w-3 h-3 text-emerald-400" />
+            <span>Profile</span>
+          </button>
+          <button
+            onClick={() => handleOpenEdit(row)}
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-medium flex items-center space-x-1 cursor-pointer transition"
+            title="Edit Member & TIN"
+          >
+            <Edit2 className="w-3 h-3 text-cyan-400" />
+            <span>Edit</span>
+          </button>
+        </div>
       )
     }
   ];
@@ -1152,14 +1165,24 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
 
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
                     <span>Joined: {m.joined_date}</span>
-                    <button
-                      onClick={() => handleOpenEdit(m)}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-pointer transition"
-                      title="Edit Member & TIN"
-                    >
-                      <Edit2 className="w-3 h-3 text-emerald-400" />
-                      <span>Edit</span>
-                    </button>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => onNavigateToProfile ? onNavigateToProfile(m.id) : handleOpenEdit(m)}
+                        className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-800/60 text-emerald-300 hover:text-white border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-pointer transition"
+                        title="View Full Profile & KYC Files"
+                      >
+                        <UserCheck className="w-3 h-3 text-emerald-400" />
+                        <span>Profile</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(m)}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-pointer transition"
+                        title="Edit Member & TIN"
+                      >
+                        <Edit2 className="w-3 h-3 text-cyan-400" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

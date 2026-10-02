@@ -314,7 +314,7 @@ CREATE TABLE `custom_fields` (
   `entity_type` enum('Member','Loan','Savings','ShareCapital') NOT NULL,
   `field_key` varchar(100) NOT NULL,
   `label` varchar(150) NOT NULL,
-  `field_type` enum('Text','Number','Date','Select','Boolean','Phone') NOT NULL,
+  `field_type` enum('Text','Number','Date','Select','Boolean','Phone','Dropdown','Radio','Checkbox','Currency','Email','File','Image','Document','PDF') NOT NULL,
   `options` json DEFAULT NULL,
   `is_required` tinyint(1) DEFAULT '0',
   `active` tinyint(1) DEFAULT '1',

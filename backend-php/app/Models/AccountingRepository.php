@@ -241,6 +241,102 @@ class AccountingRepository
                     $line['subsidiary_type'] ?? null,
                     $line['subsidiary_id'] ?? null
                 ]);
+
+                // Check if line credits Paid-up Share Capital (CBU)
+                $credit = (float)($line['credit'] ?? 0);
+                $accId = (string)($line['account_id'] ?? '');
+                $targetMemberId = $line['subsidiary_id'] ?? ($data['member_id'] ?? null);
+
+                if ($credit > 0 && $targetMemberId) {
+                    $isShareCapital = in_array($accId, ['acc_3110', '3110', 'acc_3120', '3120', 'acc_3010', '3010', 'acc_3100', '3100'], true);
+                    if (!$isShareCapital) {
+                        $coaStmt = $this->db->prepare("SELECT account_code, name, report_group FROM chart_of_accounts WHERE id = ? OR account_code = ? LIMIT 1");
+                        $coaStmt->execute([$accId, $accId]);
+                        $accRow = $coaStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($accRow) {
+                            $code = (string)($accRow['account_code'] ?? '');
+                            $name = strtolower((string)($accRow['name'] ?? ''));
+                            $group = strtolower((string)($accRow['report_group'] ?? ''));
+                            if (str_starts_with($code, '311') || str_starts_with($code, '312') || str_contains($name, 'paid-up') || str_contains($name, 'paid up') || str_contains($name, 'cbu') || str_contains($group, 'paid-up')) {
+                                $isShareCapital = true;
+                            }
+                        }
+                    }
+
+                    if ($isShareCapital) {
+                        // Find or create CBU account
+                        $cbuStmt = $this->db->prepare("SELECT * FROM share_capital_accounts WHERE member_id = ? LIMIT 1");
+                        $cbuStmt->execute([$targetMemberId]);
+                        $cbuAcc = $cbuStmt->fetch(PDO::FETCH_ASSOC);
+
+                        $parVal = (float)($cbuAcc['par_value'] ?? 100);
+                        if ($parVal <= 0) $parVal = 100;
+                        $addedShares = (int)floor($credit / $parVal);
+                        if ($addedShares <= 0) $addedShares = 1;
+
+                        if (!$cbuAcc) {
+                            $newAccId = 'cbu_' . bin2hex(random_bytes(6));
+                            $newAccNo = 'CBU-' . date('Y') . '-' . str_pad((string)mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
+                            $initSub = max(100, $addedShares);
+                            $insCbu = $this->db->prepare("
+                                INSERT INTO share_capital_accounts (
+                                    id, account_number, member_id, branch_id, par_value,
+                                    subscribed_shares, subscribed_amount, paid_up_shares, paid_up_amount, status, created_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', NOW())
+                            ");
+                            $insCbu->execute([
+                                $newAccId,
+                                $newAccNo,
+                                $targetMemberId,
+                                $branchId,
+                                $parVal,
+                                $initSub,
+                                $initSub * $parVal,
+                                $addedShares,
+                                $credit
+                            ]);
+                            $cbuAccId = $newAccId;
+                            $cbuBalance = $credit;
+                        } else {
+                            $cbuAccId = $cbuAcc['id'];
+                            $newPaidShares = (int)($cbuAcc['paid_up_shares'] ?? 0) + $addedShares;
+                            $newPaidAmount = (float)($cbuAcc['paid_up_amount'] ?? 0) + $credit;
+                            $newSubShares = max((int)($cbuAcc['subscribed_shares'] ?? 0), $newPaidShares);
+                            $newSubAmount = $newSubShares * $parVal;
+
+                            $updCbu = $this->db->prepare("
+                                UPDATE share_capital_accounts
+                                SET paid_up_shares = ?, paid_up_amount = ?, subscribed_shares = ?, subscribed_amount = ?
+                                WHERE id = ?
+                            ");
+                            $updCbu->execute([$newPaidShares, $newPaidAmount, $newSubShares, $newSubAmount, $cbuAccId]);
+                            $cbuBalance = $newPaidAmount;
+                        }
+
+                        // Insert transaction
+                        $txId = 'sct_' . bin2hex(random_bytes(6));
+                        $insTx = $this->db->prepare("
+                            INSERT INTO share_capital_transactions (
+                                id, share_capital_account_id, share_account_id, member_id,
+                                type, transaction_type, shares, amount, balance_after,
+                                reference_no, receipt_no, transaction_date, notes, created_at
+                            ) VALUES (?, ?, ?, ?, 'PAYMENT', 'PAYMENT', ?, ?, ?, ?, ?, ?, ?, NOW())
+                        ");
+                        $insTx->execute([
+                            $txId,
+                            $cbuAccId,
+                            $cbuAccId,
+                            $targetMemberId,
+                            $addedShares,
+                            $credit,
+                            $cbuBalance,
+                            $voucherNo,
+                            $voucherNo,
+                            $postingDate,
+                            "Journal Voucher ({$voucherNo}): Paid-Up Share Capital Contribution"
+                        ]);
+                    }
+                }
             }
 
             $this->db->commit();

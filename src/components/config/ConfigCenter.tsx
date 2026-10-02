@@ -2725,6 +2725,10 @@ function CustomFieldsConfig({
                 <option value="Currency">Currency</option>
                 <option value="Phone">Phone</option>
                 <option value="Email">Email</option>
+                <option value="Image">Image / Photo (ID, 2x2, Portrait)</option>
+                <option value="PDF">PDF (Birth Cert, Marriage, Permits)</option>
+                <option value="Document">Document (Word, Excel, Scans)</option>
+                <option value="File">File (Any attachment)</option>
               </select>
             </div>
             {newField.field_type === 'Dropdown' && (

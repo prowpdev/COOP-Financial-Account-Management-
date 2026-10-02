@@ -106,4 +106,57 @@ class MemberController extends BaseController
 
         $this->success($report);
     }
+
+    /**
+     * GET /api/members/:id/profile
+     */
+    public function profile(string $id): never
+    {
+        $profile = $this->members->getMemberProfile($id);
+        if (empty($profile)) {
+            $this->error('Member not found.', 404);
+        }
+
+        $this->success($profile);
+    }
+
+    /**
+     * POST /api/members/:id/documents
+     */
+    public function uploadDocument(string $id): never
+    {
+        $input = $this->getRequestBody();
+        if (empty($input['doc_key']) && empty($input['field_key'])) {
+            $this->error('Document key (doc_key or field_key) is required.', 422);
+        }
+
+        $docKey = (string)($input['doc_key'] ?? $input['field_key']);
+        $docData = [
+            'name'        => $input['name'] ?? 'Uploaded Document',
+            'type'        => $input['type'] ?? $input['file_type'] ?? 'application/octet-stream',
+            'dataUrl'     => $input['dataUrl'] ?? $input['data_url'] ?? '',
+            'size'        => (int)($input['size'] ?? 0),
+            'uploaded_at' => $input['uploaded_at'] ?? date('c'),
+        ];
+
+        $updated = $this->members->updateMemberDocument($id, $docKey, $docData);
+        if (!$updated) {
+            $this->error('Failed to attach document to member profile.', 400);
+        }
+
+        $this->success($updated, 'Document attached to member profile successfully.');
+    }
+
+    /**
+     * DELETE /api/members/:id/documents/:docKey
+     */
+    public function deleteDocument(string $id, string $docKey): never
+    {
+        $updated = $this->members->deleteMemberDocument($id, $docKey);
+        if (!$updated) {
+            $this->error('Failed to remove document or member not found.', 400);
+        }
+
+        $this->success($updated, 'Document removed successfully.');
+    }
 }

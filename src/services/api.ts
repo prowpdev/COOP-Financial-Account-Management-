@@ -578,6 +578,20 @@ getMemberReport: async (memberId: string) => {
       method: 'PUT',
       body: JSON.stringify(member)
     }),
+  getMemberProfile: async (id: string) => {
+    return fetchApi<{ success: boolean; data: any }>(`/members/${id}/profile`);
+  },
+  uploadMemberDocument: async (id: string, docData: any) => {
+    return fetchApi<{ success: boolean; data: any }>(`/members/${id}/documents`, {
+      method: 'POST',
+      body: JSON.stringify(docData)
+    });
+  },
+  deleteMemberDocument: async (id: string, docKey: string) => {
+    return fetchApi<{ success: boolean; data: any }>(`/members/${id}/documents/${docKey}`, {
+      method: 'DELETE'
+    });
+  },
   // update loan status
   updateLoan:async(loanId:number,status:any)=>{
     fetchApi<{ success: boolean; data: any }>(`/loan/${loanId}`, {

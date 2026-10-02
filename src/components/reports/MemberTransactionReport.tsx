@@ -307,6 +307,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
               placeholder="Search member name or ID..."
               searchPlaceholder="Type member name, ID, branch, or TIN to search..."
               icon={<User className="w-4 h-4 text-emerald-400" />}
+              alwaysShowSearch={true}
               minOptionsForSearch={6}
             />
           </div>

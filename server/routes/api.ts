@@ -1515,6 +1515,187 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
   });
 });
 
+// Single member lookup
+router.get('/members/:id', (req: Request, res: Response) => {
+  const member = db.getTable('members').find(item => item.id === req.params.id || item.member_no === req.params.id);
+  if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
+
+  const memberTypes = db.getTable('member_types');
+  const branches = db.getTable('branches');
+
+  res.json({
+    success: true,
+    data: {
+      ...member,
+      member_type_name: memberTypes.find(t => t.id === member.member_type_id)?.name || 'Member',
+      branch_name: branches.find(b => b.id === member.branch_id)?.name || 'Main Branch'
+    }
+  });
+});
+
+// Rich Member Profile for Admin Dashboard
+router.get('/members/:id/profile', (req: Request, res: Response) => {
+  const member = db.getTable('members').find(item => item.id === req.params.id || item.member_no === req.params.id);
+  if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
+
+  const branches = db.getTable('branches');
+  const memberTypes = db.getTable('member_types');
+  const customFields = db.getTable('custom_fields') || [];
+  const savingsAccounts = (db.getTable('savings_accounts') || []).filter(sa => sa.member_id === member.id);
+  const shareAccounts = (db.getTable('share_capital_accounts') || []).filter(sca => sca.member_id === member.id);
+  const loans = (db.getTable('loans') || []).filter(l => l.member_id === member.id);
+  const loanProducts = db.getTable('loan_products') || [];
+  const savingsProducts = db.getTable('savings_products') || [];
+
+  const customValues = member.custom_field_values || {};
+
+  // Standard KYC and custom document parsing
+  const documents: Record<string, any> = {};
+  const standardDocs = [
+    { key: 'member_photo', label: 'Member Photo (2x2 / Portrait)', type: 'Image', req: false },
+    { key: 'id_photo', label: 'Government Valid ID Photo', type: 'Image', req: true },
+    { key: 'birth_certificate', label: 'Birth Certificate (PSA / NSO)', type: 'PDF', req: false },
+    { key: 'marriage_certificate', label: 'Marriage Certificate / Contract', type: 'PDF', req: false },
+    { key: 'proof_of_billing', label: 'Proof of Billing / Address', type: 'Document', req: false },
+  ];
+
+  standardDocs.forEach(d => {
+    const val = customValues[d.key] || (d.key === 'member_photo' ? member.photo_url : d.key === 'id_photo' ? member.id_photo_url : null);
+    documents[d.key] = {
+      field_key: d.key,
+      label: d.label,
+      type: d.type,
+      required: d.req,
+      value: val,
+      has_file: Boolean(val)
+    };
+  });
+
+  // Include dynamic custom fields that are File, Image, Document, or PDF
+  customFields.forEach(cf => {
+    const key = cf.field_name || cf.field_key || '';
+    const fType = String(cf.field_type || '').toLowerCase();
+    if (['file', 'image', 'document', 'pdf'].includes(fType) && !documents[key]) {
+      const val = customValues[key];
+      documents[key] = {
+        field_key: key,
+        label: cf.field_label || cf.label || key,
+        type: cf.field_type || 'File',
+        required: Boolean(cf.required || cf.is_required),
+        value: val,
+        has_file: Boolean(val)
+      };
+    }
+  });
+
+  const enrichedLoans = loans.map(l => ({
+    ...l,
+    product_name: loanProducts.find(p => p.id === l.loan_product_id)?.name || 'Cooperative Loan'
+  }));
+
+  const enrichedSavings = savingsAccounts.map(sa => ({
+    ...sa,
+    product_name: savingsProducts.find(p => p.id === sa.savings_product_id)?.name || 'Regular Savings'
+  }));
+
+  const totalSavings = savingsAccounts.reduce((sum, sa) => sum + (Number(sa.balance) || 0), 0);
+  const totalCbu = shareAccounts.reduce((sum, sca) => sum + (Number(sca.paid_up_amount) || 0), 0);
+  const totalLoanBalance = loans.reduce((sum, l) => sum + (Number(l.current_balance) || 0), 0);
+
+  res.json({
+    success: true,
+    data: {
+      member: {
+        ...member,
+        branch_name: branches.find(b => b.id === member.branch_id)?.name || 'Main Branch',
+        member_type_name: memberTypes.find(t => t.id === member.member_type_id)?.name || 'Regular Member'
+      },
+      documents,
+      savings_accounts: enrichedSavings,
+      share_capital: shareAccounts[0] || null,
+      loans: enrichedLoans,
+      stats: {
+        total_savings: totalSavings,
+        total_share_capital: totalCbu,
+        total_loan_balance: totalLoanBalance,
+        active_loans_count: loans.filter(l => ['Active', 'Disbursed', 'Current'].includes(l.status)).length
+      }
+    }
+  });
+});
+
+// Upload / attach document to member profile
+router.post('/members/:id/documents', (req: Request, res: Response) => {
+  const member = db.getTable('members').find(m => m.id === req.params.id || m.member_no === req.params.id);
+  if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
+
+  const { doc_key, field_key, name, file_type, type, data_url, dataUrl, size, uploaded_at } = req.body;
+  const targetKey = doc_key || field_key;
+  if (!targetKey) {
+    return res.status(400).json({ success: false, error: 'Document key (doc_key) is required' });
+  }
+
+  const docPayload = {
+    name: name || 'Uploaded Document',
+    type: file_type || type || 'application/octet-stream',
+    dataUrl: data_url || dataUrl || '',
+    size: Number(size) || 0,
+    uploadedAt: uploaded_at || new Date().toISOString()
+  };
+
+  const custom = { ...(member.custom_field_values || {}) };
+  custom[targetKey] = docPayload;
+
+  member.custom_field_values = custom;
+
+  if (targetKey === 'member_photo' && docPayload.dataUrl) {
+    member.photo_url = docPayload.dataUrl;
+  }
+  if (targetKey === 'id_photo' && docPayload.dataUrl) {
+    member.id_photo_url = docPayload.dataUrl;
+  }
+
+  db.save();
+  db.recordAudit(
+    `Document Uploaded: ${docPayload.name}`,
+    'None',
+    `${targetKey} attached to ${member.first_name} ${member.last_name}`,
+    req.body.performed_by || 'Admin',
+    `Member Profile document update`
+  );
+
+  res.json({ success: true, data: { doc_key: targetKey, document: docPayload, member } });
+});
+
+// Delete document from member profile
+router.delete('/members/:id/documents/:docKey', (req: Request, res: Response) => {
+  const member = db.getTable('members').find(m => m.id === req.params.id || m.member_no === req.params.id);
+  if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
+
+  const { docKey } = req.params;
+  const custom = { ...(member.custom_field_values || {}) };
+  delete custom[docKey];
+  member.custom_field_values = custom;
+
+  if (docKey === 'member_photo') {
+    delete member.photo_url;
+  }
+  if (docKey === 'id_photo') {
+    delete member.id_photo_url;
+  }
+
+  db.save();
+  db.recordAudit(
+    `Document Removed: ${docKey}`,
+    docKey,
+    'Deleted',
+    'Admin',
+    `Member Profile document deletion`
+  );
+
+  res.json({ success: true, message: `Document ${docKey} removed successfully`, data: member });
+});
+
 router.post('/members', (req: Request, res: Response) => {
   const {
     branch_id,
@@ -3419,29 +3600,115 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     });
   }
 
-  // If member is associated and share capital was credited, update member share capital
-  if (resolvedMemberId) {
-    const shareCredit = lines
-      .filter((l: any) => (l.account_id === 'acc_3110' || l.account_id === '3110' || l.account_id === 'acc_3120') && (Number(l.credit) || 0) > 0)
-      .reduce((sum: number, l: any) => sum + (Number(l.credit) || 0), 0);
-    
-    if (shareCredit > 0) {
-      const shareAccounts = db.getTable('share_capital_accounts');
-      const shareAcc = shareAccounts.find(s => s.member_id === resolvedMemberId);
-      if (shareAcc) {
+  // Helper to determine if an account represents Paid-up Share Capital (CBU)
+  const isCbuShareCapitalAccount = (accId: string): boolean => {
+    if (!accId) return false;
+    if (['acc_3110', '3110', 'acc_3120', '3120', 'acc_3010', '3010', 'acc_3100', '3100'].includes(accId)) {
+      return true;
+    }
+    const coa = db.getTable('chart_of_accounts') || [];
+    const acc = coa.find(a => a.id === accId || String(a.code) === String(accId) || a.account_code === accId);
+    if (!acc) return false;
+    const codeStr = String(acc.code || acc.account_code || '');
+    const nameStr = (acc.name || '').toLowerCase();
+    const groupStr = (acc.report_group || '').toLowerCase();
+    if (codeStr.startsWith('311') || codeStr.startsWith('312') || codeStr === '3010') return true;
+    if (nameStr.includes('paid-up') || nameStr.includes('paid up') || nameStr.includes('cbu')) return true;
+    if (nameStr.includes('share capital') && !nameStr.includes('unpaid') && !nameStr.includes('unissued')) return true;
+    if (groupStr.includes('paid-up') || groupStr.includes('share capital')) return true;
+    return false;
+  };
+
+  // Group share capital credits by member (from line subsidiary or header resolvedMemberId)
+  const memberShareCredits = new Map<string, number>();
+  for (const l of lines) {
+    const credit = Number(l.credit) || 0;
+    if (credit > 0 && isCbuShareCapitalAccount(l.account_id)) {
+      const targetMemId = (l.subsidiary_type === 'Member' && l.subsidiary_id) ? l.subsidiary_id : resolvedMemberId;
+      if (targetMemId) {
+        memberShareCredits.set(targetMemId, (memberShareCredits.get(targetMemId) || 0) + credit);
+      }
+    }
+  }
+
+  // If member is associated and share capital was credited, push to CBU account and share_capital_transactions
+  if (memberShareCredits.size > 0) {
+    const shareAccounts = db.getTable('share_capital_accounts');
+    const membersList = db.getTable('members');
+
+    for (const [targetMemId, shareCredit] of memberShareCredits.entries()) {
+      if (shareCredit <= 0) continue;
+
+      const mem = membersList.find(m => m.id === targetMemId);
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : (resolvedMemberName || 'Member');
+      let shareAcc = shareAccounts.find(s => s.member_id === targetMemId || s.id === `sca_${targetMemId}` || s.id === `cbu_${targetMemId}`);
+
+      const parVal = shareAcc?.par_value || 100;
+      const addedShares = Math.floor(shareCredit / parVal) || 1;
+
+      if (!shareAcc) {
+        // Auto-create Share Capital (CBU) account for member if it doesn't exist yet
+        const newAccNo = `CBU-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        const initialSubscribedShares = Math.max(100, addedShares);
+        shareAcc = {
+          id: `cbu_${targetMemId}`,
+          account_number: newAccNo,
+          member_id: targetMemId,
+          member_name: memName,
+          branch_id: branch.id || mem?.branch_id || 'branch_tar',
+          par_value: parVal,
+          subscribed_shares: initialSubscribedShares,
+          subscribed_amount: initialSubscribedShares * parVal,
+          paid_up_shares: addedShares,
+          paid_shares: addedShares,
+          paid_up_amount: Number(shareCredit.toFixed(2)),
+          status: 'Active',
+          created_at: new Date().toISOString()
+        };
+        db.insert('share_capital_accounts', shareAcc);
+      } else {
+        // Update existing Share Capital (CBU) account
         shareAcc.paid_up_amount = Number(((Number(shareAcc.paid_up_amount) || 0) + shareCredit).toFixed(2));
-        shareAcc.paid_shares = Math.floor(shareAcc.paid_up_amount / (shareAcc.par_value || 100));
+        shareAcc.paid_up_shares = (Number(shareAcc.paid_up_shares) || 0) + addedShares;
+        shareAcc.paid_shares = shareAcc.paid_up_shares;
+        if (shareAcc.paid_up_shares > (Number(shareAcc.subscribed_shares) || 0)) {
+          shareAcc.subscribed_shares = shareAcc.paid_up_shares;
+          shareAcc.subscribed_amount = shareAcc.subscribed_shares * parVal;
+        }
+        if (!shareAcc.member_name && memName) {
+          shareAcc.member_name = memName;
+        }
+        db.update('share_capital_accounts', (a: any) => a.id === shareAcc.id, () => shareAcc);
         db.save();
       }
+
+      // Record in share_capital_transactions table
+      const txId = `sct_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       db.insert('share_capital_transactions', {
-        id: `sct_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        share_account_id: shareAcc?.id || `sca_${resolvedMemberId}`,
+        id: txId,
+        share_capital_account_id: shareAcc.id,
+        share_account_id: shareAcc.id,
+        member_id: targetMemId,
+        type: 'PAYMENT',
         transaction_type: 'PAYMENT',
         amount: shareCredit,
+        shares: addedShares,
+        balance_after: shareAcc.paid_up_amount,
         receipt_no: voucherNo,
+        reference_no: voucherNo,
         transaction_date: posting_date || new Date().toISOString().split('T')[0],
-        notes: `Manual JV (${voucherNo}): ${description || 'Share Capital Payment'}`
+        created_at: new Date().toISOString(),
+        performed_by: performed_by || 'Cashier',
+        notes: `Journal Voucher (${voucherNo}): Paid-Up Share Capital Contribution (₱${shareCredit.toLocaleString()})`
       });
+
+      db.recordAudit(
+        'Share Capital (CBU)',
+        `Paid-Up: ₱${(shareAcc.paid_up_amount - shareCredit).toLocaleString()}`,
+        `Paid-Up: ₱${shareAcc.paid_up_amount.toLocaleString()} (+${addedShares} sh) | Ref: ${voucherNo}`,
+        performed_by || 'Cashier',
+        `Connected manual journal / receipt (${voucherNo}) to CBU account ${shareAcc.account_number} for member ${memName}`
+      );
     }
   }
 

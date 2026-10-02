@@ -26,6 +26,7 @@ export interface SearchableSelectProps {
   icon?: React.ReactNode;
   clearable?: boolean;
   minOptionsForSearch?: number; // Default 6 (shows search whenever options >= minOptionsForSearch)
+  alwaysShowSearch?: boolean; // When true, always shows the search field regardless of count
   showGLTypeBadge?: boolean;
   id?: string;
   name?: string;
@@ -66,6 +67,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   icon,
   clearable = false,
   minOptionsForSearch = 6,
+  alwaysShowSearch = false,
   showGLTypeBadge = false,
   id,
   renderOption
@@ -143,7 +145,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     onChange('');
   };
 
-  const shouldShowSearch = options.length >= minOptionsForSearch;
+  const shouldShowSearch = alwaysShowSearch || options.length >= minOptionsForSearch;
 
   return (
     <div ref={containerRef} className={`relative select-none ${className}`}>
@@ -215,6 +217,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && filteredOptions.length > 0) {
+                      e.preventDefault();
+                      handleSelect(filteredOptions[0].value);
+                    }
+                  }}
                   placeholder={searchPlaceholder}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />

@@ -314,7 +314,7 @@ CREATE TABLE `custom_fields` (
   `entity_type` enum('Member','Loan','Savings','ShareCapital') NOT NULL,
   `field_key` varchar(100) NOT NULL,
   `label` varchar(150) NOT NULL,
-  `field_type` enum('Text','Number','Date','Select','Boolean','Phone') NOT NULL,
+  `field_type` enum('Text','Number','Date','Select','Boolean','Phone','Dropdown','Radio','Checkbox','Currency','Email','File','Image','Document','PDF') NOT NULL,
   `options` json DEFAULT NULL,
   `is_required` tinyint(1) DEFAULT '0',
   `active` tinyint(1) DEFAULT '1',
@@ -329,7 +329,12 @@ INSERT INTO `custom_fields` (`id`, `entity_type`, `field_key`, `label`, `field_t
 ('cf_mem_01', 'Member', 'occupation', 'Primary Occupation / Enterprise', 'Select', '[\"Farmer / Fisherfolk\", \"Self-Employed / Entrepreneur\", \"Government Employee\", \"Private Sector Employee\", \"Healthcare Professional\", \"OFW / Remittance Dependent\", \"Retired\"]', 1, 1, 1),
 ('cf_mem_02', 'Member', 'barangay', 'Barangay / Village Residence', 'Text', NULL, 1, 1, 2),
 ('cf_mem_03', 'Member', 'monthly_income', 'Estimated Monthly Household Income (PHP)', 'Number', NULL, 1, 1, 3),
-('cf_mem_04', 'Member', 'tin_number', 'Tax Identification Number (TIN)', 'Text', NULL, 0, 1, 4);
+('cf_mem_04', 'Member', 'tin_number', 'Tax Identification Number (TIN)', 'Text', NULL, 0, 1, 4),
+('cf_mem_05', 'Member', 'id_photo', 'Government Valid ID Photo', 'Image', NULL, 1, 1, 5),
+('cf_mem_06', 'Member', 'member_photo', 'Member Photo (2x2 / Portrait)', 'Image', NULL, 1, 1, 6),
+('cf_mem_07', 'Member', 'birth_certificate', 'Birth Certificate (PSA / NSO)', 'PDF', NULL, 0, 1, 7),
+('cf_mem_08', 'Member', 'marriage_certificate', 'Marriage Certificate / Contract', 'PDF', NULL, 0, 1, 8),
+('cf_mem_09', 'Member', 'supporting_docs', 'Supporting Documents / Attachments', 'File', NULL, 0, 1, 9);
 
 -- --------------------------------------------------------
 

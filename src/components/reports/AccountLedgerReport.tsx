@@ -124,13 +124,17 @@ const rows = useMemo(() => {
   };
 
   const accountOptions: SearchableOption[] = useMemo(() => {
-    return accounts.map(item => ({
-      value: item.id,
-      label: item.name,
-      code: item.account_code || item.code,
-      type: item.type,
-      searchTerms: `${item.account_code || item.code || ''} ${item.name} ${item.type || ''} ${item.normal_balance || ''}`
-    }));
+    return accounts.map(item => {
+      const glType = item.type || item.category || 'Asset';
+      return {
+        value: item.id,
+        label: `${item.name} (${glType})`,
+        code: item.account_code || item.code,
+        type: glType,
+        description: `GL Code: ${item.account_code || item.code || 'N/A'} • Normal Balance: ${item.normal_balance || 'Credit'}`,
+        searchTerms: `${item.account_code || item.code || ''} ${item.name} ${glType} ${item.normal_balance || ''} GL Account`
+      };
+    });
   }, [accounts]);
 
   return (
@@ -139,7 +143,7 @@ const rows = useMemo(() => {
         <div className="flex flex-col lg:flex-row lg:items-end gap-3">
           <div className="flex-1 min-w-64">
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              General Ledger Account <span className="text-slate-400 font-normal">(Includes GL Type)</span>
+              General Ledger Account <span className="text-slate-400 font-normal">(With Search & GL Type Badge)</span>
             </label>
             <SearchableSelect
               options={accountOptions}
@@ -148,6 +152,7 @@ const rows = useMemo(() => {
               placeholder="Search or select GL account..."
               searchPlaceholder="Filter accounts by code, name, or GL type (Asset, Expense, etc.)..."
               showGLTypeBadge={true}
+              alwaysShowSearch={true}
               minOptionsForSearch={6}
             />
           </div>

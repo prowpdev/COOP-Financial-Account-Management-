@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCircle,
+  UserCheck,
   X
 } from 'lucide-react';
 import { FeatureToggle } from '../types';
@@ -24,6 +25,7 @@ export type TabKey =
   | 'configuration'
   | 'excel_workbench'
   | 'members'
+  | 'member_profile'
   | 'member_fields'
   | 'loans'
   | 'savings'
@@ -88,6 +90,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Member Registry',
       shortLabel: 'Members',
       icon: Users,
+      alwaysShow: true
+    },
+    {
+      id: 'member_profile' as TabKey,
+      label: 'Member Profile & Dossier',
+      shortLabel: 'Profile',
+      icon: UserCheck,
+      badge: 'KYC',
       alwaysShow: true
     },
     {

@@ -340,6 +340,61 @@ export const initialSeedData: DatabaseSchema = {
       active: true
     },
     {
+      id: 'cf_id_photo',
+      entity: 'Member',
+      field_name: 'id_photo',
+      field_label: 'Government Valid ID Photo',
+      field_type: 'Image',
+      options: [],
+      required: true,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_member_photo',
+      entity: 'Member',
+      field_name: 'member_photo',
+      field_label: 'Member Photo (2x2 / Portrait)',
+      field_type: 'Image',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_birth_certificate',
+      entity: 'Member',
+      field_name: 'birth_certificate',
+      field_label: 'Birth Certificate (PSA / NSO)',
+      field_type: 'PDF',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_marriage_certificate',
+      entity: 'Member',
+      field_name: 'marriage_certificate',
+      field_label: 'Marriage Certificate / Contract',
+      field_type: 'PDF',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_supporting_docs',
+      entity: 'Member',
+      field_name: 'supporting_docs',
+      field_label: 'Supporting Documents / Attachments',
+      field_type: 'File',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
       id: 'cf_collateral_desc',
       entity: 'Loan',
       field_name: 'collateral_description',
