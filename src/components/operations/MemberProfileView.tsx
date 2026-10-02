@@ -418,6 +418,7 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
             placeholder="Type member name, ID, or TIN..."
             searchPlaceholder="Search by ID, name, branch, phone..."
             alwaysShowSearch={true}
+            hideCode={true}
             className="w-full"
             buttonClassName="bg-slate-950 border-slate-700 hover:border-emerald-500/50 py-2"
           />
@@ -707,10 +708,11 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {standardDocsList.map(item => {
                   const docData = docs[item.key];
-                  const hasFile = Boolean(docData?.has_file && docData?.value);
-                  const rawVal = docData?.value;
-                  const isImage = item.type === 'Image' || (typeof rawVal === 'string' && rawVal.startsWith('data:image'));
-                  const isPdf = item.type === 'PDF' || (typeof rawVal === 'string' && rawVal.includes('application/pdf'));
+                  const rawVal = docData?.value ?? (docData?.path || docData?.url ? docData : null);
+                  const hasFile = Boolean(docData?.has_file || rawVal || docData?.path || docData?.url);
+                  const isImage = item.type === 'Image' || (typeof rawVal === 'string' && rawVal.startsWith('data:image')) || rawVal?.type?.startsWith('image/');
+                  const isPdf = item.type === 'PDF' || (typeof rawVal === 'string' && rawVal.includes('application/pdf')) || rawVal?.type?.includes('pdf') || (typeof rawVal?.name === 'string' && rawVal.name.toLowerCase().endsWith('.pdf'));
+                  
 
                   return (
                     <div
@@ -745,11 +747,11 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
                           {hasFile ? (
                             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center space-x-3">
                               {isImage ? (
-                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-900 shrink-0 border border-slate-700">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-900 shrink-0 border border-slate-700 hidden">
                                   <img
                                     src={rawVal?.dataUrl || rawVal}
                                     alt={item.title}
-                                    className="w-full h-full object-cover cursor-pointer"
+                                    className="hidden w-full h-full object-cover cursor-pointer"
                                     onClick={() =>
                                       setPreviewDoc({
                                         title: item.title,
@@ -793,9 +795,9 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
                       </div>
 
                       {/* Upload / Replace / Download / Remove actions */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 w-full">
                         {hasFile && (
-                          <div className="flex items-center space-x-1.5">
+                          <div className="flex items-center space-x-1.5 order-2 hidden">
                             <button
                               onClick={() => {
                                 const url = rawVal?.dataUrl || rawVal;
@@ -857,8 +859,8 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
                   const label = cf.field_label || cf.label || key;
                   const fType = cf.field_type || 'File';
                   const docData = docs[key];
-                  const hasFile = Boolean(docData?.has_file && docData?.value);
-                  const rawVal = docData?.value;
+                  const rawVal = docData?.value ?? (docData?.path || docData?.url ? docData : null);
+                  const hasFile = Boolean(docData?.has_file || rawVal || docData?.path || docData?.url);
 
                   return (
                     <div

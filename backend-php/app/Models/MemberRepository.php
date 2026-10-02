@@ -8,9 +8,7 @@ use PDO;
 
 class MemberRepository
 {
-    public function __construct(private PDO $db)
-    {
-    }
+    public function __construct(private PDO $db) {}
 
     /**
      * Get all members with optional filters
@@ -127,27 +125,46 @@ class MemberRepository
         $params = ['id' => $id];
 
         $allowed = [
-            'first_name', 'last_name', 'middle_name', 'gender', 'birthdate',
-            'email', 'phone', 'address', 'status', 'branch_id', 'member_type_id', 'joined_date'
+            'first_name',
+            'last_name',
+            'middle_name',
+            'gender',
+            'birthdate',
+            'email',
+            'phone',
+            'address',
+            'status',
+            'branch_id',
+            'member_type_id',
+            'joined_date',
         ];
 
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
-                $fields[] = "$field = :$field";
+                $fields[] = "{$field} = :{$field}";
                 $params[$field] = $data[$field];
             }
         }
 
         if (array_key_exists('custom_field_values', $data)) {
-            $fields[] = "custom_field_values = :custom_field_values";
-            $params['custom_field_values'] = json_encode($data['custom_field_values']);
+            $fields[] = 'custom_field_values = :custom_field_values';
+
+            $params['custom_field_values'] = json_encode(
+                $data['custom_field_values'],
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
         }
 
         if (empty($fields)) {
             return $this->find($id);
         }
 
-        $sql = "UPDATE members SET " . implode(', ', $fields) . " WHERE id = :id";
+        $sql = "
+        UPDATE members
+        SET " . implode(', ', $fields) . "
+        WHERE id = :id
+    ";
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
 
@@ -166,22 +183,22 @@ class MemberRepository
     /**
      * Get member comprehensive statement / portfolio
      */
-/**
- * Get member comprehensive statement / portfolio
- */
-public function getMemberReport(string $id): array
-{
-    $member = $this->find($id);
+    /**
+     * Get member comprehensive statement / portfolio
+     */
+    public function getMemberReport(string $id): array
+    {
+        $member = $this->find($id);
 
-    if (!$member) {
-        return [];
-    }
+        if (!$member) {
+            return [];
+        }
 
-    // =========================================================
-    // Loans
-    // =========================================================
+        // =========================================================
+        // Loans
+        // =========================================================
 
-    $loanStmt = $this->db->prepare("
+        $loanStmt = $this->db->prepare("
         SELECT l.*, lp.name AS product_name
         FROM loans l
         LEFT JOIN loan_products lp ON l.loan_product_id = lp.id
@@ -189,16 +206,16 @@ public function getMemberReport(string $id): array
         ORDER BY l.disbursement_date DESC
     ");
 
-    $loanStmt->execute([$id]);
+        $loanStmt->execute([$id]);
 
-    $loans = $loanStmt->fetchAll(PDO::FETCH_ASSOC);
+        $loans = $loanStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-    // =========================================================
-    // Savings
-    // =========================================================
+        // =========================================================
+        // Savings
+        // =========================================================
 
-    $savingsStmt = $this->db->prepare("
+        $savingsStmt = $this->db->prepare("
         SELECT sa.*, sp.name AS product_name
         FROM savings_accounts sa
         LEFT JOIN savings_products sp
@@ -206,32 +223,32 @@ public function getMemberReport(string $id): array
         WHERE sa.member_id = ?
     ");
 
-    $savingsStmt->execute([$id]);
+        $savingsStmt->execute([$id]);
 
-    $savings = $savingsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $savings = $savingsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-    // =========================================================
-    // Share Capital
-    // =========================================================
+        // =========================================================
+        // Share Capital
+        // =========================================================
 
-    $scStmt = $this->db->prepare("
+        $scStmt = $this->db->prepare("
         SELECT *
         FROM share_capital_accounts
         WHERE member_id = ?
     ");
 
-    $scStmt->execute([$id]);
+        $scStmt->execute([$id]);
 
-    $shareCapital = $scStmt->fetchAll(PDO::FETCH_ASSOC);
+        $shareCapital = $scStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-    // =========================================================
-    // Journal Vouchers
-    // Manual and System JVs for this member
-    // =========================================================
+        // =========================================================
+        // Journal Vouchers
+        // Manual and System JVs for this member
+        // =========================================================
 
-    $jvStmt = $this->db->prepare("
+        $jvStmt = $this->db->prepare("
         SELECT DISTINCT
             je.id,
             je.voucher_number,
@@ -251,54 +268,54 @@ public function getMemberReport(string $id): array
         ORDER BY je.posting_date DESC
     ");
 
-    $memberName = '%' . ($member['first_name'] ?? '') . '%';
+        $memberName = '%' . ($member['first_name'] ?? '') . '%';
 
-    $jvStmt->execute([
-        $id,
-        $id,
-        $memberName
-    ]);
+        $jvStmt->execute([
+            $id,
+            $id,
+            $memberName
+        ]);
 
-    $journalVouchers = $jvStmt->fetchAll(PDO::FETCH_ASSOC);
+        $journalVouchers = $jvStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-    // =========================================================
-    // Journal Voucher Lines
-    // =========================================================
+        // =========================================================
+        // Journal Voucher Lines
+        // =========================================================
 
-    /*
+        /*
      * Get all journal lines belonging to the journal vouchers
      * found above.
      */
 
-    $journalLinesByEntry = [];
+        $journalLinesByEntry = [];
 
-    if (!empty($journalVouchers)) {
+        if (!empty($journalVouchers)) {
 
-        $journalEntryIds = array_column(
-            $journalVouchers,
-            'id'
-        );
+            $journalEntryIds = array_column(
+                $journalVouchers,
+                'id'
+            );
 
-        // Remove empty IDs and duplicates
-        $journalEntryIds = array_values(
-            array_unique(
-                array_filter($journalEntryIds)
-            )
-        );
-
-        if (!empty($journalEntryIds)) {
-
-            $placeholders = implode(
-                ',',
-                array_fill(
-                    0,
-                    count($journalEntryIds),
-                    '?'
+            // Remove empty IDs and duplicates
+            $journalEntryIds = array_values(
+                array_unique(
+                    array_filter($journalEntryIds)
                 )
             );
 
-            $journalLinesStmt = $this->db->prepare("
+            if (!empty($journalEntryIds)) {
+
+                $placeholders = implode(
+                    ',',
+                    array_fill(
+                        0,
+                        count($journalEntryIds),
+                        '?'
+                    )
+                );
+
+                $journalLinesStmt = $this->db->prepare("
                 SELECT
                     jl.id,
                     jl.journal_entry_id,
@@ -316,52 +333,52 @@ public function getMemberReport(string $id): array
                 ORDER BY jl.journal_entry_id, jl.id
             ");
 
-            $journalLinesStmt->execute(
-                $journalEntryIds
-            );
+                $journalLinesStmt->execute(
+                    $journalEntryIds
+                );
 
-            $journalLines =
-                $journalLinesStmt->fetchAll(PDO::FETCH_ASSOC);
+                $journalLines =
+                    $journalLinesStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-            // Group lines by journal entry ID
-            foreach ($journalLines as $line) {
+                // Group lines by journal entry ID
+                foreach ($journalLines as $line) {
 
-                $journalEntryId =
-                    $line['journal_entry_id'];
+                    $journalEntryId =
+                        $line['journal_entry_id'];
 
-                if (!isset(
-                    $journalLinesByEntry[$journalEntryId]
-                )) {
-                    $journalLinesByEntry[$journalEntryId] = [];
+                    if (!isset(
+                        $journalLinesByEntry[$journalEntryId]
+                    )) {
+                        $journalLinesByEntry[$journalEntryId] = [];
+                    }
+
+                    $journalLinesByEntry[$journalEntryId][] = $line;
                 }
-
-                $journalLinesByEntry[$journalEntryId][] = $line;
             }
         }
-    }
 
 
-    // =========================================================
-    // Attach lines to each Journal Voucher
-    // =========================================================
+        // =========================================================
+        // Attach lines to each Journal Voucher
+        // =========================================================
 
-    foreach ($journalVouchers as &$voucher) {
+        foreach ($journalVouchers as &$voucher) {
 
-        $voucherId = $voucher['id'];
+            $voucherId = $voucher['id'];
 
-        $voucher['lines'] =
-            $journalLinesByEntry[$voucherId] ?? [];
-    }
+            $voucher['lines'] =
+                $journalLinesByEntry[$voucherId] ?? [];
+        }
 
-    unset($voucher);
+        unset($voucher);
 
 
-    // =========================================================
-    // Transactions
-    // =========================================================
+        // =========================================================
+        // Transactions
+        // =========================================================
 
-    $transactionStmt = $this->db->prepare("
+        $transactionStmt = $this->db->prepare("
         SELECT * FROM (
 
             SELECT
@@ -494,48 +511,48 @@ public function getMemberReport(string $id): array
         ORDER BY transaction_date DESC, created_at DESC
     ");
 
-    $transactionStmt->execute([
-        'loan_member_id'        => $id,
-        'payment_member_id'     => $id,
-        'savings_member_id'     => $id,
-        'share_member_id'       => $id,
-        'journal_reference_id'  => $id,
-        'journal_subsidiary_id' => $id,
-        'journal_member_name'   => $memberName,
-    ]);
+        $transactionStmt->execute([
+            'loan_member_id'        => $id,
+            'payment_member_id'     => $id,
+            'savings_member_id'     => $id,
+            'share_member_id'       => $id,
+            'journal_reference_id'  => $id,
+            'journal_subsidiary_id' => $id,
+            'journal_member_name'   => $memberName,
+        ]);
 
-    $transactions =
-        $transactionStmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-    // =========================================================
-    // Generate Summary
-    // =========================================================
-
-    $summary = $this->generateMemberSummary(
-        $loans,
-        $savings,
-        $shareCapital,
-        $transactions,
-        $journalVouchers
-    );
+        $transactions =
+            $transactionStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-    // =========================================================
-    // Return Report
-    // =========================================================
+        // =========================================================
+        // Generate Summary
+        // =========================================================
 
-    return [
-        'member'           => $member,
-        'summary'          => $summary,
-        'loans'            => $loans,
-        'savings'          => $savings,
-        'share_capital'    => $shareCapital,
-        'journal_vouchers' => $journalVouchers,
-        'transactions'     => $transactions
-    ];
-}
-    
+        $summary = $this->generateMemberSummary(
+            $loans,
+            $savings,
+            $shareCapital,
+            $transactions,
+            $journalVouchers
+        );
+
+
+        // =========================================================
+        // Return Report
+        // =========================================================
+
+        return [
+            'member'           => $member,
+            'summary'          => $summary,
+            'loans'            => $loans,
+            'savings'          => $savings,
+            'share_capital'    => $shareCapital,
+            'journal_vouchers' => $journalVouchers,
+            'transactions'     => $transactions
+        ];
+    }
+
     /**
      * Generate a financial summary for a member.
      *
@@ -557,7 +574,7 @@ public function getMemberReport(string $id): array
         $loanBalance = array_reduce(
             $loans,
             fn(float $sum, array $loan): float =>
-                $sum + (float) ($loan['current_balance'] ?? 0),
+            $sum + (float) ($loan['current_balance'] ?? 0),
             0.0
         );
 
@@ -565,7 +582,7 @@ public function getMemberReport(string $id): array
         $savingsBalance = array_reduce(
             $savings,
             fn(float $sum, array $account): float =>
-                $sum + (float) ($account['balance'] ?? 0),
+            $sum + (float) ($account['balance'] ?? 0),
             0.0
         );
 
@@ -573,7 +590,7 @@ public function getMemberReport(string $id): array
         $shareCapitalTotal = array_reduce(
             $shareCapital,
             fn(float $sum, array $account): float =>
-                $sum + (float) ($account['paid_up_amount'] ?? 0),
+            $sum + (float) ($account['paid_up_amount'] ?? 0),
             0.0
         );
 
@@ -643,7 +660,7 @@ public function getMemberReport(string $id): array
 
         // Document resolution (ID photo, member photo, birth cert, marriage cert, etc.)
         $documents = [];
-        $standardDocKeys = ['member_photo', 'id_photo', 'birth_certificate', 'marriage_certificate', 'proof_of_billing'];
+        $standardDocKeys = ['member_photo', 'id_photo', 'birth_certificate', 'marriage_certificate', 'supporting_docs', 'proof_of_billing'];
 
         foreach ($allCustomFields as $cf) {
             $key = $cf['field_key'] ?? $cf['field_name'] ?? '';
@@ -668,7 +685,8 @@ public function getMemberReport(string $id): array
             'member_photo'        => ['label' => 'Member Photo (2x2 / Portrait)', 'type' => 'Image'],
             'id_photo'            => ['label' => 'Valid Government ID Photo', 'type' => 'Image'],
             'birth_certificate'   => ['label' => 'Birth Certificate (PSA / NSO)', 'type' => 'PDF'],
-            'marriage_certificate'=> ['label' => 'Marriage Certificate / Contract', 'type' => 'PDF'],
+            'marriage_certificate' => ['label' => 'Marriage Certificate / Contract', 'type' => 'PDF'],
+            'supporting_docs'     => ['label' => 'Supporting Documents / Attachments', 'type' => 'File'],
         ];
 
         foreach ($knownDocs as $k => $info) {
@@ -707,29 +725,65 @@ public function getMemberReport(string $id): array
     /**
      * Attach / update document for a member
      */
-    public function updateMemberDocument(string $id, string $docKey, array $docData): ?array
-    {
-        $member = $this->find($id);
+    public function updateMemberDocument(
+        string $memberId,
+        string $docKey,
+        array $document
+    ): ?array {
+        $member = $this->find($memberId);
+
         if (!$member) {
             return null;
         }
 
-        $custom = is_array($member['custom_field_values'])
-            ? $member['custom_field_values']
-            : (json_decode($member['custom_field_values'] ?? '{}', true) ?: []);
+        $customFieldValues = [];
 
-        $custom[$docKey] = $docData;
-
-        // Also update standard photo columns if applicable
-        $extraUpdates = [];
-        if ($docKey === 'member_photo' && !empty($docData['dataUrl'])) {
-            $extraUpdates['photo_url'] = $docData['dataUrl'];
-        }
-        if ($docKey === 'id_photo' && !empty($docData['dataUrl'])) {
-            $extraUpdates['id_photo_url'] = $docData['dataUrl'];
+        if (!empty($member['custom_field_values'])) {
+            if (is_string($member['custom_field_values'])) {
+                $customFieldValues = json_decode(
+                    $member['custom_field_values'],
+                    true
+                ) ?: [];
+            } elseif (is_array($member['custom_field_values'])) {
+                $customFieldValues = $member['custom_field_values'];
+            }
         }
 
-        return $this->update($id, array_merge(['custom_field_values' => $custom], $extraUpdates));
+        /*
+     * Example:
+     *
+     * custom_field_values:
+     * {
+     *     "marriage_certificate": {
+     *         "name": "Calma, Jordan I. ( Marriage Certificate ).pdf",
+     *         "type": "application/pdf",
+     *         "path": "/assets/members/mem_000001/...",
+     *         "file_name": "...",
+     *         "size": 424672,
+     *         "uploaded_at": "..."
+     *     }
+     * }
+     */
+
+        $customFieldValues[$docKey] = $document;
+
+        $sql = "
+        UPDATE members
+        SET custom_field_values = :custom_field_values
+        WHERE id = :id
+    ";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            'id' => $memberId,
+            'custom_field_values' => json_encode(
+                $customFieldValues,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            ),
+        ]);
+
+        return $this->find($memberId);
     }
 
     /**

@@ -76,15 +76,16 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   };
 
   const memberCols: ExcelColumn<Member>[] = [
-    {
-      key: 'member_no',
-      header: 'Member ID',
-      width: '130px',
-      type: 'badge',
-      align: 'center',
-      sortable: true,
-      badgeColor: () => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-    },
+  
+    // {
+    //   key: 'member_no',
+    //   header: 'Member ID',
+    //   width: '130px',
+    //   type: 'badge',
+    //   align: 'center',
+    //   sortable: true,
+    //   badgeColor: () => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    // },
     {
       key: 'first_name',
       header: 'Full Name',
@@ -93,30 +94,33 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
       sortable: true,
       accessor: (row: Member) => formatMemberFullName(row),
       render: (_, row) => (
-        <span className="font-semibold text-white">
+        <span 
+          className="font-semibold text-white w-[400px] truncate cursor-pointer hover:text-emerald-400 transition" 
+          onClick={() => onNavigateToProfile ? onNavigateToProfile(row.id) : handleOpenEdit(row)}
+           >
           {formatMemberFullName(row)}
         </span>
       )
     },
-    {
-      key: 'tin_number',
-      header: 'TIN Number',
-      width: '160px',
-      type: 'text',
-      align: 'center',
-      sortable: true,
-      render: (_, row) => {
-        const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
-        return tin ? (
-          <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
-            {tin}
-          </span>
-        ) : (
-          <span className="text-slate-500 text-[11px] italic">Not Set</span>
-        );
-      }
-    },
-    { key: 'branch_name', header: 'Branch Assigned', width: '180px', type: 'text', sortable: true },
+    // {
+    //   key: 'tin_number',
+    //   header: 'TIN Number',
+    //   width: '160px',
+    //   type: 'text',
+    //   align: 'center',
+    //   sortable: true,
+    //   render: (_, row) => {
+    //     const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
+    //     return tin ? (
+    //       <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
+    //         {tin}
+    //       </span>
+    //     ) : (
+    //       <span className="text-slate-500 text-[11px] italic">Not Set</span>
+    //     );
+    //   }
+    // },
+    // { key: 'branch_name', header: 'Branch Assigned', width: '180px', type: 'text', sortable: true },
     {
       key: 'member_type_name',
       header: 'Membership Tier',
@@ -126,31 +130,31 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
       badgeColor: () => 'bg-blue-500/20 text-blue-300 border-blue-500/30'
     },
     { key: 'phone', header: 'Contact Telephone', width: '150px', type: 'text' },
-    { key: 'email', header: 'Email Address', width: '200px', type: 'text' },
-    { key: 'address', header: 'Residence Address', width: '260px', type: 'text' },
-    {
-      key: 'notes',
-      header: 'Notes / Remarks',
-      width: '240px',
-      type: 'text',
-      sortable: true,
-      render: (_, row) => {
-        const notes = row.notes || row.custom_field_values?.notes;
-        return notes ? (
-          <div className="flex items-center space-x-1.5 max-w-[230px]" title={notes}>
-            <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className="truncate text-slate-200 text-xs">
-              {notes}
-            </span>
-          </div>
-        ) : (
-          <span className="text-slate-500 text-[11px] italic">No notes</span>
-        );
-      }
-    },
+    // { key: 'email', header: 'Email Address', width: '200px', type: 'text' },
+    // { key: 'address', header: 'Residence Address', width: '260px', type: 'text' },
+    // {
+    //   key: 'notes',
+    //   header: 'Notes / Remarks',
+    //   width: '240px',
+    //   type: 'text',
+    //   sortable: true,
+    //   render: (_, row) => {
+    //     const notes = row.notes || row.custom_field_values?.notes;
+    //     return notes ? (
+    //       <div className="flex items-center space-x-1.5 max-w-[230px]" title={notes}>
+    //         <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+    //         <span className="truncate text-slate-200 text-xs">
+    //           {notes}
+    //         </span>
+    //       </div>
+    //     ) : (
+    //       <span className="text-slate-500 text-[11px] italic">No notes</span>
+    //     );
+    //   }
+    // },
     { key: 'joined_date', header: 'Date Enrolled', width: '120px', type: 'date', align: 'center', sortable: true },
-    { key: 'active', header: 'Status', width: '90px', type: 'boolean', align: 'center', sortable: true },
-    {
+    // { key: 'active', header: 'Status', width: '90px', type: 'boolean', align: 'center', sortable: true },
+         {
       key: 'id',
       header: 'Actions',
       width: '160px',
@@ -175,7 +179,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           </button>
         </div>
       )
-    }
+    },
   ];
 
   const [form, setForm] = useState({
@@ -661,8 +665,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
 
                   return (
                     <div key={cf.id}>
-                      <label className="text-xs text-slate-300 font-medium">
-                        {cf.label}
+                      <label className="text-xs text-slate-300 font-medium test">
+                        {cf.label} 
                         {isRequired && (
                           <span className="text-rose-400 ml-1">*</span>
                         )}
@@ -924,8 +928,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
 
                         return (
                           <div key={cf.id}>
-                            <label className="text-xs text-slate-300 font-medium">
-                              {cf.label || cf.field_label}
+                            <label className="text-xs text-slate-300 font-medium" >
+                              {cf.label || cf.field_label} 
                               {isRequired && <span className="text-rose-400 ml-1">*</span>}
                             </label>
                             {fieldType === 'Dropdown' ? (
@@ -945,7 +949,41 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                                   <option key={opt} value={opt}>{opt}</option>
                                 ))}
                               </select>
-                            ) : (
+                            ) :fieldType === 'File' ?(
+                              <input
+    type="file"
+    required={isRequired}
+    onChange={e => {
+      const file = e.target.files?.[0];
+
+      if (!file) return;
+
+      const reader = new FileReader();
+      const generatedPath = `/uploads/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      const baseUrl = (import.meta.env.VITE_BASE_URL || '').replace(/\/+$/, '');
+
+      reader.onload = () => {
+        setForm({
+          ...form,
+          custom_field_values: {
+            ...form.custom_field_values,
+            [fieldKey]: {
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              size: file.size,
+              path: generatedPath,
+              url: baseUrl ? `${baseUrl}${generatedPath}` : generatedPath,
+              dataUrl: reader.result as string
+            }
+          }
+        });
+      };
+
+      reader.readAsDataURL(file);
+    }}
+    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-slate-700 file:text-white file:text-xs cursor-pointer"
+  />
+                            ): (
                               <input
                                 type={fieldType === 'Number' || fieldType === 'Currency' ? 'number' : 'text'}
                                 value={editForm.custom_field_values[fieldKey] || ''}

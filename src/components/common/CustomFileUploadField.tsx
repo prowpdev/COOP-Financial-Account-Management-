@@ -15,7 +15,9 @@ export interface CustomFileValue {
   name: string;
   size?: number;
   type?: string;
-  dataUrl: string;
+  path?: string;
+  url?: string;
+  dataUrl?: string;
   uploadedAt?: string;
 }
 
@@ -44,22 +46,42 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const baseUrl = (import.meta.env.VITE_BASE_URL || '').replace(/\/+$/, '');
+  const resolveAssetUrl = (maybeUrl?: string) => {
+    if (!maybeUrl) return '';
+    if (maybeUrl.startsWith('data:') || maybeUrl.startsWith('blob:') || /^https?:\/\//i.test(maybeUrl)) {
+      return maybeUrl;
+    }
+    const cleanPath = maybeUrl.replace(/^\/+/, '');
+    if (!baseUrl) return `/${cleanPath}`;
+    return `${baseUrl}/${cleanPath}`;
+  };
+
   // Normalize value representation
   const parsedFile: CustomFileValue | null = React.useMemo(() => {
     if (!value) return null;
     if (typeof value === 'string') {
       const isDataUrl = value.startsWith('data:');
-      const isImg = isDataUrl && value.startsWith('data:image/');
-      const isPdf = isDataUrl && value.includes('application/pdf');
+      const isImageValue = value.startsWith('data:image/') || value.toLowerCase().endsWith('.jpg') || value.toLowerCase().endsWith('.jpeg') || value.toLowerCase().endsWith('.png') || value.toLowerCase().endsWith('.webp');
+      const isPdfValue = value.startsWith('data:application/pdf') || value.toLowerCase().endsWith('.pdf');
+      const normalizedPath = !isDataUrl && !/^https?:\/\//i.test(value) ? value : undefined;
       return {
-        name: isImg ? `${label.toLowerCase().replace(/\s+/g, '_')}.jpg` : `${label.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-        type: isImg ? 'image/jpeg' : isPdf ? 'application/pdf' : 'application/octet-stream',
-        dataUrl: value,
+        name: isImageValue ? `${label.toLowerCase().replace(/\s+/g, '_')}.jpg` : isPdfValue ? `${label.toLowerCase().replace(/\s+/g, '_')}.pdf` : `${label.toLowerCase().replace(/\s+/g, '_')}.file`,
+        type: isImageValue ? 'image/jpeg' : isPdfValue ? 'application/pdf' : 'application/octet-stream',
+        path: normalizedPath,
+        dataUrl: isDataUrl ? value : normalizedPath ? resolveAssetUrl(normalizedPath) : value,
         uploadedAt: new Date().toISOString()
       };
     }
-    if (typeof value === 'object' && value.dataUrl) {
-      return value as CustomFileValue;
+    if (typeof value === 'object') {
+      const fileValue = value as CustomFileValue;
+      const resolvedPath = fileValue.path || (typeof fileValue.dataUrl === 'string' && !fileValue.dataUrl.startsWith('data:') ? fileValue.dataUrl : undefined);
+      return {
+        ...fileValue,
+        path: resolvedPath,
+        dataUrl: fileValue.dataUrl || (resolvedPath ? resolveAssetUrl(resolvedPath) : undefined),
+        url: fileValue.url || (resolvedPath ? resolveAssetUrl(resolvedPath) : fileValue.dataUrl)
+      } as CustomFileValue;
     }
     return null;
   }, [value, label]);
@@ -72,10 +94,14 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
+      const safeFileName = file.name.replace(/\s+/g, '_');
+      const generatedPath = `/uploads/${Date.now()}_${safeFileName}`;
       const fileData: CustomFileValue = {
         name: file.name,
         size: file.size,
         type: file.type || (isImageField ? 'image/jpeg' : isPdfField ? 'application/pdf' : 'application/octet-stream'),
+        path: generatedPath,
+        url: baseUrl ? `${baseUrl}${generatedPath}` : generatedPath,
         dataUrl,
         uploadedAt: new Date().toISOString()
       };
@@ -111,10 +137,11 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!parsedFile?.dataUrl) return;
+    const downloadUrl = resolveAssetUrl(parsedFile?.path || parsedFile?.dataUrl || parsedFile?.url);
+    if (!downloadUrl) return;
     const link = document.createElement('a');
-    link.href = parsedFile.dataUrl;
-    link.download = parsedFile.name || 'document';
+    link.href = downloadUrl;
+    link.download = parsedFile?.name || 'document';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -160,16 +187,16 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
 
       {/* If file is already uploaded */}
       {parsedFile ? (
-        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-slate-600 transition">
+        <div className="flex-wrap bg-slate-900 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-slate-600 transition">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
             {/* Thumbnail or Icon */}
-            {isImageField && parsedFile.dataUrl ? (
+            {isImageField ? (
               <div
                 onClick={() => setIsPreviewOpen(true)}
                 className="w-12 h-12 rounded-lg bg-slate-950 border border-slate-700 overflow-hidden shrink-0 cursor-pointer hover:opacity-85 transition relative group/img"
               >
                 <img
-                  src={parsedFile.dataUrl}
+                  src={resolveAssetUrl(parsedFile.path || parsedFile.dataUrl || parsedFile.url)}
                   alt={parsedFile.name}
                   className="w-full h-full object-cover"
                 />
@@ -321,13 +348,13 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
             <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-950 min-h-[350px]">
               {isImageField ? (
                 <img
-                  src={parsedFile.dataUrl}
+                  src={resolveAssetUrl(parsedFile.path || parsedFile.dataUrl || parsedFile.url)}
                   alt={parsedFile.name}
                   className="max-h-[70vh] max-w-full rounded-lg object-contain shadow-lg border border-slate-800"
                 />
               ) : isPdfField ? (
                 <iframe
-                  src={parsedFile.dataUrl}
+                  src={resolveAssetUrl(parsedFile.path || parsedFile.dataUrl || parsedFile.url)}
                   title={parsedFile.name}
                   className="w-full h-[65vh] rounded-lg border border-slate-800 bg-white"
                 />

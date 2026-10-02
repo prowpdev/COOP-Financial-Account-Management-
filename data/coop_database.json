@@ -1158,6 +1158,62 @@
       "required": false,
       "default_value": "",
       "active": true
+    },
+    {
+      "id": "cf_1790944242246",
+      "entity": "Member",
+      "field_name": "marriage_certificate",
+      "field_key": "marriage_certificate",
+      "field_label": "Marriage Certificate",
+      "label": "Marriage Certificate",
+      "field_type": "File",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_1790944242263",
+      "entity": "Member",
+      "field_name": "marriage_certificate",
+      "field_key": "marriage_certificate",
+      "field_label": "Marriage Certificate",
+      "label": "Marriage Certificate",
+      "field_type": "File",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_1790945407428",
+      "entity": "Member",
+      "field_name": "custom_data",
+      "field_key": "custom_data",
+      "field_label": "Custom data",
+      "label": "Custom data",
+      "field_type": "PDF",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_1790946201497",
+      "entity": "Member",
+      "field_name": "photo_holding_id",
+      "field_key": "photo_holding_id",
+      "field_label": "Photo holding ID",
+      "label": "Photo holding ID",
+      "field_type": "Image",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true
     }
   ],
   "member_types": [
@@ -2094,6 +2150,42 @@
       "changed_by": "Admin",
       "created_at": "2026-10-02T09:26:56.462Z",
       "reason": "Member Profile document update"
+    },
+    {
+      "id": "audit_1790944242249_85qvze",
+      "setting": "Custom Field Created: Marriage Certificate",
+      "old_value": "None",
+      "new_value": "{\"id\":\"cf_1790944242246\",\"entity\":\"Member\",\"field_name\":\"marriage_certificate\",\"field_key\":\"marriage_certificate\",\"field_label\":\"Marriage Certificate\",\"label\":\"Marriage Certificate\",\"field_type\":\"File\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-10-02T12:30:42.249Z",
+      "reason": "Added new member custom attribute"
+    },
+    {
+      "id": "audit_1790944242266_6yhpnc",
+      "setting": "Custom Field Created: Marriage Certificate",
+      "old_value": "None",
+      "new_value": "{\"id\":\"cf_1790944242263\",\"entity\":\"Member\",\"field_name\":\"marriage_certificate\",\"field_key\":\"marriage_certificate\",\"field_label\":\"Marriage Certificate\",\"label\":\"Marriage Certificate\",\"field_type\":\"File\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-10-02T12:30:42.266Z",
+      "reason": "Added new member custom attribute"
+    },
+    {
+      "id": "audit_1790945407436_yt6i7g",
+      "setting": "Custom Field Created: Custom data",
+      "old_value": "None",
+      "new_value": "{\"id\":\"cf_1790945407428\",\"entity\":\"Member\",\"field_name\":\"custom_data\",\"field_key\":\"custom_data\",\"field_label\":\"Custom data\",\"label\":\"Custom data\",\"field_type\":\"PDF\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-10-02T12:50:07.436Z",
+      "reason": "Added new member custom attribute"
+    },
+    {
+      "id": "audit_1790946201500_e6d8y2",
+      "setting": "Custom Field Created: Photo holding ID",
+      "old_value": "None",
+      "new_value": "{\"id\":\"cf_1790946201497\",\"entity\":\"Member\",\"field_name\":\"photo_holding_id\",\"field_key\":\"photo_holding_id\",\"field_label\":\"Photo holding ID\",\"label\":\"Photo holding ID\",\"field_type\":\"Image\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true}",
+      "changed_by": "Administrator",
+      "created_at": "2026-10-02T13:03:21.500Z",
+      "reason": "Added new member custom attribute"
     }
   ],
   "user_roles": [

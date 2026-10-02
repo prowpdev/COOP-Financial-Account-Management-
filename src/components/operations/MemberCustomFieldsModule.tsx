@@ -199,6 +199,24 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
     }
   };
 
+  const normalizeCustomValue = (value: any): any => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const pathValue = value.path || value.url || value.dataUrl;
+    if (!pathValue || typeof pathValue !== 'string') return value;
+    const resolved = /^https?:\/\//i.test(pathValue) || pathValue.startsWith('data:') || pathValue.startsWith('blob:')
+      ? pathValue
+      : pathValue.startsWith('/')
+        ? `${(import.meta.env.VITE_BASE_URL || '').replace(/\/+$/, '')}${pathValue}`
+        : `${(import.meta.env.VITE_BASE_URL || '').replace(/\/+$/, '')}/${pathValue.replace(/^\/+/, '')}`;
+
+    return {
+      ...value,
+      path: value.path || pathValue,
+      url: value.url || resolved,
+      dataUrl: resolved
+    };
+  };
+
   // Save selected member TIN and custom fields
   const handleSaveMemberRecord = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,11 +224,13 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
 
     setIsSavingMember(true);
     try {
-      const mergedCustom = {
-        ...memberCustomInputs,
-        tin_number: memberTinInput.trim(),
-        notes: memberNotesInput.trim()
-      };
+      const mergedCustom = Object.fromEntries(
+        Object.entries({
+          ...memberCustomInputs,
+          tin_number: memberTinInput.trim(),
+          notes: memberNotesInput.trim()
+        }).map(([key, value]) => [key, normalizeCustomValue(value)])
+      );
 
       await api.updateMember(selectedMemberId, {
         tin_number: memberTinInput.trim(),

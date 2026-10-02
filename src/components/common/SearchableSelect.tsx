@@ -28,6 +28,7 @@ export interface SearchableSelectProps {
   minOptionsForSearch?: number; // Default 6 (shows search whenever options >= minOptionsForSearch)
   alwaysShowSearch?: boolean; // When true, always shows the search field regardless of count
   showGLTypeBadge?: boolean;
+  hideCode?: boolean;
   id?: string;
   name?: string;
   renderOption?: (opt: SearchableOption, isSelected: boolean) => React.ReactNode;
@@ -69,6 +70,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   minOptionsForSearch = 6,
   alwaysShowSearch = false,
   showGLTypeBadge = false,
+  hideCode = false,
   id,
   renderOption
 }) => {
@@ -161,13 +163,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           {icon && <span className="shrink-0 text-slate-400">{icon}</span>}
           {selectedOption ? (
             <div className="flex items-center space-x-2 truncate flex-1">
-              {selectedOption.code && (
+              {!hideCode && selectedOption.code && (
                 <span className="font-mono text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
                   {selectedOption.code}
                 </span>
               )}
               <span className="truncate font-medium text-slate-100">{selectedOption.label}</span>
-              {(showGLTypeBadge || selectedOption.type) && selectedOption.type && (
+              {!hideCode && (showGLTypeBadge || selectedOption.type) && selectedOption.type && (
                 <span
                   className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border shrink-0 ${
                     getGLTypeColor(selectedOption.type).bg
@@ -280,7 +282,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     } ${opt.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
                   >
                     <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                      {opt.code && (
+                      {!hideCode && opt.code && (
                         <span
                           className={`font-mono text-[11px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
                             isSelected
@@ -294,7 +296,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate font-medium">{opt.label}</span>
-                          {(showGLTypeBadge || opt.type) && opt.type && (
+                          {!hideCode && (showGLTypeBadge || opt.type) && opt.type && (
                             <span
                               className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border shrink-0 ${glColors.bg} ${glColors.text} ${glColors.border}`}
                             >

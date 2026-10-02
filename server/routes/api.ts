@@ -1629,16 +1629,19 @@ router.post('/members/:id/documents', (req: Request, res: Response) => {
   const member = db.getTable('members').find(m => m.id === req.params.id || m.member_no === req.params.id);
   if (!member) return res.status(404).json({ success: false, error: 'Member not found' });
 
-  const { doc_key, field_key, name, file_type, type, data_url, dataUrl, size, uploaded_at } = req.body;
+  const { doc_key, field_key, name, file_type, type, data_url, dataUrl, path, url, size, uploaded_at } = req.body;
   const targetKey = doc_key || field_key;
   if (!targetKey) {
     return res.status(400).json({ success: false, error: 'Document key (doc_key) is required' });
   }
 
+  const resolvedDirectUrl = path || url || data_url || dataUrl || '';
   const docPayload = {
     name: name || 'Uploaded Document',
     type: file_type || type || 'application/octet-stream',
-    dataUrl: data_url || dataUrl || '',
+    path: typeof path === 'string' ? path : undefined,
+    url: typeof url === 'string' ? url : resolvedDirectUrl,
+    dataUrl: resolvedDirectUrl,
     size: Number(size) || 0,
     uploadedAt: uploaded_at || new Date().toISOString()
   };

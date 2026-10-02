@@ -18,6 +18,7 @@ import {
   Layers
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
+import { SearchableSelect } from '../common/SearchableSelect';
 import { LoanApplicationsView } from './LoanApplicationsView';
 import { IndividualLoanLedgerModal } from './IndividualLoanLedgerModal';
 import { api } from '../../services/api';
@@ -538,6 +539,13 @@ const handleRepayBtn = async (
 
   const selectedProduct = loanProducts.find(p => p.id === origForm.loan_product_id);
   const selectedCash = cashAccounts.find(c => c.id === origForm.cash_account_id);
+  const memberOptions = members.map(member => ({
+    value: String(member.id),
+    label: `${member.first_name || ''} ${member.last_name || ''}`.trim() || (member.member_no || 'Unnamed member'),
+    code: member.member_no || undefined,
+    description: member.branch_name || 'Main',
+    searchTerms: `${member.member_no || ''} ${member.first_name || ''} ${member.last_name || ''} ${member.branch_name || ''}`.trim()
+  }));
 
   // Safe fee calculation
   const procRate = Number(selectedProduct?.processing_fee_percentage || 0);
@@ -962,17 +970,18 @@ const handleRepayBtn = async (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Borrowing Member</label>
-                    <select
-                      value={origForm.member_id}
-                      onChange={e => setOrigForm({ ...origForm, member_id: e.target.value })}
-                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:border-emerald-500 focus:outline-none"
-                    >
-                      {members.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.member_no} - {m.first_name} {m.last_name} ({m.branch_name || 'Main'})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-1">
+                      <SearchableSelect
+                        options={memberOptions}
+                        value={origForm.member_id}
+                        onChange={val => setOrigForm({ ...origForm, member_id: val })}
+                        placeholder="Select member..."
+                        searchPlaceholder="Search member by name, ID, or branch..."
+                        hideCode={true}
+                        minOptionsForSearch={6}
+                        buttonClassName="bg-slate-800 border-slate-700 hover:border-emerald-500/60 py-2.5"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Configured Loan Product</label>
@@ -1320,18 +1329,19 @@ const handleRepayBtn = async (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Borrowing Member</label>
-                    <select
-                      disabled
-                      value={updateLoanForm.member_id}
-                      onChange={e => setupdateLoanForm({ ...origForm, member_id: e.target.value })}
-                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:border-emerald-500 focus:outline-none"
-                    >
-                      {members.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.member_no} - {m.first_name} {m.last_name} ({m.branch_name || 'Main'})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-1">
+                      <SearchableSelect
+                        options={memberOptions}
+                        value={updateLoanForm.member_id}
+                        onChange={val => setupdateLoanForm({ ...updateLoanForm, member_id: val })}
+                        placeholder="Select member..."
+                        searchPlaceholder="Search member by name, ID, or branch..."
+                        hideCode={true}
+                        minOptionsForSearch={6}
+                        disabled={true}
+                        buttonClassName="bg-slate-800 border-slate-700 py-2.5"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Configured Loan Product</label>
