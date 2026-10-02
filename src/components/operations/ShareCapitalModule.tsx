@@ -46,8 +46,8 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     account_number: '',
     branch_id: '',
     par_value: 100,
-    subscribed_shares: 100,
-    paid_up_shares: 0,
+    subscribed_shares: 40,
+    paid_up_shares: 10,
     status: 'Active'
   });
 
@@ -55,7 +55,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
     account_number: '',
     branch_id: '',
     par_value: 100,
-    subscribed_shares: 100,
+    subscribed_shares: 40,
     subscribed_amount: 10000,
     paid_up_shares: 0,
     paid_up_amount: 0,
@@ -101,9 +101,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
         const active = stList[0];
         setNewAccount(prev => ({
           ...prev,
-          par_value: Number(active.par_value_per_share) || 100,
-          subscribed_shares: Number(active.min_subscription_shares) || 100,
-          paid_up_shares: Number(active.min_paid_up_shares) || 25
+          par_value: Number(active.par_value_per_share) || 100
         }));
       }
     } catch (err) {
@@ -171,8 +169,8 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
       account_number: acc.account_number || '',
       branch_id: acc.branch_id || mem?.branch_id || branches[0]?.id || 'branch_tar',
       par_value: par,
-      subscribed_shares: acc.subscribed_shares ?? 100,
-      subscribed_amount: acc.subscribed_amount ?? ((acc.subscribed_shares ?? 100) * par),
+      subscribed_shares: acc.subscribed_shares ?? 40,
+      subscribed_amount: acc.subscribed_amount ?? ((acc.subscribed_shares ?? 40) * par),
       paid_up_shares: acc.paid_up_shares ?? 0,
       paid_up_amount: acc.paid_up_amount ?? ((acc.paid_up_shares ?? 0) * par),
       status: acc.status || 'Active'
@@ -541,8 +539,8 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                 account_number: `CBU-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
                 branch_id: memBranch,
                 par_value: Number(activePolicy?.par_value_per_share) || 100,
-                subscribed_shares: Number(activePolicy?.min_subscription_shares) || 100,
-                paid_up_shares: Number(activePolicy?.min_paid_up_shares) || 0,
+                subscribed_shares: 40,
+                paid_up_shares: 10,
                 status: 'Active'
               });
               setCreateError(null);
