@@ -8,9 +8,7 @@ use PDO;
 
 class ConfigRepository
 {
-    public function __construct(private PDO $db)
-    {
-    }
+    public function __construct(private PDO $db) {}
 
     /**
      * Fetch complete configuration bundle matching frontend initialization
@@ -92,7 +90,7 @@ class ConfigRepository
         $res->execute([$id]);
         return $res->fetch(PDO::FETCH_ASSOC) ?: [];
     }
-    
+
     public function getFee(string $id): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM fees WHERE id = ?");
@@ -141,7 +139,7 @@ class ConfigRepository
         return $stmt->execute([$enabled ? 1 : 0, $featureKey]);
     }
 
-  
+
 
     public function deleteLoanProduct(string $id): bool
     {
@@ -202,15 +200,15 @@ class ConfigRepository
         return $this->fetchAll('fees');
     }
 
-public function saveFee(array $data): array
-{
-    $id = $data['id'] ?? ('fee_' . bin2hex(random_bytes(4)));
+    public function saveFee(array $data): array
+    {
+        $id = $data['id'] ?? ('fee_' . bin2hex(random_bytes(4)));
 
-    $code = !empty($data['code'])
-        ? $data['code']
-        : ('FEE-' . mt_rand(100, 999));
+        $code = !empty($data['code'])
+            ? $data['code']
+            : ('FEE-' . mt_rand(100, 999));
 
-    $sql = "
+        $sql = "
         INSERT INTO fees (
             id,
             code,
@@ -244,31 +242,31 @@ public function saveFee(array $data): array
             active = VALUES(active)
     ";
 
-    $stmt = $this->db->prepare($sql);
+        $stmt = $this->db->prepare($sql);
 
-    $stmt->execute([
-        'id' => $id,
-        'code' => $code,
-        'name' => $data['name'],
-        'calculation_type' => $data['calculation_type'] ?? 'Fixed',
-        'amount' => (float) (
-            $data['amount']
-            ?? $data['fixed_amount']
-            ?? 0
-        ),
-        'applies_to' => $data['applicable_module'] ?? 'loan',
-        'gl_account_id' => $data['gl_account_id'] ?? null,
-        'percentage' => (float) ($data['percentage'] ?? 0),
-        'active' => isset($data['active'])
-            ? (int) $data['active']
-            : 1,
-    ]);
+        $stmt->execute([
+            'id' => $id,
+            'code' => $code,
+            'name' => $data['name'],
+            'calculation_type' => $data['calculation_type'] ?? 'Fixed',
+            'amount' => (float) (
+                $data['amount']
+                ?? $data['fixed_amount']
+                ?? 0
+            ),
+            'applies_to' => $data['applicable_module'] ?? 'loan',
+            'gl_account_id' => $data['gl_account_id'] ?? null,
+            'percentage' => (float) ($data['percentage'] ?? 0),
+            'active' => isset($data['active'])
+                ? (int) $data['active']
+                : 1,
+        ]);
 
-    return array_merge([
-        'id' => $id,
-        'code' => $code,
-    ], $data);
-}
+        return array_merge([
+            'id' => $id,
+            'code' => $code,
+        ], $data);
+    }
 
     public function updateSystemSettings(array $data): bool
     {
@@ -326,28 +324,85 @@ public function saveFee(array $data): array
         return $this->fetchAll('custom_fields');
     }
 
+    public function deleteCustomField(string $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM custom_fields WHERE id = ?");
+        return $stmt->execute([$id]);
+    }
+    
     public function saveCustomField(array $data): array
     {
         $id = $data['id'] ?? ('cf_' . bin2hex(random_bytes(4)));
+
         $sql = "
-            INSERT INTO custom_fields (id, entity_type, field_name, field_label, field_type, is_required)
-            VALUES (:id, :entity_type, :field_name, :field_label, :field_type, :is_required)
-            ON DUPLICATE KEY UPDATE
-                field_label = VALUES(field_label),
-                field_type = VALUES(field_type),
-                is_required = VALUES(is_required)
-        ";
+        INSERT INTO custom_fields (
+            id,
+            entity_type,
+            field_key,
+            label,
+            field_type,
+            options,
+            is_required,
+            active,
+            display_order
+        )
+        VALUES (
+            :id,
+            :entity_type,
+            :field_key,
+            :label,
+            :field_type,
+            :options,
+            :is_required,
+            :active,
+            :display_order
+        )
+        ON DUPLICATE KEY UPDATE
+            entity_type = VALUES(entity_type),
+            field_key = VALUES(field_key),
+            label = VALUES(label),
+            field_type = VALUES(field_type),
+            options = VALUES(options),
+            is_required = VALUES(is_required),
+            active = VALUES(active),
+            display_order = VALUES(display_order)
+    ";
+
         $stmt = $this->db->prepare($sql);
+
+        // Convert options array to JSON for database storage
+        $options = $data['options'] ?? [];
+
+        if (is_array($options)) {
+            $options = json_encode($options, JSON_UNESCAPED_UNICODE);
+        }
+
         $stmt->execute([
-            'id'          => $id,
-            'entity_type' => $data['entity_type'] ?? 'member',
-            'field_name'  => $data['field_name'] ?? ('custom_' . mt_rand(100, 999)),
-            'field_label' => $data['field_label'] ?? 'Custom Field',
-            'field_type'  => $data['field_type'] ?? 'text',
-            'is_required' => !empty($data['is_required']) ? 1 : 0
+            'id'            => $id,
+            'entity_type'   => $data['entity_type'] ?? 'member',
+            'field_key'     => $data['field_key'] ?? ('custom_' . mt_rand(100, 999)),
+            'label'         => $data['label'] ?? $data['field_label'] ?? 'Custom Field',
+            'field_type'    => $data['field_type'] ?? 'Text',
+            'options'       => $options,
+            'is_required'   => !empty($data['is_required']) ? 1 : 0,
+            'active'        => isset($data['active']) ? (int) $data['active'] : 1,
+            'display_order' => isset($data['display_order'])
+                ? (int) $data['display_order']
+                : 0
         ]);
-        return array_merge(['id' => $id], $data);
+
+        return array_merge([
+            'id' => $id
+        ], $data, [
+            'field_key'     => $data['field_key'] ?? null,
+            'label'         => $data['label'] ?? $data['field_label'] ?? 'Custom Field',
+            'options'       => $data['options'] ?? [],
+            'active'        => isset($data['active']) ? (int) $data['active'] : 1,
+            'display_order' => isset($data['display_order']) ? (int) $data['display_order'] : 0
+        ]);
     }
+
+
 
     public function updateNumberingFormat(string $id, array $data): array
     {
@@ -392,10 +447,10 @@ public function saveFee(array $data): array
             )
         );
         usort(
-        $priorityOrder,
-        static function (array $a, array $b): int {
-            return $a['priority'] <=> $b['priority'];
-        }
+            $priorityOrder,
+            static function (array $a, array $b): int {
+                return $a['priority'] <=> $b['priority'];
+            }
         );
         $stmt = $this->db->prepare("
             UPDATE payment_allocation_rules
@@ -411,7 +466,7 @@ public function saveFee(array $data): array
                 $priorityOrder
             ),
         ]);
-    
+
         if ($stmt->rowCount() === 0) {
             // Check whether the ID actually exists
             $check = $this->db->prepare("
@@ -444,7 +499,7 @@ public function saveFee(array $data): array
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-        public function saveLoanProduct(array $data): array
+    public function saveLoanProduct(array $data): array
     {
         $id = $data['id'] ?? ('lp_' . bin2hex(random_bytes(4)));
         $sql = "
@@ -489,10 +544,40 @@ public function saveFee(array $data): array
         ]);
         return $this->getLoanProduct($id);
     }
-        public function getLoanProduct(string $id): array
+    public function getLoanProduct(string $id): array
     {
         $stmt = $this->db->prepare('SELECT * FROM loan_products WHERE id = ?');
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+    public function updateCustomField(string $id, array $data): array
+    {
+        $stmt = $this->db->prepare("
+        UPDATE custom_fields
+        SET
+            entity_type   = :entity_type,
+            field_key     = :field_key,
+            label         = :label,
+            field_type    = :field_type,
+            options       = :options,
+            is_required   = :is_required
+        WHERE id = :id
+        ");
+
+        $stmt->execute([
+            'id'            => $id,
+            'entity_type'   => $data['entity'] ?? '',
+            'field_key'     => $data['field_name'] ?? '',
+            'label'         => $data['field_label'] ?? '',
+            'field_type'    => $data['field_type'] ?? 'Text',
+            'options'       => json_encode($data['options'] ?? []),
+            'is_required'   => !empty($data['required']) ? 1 : 0,
+            
+        ]);
+
+        return array_merge(
+            ['id' => $id],
+            $data
+        );
     }
 }

@@ -260,7 +260,37 @@ class AuthController extends BaseController
 
         // Generate unique member number
         $seq = (int)$this->db->query("SELECT COUNT(*) FROM members")->fetchColumn() + 1;
-        $memberNo = 'MB-2026-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        // $memberNo = 'MB-2026-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        $year = date('Y');
+        $stmt = $this->db->prepare("
+            SELECT member_no
+            FROM members
+            WHERE member_no LIKE :prefix
+            ORDER BY member_no DESC
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            'prefix' => "MB-{$year}-%"
+        ]);
+
+        $lastMemberNo = $stmt->fetchColumn();
+
+        if ($lastMemberNo) {
+            // MB-2026-0003 -> 0003
+            $lastSeq = (int) substr($lastMemberNo, -4);
+
+            $seq = $lastSeq + 1;
+        } else {
+            $seq = 1;
+        }
+
+        $memberNo = 'MB-' . $year . '-' . str_pad(
+            (string) $seq,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
         $memberId = 'mem_' . bin2hex(random_bytes(6));
         $today = date('Y-m-d');
 

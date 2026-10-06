@@ -16,7 +16,10 @@ class ConfigController extends BaseController
         parent::__construct($db);
         $this->config = new ConfigRepository($db);
     }
-    
+    public function notifications(): never
+    {
+        $this->success([],'No notifications available.');
+    }
     public function loanProduct(string $id): never
     {
         $product = $this->config->getLoanProduct($id);
@@ -102,6 +105,115 @@ class ConfigController extends BaseController
 
         $branch = $this->config->saveBranch($input);
         $this->success($branch, 'Branch saved successfully.', 201);
+    }
+
+    /**
+     * POST /api/config/documents
+     *
+     * Accepts multipart/form-data with a "file" field and either
+     * "branch_name" or "coop_name".
+     */
+    public function uploadDocument(): never
+    {
+        print_r($this->getRequestBody());
+        $folderName = $_POST['branch_name'] ?? $_POST['coop_name'] ?? '';
+        if (!is_string($folderName) || trim($folderName) === '') {
+            $this->error('A branch_name or coop_name is required.', 422);
+        }
+
+        $folderName = trim($folderName);
+        $safeFolderName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', $folderName);
+        $safeFolderName = trim($safeFolderName, '_-');
+        if ($safeFolderName === '') {
+            $this->error('The branch or cooperative name is invalid.', 422);
+        }
+
+        $file = $_FILES['file'] ?? null;
+        if (!is_array($file) || !isset($file['error'], $file['tmp_name'], $file['name'], $file['size'])) {
+            $this->error('A file is required in the "file" field.', 422);
+        }
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $this->error('The file upload failed.', 422, ['upload_error' => $file['error']]);
+        }
+
+        $maxSize = 10 * 1024 * 1024;
+        if (!is_int($file['size']) || $file['size'] < 1 || $file['size'] > $maxSize) {
+            $this->error('File size must be between 1 byte and 10MB.', 422);
+        }
+
+        if (!is_uploaded_file($file['tmp_name'])) {
+            $this->error('The uploaded file is invalid.', 422);
+        }
+
+        $originalName = basename(str_replace('\\', '/', (string)$file['name']));
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $fileTypes = [
+            'jpg' => ['image/jpeg', "\xFF\xD8\xFF"],
+            'jpeg' => ['image/jpeg', "\xFF\xD8\xFF"],
+            'png' => ['image/png', "\x89PNG\r\n\x1A\n"],
+            'webp' => ['image/webp', 'RIFF'],
+            'gif' => ['image/gif', 'GIF'],
+            'pdf' => ['application/pdf', '%PDF-'],
+            'doc' => ['application/msword', "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+            'xls' => ['application/vnd.ms-excel', "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+            'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', "PK\x03\x04"],
+            'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', "PK\x03\x04"],
+        ];
+
+        if (!isset($fileTypes[$extension])) {
+            $this->error('This file type is not allowed.', 422);
+        }
+
+        $signature = file_get_contents($file['tmp_name'], false, null, 0, 12);
+        $signatureMatches = is_string($signature)
+            && str_starts_with($signature, $fileTypes[$extension][1]);
+        if ($extension === 'gif' && is_string($signature)) {
+            $signatureMatches = str_starts_with($signature, 'GIF87a')
+                || str_starts_with($signature, 'GIF89a');
+        } elseif ($extension === 'webp' && is_string($signature)) {
+            $signatureMatches = str_starts_with($signature, 'RIFF')
+                && substr($signature, 8, 4) === 'WEBP';
+        }
+
+        if (!$signatureMatches) {
+            $this->error('The file content does not match its extension.', 422);
+        }
+
+        $safeFileName = preg_replace(
+            '/[^a-zA-Z0-9_-]+/',
+            '_',
+            pathinfo($originalName, PATHINFO_FILENAME)
+        );
+        $safeFileName = trim($safeFileName, '_-');
+        if ($safeFileName === '') {
+            $safeFileName = 'document';
+        }
+
+        $fileName = $safeFileName . '_' . bin2hex(random_bytes(6)) . '.' . $extension;
+        $assetsDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'assets';
+        $targetDirectory = $assetsDirectory . DIRECTORY_SEPARATOR . $safeFolderName;
+
+        if (!is_dir($targetDirectory)
+            && !mkdir($targetDirectory, 0755, true)
+            && !is_dir($targetDirectory)
+        ) {
+            $this->error('Unable to create the document directory.', 500);
+        }
+
+        $targetPath = $targetDirectory . DIRECTORY_SEPARATOR . $fileName;
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            $this->error('Failed to save the uploaded document.', 500);
+        }
+
+        $relativePath = '/assets/' . rawurlencode($safeFolderName) . '/' . rawurlencode($fileName);
+        $this->success([
+            'name' => $originalName,
+            'file_name' => $fileName,
+            'type' => $fileTypes[$extension][0],
+            'size' => $file['size'],
+            'path' => $relativePath,
+        ], 'Document uploaded successfully.', 201);
     }
 
     /**
@@ -348,6 +460,15 @@ class ConfigController extends BaseController
     }
 
     /**
+     * DELETE /api/config/custom-fields/:id
+     */
+    public function deleteCustomField(string $id): never
+    {
+        $this->config->deleteCustomField($id);
+        $this->success(null, 'Custom field deleted successfully.');
+    }
+
+    /**
      * POST /api/config/custom-fields
      */
     public function storeCustomField(): never
@@ -356,7 +477,15 @@ class ConfigController extends BaseController
         $saved = $this->config->saveCustomField($input);
         $this->success($saved, 'Custom field saved successfully.', 201);
     }
-
+    /**
+     * PUT /api/config/custom-fields/:id
+     */
+    public function updateCustomField(string $id):never
+    {
+        $input = $this->getRequestBody();
+        $saved = $this->config->updateCustomField($id, $input);
+        $this->success($saved, 'Numbering format updated successfully.');
+    }
     /**
      * PUT /api/config/numbering-formats/:id
      */

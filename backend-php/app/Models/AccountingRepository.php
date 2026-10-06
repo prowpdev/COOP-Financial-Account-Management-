@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use PDO;
+use App\Core\AuditLogger;
 
 class AccountingRepository
 {
+    private AuditLogger $audit;
     public function __construct(private PDO $db)
     {
+        $this->audit = new AuditLogger($this->db);
     }
 
     /**
@@ -44,33 +47,97 @@ class AccountingRepository
      */
     public function saveAccount(array $data): array
     {
-        $id = $data['id'] ?? ('coa_' . bin2hex(random_bytes(6)));
+        try {
 
-        $sql = "
-            INSERT INTO chart_of_accounts (id, account_code, name, category, normal_balance, is_active, report_group, description)
-            VALUES (:id, :account_code, :name, :category, :normal_balance, :is_active, :report_group, :description)
+            $this->db->beginTransaction();
+
+            $id = $data['id'] ?? ('coa_' . bin2hex(random_bytes(6)));
+
+            $sql = "
+            INSERT INTO chart_of_accounts
+            (
+                id,
+                account_code,
+                name,
+                category,
+                normal_balance,
+                is_active,
+                parent_account_id,
+                report_group,
+                description,
+                created_at
+            )
+            VALUES
+            (
+                :id,
+                :account_code,
+                :name,
+                :category,
+                :normal_balance,
+                :is_active,
+                :parent_account_id,
+                :report_group,
+                :description,
+                NOW()
+            )
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 category = VALUES(category),
                 normal_balance = VALUES(normal_balance),
                 is_active = VALUES(is_active),
+                parent_account_id = VALUES(parent_account_id),
                 report_group = VALUES(report_group),
                 description = VALUES(description)
         ";
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            'id'             => $id,
-            'account_code'   => $data['account_code'],
-            'name'           => $data['name'],
-            'category'       => $data['category'],
-            'normal_balance' => $data['normal_balance'],
-            'is_active'      => isset($data['is_active']) ? (int)$data['is_active'] : 1,
-            'report_group'   => $data['report_group'] ?? 'General',
-            'description'    => $data['description'] ?? null
-        ]);
+            $stmt = $this->db->prepare($sql);
 
-        return $this->findAccount($id) ?? [];
+            $test = $stmt->execute([
+                ':id'                => $id,
+                ':account_code'      => $data['account_code'],
+                ':name'              => $data['name'],
+                ':category'          => $data['category'],
+                ':normal_balance'    => $data['normal_balance'],
+                ':is_active'         => isset($data['is_active'])
+                    ? (int) $data['is_active']
+                    : 1,
+                ':parent_account_id' => $data['parent_account_id'] ?? null,
+                ':report_group'      => $data['report_group'] ?? 'General',
+                ':description'       => $data['description'] ?? null
+            ]);
+            print_r($test);
+            // Get the actual saved record BEFORE commit
+            $stmt = $this->db->prepare("
+            SELECT *
+            FROM chart_of_accounts
+            WHERE account_code = :account_code
+            LIMIT 1
+        ");
+
+            $stmt->execute([
+                ':account_code' => $data['account_code']
+            ]);
+
+            $account = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$account) {
+                throw new \Exception(
+                    'Account was not found after INSERT/UPDATE.'
+                );
+            }
+
+            // Commit only after successful INSERT and SELECT
+            $this->db->commit();
+
+            return $account;
+        } catch (\Throwable $e) {
+
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -241,103 +308,103 @@ class AccountingRepository
                     $line['subsidiary_type'] ?? null,
                     $line['subsidiary_id'] ?? null
                 ]);
+            }
+            // Check if line credits Paid-up Share Capital (CBU)
+            $credit = (float)($line['credit'] ?? 0);
+            $accId = (string)($line['account_id'] ?? '');
+            $targetMemberId = $line['subsidiary_id'] ?? ($data['member_id'] ?? null);
 
-                // Check if line credits Paid-up Share Capital (CBU)
-                $credit = (float)($line['credit'] ?? 0);
-                $accId = (string)($line['account_id'] ?? '');
-                $targetMemberId = $line['subsidiary_id'] ?? ($data['member_id'] ?? null);
-
-                if ($credit > 0 && $targetMemberId) {
-                    $isShareCapital = in_array($accId, ['acc_3110', '3110', 'acc_3120', '3120', 'acc_3010', '3010', 'acc_3100', '3100'], true);
-                    if (!$isShareCapital) {
-                        $coaStmt = $this->db->prepare("SELECT account_code, name, report_group FROM chart_of_accounts WHERE id = ? OR account_code = ? LIMIT 1");
-                        $coaStmt->execute([$accId, $accId]);
-                        $accRow = $coaStmt->fetch(PDO::FETCH_ASSOC);
-                        if ($accRow) {
-                            $code = (string)($accRow['account_code'] ?? '');
-                            $name = strtolower((string)($accRow['name'] ?? ''));
-                            $group = strtolower((string)($accRow['report_group'] ?? ''));
-                            if (str_starts_with($code, '311') || str_starts_with($code, '312') || str_contains($name, 'paid-up') || str_contains($name, 'paid up') || str_contains($name, 'cbu') || str_contains($group, 'paid-up')) {
-                                $isShareCapital = true;
-                            }
+            if ($credit > 0 && $targetMemberId) {
+                $isShareCapital = in_array($accId, ['acc_3110', '3110', 'acc_3120', '3120', 'acc_3010', '3010', 'acc_3100', '3100'], true);
+                if (!$isShareCapital) {
+                    $coaStmt = $this->db->prepare("SELECT account_code, name, report_group FROM chart_of_accounts WHERE id = ? OR account_code = ? LIMIT 1");
+                    $coaStmt->execute([$accId, $accId]);
+                    $accRow = $coaStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($accRow) {
+                        $code = (string)($accRow['account_code'] ?? '');
+                        $name = strtolower((string)($accRow['name'] ?? ''));
+                        $group = strtolower((string)($accRow['report_group'] ?? ''));
+                        if (str_starts_with($code, '311') || str_starts_with($code, '312') || str_contains($name, 'paid-up') || str_contains($name, 'paid up') || str_contains($name, 'cbu') || str_contains($group, 'paid-up')) {
+                            $isShareCapital = true;
                         }
                     }
+                }
 
-                    if ($isShareCapital) {
-                        // Find or create CBU account
-                        $cbuStmt = $this->db->prepare("SELECT * FROM share_capital_accounts WHERE member_id = ? LIMIT 1");
-                        $cbuStmt->execute([$targetMemberId]);
-                        $cbuAcc = $cbuStmt->fetch(PDO::FETCH_ASSOC);
+                if ($isShareCapital) {
+                    // Find or create CBU account
+                    $cbuStmt = $this->db->prepare("SELECT * FROM share_capital_accounts WHERE member_id = ? LIMIT 1");
+                    $cbuStmt->execute([$targetMemberId]);
+                    $cbuAcc = $cbuStmt->fetch(PDO::FETCH_ASSOC);
 
-                        $parVal = (float)($cbuAcc['par_value'] ?? 100);
-                        if ($parVal <= 0) $parVal = 100;
-                        $addedShares = (int)floor($credit / $parVal);
-                        if ($addedShares <= 0) $addedShares = 1;
+                    $parVal = (float)($cbuAcc['par_value'] ?? 100);
+                    if ($parVal <= 0) $parVal = 100;
+                    $addedShares = (int)floor($credit / $parVal);
+                    if ($addedShares <= 0) $addedShares = 1;
 
-                        if (!$cbuAcc) {
-                            $newAccId = 'cbu_' . bin2hex(random_bytes(6));
-                            $newAccNo = 'CBU-' . date('Y') . '-' . str_pad((string)mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
-                            $initSub = max(100, $addedShares);
-                            $insCbu = $this->db->prepare("
+                    if (!$cbuAcc) {
+                        $newAccId = 'cbu_' . bin2hex(random_bytes(6));
+                        $newAccNo = 'CBU-' . date('Y') . '-' . str_pad((string)mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
+                        $initSub = max(100, $addedShares);
+                        $insCbu = $this->db->prepare("
                                 INSERT INTO share_capital_accounts (
                                     id, account_number, member_id, branch_id, par_value,
                                     subscribed_shares, subscribed_amount, paid_up_shares, paid_up_amount, status, created_at
                                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', NOW())
                             ");
-                            $insCbu->execute([
-                                $newAccId,
-                                $newAccNo,
-                                $targetMemberId,
-                                $branchId,
-                                $parVal,
-                                $initSub,
-                                $initSub * $parVal,
-                                $addedShares,
-                                $credit
-                            ]);
-                            $cbuAccId = $newAccId;
-                            $cbuBalance = $credit;
-                        } else {
-                            $cbuAccId = $cbuAcc['id'];
-                            $newPaidShares = (int)($cbuAcc['paid_up_shares'] ?? 0) + $addedShares;
-                            $newPaidAmount = (float)($cbuAcc['paid_up_amount'] ?? 0) + $credit;
-                            $newSubShares = max((int)($cbuAcc['subscribed_shares'] ?? 0), $newPaidShares);
-                            $newSubAmount = $newSubShares * $parVal;
+                        $insCbu->execute([
+                            $newAccId,
+                            $newAccNo,
+                            $targetMemberId,
+                            $branchId,
+                            $parVal,
+                            $initSub,
+                            $initSub * $parVal,
+                            $addedShares,
+                            $credit
+                        ]);
+                        $cbuAccId = $newAccId;
+                        $cbuBalance = $credit;
+                    } else {
+                        $cbuAccId = $cbuAcc['id'];
+                        $newPaidShares = (int)($cbuAcc['paid_up_shares'] ?? 0) + $addedShares;
+                        $newPaidAmount = (float)($cbuAcc['paid_up_amount'] ?? 0) + $credit;
+                        $newSubShares = max((int)($cbuAcc['subscribed_shares'] ?? 0), $newPaidShares);
+                        $newSubAmount = $newSubShares * $parVal;
 
-                            $updCbu = $this->db->prepare("
+                        $updCbu = $this->db->prepare("
                                 UPDATE share_capital_accounts
                                 SET paid_up_shares = ?, paid_up_amount = ?, subscribed_shares = ?, subscribed_amount = ?
                                 WHERE id = ?
                             ");
-                            $updCbu->execute([$newPaidShares, $newPaidAmount, $newSubShares, $newSubAmount, $cbuAccId]);
-                            $cbuBalance = $newPaidAmount;
-                        }
+                        $updCbu->execute([$newPaidShares, $newPaidAmount, $newSubShares, $newSubAmount, $cbuAccId]);
+                        $cbuBalance = $newPaidAmount;
+                    }
 
-                        // Insert transaction
-                        $txId = 'sct_' . bin2hex(random_bytes(6));
-                        $insTx = $this->db->prepare("
+                    // Insert transaction
+                    $txId = 'sct_' . bin2hex(random_bytes(6));
+                    $insTx = $this->db->prepare("
                             INSERT INTO share_capital_transactions (
                                 id, share_capital_account_id, share_account_id, member_id,
                                 type, transaction_type, shares, amount, balance_after,
                                 reference_no, receipt_no, transaction_date, notes, created_at
                             ) VALUES (?, ?, ?, ?, 'PAYMENT', 'PAYMENT', ?, ?, ?, ?, ?, ?, ?, NOW())
                         ");
-                        $insTx->execute([
-                            $txId,
-                            $cbuAccId,
-                            $cbuAccId,
-                            $targetMemberId,
-                            $addedShares,
-                            $credit,
-                            $cbuBalance,
-                            $voucherNo,
-                            $voucherNo,
-                            $postingDate,
-                            "Journal Voucher ({$voucherNo}): Paid-Up Share Capital Contribution"
-                        ]);
-                    }
+                    $insTx->execute([
+                        $txId,
+                        $cbuAccId,
+                        $cbuAccId,
+                        $targetMemberId,
+                        $addedShares,
+                        $credit,
+                        $cbuBalance,
+                        $voucherNo,
+                        $voucherNo,
+                        $postingDate,
+                        "Journal Voucher ({$voucherNo}): Paid-Up Share Capital Contribution"
+                    ]);
                 }
             }
+
 
             $this->db->commit();
             return $this->findJournalEntry($id) ?? [];
@@ -440,7 +507,7 @@ class AccountingRepository
                 'type2' => $type,
                 'desc'  => $desc,
                 'debit' => $debit,
-                'credit'=> $credit
+                'credit' => $credit
             ]);
         } catch (\Exception $e) {
             // Fallback for schemas with only event_type
@@ -454,7 +521,7 @@ class AccountingRepository
                     'type'  => $type,
                     'desc'  => $desc,
                     'debit' => $debit,
-                    'credit'=> $credit
+                    'credit' => $credit
                 ]);
             } catch (\Exception $e2) {
                 // Return payload in memory
@@ -499,7 +566,8 @@ class AccountingRepository
                 try {
                     $upd = $this->db->prepare("UPDATE accounting_mappings SET name = COALESCE(:name, name), description = COALESCE(:desc, description) WHERE id = :id");
                     $upd->execute(['name' => $name, 'desc' => $desc, 'id' => $id]);
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                }
             }
 
             return array_merge(['id' => $id], $data);
@@ -537,7 +605,8 @@ class AccountingRepository
             foreach ($defaults as $m) {
                 $this->saveAccountingMapping($m);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
 
         return $defaults;
     }

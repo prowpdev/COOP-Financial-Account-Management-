@@ -67,7 +67,7 @@ class CustomFieldSeeder
                 1,
                 4,
             ],
-            [
+                        [
                 'cf_mem_05',
                 'Member',
                 'id_photo',

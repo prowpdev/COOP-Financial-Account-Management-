@@ -38,6 +38,7 @@ class DatabaseResetter
           'share_capital_settings',
           'cash_transactions',
           'loans',
+          'loan_applications',
           ///////////////////////////////////////
           'chart_of_accounts',
           'accounting_mappings',
@@ -62,8 +63,8 @@ class DatabaseResetter
           'cooperatives',
           'system_settings',
           'transaction_types',
-          'user_roles',
-          'users',
+        //   'user_roles',
+        //   'users',
 
 
         ];
