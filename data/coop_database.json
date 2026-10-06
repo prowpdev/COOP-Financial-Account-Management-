@@ -1214,6 +1214,131 @@
       "is_required": false,
       "default_value": "",
       "active": true
+    },
+    {
+      "id": "cf_user_id_doc",
+      "entity": "User",
+      "field_name": "government_id",
+      "field_label": "Government Valid ID",
+      "field_type": "PDF",
+      "options": [
+        "Passport",
+        "Driver License",
+        "UMID / SSS",
+        "PhilID / National ID",
+        "Voter ID"
+      ],
+      "required": true,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_contract",
+      "entity": "User",
+      "field_name": "employment_contract",
+      "field_label": "Employment Contract & Appointment Letter",
+      "field_type": "PDF",
+      "options": [],
+      "required": true,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_biodata",
+      "entity": "User",
+      "field_name": "resume_biodata",
+      "field_label": "Curriculum Vitae / Biodata",
+      "field_type": "Document",
+      "options": [],
+      "required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_photo",
+      "entity": "User",
+      "field_name": "user_photo",
+      "field_label": "Official 2x2 Photo / Portrait",
+      "field_type": "Image",
+      "options": [],
+      "required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_spreadsheet",
+      "entity": "User",
+      "field_name": "worksheets_excel",
+      "field_label": "Worksheets & Audit Spreadsheets",
+      "field_type": "Excel",
+      "options": [],
+      "required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_certifications",
+      "entity": "User",
+      "field_name": "certifications",
+      "field_label": "Professional Certifications & Accreditations",
+      "field_type": "PDF",
+      "options": [],
+      "required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "cf_user_other_files",
+      "entity": "User",
+      "field_name": "other_attachments",
+      "field_label": "Supporting Files & Attachments",
+      "field_type": "File",
+      "options": [],
+      "required": false,
+      "default_value": "",
+      "active": true
+    },
+    {
+      "id": "udoc_1791271374833_l6x2vl",
+      "entity": "User",
+      "user_id": "usr_1790075837467_grza",
+      "field_name": "doc_1791271374833_qvad",
+      "field_key": "doc_1791271374833_qvad",
+      "field_label": "Official CDA Appointment Contract (Updated 2026)",
+      "label": "Official CDA Appointment Contract (Updated 2026)",
+      "field_type": "PDF",
+      "category": "Employment & Contracts",
+      "options": [
+        "Employment & Contracts"
+      ],
+      "required": false,
+      "default_value": "",
+      "active": true,
+      "file_name": "CDA_Appointment_2026.pdf",
+      "name": "CDA_Appointment_2026.pdf",
+      "file_type": "application/pdf",
+      "file_size": 204850,
+      "size": 204850,
+      "data_url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+      "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+      "url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+      "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+      "notes": "Verified by Board of Directors",
+      "uploaded_at": "2026-10-06T07:22:54.833Z",
+      "uploaded_by": "System Admin",
+      "file_data": {
+        "id": "udoc_1791271374833_l6x2vl",
+        "name": "CDA_Appointment_2026.pdf",
+        "title": "Official CDA Appointment Contract",
+        "type": "application/pdf",
+        "size": 204850,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+        "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+        "category": "Employment & Contracts",
+        "notes": "Official certified appointment contract on file",
+        "uploaded_at": "2026-10-06T07:22:54.833Z"
+      },
+      "updated_at": "2026-10-06T07:23:02.719Z"
     }
   ],
   "member_types": [
@@ -2186,6 +2311,24 @@
       "changed_by": "Administrator",
       "created_at": "2026-10-02T13:03:21.500Z",
       "reason": "Added new member custom attribute"
+    },
+    {
+      "id": "audit_1791271374835_i601i4",
+      "setting": "User Document Uploaded: Official CDA Appointment Contract",
+      "old_value": "None",
+      "new_value": "Attached CDA_Appointment_2026.pdf (PDF) to user Jhomel Ignacio (usr_1790075837467_grza)",
+      "changed_by": "System Admin",
+      "created_at": "2026-10-06T07:22:54.835Z",
+      "reason": "User account document management"
+    },
+    {
+      "id": "audit_1791271382721_6bkjw5",
+      "setting": "User Document Updated: Official CDA Appointment Contract (Updated 2026)",
+      "old_value": "Official CDA Appointment Contract",
+      "new_value": "Official CDA Appointment Contract (Updated 2026)",
+      "changed_by": "Admin",
+      "created_at": "2026-10-06T07:23:02.721Z",
+      "reason": "Updated document metadata"
     }
   ],
   "user_roles": [
@@ -2291,7 +2434,95 @@
       "branch_id": "branch_tar",
       "active": true,
       "last_login": "2026-09-22T11:17:17.467Z",
-      "created_at": "2026-09-22T11:17:17.468Z"
+      "created_at": "2026-09-22T11:17:17.468Z",
+      "custom_field_values": {
+        "doc_1791271374833_qvad": {
+          "id": "udoc_1791271374833_l6x2vl",
+          "entity": "User",
+          "user_id": "usr_1790075837467_grza",
+          "field_name": "doc_1791271374833_qvad",
+          "field_key": "doc_1791271374833_qvad",
+          "field_label": "Official CDA Appointment Contract (Updated 2026)",
+          "label": "Official CDA Appointment Contract (Updated 2026)",
+          "field_type": "PDF",
+          "category": "Employment & Contracts",
+          "options": [
+            "Employment & Contracts"
+          ],
+          "required": false,
+          "default_value": "",
+          "active": true,
+          "file_name": "CDA_Appointment_2026.pdf",
+          "name": "CDA_Appointment_2026.pdf",
+          "file_type": "application/pdf",
+          "file_size": 204850,
+          "size": 204850,
+          "data_url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+          "notes": "Verified by Board of Directors",
+          "uploaded_at": "2026-10-06T07:22:54.833Z",
+          "uploaded_by": "System Admin",
+          "file_data": {
+            "id": "udoc_1791271374833_l6x2vl",
+            "name": "CDA_Appointment_2026.pdf",
+            "title": "Official CDA Appointment Contract",
+            "type": "application/pdf",
+            "size": 204850,
+            "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+            "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+            "category": "Employment & Contracts",
+            "notes": "Official certified appointment contract on file",
+            "uploaded_at": "2026-10-06T07:22:54.833Z"
+          },
+          "updated_at": "2026-10-06T07:23:02.719Z"
+        }
+      },
+      "documents": [
+        {
+          "id": "udoc_1791271374833_l6x2vl",
+          "entity": "User",
+          "user_id": "usr_1790075837467_grza",
+          "field_name": "doc_1791271374833_qvad",
+          "field_key": "doc_1791271374833_qvad",
+          "field_label": "Official CDA Appointment Contract (Updated 2026)",
+          "label": "Official CDA Appointment Contract (Updated 2026)",
+          "field_type": "PDF",
+          "category": "Employment & Contracts",
+          "options": [
+            "Employment & Contracts"
+          ],
+          "required": false,
+          "default_value": "",
+          "active": true,
+          "file_name": "CDA_Appointment_2026.pdf",
+          "name": "CDA_Appointment_2026.pdf",
+          "file_type": "application/pdf",
+          "file_size": 204850,
+          "size": 204850,
+          "data_url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "url": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+          "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+          "notes": "Verified by Board of Directors",
+          "uploaded_at": "2026-10-06T07:22:54.833Z",
+          "uploaded_by": "System Admin",
+          "file_data": {
+            "id": "udoc_1791271374833_l6x2vl",
+            "name": "CDA_Appointment_2026.pdf",
+            "title": "Official CDA Appointment Contract",
+            "type": "application/pdf",
+            "size": 204850,
+            "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MK...",
+            "path": "/uploads/user_docs/usr_1790075837467_grza_1791271374833_CDA_Appointment_2026.pdf",
+            "category": "Employment & Contracts",
+            "notes": "Official certified appointment contract on file",
+            "uploaded_at": "2026-10-06T07:22:54.833Z"
+          },
+          "updated_at": "2026-10-06T07:23:02.719Z"
+        }
+      ]
     }
   ]
 }

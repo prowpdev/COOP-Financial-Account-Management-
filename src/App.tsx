@@ -7,6 +7,7 @@ import { ExcelWorkbench } from './components/config/ExcelWorkbench';
 import { MembersModule } from './components/operations/MembersModule';
 import { MemberProfileView } from './components/operations/MemberProfileView';
 import { MemberCustomFieldsModule } from './components/operations/MemberCustomFieldsModule';
+import { UserDocumentManagementModule } from './components/operations/UserDocumentManagementModule';
 import { LoansModule } from './components/operations/LoansModule';
 import { SavingsModule } from './components/operations/SavingsModule';
 import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
@@ -41,6 +42,7 @@ const VALID_TABS: TabKey[] = [
   'members',
   'member_profile',
   'member_fields',
+  'user_documents',
   'loans',
   'savings',
   'share_capital',
@@ -74,7 +76,15 @@ const TAB_ALIASES: Record<string, TabKey> = {
   fields: 'member_fields',
   memberfields: 'member_fields',
   member_custom_fields: 'member_fields',
-  tin: 'member_fields'
+  tin: 'member_fields',
+  documents: 'user_documents',
+  user_documents: 'user_documents',
+  userdocuments: 'user_documents',
+  user_docs: 'user_documents',
+  userdocs: 'user_documents',
+  docs: 'user_documents',
+  files: 'user_documents',
+  document_management: 'user_documents'
 };
 
 const getInitialTab = (): TabKey => {
@@ -195,6 +205,7 @@ export default function App() {
         excel_workbench: 'Excel Grid Workbench',
         members: 'Member Registry',
         member_fields: 'Member Custom Fields & TIN',
+        user_documents: 'User Document Management',
         loans: 'Loans & Credit Facility',
         savings: 'Savings & Deposits',
         share_capital: 'Share Capital (CBU)',
@@ -540,6 +551,15 @@ export default function App() {
               branches={branches}
               onRefresh={refreshGlobalState}
               onNavigateToMembers={() => setActiveTab('members')}
+            />
+          )}
+
+          {activeTab === 'user_documents' && (
+            <UserDocumentManagementModule
+              currentUser={currentUser}
+              users={users}
+              branches={branches}
+              onRefresh={refreshGlobalState}
             />
           )}
 

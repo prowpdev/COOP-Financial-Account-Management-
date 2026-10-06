@@ -983,6 +983,40 @@ getLoanApplications: async (params?: {
   getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
   getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
 
+  // User Document Management (Stores to custom_fields with entity = 'User')
+  getUserDocuments: (params?: { user_id?: string; category?: string; field_type?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.user_id) q.set('user_id', params.user_id);
+    if (params?.category) q.set('category', params.category);
+    if (params?.field_type) q.set('field_type', params.field_type);
+    if (params?.search) q.set('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetchApi<{ success: boolean; data: any[]; count?: number }>(`/user-documents${qs}`);
+  },
+  getUserDocumentsByUserId: (userId: string) =>
+    fetchApi<{ success: boolean; data: { user_id: string; user_name: string; username: string; documents: any[]; definitions: any[] } }>(`/users/${userId}/documents`),
+  uploadUserDocument: (userId: string, docPayload: any) =>
+    fetchApi<{ success: boolean; message: string; data: any }>(`/users/${userId}/documents`, {
+      method: 'POST',
+      body: JSON.stringify({ ...docPayload, user_id: userId })
+    }),
+  updateUserDocument: (docId: string, updateData: any) =>
+    fetchApi<{ success: boolean; message: string; data: any }>(`/user-documents/${docId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData)
+    }),
+  deleteUserDocument: (docId: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/user-documents/${docId}`, {
+      method: 'DELETE'
+    }),
+  getUserCustomFields: () =>
+    fetchApi<{ success: boolean; data: any[] }>('/config/custom-fields?entity=User'),
+  createUserCustomField: (fieldData: any) =>
+    fetchApi<{ success: boolean; message?: string; data: any }>('/config/custom-fields', {
+      method: 'POST',
+      body: JSON.stringify({ ...fieldData, entity: 'User' })
+    }),
+
   // Member Portal Authentication & Endpoints
   memberLogin: (credentials: { identifier: string; password?: string }) =>
     fetchApi<{ success: boolean; message?: string; data: { member: any; token: string } }>('/auth/member-login', {

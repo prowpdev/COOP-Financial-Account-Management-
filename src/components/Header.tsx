@@ -19,7 +19,8 @@ import {
   LogIn,
   MoreVertical,
   Layers,
-  Sparkles
+  Sparkles,
+  FolderOpen
 } from 'lucide-react';
 import { Branch, User } from '../types';
 import { getApiBase, setApiBase, DEFAULT_API_BASE, api } from '../services/api';
@@ -422,6 +423,20 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <Wand2 className="w-4 h-4 text-emerald-400" />
                       <span>Setup Wizard</span>
+                    </button>
+                  )}
+
+                  {/* User Document Management */}
+                  {onNavigateTab && (
+                    <button
+                      onClick={() => {
+                        onNavigateTab('user_documents');
+                        setShowMobileMenu(false);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-blue-300 hover:bg-slate-800 text-left cursor-pointer"
+                    >
+                      <FolderOpen className="w-4 h-4 text-blue-400" />
+                      <span>User Documents</span>
                     </button>
                   )}
 

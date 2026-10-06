@@ -404,6 +404,83 @@ export const initialSeedData: DatabaseSchema = {
       required: false,
       default_value: '',
       active: true
+    },
+    {
+      id: 'cf_user_id_doc',
+      entity: 'User',
+      field_name: 'government_id',
+      field_label: 'Government Valid ID',
+      field_type: 'PDF',
+      options: ['Passport', 'Driver License', 'UMID / SSS', 'PhilID / National ID', 'Voter ID'],
+      required: true,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_contract',
+      entity: 'User',
+      field_name: 'employment_contract',
+      field_label: 'Employment Contract & Appointment Letter',
+      field_type: 'PDF',
+      options: [],
+      required: true,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_biodata',
+      entity: 'User',
+      field_name: 'resume_biodata',
+      field_label: 'Curriculum Vitae / Biodata',
+      field_type: 'Document',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_photo',
+      entity: 'User',
+      field_name: 'user_photo',
+      field_label: 'Official 2x2 Photo / Portrait',
+      field_type: 'Image',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_spreadsheet',
+      entity: 'User',
+      field_name: 'worksheets_excel',
+      field_label: 'Worksheets & Audit Spreadsheets',
+      field_type: 'Excel',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_certifications',
+      entity: 'User',
+      field_name: 'certifications',
+      field_label: 'Professional Certifications & Accreditations',
+      field_type: 'PDF',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
+    },
+    {
+      id: 'cf_user_other_files',
+      entity: 'User',
+      field_name: 'other_attachments',
+      field_label: 'Supporting Files & Attachments',
+      field_type: 'File',
+      options: [],
+      required: false,
+      default_value: '',
+      active: true
     }
   ],
 

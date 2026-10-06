@@ -16,7 +16,8 @@ import {
   ChevronRight,
   UserCircle,
   UserCheck,
-  X
+  X,
+  FolderOpen
 } from 'lucide-react';
 import { FeatureToggle } from '../types';
 
@@ -27,6 +28,7 @@ export type TabKey =
   | 'members'
   | 'member_profile'
   | 'member_fields'
+  | 'user_documents'
   | 'loans'
   | 'savings'
   | 'share_capital'
@@ -106,6 +108,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Custom Fields',
       icon: Sliders,
       badge: 'Fields',
+      alwaysShow: true
+    },
+    {
+      id: 'user_documents' as TabKey,
+      label: 'User Document Management',
+      shortLabel: 'User Docs',
+      icon: FolderOpen,
+      badge: 'Docs',
       alwaysShow: true
     },
     {

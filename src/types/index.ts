@@ -406,13 +406,47 @@ export interface UserRole {
   permissions: string[];
 }
 
+export interface UserDocument {
+  id: string;
+  entity: 'User';
+  user_id: string;
+  field_name: string;
+  field_key?: string;
+  field_label: string;
+  label?: string;
+  field_type: 'PDF' | 'Excel' | 'Document' | 'Image' | 'File' | string;
+  category: string;
+  file_name: string;
+  name?: string;
+  file_type?: string;
+  file_size?: number;
+  size?: number;
+  data_url?: string;
+  dataUrl?: string;
+  url?: string;
+  path?: string;
+  notes?: string;
+  uploaded_at: string;
+  uploaded_by?: string;
+  active?: boolean;
+  user_name?: string;
+  username?: string;
+  user_email?: string;
+  user_role?: string;
+}
+
 export interface User {
   id: string;
   name: string;
   username: string;
+  email?: string;
   role_id: string;
   role_name: string;
   branch_id: string;
+  branch_name?: string;
+  active?: boolean;
+  documents?: UserDocument[];
+  custom_field_values?: Record<string, any>;
 }
 
 export interface CoopProfile {
