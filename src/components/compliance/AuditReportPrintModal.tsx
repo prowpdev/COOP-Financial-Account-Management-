@@ -126,22 +126,52 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
   const handleDownloadHtml = () => {
     const reportElem = document.getElementById('audit-logs-report-print');
     if (!reportElem) return;
+    const stylesheetHref = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')?.href;
+    const stylesheetLink = stylesheetHref
+      ? `<link rel="stylesheet" href="${stylesheetHref.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">`
+      : '';
 
     const fullHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>CDA Regulatory Audit Trail Summary Report - ${new Date().toISOString().split('T')[0]}</title>
+  ${stylesheetLink}
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #fff; color: #0f172a; }
     @media print {
-      body { padding: 0; }
-      @page { size: ${orientation}; margin: 10mm; }
-      .no-print { display: none !important; }
+      @page { size: ${orientation}; margin: 8mm; }
+      html, body { margin: 0; padding: 0; width: 100%; }
+      #audit-logs-report-print {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+        color: #0f172a;
+        background: #fff;
+      }
+      #audit-logs-report-print table { width: 100%; table-layout: fixed; page-break-inside: auto; }
+      #audit-logs-report-print thead { display: table-header-group; }
+      #audit-logs-report-print tr { break-inside: avoid; page-break-inside: avoid; }
+      #audit-logs-report-print .truncate { max-width: none !important; overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
+      #audit-logs-report-print td, #audit-logs-report-print th { overflow-wrap: anywhere; }
+      #audit-logs-report-print .overflow-x-auto { overflow: visible !important; }
+      #audit-logs-report-print .page-break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+      .no-print, .no-print-area { display: none !important; }
     }
     table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
     th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
     th { background-color: #f1f5f9; font-weight: 700; text-transform: uppercase; font-size: 10px; }
+    #audit-logs-report-print { box-sizing: border-box; width: 100%; max-width: none; color: #0f172a; background: #fff; }
+    #audit-logs-report-print .truncate { max-width: none !important; overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
+    #audit-logs-report-print .overflow-x-auto { overflow: visible !important; }
+    #audit-logs-report-print td, #audit-logs-report-print th { overflow-wrap: anywhere; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; border: 1px solid #cbd5e1; }
     .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 15px 0; }
     .kpi-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; }
@@ -190,37 +220,142 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div id="audit-logs-print-shell" className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       {/* Dynamic Print CSS Style */}
       <style>{`
         @media print {
+          html,
+          body,
+          #root {
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+          }
           body * {
             visibility: hidden !important;
           }
-          #audit-logs-report-print,
-          #audit-logs-report-print * {
+          #root,
+          #root *:has(#audit-logs-print-shell) {
+            display: contents !important;
+          }
+          #root *:not(:has(#audit-logs-print-shell)):not(#audit-logs-print-shell):not(#audit-logs-print-shell *) {
+            display: none !important;
+          }
+          #audit-logs-print-shell,
+          #audit-logs-print-shell * {
             visibility: visible !important;
           }
-          #audit-logs-report-print {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+          #audit-logs-print-shell {
+            position: static !important;
+            inset: auto !important;
+            display: block !important;
             width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding: 0 !important;
             margin: 0 !important;
-            padding: 8mm !important;
+            background: #ffffff !important;
+          }
+          #audit-logs-print-shell > div {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+          }
+          #audit-logs-print-shell .audit-print-hide {
+            display: none !important;
+          }
+          #audit-logs-print-preview {
+            display: block !important;
+            flex: none !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #ffffff !important;
+          }
+          #audit-logs-report-print {
+            position: static !important;
+            display: block !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #ffffff !important;
             color: #0f172a !important;
             box-shadow: none !important;
             border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            font-size: 8pt !important;
           }
           @page {
             size: ${orientation};
-            margin: 8mm;
+            margin: 7mm;
           }
           #audit-logs-report-print thead {
             display: table-header-group !important;
           }
-          #audit-logs-report-print tr {
+          #audit-logs-report-print table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+          }
+          #audit-logs-report-print .overflow-x-auto {
+            overflow: visible !important;
+          }
+          #audit-logs-report-print tr,
+          #audit-logs-report-print th,
+          #audit-logs-report-print td {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          #audit-logs-report-print td,
+          #audit-logs-report-print th {
+            overflow-wrap: anywhere !important;
+            word-break: normal !important;
+            padding: 2mm 1.5mm !important;
+            font-size: 7pt !important;
+          }
+          #audit-logs-report-print .truncate {
+            max-width: none !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+          }
+          #audit-logs-report-print .max-w-\\[100px\\],
+          #audit-logs-report-print .max-w-\\[110px\\],
+          #audit-logs-report-print .max-w-\\[220px\\] {
+            max-width: none !important;
+          }
+          #audit-logs-report-print .flex {
+            flex-wrap: wrap !important;
+          }
+          #audit-logs-report-print .space-y-6 > :not(:last-child) {
+            margin-bottom: 3mm !important;
+          }
+          #audit-logs-report-print .page-break-inside-avoid {
+            break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
           #audit-logs-report-print .no-print-area {
@@ -231,7 +366,7 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-7xl max-h-[96vh] flex flex-col shadow-2xl overflow-hidden my-auto">
         {/* Modal Top Bar */}
-        <div className="px-6 py-4 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
+        <div className="audit-print-hide px-6 py-4 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
               <Printer className="w-4 h-4" />
@@ -261,7 +396,7 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
         </div>
 
         {/* Options & Action Toolbar */}
-        <div className="px-6 py-3 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="audit-print-hide px-6 py-3 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-4">
             {/* Report Purpose Preset */}
             <div className="flex items-center space-x-1.5">
@@ -356,14 +491,14 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
         </div>
 
         {notice && (
-          <div className="px-6 py-2 bg-emerald-950/80 border-b border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center space-x-2">
+          <div className="audit-print-hide px-6 py-2 bg-emerald-950/80 border-b border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center space-x-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>{notice}</span>
           </div>
         )}
 
         {/* Report Preview Document */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950 flex justify-center">
+        <div id="audit-logs-print-preview" className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950 flex justify-center">
           <div
             id="audit-logs-report-print"
             className="w-full max-w-[1100px] bg-white text-slate-900 p-6 sm:p-10 rounded-xl border border-slate-200 shadow-xl space-y-6"
@@ -641,7 +776,7 @@ export const AuditReportPrintModal: React.FC<AuditReportPrintModalProps> = ({
                 CONFIDENTIAL • FOR OFFICIAL COOPERATIVE & CDA REGULATORY USE ONLY
               </div>
               <div>
-                Page 1 of 1 (Consolidated Summary)
+                End of Report
               </div>
             </div>
           </div>
