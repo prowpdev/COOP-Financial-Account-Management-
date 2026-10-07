@@ -1047,15 +1047,10 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs font-medium text-slate-300">Assigned Branch</label>
-                      <select
-                        value={personalForm.branch_id}
-                        onChange={e => setPersonalForm({ ...personalForm, branch_id: e.target.value })}
-                        className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
-                      >
-                        {branches.map(b => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                      </select>
+                      <input type="hidden" name="branch_id" value={personalForm.branch_id} />
+                      <div className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                        {branches.find(branch => branch.id === personalForm.branch_id)?.name || personalForm.branch_id}
+                      </div>
                     </div>
 
                     <div>

@@ -292,21 +292,7 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
           </p>
         </div>
 
-        {/* Branch Filter Selector */}
-        <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
-          <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-          <select
-            value={selectedBranch}
-            onChange={e => handleBranchChange(e.target.value)}
-            className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-          >
-            <option value="all" className="bg-slate-900 text-white">All Branches</option>
-            {branches.map(b => (
-              <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                {b.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => {
@@ -435,9 +421,10 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Branch</label>
-                  <select value={opening.branch_id} onChange={e => setOpening({ ...opening, branch_id: e.target.value })} className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
-                    {branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-                  </select>
+                  <input type="hidden" name="branch_id" value={opening.branch_id} />
+                  <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === opening.branch_id)?.name || opening.branch_id}
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                   <button type="button" onClick={() => setIsOpening(false)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl cursor-pointer">Cancel</button>

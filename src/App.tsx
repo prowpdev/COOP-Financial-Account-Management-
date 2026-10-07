@@ -152,7 +152,8 @@ export default function App() {
 
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const currentUser = authSession?.type === 'staff' ? authSession.user : null;
-  console.log('Current User:', currentUser);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
@@ -264,15 +265,18 @@ export default function App() {
     setIsLargeText(prev => !prev);
   };
 
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
-
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
   const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
   const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+
+  useEffect(() => {
+    if (currentUser?.branch_id) {
+      setSelectedBranchId(currentUser.branch_id);
+    }
+  }, [currentUser?.branch_id]);
 
   // Load foundational data
   const refreshGlobalState = async () => {
@@ -435,9 +439,6 @@ export default function App() {
       {/* Top Application Header */}
       <Header
         cooperativeName={profile.name}
-        branches={branches}
-        selectedBranchId={selectedBranchId}
-        onSelectBranch={setSelectedBranchId}
         currentUser={currentUser}
         onOpenVerification={() => setActiveTab('verification')}
         onResetSeed={handleReloadApp}

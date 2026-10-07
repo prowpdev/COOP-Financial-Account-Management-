@@ -823,23 +823,6 @@ const handleRepayBtn = async (
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch Filter Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => handleBranchChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <button
             id="btn-originate-loan"
             onClick={handleOpenOriginate}
@@ -1067,15 +1050,10 @@ const handleRepayBtn = async (
                   </div>
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Branch Jurisdiction</label>
-                    <select
-                      value={origForm.branch_id}
-                      onChange={e => setOrigForm({ ...origForm, branch_id: e.target.value })}
-                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:border-emerald-500 focus:outline-none"
-                    >
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
-                      ))}
-                    </select>
+                    <input type="hidden" name="branch_id" value={origForm.branch_id} />
+                    <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                      {branches.find(branch => branch.id === origForm.branch_id)?.name || origForm.branch_id}
+                    </div>
                   </div>
                 </div>
 
@@ -1431,16 +1409,9 @@ const handleRepayBtn = async (
                   </div>
                   <div>
                     <label className="text-xs text-slate-300 font-medium">Branch Jurisdiction</label>
-                    <select
-                      disabled
-                      value={updateLoanForm.branch_id}
-                      onChange={e => setupdateLoanForm({ ...updateLoanForm, branch_id: e.target.value })}
-                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:border-emerald-500 focus:outline-none"
-                    >
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
-                      ))}
-                    </select>
+                    <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                      {branches.find(branch => branch.id === updateLoanForm.branch_id)?.name || updateLoanForm.branch_id}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-emerald-300 font-medium">Status</label>

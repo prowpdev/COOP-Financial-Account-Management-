@@ -500,24 +500,8 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
           </p>
         </div>
 
-        {/* Controls: Branch Filter & Open Account */}
+        {/* Account actions */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <select
-              value={selectedBranch}
-              onChange={e => handleBranchChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <button
             type="button"
             id="btn-open-cbu-settings"
@@ -704,19 +688,10 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                   <Building2 className="w-3.5 h-3.5 text-amber-400" />
                   <span>Member Branch (Saved to Database)</span>
                 </label>
-                <select
-                  
-                  value={newAccount.branch_id}
-                  onChange={e => setNewAccount({ ...newAccount, branch_id: e.target.value })}
-                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
-                >
-                  <option value="">-- Select branch --</option>
-                  {branches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
+                <input type="hidden" name="branch_id" value={newAccount.branch_id} />
+                <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                  {branches.find(branch => branch.id === newAccount.branch_id)?.name || newAccount.branch_id}
+                </div>
                 <p className="text-[10px] text-slate-400 mt-1">
                   This branch will be saved directly on the share capital account database record.
                 </p>
@@ -891,17 +866,10 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                     <Building2 className="w-3.5 h-3.5 text-amber-400" />
                     <span>Branch</span>
                   </label>
-                  <select
-                    value={editForm.branch_id}
-                    onChange={e => setEditForm({ ...editForm, branch_id: e.target.value })}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={editForm.branch_id} />
+                  <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === editForm.branch_id)?.name || editForm.branch_id}
+                  </div>
                 </div>
               </div>
 

@@ -237,22 +237,6 @@ export const CashReceiptJournal: React.FC<CashReceiptJournalProps> = ({
           </div>
 
           <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => onSelectBranch(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <input
               type="date"

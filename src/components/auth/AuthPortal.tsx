@@ -48,7 +48,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [staffRegEmail, setStaffRegEmail] = useState('');
   const [staffRegPassword, setStaffRegPassword] = useState('');
   const [staffRegRoleId, setStaffRegRoleId] = useState('role_loan_officer');
-  const [staffRegBranchId, setStaffRegBranchId] = useState('branch_tar');
+  const staffRegBranchId = 'branch_tar';
 
   // Member Login fields
   const [memberIdentifier, setMemberIdentifier] = useState('');
@@ -63,7 +63,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [memPhone, setMemPhone] = useState('');
   const [memEmail, setMemEmail] = useState('');
   const [memAddress, setMemAddress] = useState('');
-  const [memBranchId, setMemBranchId] = useState('branch_tar');
+  const memBranchId = 'branch_tar';
   const [memTypeId, setMemTypeId] = useState('mt_regular');
   const [memFarmHectares, setMemFarmHectares] = useState('');
   const [memPrimaryCrop, setMemPrimaryCrop] = useState('');
@@ -526,13 +526,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Branch Assignment
                       </label>
-                      <select
-                        value={staffRegBranchId}
-                        onChange={(e) => setStaffRegBranchId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="branch_tar">Tarlac Main Branch (TAR)</option>
-                      </select>
+                      <div className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
+                        Tarlac Main Branch (TAR)
+                      </div>
                     </div>
                   </div>
 
@@ -698,13 +694,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">Branch</label>
-                      <select
-                        value={memBranchId}
-                        onChange={(e) => setMemBranchId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="branch_tar">Tarlac Main Branch</option>
-                      </select>
+                      <div className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
+                        Tarlac Main Branch
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">Membership Type</label>

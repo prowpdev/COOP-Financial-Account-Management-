@@ -342,17 +342,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <label className="block text-xs font-medium text-slate-300 mb-1">
                     Assigned Branch
                   </label>
-                  <select
-                    value={regForm.branch_id}
-                    onChange={e => setRegForm({ ...regForm, branch_id: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={regForm.branch_id} />
+                  <div className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === regForm.branch_id)?.name || regForm.branch_id}
+                  </div>
                 </div>
               </div>
 

@@ -3076,7 +3076,7 @@ function CashAccountsConfig({
     name: '',
     account_number: '',
     bank_name: '',
-    branch_id: 'branch_tar',
+    branch_id: currentUser.branch_id,
     gl_account_id: 'acc_1110',
     opening_balance: 10000
   });
@@ -3148,17 +3148,10 @@ function CashAccountsConfig({
             </div>
             <div>
               <label className="text-xs text-slate-300 font-medium">Assigned Branch</label>
-              <select
-                value={newCash.branch_id}
-                onChange={e => setNewCash({ ...newCash, branch_id: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white cursor-pointer"
-              >
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
-              </select>
+              <input type="hidden" name="branch_id" value={newCash.branch_id} />
+              <div className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-300">
+                {branches.find(branch => branch.id === newCash.branch_id)?.name || newCash.branch_id}
+              </div>
             </div>
             <div>
               <label className="text-xs text-slate-300 font-medium">Mapped GL Account</label>

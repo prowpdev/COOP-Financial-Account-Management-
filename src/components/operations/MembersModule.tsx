@@ -366,23 +366,6 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch Filter Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => handleBranchChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* View Switcher: Excel vs Cards */}
           <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
             <button
@@ -485,17 +468,10 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Registering Branch</label>
-                  <select
-                    value={form.branch_id}
-                    onChange={e => setForm({ ...form, branch_id: e.target.value })}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={form.branch_id} />
+                  <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === form.branch_id)?.name || form.branch_id}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Membership Classification</label>
@@ -767,15 +743,10 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Branch</label>
-                  <select
-                    value={editForm.branch_id}
-                    onChange={e => setEditForm({ ...editForm, branch_id: e.target.value })}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={editForm.branch_id} />
+                  <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === editForm.branch_id)?.name || editForm.branch_id}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Membership Classification</label>
@@ -1097,18 +1068,6 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <select
-                value={selectedBranch}
-                onChange={e => setSelectedBranch(e.target.value)}
-                className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 cursor-pointer"
-              >
-                <option value="all">All Branches</option>
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
             </div>
           </div>
 

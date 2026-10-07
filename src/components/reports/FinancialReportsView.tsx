@@ -184,23 +184,6 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch Filter Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => handleBranchChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches (Consolidated)</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <button
             onClick={downloadStatementCSV}
             className="flex items-center space-x-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 cursor-pointer"

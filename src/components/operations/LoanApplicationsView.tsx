@@ -474,26 +474,6 @@ export const LoanApplicationsView: React.FC<LoanApplicationsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Branch filter */}
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-2 rounded-xl border border-slate-800 text-xs">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => {
-                setSelectedBranch(e.target.value);
-                if (onSelectBranch) onSelectBranch(e.target.value);
-              }}
-              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <button
             onClick={loadData}
             disabled={isLoading}

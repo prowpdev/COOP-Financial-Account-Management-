@@ -33,9 +33,6 @@ import { useNotice } from './useNotice';
 
 interface HeaderProps {
   cooperativeName: string;
-  branches: Branch[];
-  selectedBranchId: string;
-  onSelectBranch: (branchId: string) => void;
   currentUser: User;
   onOpenVerification: () => void;
   onResetSeed: () => void;
@@ -55,9 +52,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   cooperativeName,
-  branches,
-  selectedBranchId,
-  onSelectBranch,
   currentUser,
   onOpenVerification,
   onResetSeed,
@@ -207,26 +201,8 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Branch Selector, Notification Bell & Actions */}
+          {/* Right Controls: Notification Bell & Actions */}
           <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-            {/* Branch Switcher (Responsive) */}
-            <div className="flex items-center bg-slate-800/90 rounded-xl px-2 sm:px-2.5 py-1.5 border border-slate-700 max-w-[140px] sm:max-w-none">
-              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 mr-1 sm:mr-1.5 shrink-0" />
-              <select
-                id="branch-selector"
-                value={selectedBranchId}
-                onChange={(e) => onSelectBranch(e.target.value)}
-                className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer pr-1 truncate"
-              >
-                <option value="all" className="bg-slate-800 text-slate-200">All Branches</option>
-                {branches.map(b => (
-                  <option key={b.id} value={b.id} className="bg-slate-800 text-slate-200">
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* Authenticated user identity */}
             <div className="hidden lg:flex items-center bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
               <UserCircle className="w-4 h-4 text-blue-400 mr-2 shrink-0" />

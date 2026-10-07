@@ -54,7 +54,6 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<DepositoryCategory>('ALL');
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [mappingStatusFilter, setMappingStatusFilter] = useState<'ALL' | 'MAPPED' | 'UNMAPPED'>('ALL');
 
   // Modals state
@@ -226,11 +225,6 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
         if (cat !== selectedCategory) return false;
       }
 
-      // Branch filter
-      if (selectedBranch !== 'all' && acc.branch_id !== selectedBranch) {
-        return false;
-      }
-
       // Mapping Status filter
       if (mappingStatusFilter === 'MAPPED') {
         return !!gl;
@@ -241,15 +235,15 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
 
       return true;
     });
-  }, [cashList, searchQuery, selectedCategory, selectedBranch, mappingStatusFilter, coaList]);
+  }, [cashList, searchQuery, selectedCategory, mappingStatusFilter, coaList]);
 
   // Handle Opening Account Modal
   const openAddModal = () => {
-    const defaultBranch = branchList[0]?.id || 'branch_tar';
+    const defaultBranch = currentUser?.branch_id || branchList[0]?.id || 'branch_tar';
     setFormData({
       name: '',
       category_preset: 'TELLER',
-      account_number: `COH-${branchList[0]?.code || 'TAR'}-02`,
+      account_number: `COH-${branchList.find(branch => branch.id === defaultBranch)?.code || 'TAR'}-02`,
       bank_name: 'Cash Drawer Float',
       branch_id: defaultBranch,
       gl_account_id: 'acc_1110',
@@ -788,21 +782,8 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
             ))}
           </div>
 
-          {/* Branch & Search Filter */}
+          {/* Search & Mapping Status Filter */}
           <div className="flex items-center space-x-2">
-            <select
-              value={selectedBranch}
-              onChange={e => setSelectedBranch(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
-            >
-              <option value="all">All Branches</option>
-              {branchList.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
-
             <select
               value={mappingStatusFilter}
               onChange={e => setMappingStatusFilter(e.target.value as any)}
@@ -1153,17 +1134,10 @@ export const CashAccountsConfigView: React.FC<CashAccountsConfigViewProps> = ({
                 {/* Assigned Branch */}
                 <div>
                   <label className="text-xs font-medium text-slate-300">Assigned Branch *</label>
-                  <select
-                    value={formData.branch_id}
-                    onChange={e => setFormData({ ...formData, branch_id: e.target.value })}
-                    className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    {branchList.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={formData.branch_id} />
+                  <div className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300">
+                    {branchList.find(branch => branch.id === formData.branch_id)?.name || formData.branch_id}
+                  </div>
                 </div>
 
                 {/* Opening Balance (Only for new) */}

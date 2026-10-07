@@ -489,23 +489,6 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch Filter Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <select
-              value={selectedBranch}
-              onChange={e => handleBranchChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-slate-900 text-white">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Action Quick-Buttons for New Cooperative Vouchers */}
           <div className="flex items-center space-x-2">
             <button
@@ -746,15 +729,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Branch Location</label>
-                  <select
-                    value={jvForm.branch_id}
-                    onChange={e => setJvForm({ ...jvForm, branch_id: e.target.value })}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
-                    ))}
-                  </select>
+                  <input type="hidden" name="branch_id" value={jvForm.branch_id} />
+                  <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
+                    {branches.find(branch => branch.id === jvForm.branch_id)?.name || jvForm.branch_id}
+                  </div>
                 </div>
 
                 {/* Associated Member Selector */}
