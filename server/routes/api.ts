@@ -4433,12 +4433,14 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
   const {
     title,
     field_label,
+    doc_key,
     field_name,
     name,
     file_name,
     category,
     field_type,
     file_type,
+    type,
     size,
     data_url,
     dataUrl,
@@ -4452,7 +4454,7 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
   const resolvedDataUrl = data_url || dataUrl || url || path || '';
   const resolvedFieldType = detectDocumentType(fileName, file_type, field_type);
   const docTitle = title || field_label || fileName.replace(/\.[^/.]+$/, '').replace(/[_\\-]/g, ' ');
-  const docKey = field_name || `doc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const docKey = doc_key || field_name || `doc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const docCategory = category || 'General Attachments';
 
   const docId = `udoc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
@@ -4474,7 +4476,7 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
     active: true,
     file_name: fileName,
     name: fileName,
-    file_type: file_type || 'application/octet-stream',
+    file_type: file_type || type || 'application/octet-stream',
     file_size: Number(size) || 0,
     size: Number(size) || 0,
     data_url: resolvedDataUrl,
@@ -4488,7 +4490,7 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
       id: docId,
       name: fileName,
       title: docTitle,
-      type: file_type || 'application/octet-stream',
+      type: file_type || type || 'application/octet-stream',
       size: Number(size) || 0,
       dataUrl: resolvedDataUrl,
       path: docPath,

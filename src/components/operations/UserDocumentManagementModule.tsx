@@ -120,9 +120,10 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
     setIsLoading(true);
     try {
       // 1. Fetch user documents from API (stores to custom_fields with entity = 'User')
-      const docRes = await api.getUserDocuments();
+      const docRes = await api.getUserDocuments(currentUser.id);
       if (docRes && docRes.data) {
         setDocuments(docRes.data);
+        console.log(docRes.data);
       }
 
       // 2. Fetch User entity custom fields definitions
@@ -144,6 +145,7 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
     loadUsers();
     loadData();
   }, []);
+ 
 
   // Filtered documents list for the active user (or all users if desired)
   const userFilteredDocs = useMemo(() => {
@@ -343,13 +345,13 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
       const payload = {
         user_id: selectedUserId,
         title: uploadTitle.trim(),
+        doc_key: uploadFieldKey || `udoc_${Date.now()}`,
         name: uploadFile?.name || `${uploadTitle}.bin`,
-        file_name: uploadFile?.name || `${uploadTitle}.bin`,
         category: uploadCategory,
-        field_name: uploadFieldKey || `udoc_${Date.now()}`,
         file_type: uploadFile?.type || 'application/octet-stream',
+        type: uploadFile?.type || 'application/octet-stream',
         size: uploadFile?.size || 0,
-        data_url: uploadFileDataUrl,
+        dataUrl: uploadFileDataUrl,
         notes: uploadNotes.trim(),
         performed_by: currentUser.name || currentUser.username
       };

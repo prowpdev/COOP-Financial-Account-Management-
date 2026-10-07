@@ -991,7 +991,8 @@ getLoanApplications: async (params?: {
     if (params?.field_type) q.set('field_type', params.field_type);
     if (params?.search) q.set('search', params.search);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return fetchApi<{ success: boolean; data: any[]; count?: number }>(`/user-documents${qs}`);
+    console.log(params)
+    return fetchApi<{ success: boolean; data: any[]; count?: number }>(`/api/users/user_admin/documents`);
   },
   getUserDocumentsByUserId: (userId: string) =>
     fetchApi<{ success: boolean; data: { user_id: string; user_name: string; username: string; documents: any[]; definitions: any[] } }>(`/users/${userId}/documents`),
