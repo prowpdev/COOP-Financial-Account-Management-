@@ -20,6 +20,7 @@ import { AuthPortal } from './components/auth/AuthPortal';
 import { MemberPortal } from './components/member/MemberPortal';
 import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
+import { clearAuthSession, loadAuthSession, saveAuthSession } from './services/authSession';
 import {
   Account,
   Branch,
@@ -87,8 +88,28 @@ const TAB_ALIASES: Record<string, TabKey> = {
   document_management: 'user_documents'
 };
 
+const getCoopStorageItem = (key: string): string | null => {
+  const value = localStorage.getItem(key);
+  const legacyKey = key.replace(/^coop_/, 'mayap_');
+  const legacyValue = localStorage.getItem(legacyKey);
+
+  if (value !== null) {
+    if (legacyValue !== null) localStorage.removeItem(legacyKey);
+    return value;
+  }
+
+  if (legacyValue !== null) {
+    localStorage.setItem(key, legacyValue);
+    localStorage.removeItem(legacyKey);
+  }
+
+  return legacyValue;
+};
+
 const getInitialTab = (): TabKey => {
   try {
+    const saved = getCoopStorageItem('coop_active_tab');
+
     // 1. Check URL Search Parameters (?tab=... or ?module=...)
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab') || searchParams.get('module');
@@ -112,9 +133,8 @@ const getInitialTab = (): TabKey => {
         return TAB_ALIASES[hash];
       }
     }
-
     // 3. Fallback to localStorage
-    const saved = localStorage.getItem('mayap_active_tab');
+    // 3. Fallback to localStorage
     if (saved && VALID_TABS.includes(saved as TabKey)) {
       return saved as TabKey;
     }
@@ -133,17 +153,7 @@ export default function App() {
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // Authentication State: persistent session (Staff vs Member)
-  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
-    try {
-      const saved = localStorage.getItem('coop_auth_session');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error('Failed to parse saved auth session:', e);
-    }
-    return null;
-  });
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
@@ -161,14 +171,14 @@ export default function App() {
 
   // UI Settings (Theme, Sidebar, Typography)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('mayap_theme') as 'dark' | 'light') || 'dark';
+    return (getCoopStorageItem('coop_theme') as 'dark' | 'light') || 'dark';
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem('mayap_sidebar_collapsed') === 'true';
+    return getCoopStorageItem('coop_sidebar_collapsed') === 'true';
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isLargeText, setIsLargeText] = useState<boolean>(() => {
-    return localStorage.getItem('mayap_large_text') === 'true';
+    return getCoopStorageItem('coop_large_text') === 'true';
   });
 
   useEffect(() => {
@@ -177,7 +187,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('light');
     }
-    localStorage.setItem('mayap_theme', theme);
+    localStorage.setItem('coop_theme', theme);
   }, [theme]);
 
   useEffect(() => {
@@ -186,7 +196,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('large-text');
     }
-    localStorage.setItem('mayap_large_text', String(isLargeText));
+    localStorage.setItem('coop_large_text', String(isLargeText));
   }, [isLargeText]);
 
   // Synchronize activeTab to URL Search Parameters (?tab=...) & document title
@@ -197,7 +207,7 @@ export default function App() {
         url.searchParams.set('tab', activeTab);
         window.history.replaceState({ tab: activeTab }, '', url.toString());
       }
-      localStorage.setItem('mayap_active_tab', activeTab);
+      localStorage.setItem('coop_active_tab', activeTab);
 
       const titleMap: Record<string, string> = {
         dashboard: 'Executive Dashboard',
@@ -238,7 +248,7 @@ export default function App() {
   const toggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('mayap_sidebar_collapsed', String(next));
+      localStorage.setItem('coop_sidebar_collapsed', String(next));
       return next;
     });
   };
@@ -321,7 +331,17 @@ export default function App() {
   };
 
   useEffect(() => {
-    refreshGlobalState();
+    const initializeApp = async () => {
+      try {
+        setAuthSession(await loadAuthSession());
+      } catch (error) {
+        console.error('Failed to decrypt saved authentication session:', error);
+        clearAuthSession();
+        setAuthSession(null);
+      }
+      await refreshGlobalState();
+    };
+    initializeApp();
 
     const handleOpenSetup = () => setIsSetupWizardOpen(true);
     const handleOpenAuth = () => setIsAuthModalOpen(true);
@@ -355,7 +375,7 @@ export default function App() {
   const handleLogout = () => {
     setAuthSession(null);
     try {
-      localStorage.removeItem('coop_auth_session');
+      clearAuthSession();
     } catch (e) {
       console.error('Failed to clear session:', e);
     }
@@ -385,8 +405,8 @@ export default function App() {
         member: memberToUse,
         token: `member_token_${Date.now()}`
       };
+      await saveAuthSession(memberSession);
       setAuthSession(memberSession);
-      localStorage.setItem('coop_auth_session', JSON.stringify(memberSession));
     } catch (e) {
       console.error('Failed to switch to member portal:', e);
     }
@@ -407,13 +427,14 @@ export default function App() {
   if (!authSession) {
     return (
       <AuthPortal
-        onSuccess={(session) => {
-          setAuthSession(session);
+        onSuccess={async (session) => {
           try {
-            localStorage.setItem('coop_auth_session', JSON.stringify(session));
-          } catch (e) {
-            console.error('Failed to save session:', e);
+            await saveAuthSession(session);
+          } catch (error) {
+            console.error('Failed to encrypt authentication session:', error);
+            return;
           }
+          setAuthSession(session);
           if (session.type === 'staff') {
             setCurrentUser(session.user);
           }
@@ -428,16 +449,19 @@ export default function App() {
       <MemberPortal
         member={authSession.member}
         onLogout={handleLogout}
-        onSwitchToStaff={() => {
+        onSwitchToStaff={async () => {
           const staffSession: AuthSession = {
             type: 'staff',
             user: currentUser,
             token: `staff_token_${Date.now()}`
           };
-          setAuthSession(staffSession);
           try {
-            localStorage.setItem('coop_auth_session', JSON.stringify(staffSession));
-          } catch (e) {}
+            await saveAuthSession(staffSession);
+          } catch (error) {
+            console.error('Failed to encrypt authentication session:', error);
+            return;
+          }
+          setAuthSession(staffSession);
         }}
       />
     );

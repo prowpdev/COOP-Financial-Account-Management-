@@ -455,6 +455,14 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 }) => {
   const getInitialTab = (): 'transactions' | 'loans' | 'savings' | 'cbu' | 'calculator' | 'profile' => {
     try {
+      let stored = localStorage.getItem('coop_active_route');
+      const legacyStored = localStorage.getItem('mayap_active_route');
+      if (stored === null && legacyStored !== null) {
+        localStorage.setItem('coop_active_route', legacyStored);
+        stored = legacyStored;
+      }
+      if (legacyStored !== null) localStorage.removeItem('mayap_active_route');
+
       const hash = window.location.hash || '';
       if (hash.includes('/calculator')) return 'calculator';
       if (hash.includes('/loans')) return 'loans';
@@ -462,7 +470,6 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       if (hash.includes('/cbu')) return 'cbu';
       if (hash.includes('/profile')) return 'profile';
       if (hash.includes('/transactions')) return 'transactions';
-      const stored = localStorage.getItem('mayap_active_route');
       if (stored && stored.startsWith('member-portal/')) {
         const sub = stored.split('/')[1] as any;
         if (['transactions', 'loans', 'savings', 'cbu', 'calculator', 'profile'].includes(sub)) {
@@ -502,7 +509,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     setActiveTab(tab);
     window.location.hash = `#/member-portal/${tab}`;
     try {
-      localStorage.setItem('mayap_active_route', `member-portal/${tab}`);
+      localStorage.setItem('coop_active_route', `member-portal/${tab}`);
     } catch (e) {}
   };
 

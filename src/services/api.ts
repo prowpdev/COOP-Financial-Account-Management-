@@ -1,4 +1,5 @@
 import { ShareCapitalSetting } from '../types';
+import { loadAuthSession } from './authSession';
 
 export const DEFAULT_API_BASE = 'http://coop-backend.test/api/';
 
@@ -40,6 +41,27 @@ export function getApiBase() {
 
 export const API_BASE = activeApiBase;
 
+async function getAuthToken(): Promise<string | undefined> {
+  if (typeof window === 'undefined') return undefined;
+
+  const session = await loadAuthSession();
+  return session?.token || undefined;
+}
+
+async function createRequestHeaders(headers?: HeadersInit): Promise<Headers> {
+  const requestHeaders = new Headers(headers);
+  if (!requestHeaders.has('Content-Type')) {
+    requestHeaders.set('Content-Type', 'application/json');
+  }
+
+  const token = await getAuthToken();
+  if (token) {
+    requestHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
+  return requestHeaders;
+}
+
 export function safeArray<T = any>(payload: any): T[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
@@ -77,11 +99,8 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
 
   try {
     const response = await fetch(targetUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options?.headers || {})
-      },
-      ...options
+      ...options,
+      headers: await createRequestHeaders(options?.headers)
     });
 
     const data = await response.json();
@@ -103,11 +122,8 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
       try {
         const fallbackUrl = `/api${cleanEndpoint}`;
         const fallbackRes = await fetch(fallbackUrl, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(options?.headers || {})
-          },
-          ...options
+          ...options,
+          headers: await createRequestHeaders(options?.headers)
         });
         const fallbackData = await fallbackRes.json();
         if (fallbackRes.ok && fallbackData.success !== false) {
