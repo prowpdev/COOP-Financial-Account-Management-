@@ -34,7 +34,79 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { User, UserDocument, CustomField, Branch } from '../../types';
-import { api } from '../../services/api';
+import { api, getApiBase } from '../../services/api';
+
+const resolveDocumentUrl = (path: string) =>
+  new URL(path, new URL(getApiBase(), window.location.origin)).toString();
+
+const inferDocumentType = (mimeType: string, fileName: string): UserDocument['field_type'] => {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (mimeType === 'application/pdf' || extension === 'pdf') return 'PDF';
+  if (
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('excel') ||
+    ['xlsx', 'xls', 'csv'].includes(extension || '')
+  ) return 'Excel';
+  if (
+    mimeType.startsWith('image/') ||
+    ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(extension || '')
+  ) return 'Image';
+  if (
+    mimeType.includes('word') ||
+    mimeType.startsWith('text/') ||
+    ['doc', 'docx', 'txt', 'rtf'].includes(extension || '')
+  ) return 'Document';
+  return 'File';
+};
+
+const normalizeUserDocuments = (response: { data?: unknown; documents?: unknown }, userId: string): UserDocument[] => {
+  const data = response.data;
+  let entries: Array<[string, unknown]> = [];
+
+  if (Array.isArray(data)) {
+    entries = data.map((doc, index) => [String(index), doc]);
+  } else if (data && typeof data === 'object') {
+    const dataObject = data as Record<string, unknown>;
+    if (Array.isArray(dataObject.documents)) {
+      entries = dataObject.documents.map((doc, index) => [String(index), doc]);
+    } else {
+      entries = Object.entries(dataObject).filter(([, doc]) => doc !== null && typeof doc === 'object');
+    }
+  }
+  if (entries.length === 0 && Array.isArray(response.documents)) {
+    entries = response.documents.map((doc, index) => [String(index), doc]);
+  }
+
+  return entries.map(([key, value]) => {
+    const doc = value as Record<string, unknown>;
+    const fileName = String(doc.file_name || doc.name || 'document');
+    const mimeType = String(doc.file_type || doc.type || '');
+    const path = typeof doc.path === 'string' ? doc.path : '';
+    const url = typeof doc.url === 'string' ? doc.url : path;
+    const documentId = String(doc.id || key);
+
+    return {
+      ...doc,
+      id: documentId,
+      entity: 'User',
+      user_id: String(doc.user_id || userId),
+      field_name: String(doc.field_name || key),
+      field_key: String(doc.field_key || key),
+      field_label: String(doc.field_label || doc.title || doc.name || fileName),
+      label: String(doc.label || doc.name || fileName),
+      field_type: String(doc.field_type || inferDocumentType(mimeType, fileName)),
+      category: String(doc.category || 'General Attachments'),
+      file_name: fileName,
+      name: String(doc.name || fileName),
+      file_type: mimeType,
+      file_size: Number(doc.file_size || doc.size || 0),
+      size: Number(doc.size || doc.file_size || 0),
+      path,
+      url: url ? resolveDocumentUrl(url) : undefined,
+      uploaded_at: String(doc.uploaded_at || '')
+    } as UserDocument;
+  });
+};
 
 interface UserDocumentManagementModuleProps {
   currentUser: User;
@@ -120,13 +192,12 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
     setIsLoading(true);
     try {
       // 1. Fetch user documents from API (stores to user_documents table)
-      const docRes = await api.getUserDocuments(selectedUserId || currentUser.id);
-      if (docRes && docRes.data) {
-        const rawDocs = Array.isArray(docRes.data)
-          ? docRes.data
-          : ((docRes as any).documents || (docRes.data as any).documents || []);
-        setDocuments(rawDocs);
+      const userId = selectedUserId || currentUser.id;
+      const docRes = await api.getUserDocuments(userId);
+      if (docRes.success === false) {
+        throw new Error('Failed to load documents');
       }
+      setDocuments(normalizeUserDocuments(docRes, userId));
 
       // 2. Fetch User entity custom fields definitions
       const cfRes = await api.getUserCustomFields();
@@ -428,7 +499,7 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
   const handleDownload = (doc: UserDocument) => {
     try {
       const link = document.createElement('a');
-      link.href = doc.data_url || doc.dataUrl || doc.url || '';
+      link.href = doc.data_url || doc.dataUrl || doc.url || doc.path || '';
       link.download = doc.file_name || doc.name || `${doc.field_label || 'document'}`;
       document.body.appendChild(link);
       link.click();
@@ -1410,9 +1481,9 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
                     className="max-h-[58vh] object-contain"
                   />
                 </div>
-              ) : String(previewDoc.field_type).toUpperCase() === 'PDF' && (previewDoc.data_url || previewDoc.dataUrl)?.startsWith('data:application/pdf') ? (
+              ) : String(previewDoc.field_type).toUpperCase() === 'PDF' && (previewDoc.data_url || previewDoc.dataUrl || previewDoc.url || previewDoc.path) ? (
                 <iframe
-                  src={previewDoc.data_url || previewDoc.dataUrl}
+                  src={previewDoc.data_url || previewDoc.dataUrl || previewDoc.url || previewDoc.path}
                   title={previewDoc.field_label}
                   className="w-full h-[60vh] rounded-xl border border-slate-800"
                 />

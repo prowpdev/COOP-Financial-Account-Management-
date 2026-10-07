@@ -259,7 +259,7 @@ export default function App() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User>({
-    id: 'usr_admin',
+    id: 'usr_933088ead62c0a82',
     name: 'Administrator',
     role_id: 'role_admin',
     role_name: 'Administrator',

@@ -999,11 +999,11 @@ getLoanApplications: async (params?: {
       if (params.search) q.set('search', params.search);
     }
     const qs = q.toString() ? `?${q.toString()}` : '';
-    const endpoint = userId ? `/users/${encodeURIComponent(userId)}/documents${qs}` : `/user-documents${qs}`;
-    return fetchApi<{ success: boolean; data: any[]; documents?: any[]; user?: any; count?: number }>(endpoint);
+    const endpoint = userId ? `/users/${encodeURIComponent(userId)}/documents` : `/user-documents${qs}`;
+    return fetchApi<{ success: boolean; data: any[] | Record<string, any>; documents?: any[]; user?: any; count?: number }>(endpoint);
   },
   getUserDocumentsByUserId: (userId: string) =>
-    fetchApi<{ success: boolean; data: any[]; documents?: any[]; user?: any; count?: number }>(`/users/${encodeURIComponent(userId)}/documents`),
+    fetchApi<{ success: boolean; data: any[] | Record<string, any>; documents?: any[]; user?: any; count?: number }>(`/users/${encodeURIComponent(userId)}/documents`),
   uploadUserDocument: (userId: string, docPayload: any) =>
     fetchApi<{ success: boolean; message: string; data: any; user?: any }>(`/users/${encodeURIComponent(userId)}/documents`, {
       method: 'POST',
