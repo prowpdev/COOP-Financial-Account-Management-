@@ -37,8 +37,6 @@ interface HeaderProps {
   selectedBranchId: string;
   onSelectBranch: (branchId: string) => void;
   currentUser: User;
-  users: User[];
-  onSwitchUser: (user: User) => void;
   onOpenVerification: () => void;
   onResetSeed: () => void;
   isResetting: boolean;
@@ -61,8 +59,6 @@ export const Header: React.FC<HeaderProps> = ({
   selectedBranchId,
   onSelectBranch,
   currentUser,
-  users,
-  onSwitchUser,
   onOpenVerification,
   onResetSeed,
   isResetting: isResettingProp = false,
@@ -84,7 +80,6 @@ export const Header: React.FC<HeaderProps> = ({
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
   const [isSavedNotice, setIsSavedNotice] = useState(false);
-  const [usersState, setUsersState] = useState(users);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -95,19 +90,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [isSeeding, setIsSeeding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-
-  const populateUsers = async () => {
-    try {
-      const res = await api.getUsers();
-      setUsersState(res.data || []);
-    } catch (e) {
-      console.error('Failed to populate users:', e);
-    }
-  };
-
-  useEffect(() => {
-    populateUsers();
-  }, []);
 
   useEffect(() => {
     const handleEndpointChange = (e: any) => {
@@ -137,7 +119,6 @@ export const Header: React.FC<HeaderProps> = ({
     try {
       await api.LoadSeeders();
       showNotice('Sample cooperative database seeded successfully with members, loans, savings, and balanced journals!', 'success');
-      await populateUsers();
       window.dispatchEvent(new Event('coop:data-changed'));
     } catch (error: any) {
       showNotice(
@@ -156,7 +137,6 @@ export const Header: React.FC<HeaderProps> = ({
     try {
       await api.ResetSeeders();
       showNotice('Database reset successfully to baseline CDA chart of accounts and settings.', 'success');
-      await populateUsers();
       window.dispatchEvent(new Event('coop:data-changed'));
     } catch (error: any) {
       showNotice(
@@ -247,25 +227,12 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Persona / User Switcher (Hidden on small screens, accessible in mobile menu) */}
+            {/* Authenticated user identity */}
             <div className="hidden lg:flex items-center bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
               <UserCircle className="w-4 h-4 text-blue-400 mr-2 shrink-0" />
-              <span className="text-xs text-slate-400 mr-1 hidden xl:inline">Role:</span>
-              <select
-                id="user-role-switcher"
-                value={currentUser.id}
-                onChange={(e) => {
-                  const u = users.find(user => user.id === e.target.value);
-                  if (u) onSwitchUser(u);
-                }}
-                className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer pr-1"
-              >
-                {users.map(u => (
-                  <option key={u.id} value={u.id} className="bg-slate-800 text-slate-200">
-                    {u.username} ({u.role_id})
-                  </option>
-                ))}
-              </select>
+              <span className="text-xs text-slate-200 font-medium">
+                {currentUser.name || currentUser.username} ({currentUser.role_name || currentUser.role_id})
+              </span>
             </div>
 
             {/* Notification Bell Icon for Loan Applications & Interest Alerts */}
@@ -387,29 +354,15 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Mobile Dropdown Menu */}
               {showMobileMenu && (
                 <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                  {/* Role Switcher in Mobile */}
+                  {/* Authenticated user identity */}
                   <div className="p-2 bg-slate-800/80 rounded-xl mb-1">
                     <div className="flex items-center space-x-2 text-xs text-slate-400 mb-1">
                       <UserCircle className="w-4 h-4 text-blue-400" />
-                      <span>Active Role / User:</span>
+                      <span>Signed in as:</span>
                     </div>
-                    <select
-                      value={currentUser.id}
-                      onChange={(e) => {
-                        const u = users.find(user => user.id === e.target.value);
-                        if (u) {
-                          onSwitchUser(u);
-                          setShowMobileMenu(false);
-                        }
-                      }}
-                      className="w-full bg-slate-900 text-xs text-slate-200 border border-slate-700 rounded-lg p-1.5 focus:outline-none"
-                    >
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>
-                          {u.username} ({u.role_id})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="text-xs text-slate-200">
+                      {currentUser.name || currentUser.username} ({currentUser.role_name || currentUser.role_id})
+                    </div>
                   </div>
 
                   {/* Setup Wizard */}
@@ -632,5 +585,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-

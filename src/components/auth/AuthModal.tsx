@@ -15,27 +15,21 @@ import {
   EyeOff,
   Sparkles
 } from 'lucide-react';
-import { Branch, User } from '../../types';
+import { AuthSession, Branch } from '../../types';
 import { api } from '../../services/api';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser: User;
-  users: User[];
   branches: Branch[];
-  onLoginSuccess: (user: User) => void;
-  onUserRegistered?: (user: User) => void;
+  onLoginSuccess: (session: AuthSession) => void | Promise<void>;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  currentUser,
-  users,
   branches,
   onLoginSuccess,
-  onUserRegistered
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -75,14 +69,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         password: loginForm.password
       });
 
-      if (res.success && res.data?.user) {
+      if (res.success && res.data?.user && res.data.token) {
         setSuccessMessage(`Authenticated as ${res.data.user.name}`);
-        onLoginSuccess(res.data.user);
+        await onLoginSuccess({
+          type: 'staff',
+          user: res.data.user,
+          token: res.data.token
+        });
         setTimeout(() => {
           onClose();
         }, 1200);
       } else {
-        throw new Error(res.message || 'Invalid credentials.');
+        throw new Error(res.message || 'The authentication response did not include a user and access token.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed. Please verify your username and password.');
@@ -118,13 +116,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       if (res.success) {
-        const newUser: User = res.data;
-        setSuccessMessage(`Account created for ${newUser.name}! Logging you in...`);
-        if (onUserRegistered) onUserRegistered(newUser);
-        onLoginSuccess(newUser);
+        const newUser = res.data.user || res.data;
+        setSuccessMessage(`Account created for ${newUser.name || newUser.username}. Sign in to continue.`);
         setTimeout(() => {
           onClose();
-        }, 1500);
+        }, 1200);
       } else {
         throw new Error(res.message || 'Registration failed');
       }

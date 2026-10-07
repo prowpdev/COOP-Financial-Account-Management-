@@ -20,6 +20,7 @@ import { AuthPortal } from './components/auth/AuthPortal';
 import { MemberPortal } from './components/member/MemberPortal';
 import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
+import { clearAuthSession, loadAuthSession, saveAuthSession } from './services/authSession';
 import {
   Account,
   Branch,
@@ -28,9 +29,7 @@ import {
   CustomField,
   FeatureToggle,
   LoanProduct,
-  Member,
   MemberType,
-  User,
   AuthSession
 } from './types';
 import { RefreshCw } from 'lucide-react';
@@ -151,18 +150,9 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
-  // Authentication State: persistent session (Staff vs Member)
-  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
-    try {
-      const saved = localStorage.getItem('coop_auth_session');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error('Failed to parse saved auth session:', e);
-    }
-    return null;
-  });
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const currentUser = authSession?.type === 'staff' ? authSession.user : null;
+  console.log('Current User:', currentUser);
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
@@ -276,15 +266,6 @@ export default function App() {
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
-  const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: 'usr_933088ead62c0a82',
-    name: 'Administrator',
-    role_id: 'role_admin',
-    role_name: 'Administrator',
-    email: 'admin@coopflex.ph',
-    branch_id: 'branch_hq'
-  });
 
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -299,7 +280,6 @@ export default function App() {
       const [
         profRes,
         branchRes,
-        userRes,
         toggleRes,
         accRes,
         lpRes,
@@ -309,7 +289,6 @@ export default function App() {
       ] = await Promise.all([
         api.getCoopProfile(),
         api.getBranches(),
-        api.getUsers(),
         api.getFeatureToggles(),
         api.getAccounts(),
         api.getLoanProducts(),
@@ -320,12 +299,6 @@ export default function App() {
 
       if (profRes.data) setProfile(profRes.data);
       if (branchRes.data) setBranches(branchRes.data);
-      if (userRes.data) {
-        setUsers(userRes.data);
-        if (!currentUser.id && userRes.data.length > 0) {
-          setCurrentUser(userRes.data[0]);
-        }
-      }
       if (toggleRes.data) setFeatureToggles(toggleRes.data);
       if (accRes.data) setAccounts(accRes.data);
       if (lpRes.data) setLoanProducts(lpRes.data);
@@ -338,13 +311,25 @@ export default function App() {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
-    if (authSession?.type === 'staff') {
-      refreshGlobalState();
-    } else {
-      setIsLoading(false);
-    }
+    const initializeApp = async () => {
+      try {
+        const session = await loadAuthSession();
+        setAuthSession(session);
+        if (session?.type === 'staff') {
+          await refreshGlobalState();
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Failed to load authenticated session:', error);
+        clearAuthSession();
+        setAuthSession(null);
+        setIsLoading(false);
+      }
+    };
+
+    initializeApp();
 
     const handleOpenSetup = () => setIsSetupWizardOpen(true);
     const handleOpenAuth = () => setIsAuthModalOpen(true);
@@ -378,40 +363,9 @@ export default function App() {
   const handleLogout = () => {
     setAuthSession(null);
     try {
-      localStorage.removeItem('coop_auth_session');
+      clearAuthSession();
     } catch (e) {
       console.error('Failed to clear session:', e);
-    }
-  };
-
-  const handleOpenMemberPortal = async () => {
-    try {
-      const res = await api.getMembers();
-      const members = res.data || [];
-      const memberToUse: Member = members.length > 0 ? members[0] : {
-        id: 'mem_sample_01',
-        member_no: 'MEM-2026-0001',
-        first_name: 'Juan',
-        last_name: 'Dela Cruz',
-        middle_name: 'Santos',
-        contact_no: '09171234567',
-        email: 'juan.delacruz@agricoop.ph',
-        branch_id: 'branch_hq',
-        member_type_id: 'mtype_regular',
-        status: 'active',
-        date_of_birth: '1985-05-15',
-        gender: 'male',
-        membership_date: '2022-01-15'
-      };
-      const memberSession: AuthSession = {
-        type: 'member',
-        member: memberToUse,
-        token: `member_token_${Date.now()}`
-      };
-      setAuthSession(memberSession);
-      localStorage.setItem('coop_auth_session', JSON.stringify(memberSession));
-    } catch (e) {
-      console.error('Failed to switch to member portal:', e);
     }
   };
 
@@ -431,14 +385,14 @@ export default function App() {
     return (
       <AuthPortal
         onSuccess={async (session) => {
-          setAuthSession(session);
           try {
-            localStorage.setItem('coop_auth_session', JSON.stringify(session));
-          } catch (e) {
-            console.error('Failed to save session:', e);
+            await saveAuthSession(session);
+          } catch (error) {
+            console.error('Failed to save authenticated session:', error);
+            return;
           }
+          setAuthSession(session);
           if (session.type === 'staff') {
-            setCurrentUser(session.user);
             setIsLoading(true);
             await refreshGlobalState();
           }
@@ -454,15 +408,22 @@ export default function App() {
         member={authSession.member}
         onLogout={handleLogout}
         onSwitchToStaff={() => {
-          const staffSession: AuthSession = {
-            type: 'staff',
-            user: currentUser,
-            token: `staff_token_${Date.now()}`
-          };
-          setAuthSession(staffSession);
+          handleLogout();
+        }}
+      />
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthPortal
+        onSuccess={async (session) => {
           try {
-            localStorage.setItem('coop_auth_session', JSON.stringify(staffSession));
-          } catch (e) {}
+            await saveAuthSession(session);
+            setAuthSession(session);
+          } catch (error) {
+            console.error('Failed to save authenticated session:', error);
+          }
         }}
       />
     );
@@ -478,8 +439,6 @@ export default function App() {
         selectedBranchId={selectedBranchId}
         onSelectBranch={setSelectedBranchId}
         currentUser={currentUser}
-        users={users}
-        onSwitchUser={setCurrentUser}
         onOpenVerification={() => setActiveTab('verification')}
         onResetSeed={handleReloadApp}
         isResetting={isResetting}
@@ -510,7 +469,6 @@ export default function App() {
           featureToggles={featureToggles}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
-          onOpenMemberPortal={handleOpenMemberPortal}
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
@@ -582,7 +540,6 @@ export default function App() {
           {activeTab === 'user_documents' && (
             <UserDocumentManagementModule
               currentUser={currentUser}
-              users={users}
               branches={branches}
               onRefresh={refreshGlobalState}
             />
@@ -653,16 +610,17 @@ export default function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        currentUser={currentUser}
-        users={users}
         branches={branches}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          refreshGlobalState();
-        }}
-        onUserRegistered={(newUser) => {
-          setUsers(prev => [...prev, newUser]);
-          setCurrentUser(newUser);
+        onLoginSuccess={async (session) => {
+          try {
+            await saveAuthSession(session);
+            setAuthSession(session);
+            setIsAuthModalOpen(false);
+            setIsLoading(true);
+            await refreshGlobalState();
+          } catch (error) {
+            console.error('Failed to save authenticated session:', error);
+          }
         }}
       />
 
