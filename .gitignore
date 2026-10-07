@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+backend-php/vendor/
+backend-php/.env*
+backend-php/.env.example
+backend-php/node_modules/
+backend-php/assets/
+backend-php/database/
