@@ -20,7 +20,6 @@ import { AuthPortal } from './components/auth/AuthPortal';
 import { MemberPortal } from './components/member/MemberPortal';
 import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
-import { clearAuthSession, loadAuthSession, saveAuthSession } from './services/authSession';
 import {
   Account,
   Branch,
@@ -153,7 +152,17 @@ export default function App() {
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // Authentication State: persistent session (Staff vs Member)
-  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
+    try {
+      const saved = localStorage.getItem('coop_auth_session');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse saved auth session:', e);
+    }
+    return null;
+  });
 
   // Global Loaded State
   const [profile, setProfile] = useState<CoopProfile>({
@@ -331,17 +340,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        setAuthSession(await loadAuthSession());
-      } catch (error) {
-        console.error('Failed to decrypt saved authentication session:', error);
-        clearAuthSession();
-        setAuthSession(null);
-      }
-      await refreshGlobalState();
-    };
-    initializeApp();
+    if (authSession?.type === 'staff') {
+      refreshGlobalState();
+    } else {
+      setIsLoading(false);
+    }
 
     const handleOpenSetup = () => setIsSetupWizardOpen(true);
     const handleOpenAuth = () => setIsAuthModalOpen(true);
@@ -375,7 +378,7 @@ export default function App() {
   const handleLogout = () => {
     setAuthSession(null);
     try {
-      clearAuthSession();
+      localStorage.removeItem('coop_auth_session');
     } catch (e) {
       console.error('Failed to clear session:', e);
     }
@@ -405,8 +408,8 @@ export default function App() {
         member: memberToUse,
         token: `member_token_${Date.now()}`
       };
-      await saveAuthSession(memberSession);
       setAuthSession(memberSession);
+      localStorage.setItem('coop_auth_session', JSON.stringify(memberSession));
     } catch (e) {
       console.error('Failed to switch to member portal:', e);
     }
@@ -428,15 +431,16 @@ export default function App() {
     return (
       <AuthPortal
         onSuccess={async (session) => {
-          try {
-            await saveAuthSession(session);
-          } catch (error) {
-            console.error('Failed to encrypt authentication session:', error);
-            return;
-          }
           setAuthSession(session);
+          try {
+            localStorage.setItem('coop_auth_session', JSON.stringify(session));
+          } catch (e) {
+            console.error('Failed to save session:', e);
+          }
           if (session.type === 'staff') {
             setCurrentUser(session.user);
+            setIsLoading(true);
+            await refreshGlobalState();
           }
         }}
       />
@@ -449,19 +453,16 @@ export default function App() {
       <MemberPortal
         member={authSession.member}
         onLogout={handleLogout}
-        onSwitchToStaff={async () => {
+        onSwitchToStaff={() => {
           const staffSession: AuthSession = {
             type: 'staff',
             user: currentUser,
             token: `staff_token_${Date.now()}`
           };
-          try {
-            await saveAuthSession(staffSession);
-          } catch (error) {
-            console.error('Failed to encrypt authentication session:', error);
-            return;
-          }
           setAuthSession(staffSession);
+          try {
+            localStorage.setItem('coop_auth_session', JSON.stringify(staffSession));
+          } catch (e) {}
         }}
       />
     );

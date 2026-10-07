@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ShieldCheck,
   User,
@@ -21,7 +21,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { User as UserType, Member, AuthSession } from '../../types';
+import { AuthSession } from '../../types';
 
 interface AuthPortalProps {
   onSuccess: (session: AuthSession) => void;
@@ -37,11 +37,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Dropdown data
-  const [branches, setBranches] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [memberTypes, setMemberTypes] = useState<any[]>([]);
 
   // Staff Login fields
   const [staffIdentifier, setStaffIdentifier] = useState('');
@@ -74,24 +69,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [memPrimaryCrop, setMemPrimaryCrop] = useState('');
   const [memPassword, setMemPassword] = useState('');
 
-  // Fetch branches, roles, and member types for dropdowns
-  useEffect(() => {
-    const loadMetadata = async () => {
-      try {
-        const [bRes, rRes, mRes] = await Promise.all([
-          api.getBranches(),
-          api.getUserRoles(),
-          api.getMemberTypes()
-        ]);
-        if (bRes?.data) setBranches(bRes.data);
-        if (rRes?.data) setRoles(rRes.data);
-        if (mRes?.data) setMemberTypes(mRes.data);
-      } catch (err) {
-        console.error('Failed to load portal metadata:', err);
-      }
-    };
-    loadMetadata();
-  }, []);
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : String(error);
 
   const handleStaffLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -106,7 +85,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         password: staffPassword
       });
 
-      if (res.success && res.data?.user) {
+      if (res.success && res.data?.user && res.data.token) {
         setSuccessMessage(`Welcome back, ${res.data.user.name}! Accessing management dashboard...`);
         setTimeout(() => {
           onSuccess({
@@ -116,10 +95,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           });
         }, 300);
       } else {
-        setErrorMessage(res.message || 'Authentication failed. Please check credentials.');
+        setErrorMessage(res.message || 'The authentication response did not include a user and access token.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Unable to connect to the cooperative server.');
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -148,19 +127,24 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       });
 
       if (res.success && res.data) {
-        setSuccessMessage('Staff account created successfully! Signing in...');
-        setTimeout(() => {
-          onSuccess({
-            type: 'staff',
-            user: res.data,
-            token: `token_${Date.now()}`
-          });
-        }, 400);
+        const user = res.data.user || res.data;
+        if (res.data.token && user?.id) {
+          setSuccessMessage(res.message || 'Staff account created successfully. Signing in...');
+          setTimeout(() => {
+            onSuccess({
+              type: 'staff',
+              user,
+              token: res.data.token
+            });
+          }, 400);
+        } else {
+          setSuccessMessage(res.message || 'Staff account created successfully. Sign in to continue.');
+        }
       } else {
         setErrorMessage(res.message || 'Registration failed.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error occurred during staff registration.');
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -178,7 +162,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         password: memberPassword
       });
 
-      if (res.success && res.data?.member) {
+      if (res.success && res.data?.member && res.data.token) {
         setSuccessMessage(`Welcome back, ${res.data.member.first_name}! Loading your Member Dashboard...`);
         setTimeout(() => {
           onSuccess({
@@ -188,10 +172,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           });
         }, 300);
       } else {
-        setErrorMessage(res.message || 'Member account not found. Please verify your Member Number.');
+        setErrorMessage(res.message || 'The authentication response did not include a member and access token.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error connecting to cooperative member services.');
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -228,7 +212,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         password: memPassword
       });
 
-      if (res.success && res.data?.member) {
+      if (res.success && res.data?.member && res.data.token) {
         setSuccessMessage(`Welcome to Mayap Care Cooperative! Your Member No. is ${res.data.member.member_no}. Opening your dashboard...`);
         setTimeout(() => {
           onSuccess({
@@ -238,10 +222,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           });
         }, 500);
       } else {
-        setErrorMessage(res.message || 'Member enrollment failed.');
+        setErrorMessage(res.message || 'The registration response did not include a member and access token.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error submitting membership registration.');
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -422,9 +406,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       <label className="text-xs font-semibold text-slate-300">
                         Password
                       </label>
-                      <span className="text-[11px] text-slate-500">
-                        Demo: <code className="text-emerald-400 font-mono">admin01</code>
-                      </span>
                     </div>
                     <div className="relative">
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -533,21 +514,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         onChange={(e) => setStaffRegRoleId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       >
-                        {roles.length > 0 ? (
-                          roles.map((r) => (
-                            <option key={r.id} value={r.id} className="bg-slate-900">
-                              {r.name}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="role_loan_officer">Loan Officer</option>
-                            <option value="role_teller">Cashier / Teller</option>
-                            <option value="role_auditor">Internal Auditor</option>
-                            <option value="role_general_manager">General Manager</option>
-                            <option value="role_admin">System Administrator</option>
-                          </>
-                        )}
+                        <option value="role_loan_officer">Loan Officer</option>
+                        <option value="role_teller">Cashier / Teller</option>
+                        <option value="role_auditor">Internal Auditor</option>
+                        <option value="role_general_manager">General Manager</option>
+                        <option value="role_admin">System Administrator</option>
                       </select>
                     </div>
 
@@ -560,15 +531,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         onChange={(e) => setStaffRegBranchId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       >
-                        {branches.length > 0 ? (
-                          branches.map((b) => (
-                            <option key={b.id} value={b.id} className="bg-slate-900">
-                              {b.name} ({b.code})
-                            </option>
-                          ))
-                        ) : (
-                          <option value="branch_tar">Tarlac Main Branch (TAR)</option>
-                        )}
+                        <option value="branch_tar">Tarlac Main Branch (TAR)</option>
                       </select>
                     </div>
                   </div>
@@ -740,15 +703,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         onChange={(e) => setMemBranchId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       >
-                        {branches.length > 0 ? (
-                          branches.map((b) => (
-                            <option key={b.id} value={b.id} className="bg-slate-900">
-                              {b.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="branch_tar">Tarlac Main Branch</option>
-                        )}
+                        <option value="branch_tar">Tarlac Main Branch</option>
                       </select>
                     </div>
                     <div>
@@ -758,19 +713,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         onChange={(e) => setMemTypeId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       >
-                        {memberTypes.length > 0 ? (
-                          memberTypes.map((t) => (
-                            <option key={t.id} value={t.id} className="bg-slate-900">
-                              {t.name}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="mt_regular">Regular Agricultural Member</option>
-                            <option value="mt_associate">Associate Micro-Entrepreneur</option>
-                            <option value="mt_lab">Laboratory / Youth Member</option>
-                          </>
-                        )}
+                        <option value="mt_regular">Regular Agricultural Member</option>
+                        <option value="mt_associate">Associate Micro-Entrepreneur</option>
+                        <option value="mt_lab">Laboratory / Youth Member</option>
                       </select>
                     </div>
                   </div>

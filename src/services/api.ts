@@ -103,9 +103,30 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
       headers: await createRequestHeaders(options?.headers)
     });
 
-    const data = await response.json();
-    if (!response.ok || data.success === false) {
-      throw new Error(data.error || `API Request failed with status ${response.status}`);
+    const responseText = await response.text();
+    if (!responseText) {
+      throw new Error(
+        response.statusText || `API returned an empty response (HTTP ${response.status}).`
+      );
+    }
+
+    let data: any;
+    try {
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      if (!response.ok) {
+        throw new Error(responseText || response.statusText || `API request failed with status ${response.status}`);
+      }
+      throw new Error(`API returned an invalid response: ${responseText}`);
+    }
+
+    if (!response.ok || data?.success === false) {
+      const errorMessage =
+        (typeof data?.message === 'string' && data.message) ||
+        (typeof data?.error === 'string' && data.error) ||
+        response.statusText ||
+        `API request failed with status ${response.status}`;
+      throw new Error(errorMessage);
     }
     // Let open reports re-query immediately after any successful create, edit, or posting.
     // This avoids making users refresh the browser to see saved data.
@@ -114,39 +135,6 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
     }
     return data;
   } catch (err: any) {
-    // If targeted endpoint is a custom/remote URL (like http://cooperative-api.test/api)
-    // and failed (e.g. Mixed Content block in HTTPS preview or local .test domain not resolved in cloud preview),
-    // automatically fall back to internal '/api' so user's preview remains seamlessly functional!
-    if (activeApiBase !== '/api') {
-      console.warn(`[CoopFlex API] Request to ${targetUrl} failed (${err.message}). Attempting fallback to internal /api...`);
-      try {
-        const fallbackUrl = `/api${cleanEndpoint}`;
-        const fallbackRes = await fetch(fallbackUrl, {
-          ...options,
-          headers: await createRequestHeaders(options?.headers)
-        });
-        const fallbackData = await fallbackRes.json();
-        if (fallbackRes.ok && fallbackData.success !== false) {
-          // Update activeApiBase to '/api' so subsequent requests don't repeatedly fail
-          activeApiBase = '/api';
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.removeItem('coop_api_endpoint');
-            } catch {
-              // ignore
-            }
-            window.dispatchEvent(new CustomEvent('coop:api-endpoint-changed', { detail: '/api' }));
-          }
-          if (options?.method && options.method.toUpperCase() !== 'GET' && typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('coop:data-changed'));
-          }
-          return fallbackData;
-        }
-      } catch (fallbackErr) {
-        // Fallback also failed or had an error, continue to retry or throw
-      }
-    }
-
     // For transient network hiccups (such as dev server reload), retry once
     if (retries > 0 && (!options?.method || options.method.toUpperCase() === 'GET')) {
       await new Promise(resolve => setTimeout(resolve, 400));
@@ -188,13 +176,8 @@ export const api = {
 
   // Chart of Accounts
   getChartOfAccounts: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/chart');
-      return { ...res, data: safeArray(res) };
-    } catch {
-      const cfg = await fetchApi<{ success: boolean; data: any }>('/config/all');
-      return { success: true, data: cfg.data?.chart_of_accounts || [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/chart');
+    return { ...res, data: safeArray(res) };
   },
   createAccount: (account: any) =>
     fetchApi<{ success: boolean; data: any }>('/config/chart-of-accounts', {
@@ -402,13 +385,8 @@ export const api = {
 
   // Operations: Members
   getMembers: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/members');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getMembers fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/members');
+    return { ...res, data: safeArray(res) };
   },
 getMemberReport: async (memberId: string) => {
   const res = await fetchApi<{ success: boolean; data: any }>(
@@ -620,13 +598,8 @@ getMemberReport: async (memberId: string) => {
   },
   // Operations: Loans
   getLoans: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/loans');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getLoans fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/loans');
+    return { ...res, data: safeArray(res) };
   },
   calculateSchedule: async (params: any) => {
     const res = await fetchApi<any>('/loans/calculate-schedule', {
@@ -680,7 +653,6 @@ getLoanApplications: async (params?: {
   status?: string;
   memberId?: string;
 }) => {
-  try {
     const payload = {
       branch_id: params?.branchId && params.branchId !== 'all'
         ? params.branchId
@@ -705,13 +677,6 @@ getLoanApplications: async (params?: {
       ...res,
       data: safeArray(res),
     };
-  } catch (err) {
-    console.warn('[API] getLoanApplications fallback:', err);
-    return {
-      success: false,
-      data: [],
-    };
-  }
 },
   applyLoanApplication: (params: any) =>
     fetchApi<{ success: boolean; data: any; message?: string }>('/loan/apply', {
@@ -745,13 +710,8 @@ getLoanApplications: async (params?: {
       body: JSON.stringify(params)
     }),
   getAuditLogs: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/audit-logs');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getAuditLogs fallback:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/audit-logs');
+    return { ...res, data: safeArray(res) };
   },
   recordAuditLog: (params: { setting: string; old_value?: any; new_value?: any; changed_by?: string; reason?: string }) =>
     fetchApi<{ success: boolean; data: any }>('/audit-logs', {
@@ -761,13 +721,8 @@ getLoanApplications: async (params?: {
 
   // Operations: Savings
   getSavingsAccounts: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/savings/accounts');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getSavingsAccounts fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/savings/accounts');
+    return { ...res, data: safeArray(res) };
   },
   transactSavings: (params: any) =>
     fetchApi<{ success: boolean; data: any; account_updated: any }>('/savings/transact', {
@@ -777,13 +732,8 @@ getLoanApplications: async (params?: {
 
   // Operations: Share Capital
   getShareCapitalAccounts: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getShareCapitalAccounts fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts');
+    return { ...res, data: safeArray(res) };
   },
   getShareCapitalAccount: (id: string) =>
     fetchApi<{ success: boolean; data: any }>(`/share-capital/accounts/${id}`),
@@ -809,13 +759,8 @@ getLoanApplications: async (params?: {
       body: JSON.stringify(params)
     }),
   getShareCapitalSettings: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: ShareCapitalSetting[] }>('/share-capital/settings');
-      return { ...res, data: safeArray<ShareCapitalSetting>(res) };
-    } catch (err) {
-      console.warn('[API] getShareCapitalSettings fallback:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: ShareCapitalSetting[] }>('/share-capital/settings');
+    return { ...res, data: safeArray<ShareCapitalSetting>(res) };
   },
   createShareCapitalSetting: (setting: Partial<ShareCapitalSetting> & { changed_by?: string; reason?: string }) =>
     fetchApi<{ success: boolean; data: ShareCapitalSetting; message?: string }>('/share-capital/settings', {
@@ -830,13 +775,8 @@ getLoanApplications: async (params?: {
 
   // Operations: General Accounting
   getJournals: async () => {
-    try {
-      const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/journals');
-      return { ...res, data: safeArray(res) };
-    } catch (err) {
-      console.warn('[API] getJournals fallback to empty array:', err);
-      return { success: false, data: [] };
-    }
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/journals');
+    return { ...res, data: safeArray(res) };
   },
   createManualJournal: (params: any) =>
     fetchApi<{ success: boolean; data: any }>('/accounting/manual-journal', {
@@ -970,14 +910,7 @@ getLoanApplications: async (params?: {
   },
   getCashAccounts: async (branchId?: string) => {
     const url = branchId && branchId !== 'all' ? `/cash-accounts?branch_id=${branchId}` : '/cash-accounts';
-    try {
-      const res = await fetchApi<{ success: boolean; data: any; stats?: any }>(url);
-      if (res && res.data) return res;
-      throw new Error('Fallback to config');
-    } catch {
-      const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
-      return { success: true, data: res.data?.cash_accounts || [] };
-    }
+    return fetchApi<{ success: boolean; data: any; stats?: any }>(url);
   },
   getMemberTypes: async () => {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
@@ -1139,37 +1072,25 @@ getLoanApplications: async (params?: {
 
   // System Notifications (Loan Applications & Interest Received)
   getNotifications: async (params?: { category?: string; unread_only?: boolean; member_id?: string; limit?: number }) => {
-    try {
-      const queryParts: string[] = [];
-      if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`);
-      if (params?.unread_only) queryParts.push('unread_only=true');
-      if (params?.member_id) queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
-      if (params?.limit) queryParts.push(`limit=${params.limit}`);
-      const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    const queryParts: string[] = [];
+    if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`);
+    if (params?.unread_only) queryParts.push('unread_only=true');
+    if (params?.member_id) queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
+    if (params?.limit) queryParts.push(`limit=${params.limit}`);
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
-      const res = await fetchApi<{
-        success: boolean;
-        total: number;
-        unread_count: number;
-        loan_applications_count: number;
-        interest_notifications_count: number;
-        data: any[];
-      }>(`/notifications${qs}`);
-      return {
-        ...res,
-        data: safeArray(res)
-      };
-    } catch (err) {
-      console.warn('[API] getNotifications fallback:', err);
-      return {
-        success: false,
-        total: 0,
-        unread_count: 0,
-        loan_applications_count: 0,
-        interest_notifications_count: 0,
-        data: []
-      };
-    }
+    const res = await fetchApi<{
+      success: boolean;
+      total: number;
+      unread_count: number;
+      loan_applications_count: number;
+      interest_notifications_count: number;
+      data: any[];
+    }>(`/notifications${qs}`);
+    return {
+      ...res,
+      data: safeArray(res)
+    };
   },
   getNotificationsSummary: () =>
     fetchApi<{ success: boolean; summary: any }>('/notifications/summary'),
