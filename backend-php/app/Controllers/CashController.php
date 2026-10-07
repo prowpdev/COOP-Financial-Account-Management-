@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\CashRepository;
+use App\Services\CashService;
 use PDO;
 
 class CashController extends BaseController
 {
-    private CashRepository $cash;
+    private CashService $cash;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->cash = new CashRepository($db);
+        $this->cash = new CashService($db);
     }
 
     public function index(): never

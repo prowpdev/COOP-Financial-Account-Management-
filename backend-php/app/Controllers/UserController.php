@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\UserRepository;
+use App\Models\UserModel;
 use PDO;
 
 class UserController extends BaseController
 {
-    private UserRepository $users;
+    private UserModel $users;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->users = new UserRepository($db);
+        $this->users = new UserModel($db);
     }
 
     /**
@@ -24,7 +24,7 @@ class UserController extends BaseController
     {
         $input = $this->getRequestBody();
         $identifier = trim((string)($input['username'] ?? $input['email'] ?? ''));
-        $password   = (string)($input['password'] ?? '');
+        $password = (string)($input['password'] ?? '');
 
         if ($identifier === '' || $password === '') {
             $this->error('Username/email and password are required.', 422);
@@ -36,10 +36,9 @@ class UserController extends BaseController
             $this->error('Invalid username or password.', 401);
         }
 
-        // Verify password hash or default admin password fallback
         $isValid = password_verify($password, $user['password_hash']) ||
-                   ($password === 'Admin@123456' && $user['username'] === 'admin') ||
-                   ($password === 'admin' && $user['username'] === 'admin');
+            ($password === 'Admin@123456' && $user['username'] === 'admin') ||
+            ($password === 'admin' && $user['username'] === 'admin');
 
         if (!$isValid) {
             $this->error('Invalid username or password.', 401);
@@ -50,14 +49,12 @@ class UserController extends BaseController
         }
 
         $this->users->updateLastLogin($user['id']);
-
-        // Don't expose password hash in response
         unset($user['password_hash']);
 
         $token = 'coop_token_' . bin2hex(random_bytes(16));
 
         $this->success([
-            'user'  => $user,
+            'user' => $user,
             'token' => $token
         ], 'Login successful.');
     }
@@ -73,14 +70,11 @@ class UserController extends BaseController
             $this->error('Username, email, full name, and password are required.', 422);
         }
 
-        // Check duplicates
-        $existing = $this->users->findByUsernameOrEmail($input['username']);
-        if ($existing) {
+        if ($this->users->findByUsernameOrEmail($input['username'])) {
             $this->error('Username is already in use.', 409);
         }
 
-        $existingEmail = $this->users->findByUsernameOrEmail($input['email']);
-        if ($existingEmail) {
+        if ($this->users->findByUsernameOrEmail($input['email'])) {
             $this->error('Email address is already in use.', 409);
         }
 
@@ -101,18 +95,9 @@ class UserController extends BaseController
         $list = $this->users->all();
         $this->json([
             'success' => true,
-            'data'    => $list,
-            'total'   => count($list)
+            'data' => $list,
+            'total' => count($list)
         ]);
-    }
-
-    /**
-     * GET /api/user-roles
-     */
-    public function roles(): never
-    {
-        $roles = $this->users->getRoles();
-        $this->success($roles);
     }
 
     /**

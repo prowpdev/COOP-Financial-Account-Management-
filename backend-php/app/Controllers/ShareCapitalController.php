@@ -3,18 +3,17 @@
 declare(strict_types=1);
 
 namespace App\Controllers;
-
-use App\Models\ShareCapitalRepository;
+use App\Services\ShareCapitalService;
 use PDO;
 
 class ShareCapitalController extends BaseController
 {
-    private ShareCapitalRepository $shareCapital;
+    private ShareCapitalService $shareCapital;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->shareCapital = new ShareCapitalRepository($db);
+        $this->shareCapital = new ShareCapitalService($db);
     }
 
     /**

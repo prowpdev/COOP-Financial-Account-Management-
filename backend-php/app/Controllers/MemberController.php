@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\MemberRepository;
+use App\Services\MemberService;
 use PDO;
 
 class MemberController extends BaseController
 {
-    private MemberRepository $members;
+    private MemberService $members;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->members = new MemberRepository($db);
+        $this->members = new MemberService($db);
     }
 
     /**

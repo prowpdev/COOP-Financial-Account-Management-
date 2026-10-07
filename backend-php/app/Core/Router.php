@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Controllers\BaseController;
 use PDO;
 
 class Router
 {
     private array $routes = [];
+    private array $groupMiddleware = [];
 
     public function get(string $path, array $handler): void
     {
@@ -30,6 +32,18 @@ class Router
         $this->addRoute('DELETE', $path, $handler);
     }
 
+    public function group(array $middleware, callable $callback): void
+    {
+        $previousMiddleware = $this->groupMiddleware;
+        $this->groupMiddleware = array_merge($this->groupMiddleware, $middleware);
+
+        try {
+            $callback($this);
+        } finally {
+            $this->groupMiddleware = $previousMiddleware;
+        }
+    }
+
     private function addRoute(string $method, string $path, array $handler): void
     {
         // Normalize path
@@ -47,7 +61,8 @@ class Router
             'method'  => strtoupper($method),
             'pattern' => $pattern,
             'handler' => $handler,
-            'rawPath' => $path
+            'rawPath' => $path,
+            'middleware' => $this->groupMiddleware,
         ];
     }
 
@@ -94,7 +109,31 @@ class Router
                         exit;
                     }
 
+                    $authClaims = null;
+                    foreach ($route['middleware'] as $middlewareClass) {
+                        if (!is_string($middlewareClass)
+                            || !class_exists($middlewareClass)
+                            || !method_exists($middlewareClass, 'handle')) {
+                            http_response_code(500);
+                            header('Content-Type: application/json; charset=utf-8');
+                            echo json_encode([
+                                'success' => false,
+                                'error' => 'Route middleware must be a class with a handle method.',
+                            ]);
+                            exit;
+                        }
+
+                        $middleware = new $middlewareClass();
+                        $result = $middleware->handle();
+                        if (is_array($result)) {
+                            $authClaims = $result;
+                        }
+                    }
+
                     $controller = new $controllerClass($db);
+                    if ($controller instanceof BaseController && $authClaims !== null) {
+                        $controller->setAuthClaims($authClaims);
+                    }
 
                     if (!method_exists($controller, $action)) {
                         http_response_code(500);
@@ -123,4 +162,5 @@ class Router
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
     }
+
 }

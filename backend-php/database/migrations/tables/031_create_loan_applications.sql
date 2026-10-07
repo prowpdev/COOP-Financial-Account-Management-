@@ -1,0 +1,28 @@
+-- Creates the `loan_applications` table. Apply files in numeric order.
+CREATE TABLE `loan_applications` (
+  `id` varchar(50) NOT NULL,
+  `loan_id` varchar(50) DEFAULT NULL,
+  `application_no` varchar(50) NOT NULL,
+  `member_id` varchar(50) NOT NULL,
+  `loan_product_id` varchar(50) NOT NULL,
+  `branch_id` varchar(50) NOT NULL,
+  `applied_amount` decimal(15,2) NOT NULL,
+  `term_months` int NOT NULL,
+  `purpose` text,
+  `status` enum('Draft','Submitted','Under Review','Approved','Rejected','Released','Pending') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'Draft',
+  `submitted_date` date DEFAULT NULL,
+  `reviewed_by` varchar(100) DEFAULT NULL,
+  `reviewed_date` date DEFAULT NULL,
+  `approved_amount` decimal(15,2) DEFAULT NULL,
+  `remarks` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `application_no` (`application_no`),
+  KEY `member_id` (`member_id`),
+  KEY `loan_product_id` (`loan_product_id`),
+  KEY `branch_id` (`branch_id`),
+  KEY `idx_loan_applications_loan_id` (`loan_id`),
+  CONSTRAINT `loan_applications_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
+  CONSTRAINT `loan_applications_ibfk_2` FOREIGN KEY (`loan_product_id`) REFERENCES `loan_products` (`id`),
+  CONSTRAINT `loan_applications_ibfk_3` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

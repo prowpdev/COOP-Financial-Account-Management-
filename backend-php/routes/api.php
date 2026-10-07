@@ -15,8 +15,11 @@ use App\Controllers\ConfigController;
 use App\Controllers\CashController;
 use App\Controllers\ReportController;
 use App\Controllers\UserController;
+use App\Controllers\UserRoleController;
+use App\Controllers\DocumentController;
 use App\Controllers\SystemController;
 use App\Controllers\SeederController;
+use App\Middleware\JwtAuthMiddleware;
 
 /** @var Router $router */
 
@@ -39,6 +42,9 @@ $router->post('/api/auth/register', [AuthController::class, 'register']);
 $router->post('/api/auth/member-login', [AuthController::class, 'memberLogin']);
 $router->post('/api/auth/member-register', [AuthController::class, 'memberRegister']);
 
+// All routes in this group require a valid JWT bearer token.
+$router->group([JwtAuthMiddleware::class], function (Router $router): void {
+
 // Common Auth Utilities
 $router->get('/api/auth/me', [AuthController::class, 'me']);
 $router->post('/api/auth/logout', [AuthController::class, 'logout']);
@@ -46,9 +52,14 @@ $router->post('/api/auth/change-password', [AuthController::class, 'changePasswo
 
 // Staff User Accounts & Roles
 $router->get('/api/users', [UserController::class, 'index']);
-$router->get('/api/user-roles', [UserController::class, 'roles']);
+$router->get('/api/user-roles', [UserRoleController::class, 'index']);
 $router->get('/api/users/:id', [UserController::class, 'show']);
 $router->delete('/api/users/:id', [UserController::class, 'destroy']);
+//DOCUMENTS
+$router->post('/api/users/:id/documents', [DocumentController::class, 'store']);
+$router->get('/api/users/:id/documents', [DocumentController::class, 'index']);
+$router->delete('/api/users/:id/documents/:docKey', [DocumentController::class, 'destroy']);
+$router->delete('/api/user-documents/:id', [DocumentController::class, 'destroyLegacy']);
 
 // =========================================================================
 // 3. Member Self-Service Portal Endpoints
@@ -88,6 +99,7 @@ $router->get('/api/members/:id/report', [MemberController::class, 'report']);
 $router->get('/api/members/:id/profile', [MemberController::class, 'profile']);
 $router->post('/api/members/:id/documents', [MemberController::class, 'uploadDocument']);
 $router->delete('/api/members/:id/documents/:docKey', [MemberController::class, 'deleteDocument']);
+
 
 // =========================================================================
 // 6. Loans & Credit Management
@@ -190,6 +202,7 @@ $router->get('/api/config/branches', [ConfigController::class, 'branches']);
 $router->post('/api/branches', [ConfigController::class, 'storeBranch']);
 $router->post('/api/config/branches', [ConfigController::class, 'storeBranch']);
 $router->put('/api/config/branches/:id', [ConfigController::class, 'updateBranch']);
+// $router->post('/api/config/documents', [ConfigController::class, 'uploadDocument']);
 
 // Loan Products
 $router->get('/api/loan-products', [ConfigController::class, 'loanProducts']);
@@ -231,6 +244,8 @@ $router->put('/api/config/approval-rules/:id', [ConfigController::class, 'update
 // Custom Fields
 $router->get('/api/config/custom-fields', [ConfigController::class, 'customFields']);
 $router->post('/api/config/custom-fields', [ConfigController::class, 'storeCustomField']);
+$router->put('/api/config/custom-fields/:id', [ConfigController::class, 'updateCustomField']);
+$router->delete('/api/config/custom-fields/:id', [ConfigController::class, 'deleteCustomField']);
 
 // Numbering Formats & Payment Allocation
 $router->put('/api/config/numbering-formats/:id', [ConfigController::class, 'updateNumberingFormat']);
@@ -243,3 +258,7 @@ $router->put('/api/config/payment-allocation-rules/:id', [ConfigController::clas
 $router->get('/api/reports/trial-balance', [ReportController::class, 'trialBalance']);
 $router->get('/api/reports/financial-statements', [ReportController::class, 'financialStatements']);
 $router->get('/api/dashboard/stats', [ReportController::class, 'dashboardStats']);
+// Notifications
+$router->get('/notifications', [ConfigController::class, 'notifications']);
+
+});

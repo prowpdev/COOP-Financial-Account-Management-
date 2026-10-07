@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\AccountingRepository;
+use App\Services\AccountingService;
 use PDO;
 
 class AccountingController extends BaseController
 {
-    private AccountingRepository $accounting;
+    private AccountingService $accounting;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->accounting = new AccountingRepository($db);
+        $this->accounting = new AccountingService($db);
     }
 
     /**

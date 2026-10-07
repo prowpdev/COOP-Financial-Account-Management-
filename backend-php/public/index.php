@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+date_default_timezone_set('Asia/Manila');
+
 // Pre-flight CORS handling for modern web single page applications
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header('Access-Control-Allow-Origin: *');
@@ -22,6 +24,9 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../app/Core/Autoloader.php';
     \App\Core\Autoloader::register();
 }
+
+require_once __DIR__ . '/../app/Core/Environment.php';
+\App\Core\Environment::load(dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env');
 
 use App\Core\Database;
 use App\Core\Router;

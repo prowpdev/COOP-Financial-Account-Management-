@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\LoanRepository;
+use App\Services\LoanService;
 use PDO;
 
 class LoanController extends BaseController
 {
-    private LoanRepository $loans;
+    private LoanService $loans;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->loans = new LoanRepository($db);
+        $this->loans = new LoanService($db);
     }
 
     /**

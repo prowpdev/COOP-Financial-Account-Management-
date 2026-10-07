@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\SavingsRepository;
+use App\Services\SavingsService;
 use PDO;
 
 class SavingsController extends BaseController
 {
-    private SavingsRepository $savings;
+    private SavingsService $savings;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->savings = new SavingsRepository($db);
+        $this->savings = new SavingsService($db);
     }
 
     /**

@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\MemberRepository;
-use App\Models\LoanRepository;
-use App\Models\SavingsRepository;
-use App\Models\ShareCapitalRepository;
-use App\Models\ConfigRepository;
+use App\Services\MemberService;
+use App\Services\LoanService;
+use App\Services\SavingsService;
+use App\Services\ShareCapitalService;
+use App\Services\ConfigService;
 use PDO;
 
 class MemberPortalController extends BaseController
 {
-    private MemberRepository $members;
-    private LoanRepository $loans;
-    private SavingsRepository $savings;
-    private ShareCapitalRepository $shareCapital;
-    private ConfigRepository $config;
+    private MemberService $members;
+    private LoanService $loans;
+    private SavingsService $savings;
+    private ShareCapitalService $shareCapital;
+    private ConfigService $config;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->members = new MemberRepository($db);
-        $this->loans = new LoanRepository($db);
-        $this->savings = new SavingsRepository($db);
-        $this->shareCapital = new ShareCapitalRepository($db);
-        $this->config = new ConfigRepository($db);
+        $this->members = new MemberService($db);
+        $this->loans = new LoanService($db);
+        $this->savings = new SavingsService($db);
+        $this->shareCapital = new ShareCapitalService($db);
+        $this->config = new ConfigService($db);
     }
 
     /**

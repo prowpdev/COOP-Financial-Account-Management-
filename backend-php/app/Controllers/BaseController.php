@@ -8,9 +8,16 @@ use PDO;
 
 abstract class BaseController
 {
+    protected ?array $authClaims = null;
+
     public function __construct(
         protected PDO $db
     ) {
+    }
+
+    public function setAuthClaims(array $claims): void
+    {
+        $this->authClaims = $claims;
     }
 
     /**

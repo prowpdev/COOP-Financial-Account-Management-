@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\ReportRepository;
+use App\Services\ReportService;
 use PDO;
 
 class ReportController extends BaseController
 {
-    private ReportRepository $reports;
+    private ReportService $reports;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->reports = new ReportRepository($db);
+        $this->reports = new ReportService($db);
     }
 
     /**

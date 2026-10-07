@@ -4,26 +4,29 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Models\UserRepository;
-use App\Models\MemberRepository;
-use App\Models\ShareCapitalRepository;
-use App\Models\SavingsRepository;
+use App\Core\JwtAuth;
+use App\Models\UserModel;
+use App\Services\MemberService;
+use App\Services\ShareCapitalService;
+use App\Services\SavingsService;
 use PDO;
 
 class AuthController extends BaseController
 {
-    private UserRepository $users;
-    private MemberRepository $members;
-    private ShareCapitalRepository $shareCapital;
-    private SavingsRepository $savings;
+    private UserModel $users;
+    private MemberService $members;
+    private ShareCapitalService $shareCapital;
+    private SavingsService $savings;
+    private JwtAuth $jwt;
 
     public function __construct(PDO $db)
     {
         parent::__construct($db);
-        $this->users = new UserRepository($db);
-        $this->members = new MemberRepository($db);
-        $this->shareCapital = new ShareCapitalRepository($db);
-        $this->savings = new SavingsRepository($db);
+        $this->users = new UserModel($db);
+        $this->members = new MemberService($db);
+        $this->shareCapital = new ShareCapitalService($db);
+        $this->savings = new SavingsService($db);
+        $this->jwt = JwtAuth::fromEnvironment();
     }
 
     /**
@@ -68,8 +71,12 @@ class AuthController extends BaseController
         // Update last login
         $this->users->updateLastLogin($user['id']);
 
-        // Generate session token
-        $token = 'usr_token_' . bin2hex(random_bytes(16));
+        $token = $this->jwt->issue([
+            'sub' => (string)$user['id'],
+            'type' => 'staff',
+            'role_id' => $user['role_id'] ?? null,
+            'branch_id' => $user['branch_id'] ?? null,
+        ]);
 
         // Sanitize output
         unset($user['password_hash']);
@@ -80,6 +87,8 @@ class AuthController extends BaseController
             'data' => [
                 'user' => $user,
                 'token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => $this->jwt->expiresIn(),
                 'role' => $user['role_name'] ?? 'Staff',
                 'portal' => 'staff'
             ]
@@ -127,7 +136,12 @@ class AuthController extends BaseController
                 'active'    => 1
             ]);
 
-            $token = 'usr_token_' . bin2hex(random_bytes(16));
+            $token = $this->jwt->issue([
+                'sub' => (string)$user['id'],
+                'type' => 'staff',
+                'role_id' => $user['role_id'] ?? null,
+                'branch_id' => $user['branch_id'] ?? null,
+            ]);
             unset($user['password_hash']);
 
             $this->json([
@@ -136,6 +150,8 @@ class AuthController extends BaseController
                 'data' => [
                     'user' => $user,
                     'token' => $token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => $this->jwt->expiresIn(),
                     'portal' => 'staff'
                 ]
             ], 201);
@@ -201,8 +217,10 @@ class AuthController extends BaseController
             }
         }
 
-        // Generate member portal access token
-        $token = 'mem_token_' . bin2hex(random_bytes(16));
+        $token = $this->jwt->issue([
+            'sub' => (string)$member['id'],
+            'type' => 'member',
+        ]);
 
         $this->json([
             'success' => true,
@@ -210,6 +228,8 @@ class AuthController extends BaseController
             'data' => [
                 'member' => $member,
                 'token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => $this->jwt->expiresIn(),
                 'portal' => 'member'
             ]
         ]);
@@ -355,7 +375,10 @@ class AuthController extends BaseController
                 'notes'              => 'Initial opening savings deposit'
             ]);
 
-            $token = 'mem_token_' . bin2hex(random_bytes(16));
+            $token = $this->jwt->issue([
+                'sub' => (string)$newMember['id'],
+                'type' => 'member',
+            ]);
 
             $this->json([
                 'success' => true,
@@ -363,6 +386,8 @@ class AuthController extends BaseController
                 'data' => [
                     'member' => $newMember,
                     'token' => $token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => $this->jwt->expiresIn(),
                     'portal' => 'member',
                     'accounts' => [
                         'share_capital' => $cbuAccount,
@@ -382,38 +407,37 @@ class AuthController extends BaseController
     public function me(): never
     {
         $headers = function_exists('getallheaders') ? getallheaders() : [];
-        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        $authHeader = $headers['Authorization']
+            ?? $headers['authorization']
+            ?? $_SERVER['HTTP_AUTHORIZATION']
+            ?? '';
 
-        $token = '';
-        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-            $token = trim($matches[1]);
+        if (!is_string($authHeader)
+            || preg_match('/^Bearer\s+(\S+)$/i', trim($authHeader), $matches) !== 1) {
+            $this->error('A valid bearer token is required.', 401);
         }
 
-        // If member token
-        if (str_starts_with($token, 'mem_token_') || $this->getQuery('type') === 'member') {
-            $memberId = $this->getQuery('member_id');
-            if ($memberId) {
-                $member = $this->members->find($memberId);
-                if ($member) {
-                    $this->success(['member' => $member, 'type' => 'member', 'portal' => 'member']);
-                }
+        try {
+            $claims = $this->jwt->verify($matches[1]);
+        } catch (\UnexpectedValueException) {
+            $this->error('Unauthorized or session expired.', 401);
+        }
+
+        if ($claims['type'] === 'member') {
+            $member = $this->members->find($claims['sub']);
+            if (!$member || in_array($member['status'], ['Deceased', 'Resigned', 'Expelled'], true)) {
+                $this->error('Unauthorized or session expired.', 401);
             }
+            $this->success(['member' => $member, 'type' => 'member', 'portal' => 'member']);
         }
 
-        // Default to first active staff or find from request
-        $userId = $this->getQuery('user_id');
-        $user = $userId ? $this->users->findById($userId) : null;
-        if (!$user) {
-            $stmt = $this->db->query("SELECT * FROM users WHERE active = 1 ORDER BY created_at ASC LIMIT 1");
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = $this->users->findById($claims['sub']);
+        if (!$user || empty($user['active'])) {
+            $this->error('Unauthorized or session expired.', 401);
         }
 
-        if ($user) {
-            unset($user['password_hash']);
-            $this->success(['user' => $user, 'type' => 'staff', 'portal' => 'staff']);
-        }
-
-        $this->error('Unauthorized or session expired.', 401);
+        unset($user['password_hash']);
+        $this->success(['user' => $user, 'type' => 'staff', 'portal' => 'staff']);
     }
 
     /**
