@@ -8,22 +8,17 @@ import {
   Calendar,
   User as UserIcon,
   Clock,
-  ArrowRight,
-  FileText,
-  AlertCircle,
   Plus,
   X,
   CheckCircle2,
-  FileSpreadsheet,
   Activity,
   Layers,
-  Building2,
-  ChevronDown,
   Printer
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Branch, ConfigurationAuditTrail, User, CoopProfile } from '../../types';
 import { AuditReportPrintModal } from './AuditReportPrintModal';
+import { ExcelColumn, ExcelGridTable } from '../common/ExcelGridTable';
 
 interface AuditLogsViewProps {
   currentUser: User;
@@ -157,6 +152,99 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
       return true;
     });
   }, [logs, selectedCategory, selectedUser, selectedDateRange, searchTerm]);
+
+  const auditLogColumns: ExcelColumn<ConfigurationAuditTrail>[] = [
+    {
+      key: 'created_at',
+      header: 'Timestamp',
+      accessor: log => new Date(log.created_at).getTime(),
+      type: 'date',
+      width: '180px',
+      render: value => {
+        const date = new Date(value);
+        return (
+          <div className="whitespace-nowrap">
+            <div className="font-medium text-slate-200">
+              {date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono">
+              {date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      accessor: log => categorizeLog(log.setting).category,
+      type: 'badge',
+      width: '160px',
+      badgeColor: (_value, log) => {
+        const color = categorizeLog(log.setting).color;
+        return color === 'emerald' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+          : color === 'blue' ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+          : color === 'indigo' ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+          : color === 'purple' ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+          : color === 'amber' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+          : 'bg-slate-700/40 text-slate-300 border-slate-600/40';
+      }
+    },
+    {
+      key: 'setting',
+      header: 'Action / Setting',
+      minWidth: '220px',
+      render: (value, log) => (
+        <div>
+          <div className="font-semibold text-white">{value}</div>
+          <div className="text-[10px] text-slate-500 font-mono truncate max-w-[220px]">ID: {log.id}</div>
+        </div>
+      )
+    },
+    {
+      key: 'changed_by',
+      header: 'Operator',
+      width: '160px',
+      render: value => (
+        <div className="flex items-center space-x-1.5 whitespace-nowrap">
+          <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
+            {value?.charAt(0) || 'U'}
+          </div>
+          <span className="font-medium text-slate-200">{value || 'System'}</span>
+        </div>
+      )
+    },
+    {
+      key: 'old_value',
+      header: 'Old Value',
+      minWidth: '140px',
+      render: value => (
+        <span className="inline-block text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] font-mono truncate max-w-[180px]" title={String(value)}>
+          {value || 'None'}
+        </span>
+      )
+    },
+    {
+      key: 'new_value',
+      header: 'New Value',
+      minWidth: '140px',
+      render: value => (
+        <span className="inline-block text-emerald-300 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30 text-[10px] font-mono truncate max-w-[180px]" title={String(value)}>
+          {value || 'None'}
+        </span>
+      )
+    },
+    {
+      key: 'reason',
+      header: 'Compliance Reason / Remarks',
+      minWidth: '220px',
+      render: value => (
+        <div className="line-clamp-2 text-slate-400 text-xs" title={value}>
+          {value || 'Standard system event'}
+        </div>
+      )
+    }
+  ];
 
   // Metrics summary
   const metrics = useMemo(() => {
@@ -454,143 +542,21 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
         </div>
       </div>
 
-      {/* Main Audit Trail Data Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-3 px-4 w-[160px]">Timestamp</th>
-                <th className="py-3 px-4 w-[140px]">Category</th>
-                <th className="py-3 px-4 w-[240px]">Action / Setting</th>
-                <th className="py-3 px-4 w-[160px]">Operator</th>
-                <th className="py-3 px-4 w-[280px]">Change Audit (Old → New)</th>
-                <th className="py-3 px-4">Compliance Reason / Remarks</th>
-                <th className="py-3 px-4 w-[90px] text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-500 mb-2" />
-                    <span>Loading compliance audit trail...</span>
-                  </td>
-                </tr>
-              ) : filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                    <p className="text-sm font-semibold text-slate-300">No audit events match your filter criteria.</p>
-                    <p className="text-xs text-slate-500 mt-1">Try clearing your search query or reset category filters.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map(log => {
-                  const catInfo = categorizeLog(log.setting);
-                  const dateObj = new Date(log.created_at);
-                  const formattedDate = dateObj.toLocaleDateString('en-PH', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                  });
-                  const formattedTime = dateObj.toLocaleTimeString('en-PH', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                  });
-
-                  return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                      onClick={() => setSelectedLogForDetails(log)}
-                    >
-                      {/* Timestamp */}
-                      <td className="py-3 px-4 text-slate-300 whitespace-nowrap">
-                        <div className="font-medium text-slate-200">{formattedDate}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{formattedTime}</div>
-                      </td>
-
-                      {/* Category Badge */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          catInfo.color === 'emerald'
-                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                            : catInfo.color === 'blue'
-                            ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
-                            : catInfo.color === 'indigo'
-                            ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-                            : catInfo.color === 'purple'
-                            ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
-                            : catInfo.color === 'amber'
-                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                            : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
-                        }`}>
-                          {catInfo.category}
-                        </span>
-                      </td>
-
-                      {/* Action / Setting */}
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                          {log.setting}
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono truncate max-w-[220px]">
-                          ID: {log.id}
-                        </div>
-                      </td>
-
-                      {/* Operator */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-1.5">
-                          <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
-                            {log.changed_by?.charAt(0) || 'U'}
-                          </div>
-                          <span className="font-medium text-slate-200">{log.changed_by || 'System'}</span>
-                        </div>
-                      </td>
-
-                      {/* Value Diff */}
-                      <td className="py-3 px-4 text-xs font-mono">
-                        <div className="flex items-center space-x-1.5 max-w-[260px]">
-                          <span className="text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] truncate max-w-[110px]" title={String(log.old_value)}>
-                            {String(log.old_value || 'None')}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
-                          <span className="text-emerald-300 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30 text-[10px] truncate max-w-[120px]" title={String(log.new_value)}>
-                            {String(log.new_value || 'None')}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Reason / Remarks */}
-                      <td className="py-3 px-4 text-slate-400 text-xs">
-                        <div className="line-clamp-2" title={log.reason}>
-                          {log.reason || 'Standard system event'}
-                        </div>
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedLogForDetails(log);
-                          }}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-medium border border-slate-700 transition cursor-pointer"
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ExcelGridTable
+        title="Audit Logs & System Activity Trail"
+        subtitle="Immutable, timestamped compliance records. Select a row to inspect the full audit entry."
+        data={filteredLogs}
+        columns={auditLogColumns}
+        getRowId={log => log.id}
+        onRowClick={setSelectedLogForDetails}
+        defaultSortKey="created_at"
+        defaultSortDir="desc"
+        defaultPageSize={25}
+        isLoading={isLoading}
+        readOnly
+        emptyMessage="No audit events match your filter criteria. Try clearing your search or resetting the filters."
+        exportFileName="CDA_Audit_Logs"
+      />
 
       {/* Audit Detail Modal */}
       {selectedLogForDetails && (
