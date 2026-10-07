@@ -41,25 +41,35 @@ export function getApiBase() {
 
 export const API_BASE = activeApiBase;
 
-async function getAuthToken(): Promise<string | undefined> {
-  if (typeof window === 'undefined') return undefined;
+async function getAuthSessionContext(): Promise<{ token?: string; branchId?: string }> {
+  if (typeof window === 'undefined') return {};
 
   const session = await loadAuthSession();
-  return session?.token || undefined;
+  return {
+    token: session?.token || undefined,
+    branchId: session?.type === 'staff' ? session.user.branch_id || undefined : undefined
+  };
 }
 
-async function createRequestHeaders(headers?: HeadersInit): Promise<Headers> {
+function createRequestHeaders(headers: HeadersInit | undefined, token?: string): Headers {
   const requestHeaders = new Headers(headers);
   if (!requestHeaders.has('Content-Type')) {
     requestHeaders.set('Content-Type', 'application/json');
   }
 
-  const token = await getAuthToken();
   if (token) {
     requestHeaders.set('Authorization', `Bearer ${token}`);
   }
 
   return requestHeaders;
+}
+
+function addCurrentUserBranchId(url: string, branchId?: string): string {
+  if (typeof window === 'undefined' || !branchId) return url;
+
+  const requestUrl = new URL(url, window.location.origin);
+  requestUrl.searchParams.set('current_user_branch_id', branchId);
+  return requestUrl.toString();
 }
 
 export function safeArray<T = any>(payload: any): T[] {
@@ -98,9 +108,11 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
   const targetUrl = `${activeApiBase}${cleanEndpoint}`;
 
   try {
-    const response = await fetch(targetUrl, {
+    const { token, branchId } = await getAuthSessionContext();
+    const requestUrl = addCurrentUserBranchId(targetUrl, branchId);
+    const response = await fetch(requestUrl, {
       ...options,
-      headers: await createRequestHeaders(options?.headers)
+      headers: createRequestHeaders(options?.headers, token)
     });
 
     const responseText = await response.text();
