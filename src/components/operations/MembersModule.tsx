@@ -102,24 +102,24 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         </span>
       )
     },
-    // {
-    //   key: 'tin_number',
-    //   header: 'TIN Number',
-    //   width: '160px',
-    //   type: 'text',
-    //   align: 'center',
-    //   sortable: true,
-    //   render: (_, row) => {
-    //     const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
-    //     return tin ? (
-    //       <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
-    //         {tin}
-    //       </span>
-    //     ) : (
-    //       <span className="text-slate-500 text-[11px] italic">Not Set</span>
-    //     );
-    //   }
-    // },
+    {
+      key: 'tin_number',
+      header: 'TIN Number',
+      width: '160px',
+      type: 'text',
+      align: 'center',
+      sortable: true,
+      render: (_, row) => {
+        const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
+        return tin ? (
+          <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
+            {tin}
+          </span>
+        ) : (
+          <span className="text-slate-500 text-[11px] italic">Not Set</span>
+        );
+      }
+    },
     // { key: 'branch_name', header: 'Branch Assigned', width: '180px', type: 'text', sortable: true },
     {
       key: 'member_type_name',
