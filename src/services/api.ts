@@ -69,7 +69,10 @@ export function safeArray<T = any>(payload: any): T[] {
 }
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit, retries = 1): Promise<T> {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (activeApiBase.endsWith('/api') && cleanEndpoint.startsWith('/api/')) {
+    cleanEndpoint = cleanEndpoint.substring(4);
+  }
   const targetUrl = `${activeApiBase}${cleanEndpoint}`;
 
   try {
@@ -983,21 +986,26 @@ getLoanApplications: async (params?: {
   getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
   getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
 
-  // User Document Management (Stores to custom_fields with entity = 'User')
-  getUserDocuments: (params?: { user_id?: string; category?: string; field_type?: string; search?: string }) => {
+  // User Document Management (Stores to user_documents table with foreign key to users)
+  getUserDocuments: (params?: { user_id?: string; category?: string; field_type?: string; search?: string } | string) => {
+    let userId: string | undefined;
     const q = new URLSearchParams();
-    if (params?.user_id) q.set('user_id', params.user_id);
-    if (params?.category) q.set('category', params.category);
-    if (params?.field_type) q.set('field_type', params.field_type);
-    if (params?.search) q.set('search', params.search);
+    if (typeof params === 'string') {
+      userId = params;
+    } else if (params && typeof params === 'object') {
+      userId = params.user_id;
+      if (params.category) q.set('category', params.category);
+      if (params.field_type) q.set('field_type', params.field_type);
+      if (params.search) q.set('search', params.search);
+    }
     const qs = q.toString() ? `?${q.toString()}` : '';
-    console.log(params)
-    return fetchApi<{ success: boolean; data: any[]; count?: number }>(`/api/users/user_admin/documents`);
+    const endpoint = userId ? `/users/${encodeURIComponent(userId)}/documents${qs}` : `/user-documents${qs}`;
+    return fetchApi<{ success: boolean; data: any[]; documents?: any[]; user?: any; count?: number }>(endpoint);
   },
   getUserDocumentsByUserId: (userId: string) =>
-    fetchApi<{ success: boolean; data: { user_id: string; user_name: string; username: string; documents: any[]; definitions: any[] } }>(`/users/${userId}/documents`),
+    fetchApi<{ success: boolean; data: any[]; documents?: any[]; user?: any; count?: number }>(`/users/${encodeURIComponent(userId)}/documents`),
   uploadUserDocument: (userId: string, docPayload: any) =>
-    fetchApi<{ success: boolean; message: string; data: any }>(`/users/${userId}/documents`, {
+    fetchApi<{ success: boolean; message: string; data: any; user?: any }>(`/users/${encodeURIComponent(userId)}/documents`, {
       method: 'POST',
       body: JSON.stringify({ ...docPayload, user_id: userId })
     }),

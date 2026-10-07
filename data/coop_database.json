@@ -1339,6 +1339,57 @@
         "uploaded_at": "2026-10-06T07:22:54.833Z"
       },
       "updated_at": "2026-10-06T07:23:02.719Z"
+    },
+    {
+      "id": "udoc_usr_1790075837467_grza_govt_passport_id",
+      "entity": "User",
+      "user_id": "usr_1790075837467_grza",
+      "field_name": "govt_passport_id",
+      "field_key": "govt_passport_id",
+      "field_label": "Official Philippine Passport",
+      "label": "Official Philippine Passport",
+      "field_type": "PDF",
+      "category": "Identification & KYC",
+      "options": [
+        "Identification & KYC"
+      ],
+      "required": false,
+      "default_value": "",
+      "active": true,
+      "file_name": "passport_scan.pdf",
+      "name": "passport_scan.pdf",
+      "file_type": "application/pdf",
+      "file_size": 154200,
+      "size": 154200,
+      "data_url": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "dataUrl": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "url": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "path": "/uploads/user_docs/usr_1790075837467_grza_1791338681593_passport_scan.pdf",
+      "notes": "Verified biometric passport",
+      "uploaded_at": "2026-10-07T02:04:41.594Z",
+      "uploaded_by": "System Admin",
+      "file_data": {
+        "id": "udoc_usr_1790075837467_grza_govt_passport_id",
+        "doc_key": "govt_passport_id",
+        "name": "passport_scan.pdf",
+        "file_name": "passport_scan.pdf",
+        "title": "Official Philippine Passport",
+        "field_label": "Official Philippine Passport",
+        "label": "Official Philippine Passport",
+        "type": "application/pdf",
+        "file_type": "application/pdf",
+        "field_type": "PDF",
+        "category": "Identification & KYC",
+        "size": 154200,
+        "file_size": 154200,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "data_url": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "url": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "path": "/uploads/user_docs/usr_1790075837467_grza_1791338681593_passport_scan.pdf",
+        "notes": "Verified biometric passport",
+        "uploaded_at": "2026-10-07T02:04:41.593Z",
+        "uploaded_by": "System Admin"
+      }
     }
   ],
   "member_types": [
@@ -2329,6 +2380,15 @@
       "changed_by": "Admin",
       "created_at": "2026-10-06T07:23:02.721Z",
       "reason": "Updated document metadata"
+    },
+    {
+      "id": "audit_1791338681595_1alehq",
+      "setting": "User Document Uploaded: Official Philippine Passport",
+      "old_value": "None",
+      "new_value": "Attached passport_scan.pdf (PDF) to user Jhomel Ignacio [table: user_documents, doc_key: govt_passport_id]",
+      "changed_by": "System Admin",
+      "created_at": "2026-10-07T02:04:41.595Z",
+      "reason": "User account document management"
     }
   ],
   "user_roles": [
@@ -2477,6 +2537,28 @@
             "uploaded_at": "2026-10-06T07:22:54.833Z"
           },
           "updated_at": "2026-10-06T07:23:02.719Z"
+        },
+        "govt_passport_id": {
+          "id": "udoc_usr_1790075837467_grza_govt_passport_id",
+          "doc_key": "govt_passport_id",
+          "name": "passport_scan.pdf",
+          "file_name": "passport_scan.pdf",
+          "title": "Official Philippine Passport",
+          "field_label": "Official Philippine Passport",
+          "label": "Official Philippine Passport",
+          "type": "application/pdf",
+          "file_type": "application/pdf",
+          "field_type": "PDF",
+          "category": "Identification & KYC",
+          "size": 154200,
+          "file_size": 154200,
+          "dataUrl": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "data_url": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "url": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "path": "/uploads/user_docs/usr_1790075837467_grza_1791338681593_passport_scan.pdf",
+          "notes": "Verified biometric passport",
+          "uploaded_at": "2026-10-07T02:04:41.593Z",
+          "uploaded_by": "System Admin"
         }
       },
       "documents": [
@@ -2521,8 +2603,58 @@
             "uploaded_at": "2026-10-06T07:22:54.833Z"
           },
           "updated_at": "2026-10-06T07:23:02.719Z"
+        },
+        {
+          "id": "udoc_usr_1790075837467_grza_govt_passport_id",
+          "doc_key": "govt_passport_id",
+          "name": "passport_scan.pdf",
+          "file_name": "passport_scan.pdf",
+          "title": "Official Philippine Passport",
+          "field_label": "Official Philippine Passport",
+          "label": "Official Philippine Passport",
+          "type": "application/pdf",
+          "file_type": "application/pdf",
+          "field_type": "PDF",
+          "category": "Identification & KYC",
+          "size": 154200,
+          "file_size": 154200,
+          "dataUrl": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "data_url": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "url": "data:application/pdf;base64,JVBERi0xLjQK...",
+          "path": "/uploads/user_docs/usr_1790075837467_grza_1791338681593_passport_scan.pdf",
+          "notes": "Verified biometric passport",
+          "uploaded_at": "2026-10-07T02:04:41.593Z",
+          "uploaded_by": "System Admin"
         }
       ]
+    }
+  ],
+  "user_documents": [
+    {
+      "user_id": "usr_1790075837467_grza",
+      "doc_key": "govt_passport_id",
+      "document_data": {
+        "id": "udoc_usr_1790075837467_grza_govt_passport_id",
+        "doc_key": "govt_passport_id",
+        "name": "passport_scan.pdf",
+        "file_name": "passport_scan.pdf",
+        "title": "Official Philippine Passport",
+        "field_label": "Official Philippine Passport",
+        "label": "Official Philippine Passport",
+        "type": "application/pdf",
+        "file_type": "application/pdf",
+        "field_type": "PDF",
+        "category": "Identification & KYC",
+        "size": 154200,
+        "file_size": 154200,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "data_url": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "url": "data:application/pdf;base64,JVBERi0xLjQK...",
+        "path": "/uploads/user_docs/usr_1790075837467_grza_1791338681593_passport_scan.pdf",
+        "notes": "Verified biometric passport",
+        "uploaded_at": "2026-10-07T02:04:41.593Z",
+        "uploaded_by": "System Admin"
+      }
     }
   ]
 }

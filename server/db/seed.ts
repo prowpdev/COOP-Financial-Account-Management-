@@ -1076,5 +1076,6 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  users: []
+  users: [],
+  user_documents: []
 };

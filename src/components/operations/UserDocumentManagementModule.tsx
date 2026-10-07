@@ -119,11 +119,13 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch user documents from API (stores to custom_fields with entity = 'User')
-      const docRes = await api.getUserDocuments(currentUser.id);
+      // 1. Fetch user documents from API (stores to user_documents table)
+      const docRes = await api.getUserDocuments(selectedUserId || currentUser.id);
       if (docRes && docRes.data) {
-        setDocuments(docRes.data);
-        console.log(docRes.data);
+        const rawDocs = Array.isArray(docRes.data)
+          ? docRes.data
+          : ((docRes as any).documents || (docRes.data as any).documents || []);
+        setDocuments(rawDocs);
       }
 
       // 2. Fetch User entity custom fields definitions
@@ -143,14 +145,16 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
 
   useEffect(() => {
     loadUsers();
-    loadData();
   }, []);
- 
+
+  useEffect(() => {
+    loadData();
+  }, [selectedUserId]);
 
   // Filtered documents list for the active user (or all users if desired)
   const userFilteredDocs = useMemo(() => {
-    return documents.filter(d => d.user_id === selectedUserId);
-  }, [documents, selectedUserId]);
+    return documents.filter(d => !d.user_id || d.user_id === selectedUserId || (targetUser && d.user_id === targetUser.username));
+  }, [documents, selectedUserId, targetUser]);
 
   const displayedDocs = useMemo(() => {
     return userFilteredDocs.filter(doc => {
@@ -358,7 +362,7 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
 
       const res = await api.uploadUserDocument(selectedUserId, payload);
       if (res.success) {
-        showNotice('success', `Document "${uploadTitle}" successfully stored in database under custom_fields table (entity: User).`);
+        showNotice('success', `Document "${uploadTitle}" successfully stored in database under user_documents table.`);
         setIsUploadModalOpen(false);
         resetUploadForm();
         await loadData();

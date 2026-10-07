@@ -44,6 +44,7 @@ export interface DatabaseSchema {
   configuration_audit_trails: any[];
   user_roles: any[];
   users: any[];
+  user_documents: any[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -92,7 +93,8 @@ class DatabaseEngine {
     general_ledger: [],
     configuration_audit_trails: [],
     user_roles: [],
-    users: []
+    users: [],
+    user_documents: []
   };
 
   private initialized = false;

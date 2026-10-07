@@ -4342,82 +4342,252 @@ function detectDocumentType(fileName: string, mimeType?: string, explicitType?: 
   return 'File';
 }
 
-// 1. Get all user documents (supports ?user_id=, ?category=, ?field_type=, ?search=)
+// 1. Get user documents from user_documents table with enriched user details
 router.get(['/user-documents', '/users/documents'], (req: Request, res: Response) => {
   const { user_id, category, field_type, search } = req.query;
-  const customFields = db.getTable('custom_fields') || [];
+  const userDocumentsTable = db.getTable('user_documents') || [];
+  const customFieldsTable = db.getTable('custom_fields') || [];
   const users = db.getTable('users') || [];
   const roles = db.getTable('user_roles') || [];
+  const branches = db.getTable('branches') || [];
 
-  // Filter records in custom_fields where entity is 'User' and user_id is present
-  let userDocs = customFields.filter(f => f.entity === 'User' && Boolean(f.user_id));
+  // Map user documents from user_documents table
+  let rawList: any[] = [...userDocumentsTable];
 
-  if (user_id) {
-    userDocs = userDocs.filter(d => d.user_id === user_id);
+  // Also include any legacy records from custom_fields where entity === 'User' and user_id is set
+  const existingKeys = new Set(rawList.map(r => `${r.user_id}:${r.doc_key}`));
+  const legacyDocs = customFieldsTable.filter(f => f.entity === 'User' && Boolean(f.user_id));
+  for (const leg of legacyDocs) {
+    const k = `${leg.user_id}:${leg.field_name || leg.id}`;
+    if (!existingKeys.has(k)) {
+      rawList.push({
+        user_id: leg.user_id,
+        doc_key: leg.field_name || leg.id,
+        document_data: leg.file_data || {
+          name: leg.file_name || leg.name,
+          title: leg.field_label || leg.label,
+          type: leg.file_type || leg.type,
+          field_type: leg.field_type,
+          size: leg.file_size || leg.size,
+          dataUrl: leg.data_url || leg.dataUrl || leg.url,
+          notes: leg.notes,
+          uploaded_at: leg.uploaded_at,
+          uploaded_by: leg.uploaded_by
+        }
+      });
+      existingKeys.add(k);
+    }
   }
 
+  // Filter by user_id if provided (matches id or username)
+  if (user_id) {
+    const matchedUser = users.find(u => u.id === user_id || u.username === user_id);
+    const targetId = matchedUser ? matchedUser.id : String(user_id);
+    rawList = rawList.filter(d => d.user_id === targetId || (matchedUser && d.user_id === matchedUser.username));
+  }
+
+  // Format and enrich each document with document_data and User details
+  let enriched = rawList.map(item => {
+    const u = users.find(user => user.id === item.user_id || user.username === item.user_id);
+    const r = u ? roles.find(role => role.id === u.role_id) : null;
+    const b = u ? branches.find(branch => branch.id === u.branch_id) : null;
+    const userDetails = {
+      id: u?.id || item.user_id,
+      username: u?.username || '',
+      name: u?.full_name || u?.name || 'User Account',
+      full_name: u?.full_name || u?.name || 'User Account',
+      email: u?.email || '',
+      role_id: u?.role_id || 'Staff',
+      role_name: r?.name || u?.role_id || 'Staff',
+      branch_id: u?.branch_id || 'Main',
+      branch_name: b?.name || 'Main Branch'
+    };
+
+    const docData = typeof item.document_data === 'string'
+      ? JSON.parse(item.document_data)
+      : (item.document_data || {});
+
+    const title = docData.title || docData.field_label || docData.name || item.doc_key;
+    const fileName = docData.file_name || docData.name || title;
+    const detectedType = docData.field_type || detectDocumentType(fileName, docData.file_type || docData.type);
+
+    return {
+      user_id: item.user_id,
+      doc_key: item.doc_key,
+      document_data: docData,
+      id: docData.id || `udoc_${item.user_id}_${item.doc_key}`,
+      entity: 'User',
+      field_name: item.doc_key,
+      field_key: item.doc_key,
+      title: title,
+      field_label: title,
+      label: title,
+      file_name: fileName,
+      name: fileName,
+      category: docData.category || 'General Attachments',
+      field_type: detectedType,
+      type: docData.type || docData.file_type || 'application/octet-stream',
+      file_type: docData.file_type || docData.type || 'application/octet-stream',
+      size: Number(docData.size || docData.file_size || 0),
+      file_size: Number(docData.file_size || docData.size || 0),
+      dataUrl: docData.dataUrl || docData.data_url || docData.url || '',
+      data_url: docData.data_url || docData.dataUrl || docData.url || '',
+      url: docData.url || docData.dataUrl || docData.data_url || '',
+      path: docData.path || '',
+      notes: docData.notes || '',
+      uploaded_at: docData.uploaded_at || docData.uploadedAt || new Date().toISOString(),
+      uploaded_by: docData.uploaded_by || userDetails.name,
+      // Standard practice: Include user details in each returned document
+      user: userDetails,
+      user_name: userDetails.name,
+      username: userDetails.username,
+      user_email: userDetails.email,
+      user_role: userDetails.role_name,
+      branch_name: userDetails.branch_name
+    };
+  });
+
   if (category && category !== 'All') {
-    userDocs = userDocs.filter(d => d.category === category || (d.options && d.options.includes(category)));
+    enriched = enriched.filter(d => d.category === category);
   }
 
   if (field_type && field_type !== 'All') {
-    userDocs = userDocs.filter(d => String(d.field_type).toUpperCase() === String(field_type).toUpperCase());
+    enriched = enriched.filter(d => String(d.field_type).toUpperCase() === String(field_type).toUpperCase());
   }
 
   if (search) {
     const term = String(search).toLowerCase();
-    userDocs = userDocs.filter(d => 
-      (d.field_label && d.field_label.toLowerCase().includes(term)) ||
-      (d.file_name && d.file_name.toLowerCase().includes(term)) ||
-      (d.field_name && d.field_name.toLowerCase().includes(term)) ||
-      (d.category && d.category.toLowerCase().includes(term)) ||
-      (d.notes && d.notes.toLowerCase().includes(term))
+    enriched = enriched.filter(d =>
+      d.title.toLowerCase().includes(term) ||
+      d.file_name.toLowerCase().includes(term) ||
+      d.doc_key.toLowerCase().includes(term) ||
+      d.category.toLowerCase().includes(term) ||
+      d.notes.toLowerCase().includes(term) ||
+      d.user_name.toLowerCase().includes(term)
     );
   }
 
-  // Enrich with user account details
-  const enriched = userDocs.map(doc => {
-    const u = users.find(user => user.id === doc.user_id);
-    const r = u ? roles.find(role => role.id === u.role_id) : null;
-    return {
-      ...doc,
-      user_name: u?.full_name || u?.name || u?.username || 'User Account',
-      username: u?.username || '',
-      user_email: u?.email || '',
-      user_role: r?.name || u?.role_id || 'Staff'
-    };
+  res.json({
+    success: true,
+    count: enriched.length,
+    data: enriched,
+    documents: enriched
   });
-
-  res.json({ success: true, count: enriched.length, data: enriched });
 });
 
-// 2. Get documents and definitions for a specific user ID
+// 2. Get documents for a specific user ID (/users/:id/documents)
 router.get('/users/:id/documents', (req: Request, res: Response) => {
   const { id } = req.params;
   const users = db.getTable('users') || [];
-  const user = users.find(u => u.id === id || u.username === id);
+  const roles = db.getTable('user_roles') || [];
+  const branches = db.getTable('branches') || [];
+  const user = users.find(u => u.id === id || u.username === id) || users[0];
 
-  if (!user) {
+  if (!user && id !== 'all') {
     return res.status(404).json({ success: false, message: 'User not found' });
   }
 
-  const customFields = db.getTable('custom_fields') || [];
-  const userDocs = customFields.filter(f => f.entity === 'User' && f.user_id === user.id);
-  const userDefs = customFields.filter(f => f.entity === 'User' && !f.user_id);
+  const role = user ? roles.find(r => r.id === user.role_id) : null;
+  const branch = user ? branches.find(b => b.id === user.branch_id) : null;
+  const userDetails = user ? {
+    id: user.id,
+    username: user.username,
+    name: user.full_name || user.name,
+    full_name: user.full_name || user.name,
+    email: user.email,
+    role_id: user.role_id,
+    role_name: role?.name || user.role_id,
+    branch_id: user.branch_id,
+    branch_name: branch?.name || user.branch_id
+  } : null;
+
+  const userDocumentsTable = db.getTable('user_documents') || [];
+  const customFieldsTable = db.getTable('custom_fields') || [];
+
+  // Gather documents for this user
+  let rawList = userDocumentsTable.filter(d => d.user_id === user?.id || (user && d.user_id === user.username));
+
+  // Check legacy custom_fields
+  const existingKeys = new Set(rawList.map(r => `${r.user_id}:${r.doc_key}`));
+  const legacyDocs = customFieldsTable.filter(f => f.entity === 'User' && (f.user_id === user?.id || (user && f.user_id === user.username)));
+  for (const leg of legacyDocs) {
+    const k = `${leg.user_id}:${leg.field_name || leg.id}`;
+    if (!existingKeys.has(k)) {
+      rawList.push({
+        user_id: leg.user_id,
+        doc_key: leg.field_name || leg.id,
+        document_data: leg.file_data || {
+          name: leg.file_name || leg.name,
+          title: leg.field_label || leg.label,
+          type: leg.file_type || leg.type,
+          field_type: leg.field_type,
+          size: leg.file_size || leg.size,
+          dataUrl: leg.data_url || leg.dataUrl || leg.url,
+          notes: leg.notes,
+          uploaded_at: leg.uploaded_at,
+          uploaded_by: leg.uploaded_by
+        }
+      });
+    }
+  }
+
+  const enrichedDocs = rawList.map(item => {
+    const docData = typeof item.document_data === 'string'
+      ? JSON.parse(item.document_data)
+      : (item.document_data || {});
+
+    const title = docData.title || docData.field_label || docData.name || item.doc_key;
+    const fileName = docData.file_name || docData.name || title;
+    const detectedType = docData.field_type || detectDocumentType(fileName, docData.file_type || docData.type);
+
+    return {
+      user_id: item.user_id,
+      doc_key: item.doc_key,
+      document_data: docData,
+      id: docData.id || `udoc_${item.user_id}_${item.doc_key}`,
+      entity: 'User',
+      field_name: item.doc_key,
+      field_key: item.doc_key,
+      title: title,
+      field_label: title,
+      label: title,
+      file_name: fileName,
+      name: fileName,
+      category: docData.category || 'General Attachments',
+      field_type: detectedType,
+      type: docData.type || docData.file_type || 'application/octet-stream',
+      file_type: docData.file_type || docData.type || 'application/octet-stream',
+      size: Number(docData.size || docData.file_size || 0),
+      file_size: Number(docData.file_size || docData.size || 0),
+      dataUrl: docData.dataUrl || docData.data_url || docData.url || '',
+      data_url: docData.data_url || docData.dataUrl || docData.url || '',
+      url: docData.url || docData.dataUrl || docData.data_url || '',
+      path: docData.path || '',
+      notes: docData.notes || '',
+      uploaded_at: docData.uploaded_at || docData.uploadedAt || new Date().toISOString(),
+      uploaded_by: docData.uploaded_by || userDetails?.name,
+      user: userDetails,
+      user_name: userDetails?.name,
+      username: userDetails?.username,
+      user_email: userDetails?.email,
+      user_role: userDetails?.role_name,
+      branch_name: userDetails?.branch_name
+    };
+  });
+
+  const userDefs = customFieldsTable.filter(f => f.entity === 'User' && !f.user_id);
 
   res.json({
     success: true,
-    data: {
-      user_id: user.id,
-      user_name: user.full_name || user.name,
-      username: user.username,
-      documents: userDocs,
-      definitions: userDefs
-    }
+    count: enrichedDocs.length,
+    user: userDetails,
+    data: enrichedDocs,
+    documents: enrichedDocs,
+    definitions: userDefs
   });
 });
 
-// 3. Upload / Create document for a user (persists to custom_fields with entity = 'User')
+// 3. Upload / Create document for a user into user_documents table
 router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Response) => {
   const targetUserId = req.params.id || req.body.user_id;
   if (!targetUserId) {
@@ -4425,10 +4595,26 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
   }
 
   const users = db.getTable('users') || [];
+  const roles = db.getTable('user_roles') || [];
+  const branches = db.getTable('branches') || [];
   const user = users.find(u => u.id === targetUserId || u.username === targetUserId) || users[0];
   if (!user) {
     return res.status(404).json({ success: false, message: `User account "${targetUserId}" not found.` });
   }
+
+  const role = roles.find(r => r.id === user.role_id);
+  const branch = branches.find(b => b.id === user.branch_id);
+  const userDetails = {
+    id: user.id,
+    username: user.username,
+    name: user.full_name || user.name,
+    full_name: user.full_name || user.name,
+    email: user.email,
+    role_id: user.role_id,
+    role_name: role?.name || user.role_id,
+    branch_id: user.branch_id,
+    branch_name: branch?.name || user.branch_id
+  };
 
   const {
     title,
@@ -4451,18 +4637,59 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
   } = req.body;
 
   const fileName = file_name || name || title || 'uploaded_document';
-  const resolvedDataUrl = data_url || dataUrl || url || path || '';
-  const resolvedFieldType = detectDocumentType(fileName, file_type, field_type);
+  const resolvedDataUrl = dataUrl || data_url || url || path || '';
+  const resolvedFieldType = detectDocumentType(fileName, file_type || type, field_type);
   const docTitle = title || field_label || fileName.replace(/\.[^/.]+$/, '').replace(/[_\\-]/g, ' ');
   const docKey = doc_key || field_name || `doc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const docCategory = category || 'General Attachments';
 
-  const docId = `udoc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const docId = `udoc_${user.id}_${docKey}`;
   const docPath = path || `/uploads/user_docs/${user.id}_${Date.now()}_${fileName.replace(/\s+/g, '_')}`;
 
-  const docRecord = {
+  const documentData = {
     id: docId,
-    entity: 'User', // Required: User as entity in custom_fields table!
+    doc_key: docKey,
+    name: fileName,
+    file_name: fileName,
+    title: docTitle,
+    field_label: docTitle,
+    label: docTitle,
+    type: file_type || type || 'application/octet-stream',
+    file_type: file_type || type || 'application/octet-stream',
+    field_type: resolvedFieldType,
+    category: docCategory,
+    size: Number(size) || 0,
+    file_size: Number(size) || 0,
+    dataUrl: resolvedDataUrl,
+    data_url: resolvedDataUrl,
+    url: resolvedDataUrl || docPath,
+    path: docPath,
+    notes: notes || '',
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: performed_by || user.full_name || user.username || 'User Account'
+  };
+
+  // 1. Insert or update in user_documents table (PRIMARY KEY: user_id, doc_key)
+  const userDocsTable = db.getTable('user_documents');
+  const existingIndex = userDocsTable.findIndex((d: any) => d.user_id === user.id && d.doc_key === docKey);
+  const userDocRecord = {
+    user_id: user.id,
+    doc_key: docKey,
+    document_data: documentData
+  };
+
+  if (existingIndex >= 0) {
+    userDocsTable[existingIndex] = userDocRecord;
+  } else {
+    userDocsTable.push(userDocRecord);
+  }
+
+  // 2. Also keep custom_fields table synchronized for entity = 'User'
+  const customFieldsTable = db.getTable('custom_fields');
+  const existingCfIdx = customFieldsTable.findIndex(f => f.user_id === user.id && (f.field_name === docKey || f.id === docId));
+  const cfRecord = {
+    id: docId,
+    entity: 'User',
     user_id: user.id,
     field_name: docKey,
     field_key: docKey,
@@ -4486,138 +4713,154 @@ router.post(['/user-documents', '/users/:id/documents'], (req: Request, res: Res
     notes: notes || '',
     uploaded_at: new Date().toISOString(),
     uploaded_by: performed_by || user.full_name || 'User Account',
-    file_data: {
-      id: docId,
-      name: fileName,
-      title: docTitle,
-      type: file_type || type || 'application/octet-stream',
-      size: Number(size) || 0,
-      dataUrl: resolvedDataUrl,
-      path: docPath,
-      category: docCategory,
-      notes: notes || '',
-      uploaded_at: new Date().toISOString()
-    }
+    file_data: documentData
   };
 
-  // 1. Insert into custom_fields table
-  db.insert('custom_fields', docRecord);
+  if (existingCfIdx >= 0) {
+    customFieldsTable[existingCfIdx] = cfRecord;
+  } else {
+    customFieldsTable.push(cfRecord);
+  }
 
-  // 2. Synchronize to user object in users table
+  // 3. Synchronize to user record in users table
   const userCustom = { ...(user.custom_field_values || {}) };
-  userCustom[docKey] = docRecord;
+  userCustom[docKey] = documentData;
   user.custom_field_values = userCustom;
   if (!user.documents) user.documents = [];
-  user.documents.push(docRecord);
+  const existingUserDocIdx = user.documents.findIndex((d: any) => d.doc_key === docKey || d.id === docId);
+  if (existingUserDocIdx >= 0) {
+    user.documents[existingUserDocIdx] = documentData;
+  } else {
+    user.documents.push(documentData);
+  }
   db.save();
 
-  // 3. Record CDA audit trail
+  // 4. Record audit trail
   db.recordAudit(
     `User Document Uploaded: ${docTitle}`,
     'None',
-    `Attached ${fileName} (${resolvedFieldType}) to user ${user.full_name || user.username} (${user.id})`,
+    `Attached ${fileName} (${resolvedFieldType}) to user ${user.full_name || user.username} [table: user_documents, doc_key: ${docKey}]`,
     performed_by || user.full_name || 'User Account',
     'User account document management'
   );
 
+  const responseDoc = {
+    user_id: user.id,
+    doc_key: docKey,
+    document_data: documentData,
+    ...documentData,
+    user: userDetails,
+    user_name: userDetails.name,
+    username: userDetails.username,
+    user_email: userDetails.email,
+    user_role: userDetails.role_name,
+    branch_name: userDetails.branch_name
+  };
+
   res.status(201).json({
     success: true,
     message: `Document "${docTitle}" uploaded successfully for user ${user.full_name || user.username}.`,
-    data: docRecord
+    user: userDetails,
+    data: responseDoc
   });
 });
 
 // 4. Update user document metadata
 router.put(['/user-documents/:docId', '/users/:userId/documents/:docId'], (req: Request, res: Response) => {
-  const { docId } = req.params;
+  const { docId, userId } = req.params;
+  const userDocsTable = db.getTable('user_documents') || [];
   const customFields = db.getTable('custom_fields') || [];
-  const existing = customFields.find(f => f.id === docId && f.entity === 'User');
 
-  if (!existing) {
-    return res.status(404).json({ success: false, message: 'Document not found in custom_fields table' });
+  // Match in user_documents
+  const userDocIdx = userDocsTable.findIndex((d: any) => 
+    d.doc_key === docId || 
+    (d.document_data && d.document_data.id === docId) ||
+    (userId && d.user_id === userId && d.doc_key === docId)
+  );
+
+  const { title, field_label, category, notes, performed_by } = req.body;
+
+  if (userDocIdx >= 0) {
+    const item = userDocsTable[userDocIdx];
+    const prevData = typeof item.document_data === 'string' ? JSON.parse(item.document_data) : item.document_data;
+    const updatedData = {
+      ...prevData,
+      title: title || field_label || prevData.title,
+      field_label: title || field_label || prevData.field_label,
+      category: category || prevData.category,
+      notes: notes !== undefined ? notes : prevData.notes,
+      updated_at: new Date().toISOString()
+    };
+    userDocsTable[userDocIdx].document_data = updatedData;
+    db.save();
   }
 
-  const { title, field_label, category, notes, active, performed_by } = req.body;
-  const updatedDoc = {
-    ...existing,
-    field_label: title || field_label || existing.field_label,
-    label: title || field_label || existing.label,
-    category: category || existing.category,
-    notes: notes !== undefined ? notes : existing.notes,
-    active: active !== undefined ? Boolean(active) : existing.active,
-    updated_at: new Date().toISOString()
-  };
-
-  db.update('custom_fields', f => f.id === docId, () => updatedDoc);
-
-  // Also update user record
-  if (existing.user_id) {
-    const users = db.getTable('users') || [];
-    const user = users.find(u => u.id === existing.user_id);
-    if (user) {
-      if (user.documents) {
-        user.documents = user.documents.map((d: any) => d.id === docId ? updatedDoc : d);
-      }
-      if (user.custom_field_values && user.custom_field_values[existing.field_name]) {
-        user.custom_field_values[existing.field_name] = updatedDoc;
-      }
-      db.save();
-    }
+  // Also match in custom_fields
+  const existingCf = customFields.find(f => f.id === docId || f.field_name === docId);
+  if (existingCf) {
+    const updatedCf = {
+      ...existingCf,
+      field_label: title || field_label || existingCf.field_label,
+      label: title || field_label || existingCf.label,
+      category: category || existingCf.category,
+      notes: notes !== undefined ? notes : existingCf.notes,
+      updated_at: new Date().toISOString()
+    };
+    db.update('custom_fields', f => f.id === existingCf.id, () => updatedCf);
   }
 
   db.recordAudit(
-    `User Document Updated: ${updatedDoc.field_label}`,
-    existing.field_label,
-    updatedDoc.field_label,
+    `User Document Updated`,
+    docId,
+    title || field_label || docId,
     performed_by || 'Admin',
     'Updated document metadata'
   );
 
   res.json({
     success: true,
-    message: 'Document updated successfully',
-    data: updatedDoc
+    message: 'Document updated successfully'
   });
 });
 
-// 5. Delete user document from custom_fields table and user account
+// 5. Delete user document from user_documents table and user account
 router.delete(['/user-documents/:docId', '/users/:userId/documents/:docId'], (req: Request, res: Response) => {
-  const { docId } = req.params;
-  const customFields = db.getTable('custom_fields') || [];
-  const existing = customFields.find(f => f.id === docId && f.entity === 'User');
+  const { docId, userId } = req.params;
+  const userDocsTable = db.getTable('user_documents');
 
-  if (!existing) {
-    return res.status(404).json({ success: false, message: 'Document not found in custom_fields table' });
-  }
+  // Delete from user_documents table
+  db.delete('user_documents', (d: any) => 
+    d.doc_key === docId || 
+    (d.document_data && d.document_data.id === docId) ||
+    (userId && d.user_id === userId && d.doc_key === docId)
+  );
 
-  db.delete('custom_fields', f => f.id === docId);
+  // Also delete from custom_fields
+  db.delete('custom_fields', f => f.id === docId || (f.entity === 'User' && f.field_name === docId));
 
   // Remove from user record
-  if (existing.user_id) {
-    const users = db.getTable('users') || [];
-    const user = users.find(u => u.id === existing.user_id);
-    if (user) {
-      if (user.documents) {
-        user.documents = user.documents.filter((d: any) => d.id !== docId);
-      }
-      if (user.custom_field_values && user.custom_field_values[existing.field_name]) {
-        delete user.custom_field_values[existing.field_name];
-      }
-      db.save();
+  const users = db.getTable('users') || [];
+  for (const user of users) {
+    if (user.documents) {
+      user.documents = user.documents.filter((d: any) => d.id !== docId && d.doc_key !== docId);
+    }
+    if (user.custom_field_values && (user.custom_field_values[docId] || user.custom_field_values[docId])) {
+      delete user.custom_field_values[docId];
     }
   }
+  db.save();
 
   db.recordAudit(
-    `User Document Deleted: ${existing.field_label}`,
-    existing.field_label,
+    `User Document Deleted`,
+    docId,
     'Deleted',
     'Admin',
-    'Removed user document'
+    'Removed user document from user_documents table'
   );
 
   res.json({
     success: true,
-    message: `Document "${existing.field_label}" deleted successfully from database.`
+    message: `Document deleted successfully from user_documents table.`
   });
 });
 

@@ -668,6 +668,16 @@ CREATE TABLE users (
     FOREIGN KEY (branch_id) REFERENCES branches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS user_documents;
+CREATE TABLE user_documents (
+    user_id VARCHAR(50) NOT NULL,
+    doc_key VARCHAR(100) NOT NULL,
+    document_data JSON NOT NULL,
+    PRIMARY KEY (user_id, doc_key),
+    CONSTRAINT user_documents_ibfk_1
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 DROP TABLE IF EXISTS configuration_audit_trails;
 CREATE TABLE configuration_audit_trails (
     id VARCHAR(50) PRIMARY KEY,
