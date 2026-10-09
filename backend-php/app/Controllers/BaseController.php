@@ -20,6 +20,12 @@ abstract class BaseController
         $this->authClaims = $claims;
     }
 
+    protected function getAuthenticatedUserId(): ?string
+    {
+        $subject = $this->authClaims['sub'] ?? null;
+        return is_string($subject) && $subject !== '' ? $subject : null;
+    }
+
     /**
      * Send JSON response and terminate execution
      */

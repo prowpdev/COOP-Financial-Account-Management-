@@ -145,12 +145,11 @@ class DocumentController extends BaseController
         $this->success($this->userWithDocuments($user), 'Document deleted successfully.');
     }
 
-    public function destroyLegacy(string $userId): never
+    public function destroyLegacy(string $docKey): never
     {
-        $input = $this->getRequestBody();
-        $docKey = trim((string)($input['doc_key'] ?? $input['field_key'] ?? ''));
+        $userId = $this->getAuthenticatedUserId();
         if ($docKey === '') {
-            $this->error('Document key (doc_key or field_key) is required.', 422);
+            $this->error('Document key doc_key is required.', 422);
         }
         $this->destroy($userId, $docKey);
     }
