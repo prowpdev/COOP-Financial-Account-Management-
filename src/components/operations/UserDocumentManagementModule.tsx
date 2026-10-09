@@ -36,8 +36,15 @@ import {
 import { User, UserDocument, CustomField, Branch } from '../../types';
 import { api, getApiBase } from '../../services/api';
 
-const resolveDocumentUrl = (path: string) =>
-  new URL(path, new URL(getApiBase(), window.location.origin)).toString();
+const resolveAssetUrl = (path: string) => {
+  if (/^(?:https?:|data:|blob:)/i.test(path)) return path;
+
+  const assetPath = path.startsWith('/api/')
+    ? path
+    : `/api/${path.replace(/^\/+/, '')}`;
+  return new URL(assetPath, new URL(getApiBase(), window.location.origin)).toString();
+};
+
 
 const inferDocumentType = (mimeType: string, fileName: string): UserDocument['field_type'] => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -102,7 +109,7 @@ const normalizeUserDocuments = (response: { data?: unknown; documents?: unknown 
       file_size: Number(doc.file_size || doc.size || 0),
       size: Number(doc.size || doc.file_size || 0),
       path,
-      url: url ? resolveDocumentUrl(url) : undefined,
+      url: url ? resolveAssetUrl(url) : undefined,
       uploaded_at: String(doc.uploaded_at || '')
     } as UserDocument;
   });
@@ -478,6 +485,7 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
   const handleConfirmDelete = async () => {
     if (!deletingDoc) return;
     setIsSubmitting(true);
+    console.log(deletingDoc)
     try {
       const res = await api.deleteUserDocument(deletingDoc.id);
       if (res.success) {
@@ -1476,14 +1484,14 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
               {String(previewDoc.field_type).toUpperCase() === 'IMAGE' || (previewDoc.file_type || '').startsWith('image/') ? (
                 <div className="max-w-full max-h-[60vh] overflow-hidden rounded-xl border border-slate-800 shadow-xl bg-slate-900 flex items-center justify-center">
                   <img
-                    src={previewDoc.data_url || previewDoc.dataUrl || previewDoc.url}
+                    src={resolveAssetUrl(previewDoc.data_url || previewDoc.dataUrl || previewDoc.url)}
                     alt={previewDoc.field_label}
                     className="max-h-[58vh] object-contain"
                   />
                 </div>
               ) : String(previewDoc.field_type).toUpperCase() === 'PDF' && (previewDoc.data_url || previewDoc.dataUrl || previewDoc.url || previewDoc.path) ? (
                 <iframe
-                  src={previewDoc.data_url || previewDoc.dataUrl || previewDoc.url || previewDoc.path}
+                  src={resolveAssetUrl(previewDoc.data_url || previewDoc.dataUrl || previewDoc.url || previewDoc.path || '')}
                   title={previewDoc.field_label}
                   className="w-full h-[60vh] rounded-xl border border-slate-800"
                 />

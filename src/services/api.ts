@@ -109,7 +109,9 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
 
   try {
     const { token, branchId } = await getAuthSessionContext();
-    const requestUrl = addCurrentUserBranchId(targetUrl, branchId);
+    const requestUrl = options?.method?.toUpperCase() === 'DELETE'
+      ? targetUrl
+      : addCurrentUserBranchId(targetUrl, branchId);
     const response = await fetch(requestUrl, {
       ...options,
       headers: createRequestHeaders(options?.headers, token)

@@ -348,13 +348,13 @@ export const CustomFileUploadField: React.FC<CustomFileUploadFieldProps> = ({
             <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-950 min-h-[350px]">
               {isImageField ? (
                 <img
-                  src={resolveAssetUrl(parsedFile.path || parsedFile.dataUrl || parsedFile.url)}
+                  src={resolveAssetUrl(('/api'+parsedFile.path) || ('/api'+parsedFile.dataUrl) || ('/api'+parsedFile.url))}
                   alt={parsedFile.name}
                   className="max-h-[70vh] max-w-full rounded-lg object-contain shadow-lg border border-slate-800"
                 />
               ) : isPdfField ? (
                 <iframe
-                  src={resolveAssetUrl(parsedFile.path || parsedFile.dataUrl || parsedFile.url)}
+                  src={resolveAssetUrl(('/api'+parsedFile.path) || ('/api'+parsedFile.dataUrl) || ('/api'+parsedFile.url))}
                   title={parsedFile.name}
                   className="w-full h-[65vh] rounded-lg border border-slate-800 bg-white"
                 />
