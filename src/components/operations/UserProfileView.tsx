@@ -835,22 +835,27 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                   Granted Access Permissions
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {(userProfile.role_permissions || [
-                    'member.view',
-                    'member.create',
-                    'loan.view',
-                    'loan.create',
-                    'savings.view',
-                    'accounting.view'
-                  ]).map((perm, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60 text-[10px] font-mono"
-                    >
-                      {perm}
-                    </span>
-                  ))}
-                </div>
+  {(Array.isArray(userProfile.role_permissions)
+    ? userProfile.role_permissions
+    : typeof userProfile.role_permissions === "string"
+      ? JSON.parse(userProfile.role_permissions || "[]")
+      : [
+          "member.view",
+          "member.create",
+          "loan.view",
+          "loan.create",
+          "savings.view",
+          "accounting.view",
+        ]
+  ).map((perm: string, idx: number) => (
+    <span
+      key={idx}
+      className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60 text-[10px] font-mono"
+    >
+      {perm}
+    </span>
+  ))}
+</div>
               </div>
             </div>
 

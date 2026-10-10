@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import axios from "axios"
 import {
+  X,
   ShieldCheck,
   User,
   Users,
@@ -18,84 +20,158 @@ import {
   Calendar,
   Layers,
   KeyRound,
-  FileCheck
-} from 'lucide-react';
-import { api } from '../../services/api';
-import { AuthSession } from '../../types';
+  FileCheck,
+} from "lucide-react";
+import { api } from "../../services/api";
+import { AuthSession } from "../../types";
 
+const apiEndpoint = import.meta.env.VITE_API_BASE_URL;
 interface AuthPortalProps {
   onSuccess: (session: AuthSession) => void;
-  initialMode?: 'staff' | 'member';
+  initialMode?: "staff" | "member";
 }
 
 export const AuthPortal: React.FC<AuthPortalProps> = ({
   onSuccess,
-  initialMode = 'staff'
+  initialMode = "staff",
 }) => {
-  const [activePortal, setActivePortal] = useState<'staff' | 'member'>(initialMode);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [activePortal, setActivePortal] = useState<"staff" | "member">(
+    initialMode,
+  );
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Staff Login fields
-  const [staffIdentifier, setStaffIdentifier] = useState('');
-  const [staffPassword, setStaffPassword] = useState('');
+  const [staffIdentifier, setStaffIdentifier] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
 
   // Staff Register fields
-  const [staffFullName, setStaffFullName] = useState('');
-  const [staffRegUsername, setStaffRegUsername] = useState('');
-  const [staffRegEmail, setStaffRegEmail] = useState('');
-  const [staffRegPassword, setStaffRegPassword] = useState('');
-  const [staffRegRoleId, setStaffRegRoleId] = useState('role_loan_officer');
-  const staffRegBranchId = 'branch_tar';
+  const [staffFullName, setStaffFullName] = useState("");
+  const [staffRegUsername, setStaffRegUsername] = useState("");
+  const [staffRegEmail, setStaffRegEmail] = useState("");
+  const [staffRegPassword, setStaffRegPassword] = useState("");
+  const [staffRegRoleId, setStaffRegRoleId] = useState("role_admin");
+  const staffRegBranchId = "branch_tar";
+  const [branchId,setBranchId] = useState("");
 
   // Member Login fields
-  const [memberIdentifier, setMemberIdentifier] = useState('');
-  const [memberPassword, setMemberPassword] = useState('');
+  const [memberIdentifier, setMemberIdentifier] = useState("");
+  const [memberPassword, setMemberPassword] = useState("");
 
   // Member Register fields
-  const [memFirstName, setMemFirstName] = useState('');
-  const [memMiddleName, setMemMiddleName] = useState('');
-  const [memLastName, setMemLastName] = useState('');
-  const [memGender, setMemGender] = useState('Male');
-  const [memBirthdate, setMemBirthdate] = useState('');
-  const [memPhone, setMemPhone] = useState('');
-  const [memEmail, setMemEmail] = useState('');
-  const [memAddress, setMemAddress] = useState('');
-  const memBranchId = 'branch_tar';
-  const [memTypeId, setMemTypeId] = useState('mt_regular');
-  const [memFarmHectares, setMemFarmHectares] = useState('');
-  const [memPrimaryCrop, setMemPrimaryCrop] = useState('');
-  const [memPassword, setMemPassword] = useState('');
+  const [memFirstName, setMemFirstName] = useState("");
+  const [memMiddleName, setMemMiddleName] = useState("");
+  const [memLastName, setMemLastName] = useState("");
+  const [memGender, setMemGender] = useState("Male");
+  const [memBirthdate, setMemBirthdate] = useState("");
+  const [memPhone, setMemPhone] = useState("");
+  const [memEmail, setMemEmail] = useState("");
+  const [memAddress, setMemAddress] = useState("");
+  const memBranchId = "branch_tar";
+  const [memTypeId, setMemTypeId] = useState("mt_regular");
+  const [memFarmHectares, setMemFarmHectares] = useState("");
+  const [memPrimaryCrop, setMemPrimaryCrop] = useState("");
+  const [memPassword, setMemPassword] = useState("");
+  const [branchForm, isBranchFormOpen] = useState(true);
+  const [branchFormResponse, setBranchFormResponse] = useState(false);
+  const [branchFormResponseMessage, setBranchFormResponseMessage] = useState("");
+  const [newBranch, setNewBranch] = useState({
+    code: "",
+    name: "",
+    address: "",
+    phone: "",
+    manager_name: "",
+  });
+  const registerBranch = () => {
+    isBranchFormOpen(true);
+  };
+  
+const handleCreate = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-  const getErrorMessage = (error: unknown) =>
-    error instanceof Error ? error.message : String(error);
+  setIsLoading(true);
+  setErrorMessage("");
+  setBranchFormResponse(false);
+  setBranchFormResponseMessage("");
+
+  try {
+    const res = await axios.post(
+      `${apiEndpoint}public/branch`,
+      newBranch
+    );
+
+    if (res.data.success) {
+      setBranchFormResponse(true);
+      setBranchFormResponseMessage(
+        res.data.message || "Branch created successfully."
+      );
+    } else {
+      setErrorMessage(
+        res.data.error ||
+        res.data.message ||
+        "Failed to create branch."
+      );
+    }
+    setNewBranch({
+          code: "",
+          name: "",
+          address: "",
+          phone: "",
+          manager_name: "",
+    })
+  } catch (err: unknown) {
+    setErrorMessage(getErrorMessage(err));
+
+  } finally {
+    setIsLoading(false);
+    setTimeout(() => {
+      setErrorMessage("");
+    }, 3000);
+  }
+};
+const getErrorMessage = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    return (
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message
+    );
+  }
+
+  return error instanceof Error ? error.message : String(error);
+};
 
   const handleStaffLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const res = await api.login({
-        username: staffIdentifier.includes('@') ? undefined : staffIdentifier,
-        email: staffIdentifier.includes('@') ? staffIdentifier : undefined,
-        password: staffPassword
+        username: staffIdentifier.includes("@") ? undefined : staffIdentifier,
+        email: staffIdentifier.includes("@") ? staffIdentifier : undefined,
+        password: staffPassword,
       });
 
       if (res.success && res.data?.user && res.data.token) {
-        setSuccessMessage(`Welcome back, ${res.data.user.name}! Accessing management dashboard...`);
+        setSuccessMessage(
+          `Welcome back, ${res.data.user.name}! Accessing management dashboard...`,
+        );
         setTimeout(() => {
           onSuccess({
-            type: 'staff',
+            type: "staff",
             user: res.data.user,
-            token: res.data.token
+            token: res.data.token,
           });
         }, 300);
       } else {
-        setErrorMessage(res.message || 'The authentication response did not include a user and access token.');
+        setErrorMessage(
+          res.message ||
+            "The authentication response did not include a user and access token.",
+        );
       }
     } catch (err: any) {
       setErrorMessage(getErrorMessage(err));
@@ -107,11 +183,16 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const handleStaffRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
-    if (!staffFullName || !staffRegUsername || !staffRegEmail || !staffRegPassword) {
-      setErrorMessage('Please fill in all required fields.');
+    if (
+      !staffFullName ||
+      !staffRegUsername ||
+      !staffRegEmail ||
+      !staffRegPassword
+    ) {
+      setErrorMessage("Please fill in all required fields.");
       setIsLoading(false);
       return;
     }
@@ -123,25 +204,30 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         email: staffRegEmail,
         password: staffRegPassword,
         role_id: staffRegRoleId,
-        branch_id: staffRegBranchId
+        branch_id: staffRegBranchId,
       });
 
       if (res.success && res.data) {
         const user = res.data.user || res.data;
         if (res.data.token && user?.id) {
-          setSuccessMessage(res.message || 'Staff account created successfully. Signing in...');
+          setSuccessMessage(
+            res.message || "Staff account created successfully. Signing in...",
+          );
           setTimeout(() => {
             onSuccess({
-              type: 'staff',
+              type: "staff",
               user,
-              token: res.data.token
+              token: res.data.token,
             });
           }, 400);
         } else {
-          setSuccessMessage(res.message || 'Staff account created successfully. Sign in to continue.');
+          setSuccessMessage(
+            res.message ||
+              "Staff account created successfully. Sign in to continue.",
+          );
         }
       } else {
-        setErrorMessage(res.message || 'Registration failed.');
+        setErrorMessage(res.message || "Registration failed.");
       }
     } catch (err: any) {
       setErrorMessage(getErrorMessage(err));
@@ -153,26 +239,31 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const handleMemberLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const res = await api.memberLogin({
         identifier: memberIdentifier,
-        password: memberPassword
+        password: memberPassword,
       });
 
       if (res.success && res.data?.member && res.data.token) {
-        setSuccessMessage(`Welcome back, ${res.data.member.first_name}! Loading your Member Dashboard...`);
+        setSuccessMessage(
+          `Welcome back, ${res.data.member.first_name}! Loading your Member Dashboard...`,
+        );
         setTimeout(() => {
           onSuccess({
-            type: 'member',
+            type: "member",
             member: res.data.member,
-            token: res.data.token
+            token: res.data.token,
           });
         }, 300);
       } else {
-        setErrorMessage(res.message || 'The authentication response did not include a member and access token.');
+        setErrorMessage(
+          res.message ||
+            "The authentication response did not include a member and access token.",
+        );
       }
     } catch (err: any) {
       setErrorMessage(getErrorMessage(err));
@@ -184,11 +275,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const handleMemberRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     if (!memFirstName || !memLastName || !memPhone) {
-      setErrorMessage('First name, last name, and contact phone are required.');
+      setErrorMessage("First name, last name, and contact phone are required.");
       setIsLoading(false);
       return;
     }
@@ -207,22 +298,27 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         member_type_id: memTypeId,
         custom_field_values: {
           farm_hectares: Number(memFarmHectares) || 0,
-          primary_crop: memPrimaryCrop
+          primary_crop: memPrimaryCrop,
         },
-        password: memPassword
+        password: memPassword,
       });
 
       if (res.success && res.data?.member && res.data.token) {
-        setSuccessMessage(`Welcome to Mayap Care Cooperative! Your Member No. is ${res.data.member.member_no}. Opening your dashboard...`);
+        setSuccessMessage(
+          `Welcome to Mayap Care Cooperative! Your Member No. is ${res.data.member.member_no}. Opening your dashboard...`,
+        );
         setTimeout(() => {
           onSuccess({
-            type: 'member',
+            type: "member",
             member: res.data.member,
-            token: res.data.token
+            token: res.data.token,
           });
         }, 500);
       } else {
-        setErrorMessage(res.message || 'The registration response did not include a member and access token.');
+        setErrorMessage(
+          res.message ||
+            "The registration response did not include a member and access token.",
+        );
       }
     } catch (err: any) {
       setErrorMessage(getErrorMessage(err));
@@ -249,7 +345,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   CDA Reg. 9502-100234
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Integrated Agricultural Credit & Financial Management System</p>
+              <p className="text-xs text-slate-400">
+                Integrated Agricultural Credit & Financial Management System
+              </p>
             </div>
           </div>
 
@@ -269,20 +367,21 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         <div className="w-full max-w-xl">
           {/* Main Card */}
           <div className="bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl shadow-black/80 overflow-hidden backdrop-blur-xl">
+           
             {/* Dual Portal Switcher: Staff Management vs Member Portal */}
             <div className="grid grid-cols-2 p-1.5 bg-slate-950 border-b border-slate-800 text-xs font-semibold">
               <button
                 type="button"
                 id="tab-portal-staff"
                 onClick={() => {
-                  setActivePortal('staff');
-                  setErrorMessage('');
-                  setSuccessMessage('');
+                  setActivePortal("staff");
+                  setErrorMessage("");
+                  setSuccessMessage("");
                 }}
                 className={`py-3 px-4 rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                  activePortal === 'staff'
-                    ? 'bg-slate-800 text-emerald-400 shadow-md border border-slate-700/80 font-bold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  activePortal === "staff"
+                    ? "bg-slate-800 text-emerald-400 shadow-md border border-slate-700/80 font-bold"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
                 }`}
               >
                 <Briefcase className="w-4 h-4" />
@@ -293,14 +392,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                 type="button"
                 id="tab-portal-member"
                 onClick={() => {
-                  setActivePortal('member');
-                  setErrorMessage('');
-                  setSuccessMessage('');
+                  setActivePortal("member");
+                  setErrorMessage("");
+                  setSuccessMessage("");
                 }}
                 className={`py-3 px-4 rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                  activePortal === 'member'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40 border border-emerald-500/40 font-bold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  activePortal === "member"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40 border border-emerald-500/40 font-bold"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -316,29 +415,34 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               <div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center space-x-2">
                   <span>
-                    {activePortal === 'staff' ? 'Staff Core Access' : 'Cooperative Member Portal'}
+                    {activePortal === "staff"
+                      ? "Staff Core Access"
+                      : activePortal === "branch"
+                      ? "Branch Portal"
+                      : "Cooperative Member Portal"}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {activePortal === 'staff'
-                    ? 'Official sign in for loan officers, cashiers, auditors & managers.'
-                    : 'View your loans, deposits, share capital, passbook and schedules.'}
+                  {activePortal === "staff"
+                    ? "Official sign in for loan officers, cashiers, auditors & managers."
+                    : activePortal === "branch"
+                    ? "Register your cooperative branch office to access the management dashboard."
+                    : "View your loans, deposits, share capital, passbook and schedules."}
                 </p>
               </div>
-
-              {/* Toggle Login vs Register */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              {activePortal != "branch" && (
+                 <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
                 <button
                   type="button"
                   id="auth-mode-login"
                   onClick={() => {
-                    setAuthMode('login');
-                    setErrorMessage('');
+                    setAuthMode("login");
+                    setErrorMessage("");
                   }}
                   className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    authMode === 'login'
-                      ? 'bg-slate-800 text-white shadow'
-                      : 'text-slate-400 hover:text-slate-200'
+                    authMode === "login"
+                      ? "bg-slate-800 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   Sign In
@@ -347,18 +451,21 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   type="button"
                   id="auth-mode-register"
                   onClick={() => {
-                    setAuthMode('register');
-                    setErrorMessage('');
+                    setAuthMode("register");
+                    setErrorMessage("");
                   }}
                   className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    authMode === 'register'
-                      ? 'bg-slate-800 text-white shadow'
-                      : 'text-slate-400 hover:text-slate-200'
+                    authMode === "register"
+                      ? "bg-slate-800 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   Register
                 </button>
               </div>
+              )}
+              {/* Toggle Login vs Register */}
+             
             </div>
 
             {/* Notifications */}
@@ -378,10 +485,135 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
             {/* FORM BODY */}
             <div className="p-6">
+              {branchFormResponse && (
+                <div className="mb-5 bg-emerald-950/30 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-200/90 flex items-start space-x-2.5">
+                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-emerald-300">
+                        Cooperative Member Self-Service
+                      </p>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        {branchFormResponseMessage}
+                      </p>
+                    </div>
+                  </div>
+              )}
+              {activePortal === "branch" && (
+                <form
+                onSubmit={handleCreate}
+                className=" space-y-4"
+              >
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <h3 className="text-sm font-bold text-emerald-400">
+                    New Branch Office
+                  </h3>
+            
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-300 font-medium">
+                      Branch Code (3-4 Letters)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. BAG"
+                      value={newBranch.code}
+                      onChange={(e) =>
+                        setNewBranch({
+                          ...newBranch,
+                          code: e.target.value.toUpperCase(),
+                        })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-300 font-medium">
+                      Branch Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Baguio Highland Branch"
+                      value={newBranch.name}
+                      onChange={(e) =>
+                        setNewBranch({ ...newBranch, name: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-300 font-medium">
+                      Branch Manager
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Felipe Dizon"
+                      value={newBranch.manager_name}
+                      onChange={(e) =>
+                        setNewBranch({
+                          ...newBranch,
+                          manager_name: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-slate-300 font-medium">
+                      Office Physical Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Session Road, Baguio City"
+                      value={newBranch.address}
+                      onChange={(e) =>
+                        setNewBranch({ ...newBranch, address: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-300 font-medium">
+                      Contact Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="+63 (074) 442-9981"
+                      value={newBranch.phone}
+                      onChange={(e) =>
+                        setNewBranch({ ...newBranch, phone: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActivePortal("staff")}
+                    className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
+                  >
+                    Go Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    ):(
+                     <> Save Branch</>
+                    )}
+                  </button>
+                </div>
+              </form>
+              )}
               {/* ---------------------------------------------------- */}
               {/* STAFF PORTAL LOGIN */}
               {/* ---------------------------------------------------- */}
-              {activePortal === 'staff' && authMode === 'login' && (
+              {activePortal === "staff" && authMode === "login" && (
                 <form onSubmit={handleStaffLogin} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -436,13 +668,23 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       </>
                     )}
                   </button>
+                  <p className="text-xs text-slate-400">
+                    Please Add your Cooperative Branch?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setActivePortal("branch")}
+                      className="text-emerald-400 hover:text-emerald-300 focus:outline-none"
+                    >
+                      Register here
+                    </button>
+                  </p>
                 </form>
               )}
 
               {/* ---------------------------------------------------- */}
               {/* STAFF PORTAL REGISTRATION */}
               {/* ---------------------------------------------------- */}
-              {activePortal === 'staff' && authMode === 'register' && (
+              {activePortal === "staff" && authMode === "register" && (
                 <form onSubmit={handleStaffRegister} className="space-y-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -505,7 +747,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                    <div className="hidden">
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Assigned Role
                       </label>
@@ -517,7 +759,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                         <option value="role_loan_officer">Loan Officer</option>
                         <option value="role_teller">Cashier / Teller</option>
                         <option value="role_auditor">Internal Auditor</option>
-                        <option value="role_general_manager">General Manager</option>
+                        <option value="role_general_manager">
+                          General Manager
+                        </option>
                         <option value="role_admin">System Administrator</option>
                       </select>
                     </div>
@@ -552,14 +796,17 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               {/* ---------------------------------------------------- */}
               {/* MEMBER PORTAL LOGIN */}
               {/* ---------------------------------------------------- */}
-              {activePortal === 'member' && authMode === 'login' && (
+              {activePortal === "member" && authMode === "login" && (
                 <form onSubmit={handleMemberLogin} className="space-y-4">
                   <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-200/90 flex items-start space-x-2.5">
                     <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-emerald-300">Cooperative Member Self-Service</p>
+                      <p className="font-semibold text-emerald-300">
+                        Cooperative Member Self-Service
+                      </p>
                       <p className="text-[11px] text-slate-300 mt-0.5">
-                        Access your loan amortization schedules, savings ledger, capital build-up (CBU), and official receipts anytime.
+                        Access your loan amortization schedules, savings ledger,
+                        capital build-up (CBU), and official receipts anytime.
                       </p>
                     </div>
                   </div>
@@ -623,18 +870,23 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               {/* ---------------------------------------------------- */}
               {/* MEMBER PORTAL REGISTRATION */}
               {/* ---------------------------------------------------- */}
-              {activePortal === 'member' && authMode === 'register' && (
+              {activePortal === "member" && authMode === "register" && (
                 <form onSubmit={handleMemberRegister} className="space-y-3.5">
                   <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-200">
-                    <p className="font-semibold text-emerald-300">New Member Online Application</p>
+                    <p className="font-semibold text-emerald-300">
+                      New Member Online Application
+                    </p>
                     <p className="text-[11px] text-slate-300">
-                      Instantly generates your cooperative Member Number and provisions your CBU and Savings passbook.
+                      Instantly generates your cooperative Member Number and
+                      provisions your CBU and Savings passbook.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">First Name *</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        First Name *
+                      </label>
                       <input
                         type="text"
                         value={memFirstName}
@@ -645,7 +897,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Middle Name</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Middle Name
+                      </label>
                       <input
                         type="text"
                         value={memMiddleName}
@@ -655,7 +909,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Last Name *</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Last Name *
+                      </label>
                       <input
                         type="text"
                         value={memLastName}
@@ -669,7 +925,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Mobile / Phone *</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Mobile / Phone *
+                      </label>
                       <input
                         type="text"
                         value={memPhone}
@@ -680,7 +938,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Email Address
+                      </label>
                       <input
                         type="email"
                         value={memEmail}
@@ -693,28 +953,40 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Branch</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Branch
+                      </label>
                       <div className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
                         Tarlac Main Branch
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Membership Type</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Membership Type
+                      </label>
                       <select
                         value={memTypeId}
                         onChange={(e) => setMemTypeId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       >
-                        <option value="mt_regular">Regular Agricultural Member</option>
-                        <option value="mt_associate">Associate Micro-Entrepreneur</option>
-                        <option value="mt_lab">Laboratory / Youth Member</option>
+                        <option value="mt_regular">
+                          Regular Agricultural Member
+                        </option>
+                        <option value="mt_associate">
+                          Associate Micro-Entrepreneur
+                        </option>
+                        <option value="mt_lab">
+                          Laboratory / Youth Member
+                        </option>
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Farm Land (Hectares)</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Farm Land (Hectares)
+                      </label>
                       <input
                         type="number"
                         step="0.1"
@@ -725,7 +997,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Primary Crops / Business</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Primary Crops / Business
+                      </label>
                       <input
                         type="text"
                         value={memPrimaryCrop}
@@ -738,7 +1012,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Residential Address</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Residential Address
+                      </label>
                       <input
                         type="text"
                         value={memAddress}
@@ -748,7 +1024,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Password for Online Portal</label>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Password for Online Portal
+                      </label>
                       <input
                         type="password"
                         value={memPassword}
@@ -781,7 +1059,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
           {/* Footer note */}
           <div className="text-center mt-6 text-xs text-slate-500">
-            Mayap Care Agriculture Cooperative Core System • CDA Compliant • Automated Ledger Engine
+            Mayap Care Agriculture Cooperative Core System • CDA Compliant •
+            Automated Ledger Engine
           </div>
         </div>
       </main>

@@ -1168,7 +1168,7 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
                     <div>
                       <span className="text-slate-500 block">TIN Number (BIR):</span>
                       <span className="font-mono text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 inline-block mt-0.5">
-                        {member.tin_number || member.tin || 'Not Set'}
+                        {member.custom_field_values.tin_number || member.tin || 'Not Set'}
                       </span>
                     </div>
                     <div>
