@@ -2329,6 +2329,42 @@
       "changed_by": "Admin",
       "created_at": "2026-10-06T07:23:02.721Z",
       "reason": "Updated document metadata"
+    },
+    {
+      "id": "audit_usr_1791615668527_vjvi",
+      "module": "User Management",
+      "table_name": "users",
+      "record_id": "usr_1790075837467_grza",
+      "action": "UPDATE",
+      "description": "User profile updated for Jhomel Ignacio (admin01)",
+      "changes": {
+        "full_name": "Jhomel Ignacio",
+        "email": "jhomignacio08@gmail.com",
+        "branch_id": "branch_tar",
+        "phone": "+63 917 123 4567",
+        "password_updated": false
+      },
+      "user_id": "usr_1790075837467_grza",
+      "performed_by": "admin01",
+      "created_at": "2026-10-10T07:01:08.527Z"
+    },
+    {
+      "id": "audit_usr_1791615671219_kg0u",
+      "module": "User Management",
+      "table_name": "users",
+      "record_id": "usr_1790075837467_grza",
+      "action": "UPDATE",
+      "description": "User profile updated for Jhomel Ignacio (admin01)",
+      "changes": {
+        "full_name": "Jhomel Ignacio",
+        "email": "jhomignacio08@gmail.com",
+        "branch_id": "branch_tar",
+        "phone": "+63 917 123 4567",
+        "password_updated": false
+      },
+      "user_id": "usr_1790075837467_grza",
+      "performed_by": "admin01",
+      "created_at": "2026-10-10T07:01:11.219Z"
     }
   ],
   "user_roles": [
@@ -2433,7 +2469,7 @@
       "role_id": "role_admin",
       "branch_id": "branch_tar",
       "active": true,
-      "last_login": "2026-10-07T07:20:21.377Z",
+      "last_login": "2026-10-10T06:05:08.568Z",
       "created_at": "2026-09-22T11:17:17.468Z",
       "custom_field_values": {
         "doc_1791271374833_qvad": {
@@ -2522,7 +2558,15 @@
           },
           "updated_at": "2026-10-06T07:23:02.719Z"
         }
-      ]
+      ],
+      "name": "Jhomel Ignacio",
+      "phone": "+63 917 123 4567",
+      "address": "Poblacion Plaza, Tarlac City",
+      "title": "Lead System Administrator",
+      "bio": "Dedicated cooperative management and financial operations head.",
+      "avatar_url": "",
+      "cooperative_id": "coop_01",
+      "updated_at": "2026-10-10T07:01:11.218Z"
     },
     {
       "id": "usr_1791362468009_p2lt",

@@ -8,6 +8,7 @@ import { MembersModule } from './components/operations/MembersModule';
 import { MemberProfileView } from './components/operations/MemberProfileView';
 import { MemberCustomFieldsModule } from './components/operations/MemberCustomFieldsModule';
 import { UserDocumentManagementModule } from './components/operations/UserDocumentManagementModule';
+import { UserProfileView } from './components/operations/UserProfileView';
 import { LoansModule } from './components/operations/LoansModule';
 import { SavingsModule } from './components/operations/SavingsModule';
 import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
@@ -30,7 +31,8 @@ import {
   FeatureToggle,
   LoanProduct,
   MemberType,
-  AuthSession
+  AuthSession,
+  User
 } from './types';
 import { RefreshCw } from 'lucide-react';
 
@@ -42,6 +44,7 @@ const VALID_TABS: TabKey[] = [
   'member_profile',
   'member_fields',
   'user_documents',
+  'user_profile',
   'loans',
   'savings',
   'share_capital',
@@ -83,7 +86,15 @@ const TAB_ALIASES: Record<string, TabKey> = {
   userdocs: 'user_documents',
   docs: 'user_documents',
   files: 'user_documents',
-  document_management: 'user_documents'
+  document_management: 'user_documents',
+  user_profile: 'user_profile',
+  userprofile: 'user_profile',
+  my_profile: 'user_profile',
+  myprofile: 'user_profile',
+  profile_page: 'user_profile',
+  user_account: 'user_profile',
+  account: 'user_profile',
+  me: 'user_profile'
 };
 
 const getCoopStorageItem = (key: string): string | null => {
@@ -216,6 +227,7 @@ export default function App() {
         members: 'Member Registry',
         member_fields: 'Member Custom Fields & TIN',
         user_documents: 'User Document Management',
+        user_profile: 'User Profile & Assignments',
         loans: 'Loans & Credit Facility',
         savings: 'Savings & Deposits',
         share_capital: 'Share Capital (CBU)',
@@ -370,6 +382,25 @@ export default function App() {
       clearAuthSession();
     } catch (e) {
       console.error('Failed to clear session:', e);
+    }
+  };
+
+  const handleUpdateCurrentUser = async (updatedUser: User) => {
+    if (authSession && authSession.type === 'staff') {
+      const updatedSession: AuthSession = {
+        ...authSession,
+        user: {
+          ...authSession.user,
+          ...updatedUser,
+          name: updatedUser.name || updatedUser.full_name || authSession.user.name
+        }
+      };
+      setAuthSession(updatedSession);
+      try {
+        await saveAuthSession(updatedSession);
+      } catch (e) {
+        console.error('Failed saving session:', e);
+      }
     }
   };
 
@@ -543,6 +574,19 @@ export default function App() {
               currentUser={currentUser}
               branches={branches}
               onRefresh={refreshGlobalState}
+            />
+          )}
+
+          {activeTab === 'user_profile' && (
+            <UserProfileView
+              currentUser={currentUser}
+              branches={branches}
+              cooperative={profile}
+              onUpdateUser={handleUpdateCurrentUser}
+              onNavigateTab={(tab) => {
+                setActiveTab(tab);
+                setIsMobileSidebarOpen(false);
+              }}
             />
           )}
 

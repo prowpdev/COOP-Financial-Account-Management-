@@ -4323,6 +4323,244 @@ router.get('/user-roles', (req: Request, res: Response) => {
   res.json({ success: true, data: roles });
 });
 
+// Helper: Enrich user record with complete assigned branch and cooperative information
+function getEnrichedUserProfile(user: any) {
+  const roles = db.getTable('user_roles') || [];
+  const userRole = roles.find(r => r.id === user.role_id);
+  const branches = db.getTable('branches') || [];
+  const userBranch = branches.find(b => b.id === user.branch_id);
+  const cooperatives = db.getTable('cooperatives') || [];
+  const coop = cooperatives.find(c => c.id === user.cooperative_id) || cooperatives[0] || null;
+
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.full_name || user.name || user.username,
+    full_name: user.full_name || user.name || user.username,
+    email: user.email || '',
+    phone: user.phone || user.contact_number || '',
+    address: user.address || '',
+    title: user.title || user.designation || userRole?.name || 'Staff Member',
+    bio: user.bio || '',
+    avatar_url: user.avatar_url || '',
+    role_id: user.role_id,
+    role_name: userRole?.name || 'Administrator',
+    role_permissions: userRole?.permissions || [
+      'member.view', 'member.create', 'loan.view', 'loan.create', 'accounting.view'
+    ],
+    branch_id: user.branch_id || userBranch?.id || 'branch_tar',
+    branch_name: userBranch?.name || 'Main Branch - Tarlac',
+    branch_code: userBranch?.code || 'TAR',
+    branch_address: userBranch?.address || 'Poblacion Plaza, Tarlac City',
+    branch_phone: userBranch?.phone || userBranch?.contact_number || '+63 (045) 982-1200',
+    branch_manager: userBranch?.manager_name || userBranch?.manager || 'Engr. Jhomel Ignacio',
+    cooperative_id: user.cooperative_id || coop?.id || 'coop_01',
+    cooperative_name: coop?.name || 'Multipurpose Cooperative System',
+    cooperative_registration_no: coop?.registration_no || coop?.cda_registration_no || 'CDA-REG-9502-100234',
+    cooperative_tax_id: coop?.tax_identification_number || '005-891-234-000',
+    cooperative_address: coop?.address || 'Poblacion Plaza, Tarlac City, Philippines',
+    cooperative_phone: coop?.phone || coop?.contact_phone || '+63 (045) 982-1200',
+    cooperative_email: coop?.email || coop?.contact_email || 'admin@mayapcare.coop',
+    cooperative_currency: coop?.currency || 'PHP',
+    cooperative_currency_symbol: coop?.currency_symbol || '₱',
+    cooperative_fiscal_year: coop?.fiscal_year_start ? `${coop.fiscal_year_start} to ${coop.fiscal_year_end}` : '01-01 to 12-31',
+    active: user.active !== false,
+    last_login: user.last_login || null,
+    created_at: user.created_at || new Date().toISOString(),
+    documents: user.documents || [],
+    custom_field_values: user.custom_field_values || {}
+  };
+}
+
+// GET Current User Profile (with assigned branch and cooperative details)
+router.get(['/users/profile', '/users/me', '/auth/me'], (req: Request, res: Response) => {
+  const users = db.getTable('users') || [];
+  const reqUserId = (req.query.userId || req.query.user_id || req.headers['x-user-id']) as string | undefined;
+
+  let targetUser = null;
+  if (reqUserId) {
+    targetUser = users.find(u => u.id === reqUserId || u.username === reqUserId);
+  }
+
+  if (!targetUser) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      targetUser = users.find(u => u.active !== false);
+    }
+  }
+
+  if (!targetUser) {
+    targetUser = users.find(u => u.active !== false) || users[0];
+  }
+
+  if (!targetUser) {
+    return res.status(404).json({ success: false, message: 'User profile not found.' });
+  }
+
+  res.json({
+    success: true,
+    data: getEnrichedUserProfile(targetUser)
+  });
+});
+
+// GET Specific User by ID
+router.get('/users/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const users = db.getTable('users') || [];
+  const user = users.find(u => u.id === id || u.username === id);
+
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found.' });
+  }
+
+  res.json({
+    success: true,
+    data: getEnrichedUserProfile(user)
+  });
+});
+
+// PUT Update User Profile (editable personal info, security, and assignments)
+router.put(['/users/profile', '/users/me', '/users/:id'], (req: Request, res: Response) => {
+  const users = db.getTable('users') || [];
+  const targetId = req.params.id || req.body.id || req.body.user_id || (req.query.userId as string) || (req.headers['x-user-id'] as string);
+
+  let targetUser: any = null;
+  if (targetId) {
+    targetUser = users.find(u => u.id === targetId || u.username === targetId);
+  }
+
+  if (!targetUser) {
+    targetUser = users.find(u => u.active !== false) || users[0];
+  }
+
+  if (!targetUser) {
+    return res.status(404).json({ success: false, message: 'User profile not found to update.' });
+  }
+
+  const {
+    full_name,
+    name,
+    email,
+    username,
+    phone,
+    contact_number,
+    address,
+    title,
+    bio,
+    avatar_url,
+    branch_id,
+    cooperative_id,
+    password,
+    current_password
+  } = req.body;
+
+  const newFullName = (full_name || name || targetUser.full_name || targetUser.name || '').trim();
+  const newEmail = (email || targetUser.email || '').trim();
+  const newUsername = (username || targetUser.username || '').trim();
+
+  if (!newFullName) {
+    return res.status(422).json({ success: false, message: 'Full name is required.' });
+  }
+
+  if (!newEmail || !newEmail.includes('@')) {
+    return res.status(422).json({ success: false, message: 'A valid email address is required.' });
+  }
+
+  // Check username uniqueness if altered
+  if (newUsername && newUsername !== targetUser.username) {
+    const conflict = users.find(u => u.id !== targetUser.id && u.username?.toLowerCase() === newUsername.toLowerCase());
+    if (conflict) {
+      return res.status(409).json({ success: false, message: `Username "${newUsername}" is already taken.` });
+    }
+  }
+
+  // Check email uniqueness if altered
+  if (newEmail && newEmail.toLowerCase() !== targetUser.email?.toLowerCase()) {
+    const conflict = users.find(u => u.id !== targetUser.id && u.email?.toLowerCase() === newEmail.toLowerCase());
+    if (conflict) {
+      return res.status(409).json({ success: false, message: `Email "${newEmail}" is already registered to another account.` });
+    }
+  }
+
+  // Verify branch if provided
+  const branches = db.getTable('branches') || [];
+  if (branch_id && !branches.some(b => b.id === branch_id)) {
+    return res.status(422).json({ success: false, message: 'Invalid branch ID specified.' });
+  }
+
+  // Verify cooperative if provided
+  const cooperatives = db.getTable('cooperatives') || [];
+  if (cooperative_id && !cooperatives.some(c => c.id === cooperative_id)) {
+    return res.status(422).json({ success: false, message: 'Invalid cooperative ID specified.' });
+  }
+
+  // Verify current password if provided
+  if (current_password) {
+    const isCurrentValid = current_password === targetUser.password_hash ||
+      current_password === targetUser.raw_password;
+    if (!isCurrentValid) {
+      return res.status(422).json({ success: false, message: 'Current password verification failed.' });
+    }
+  }
+
+  const updatedUserObj: any = {
+    ...targetUser,
+    full_name: newFullName,
+    name: newFullName,
+    email: newEmail,
+    username: newUsername || targetUser.username,
+    phone: phone !== undefined ? String(phone).trim() : (contact_number !== undefined ? String(contact_number).trim() : (targetUser.phone || '')),
+    address: address !== undefined ? String(address).trim() : (targetUser.address || ''),
+    title: title !== undefined ? String(title).trim() : (targetUser.title || ''),
+    bio: bio !== undefined ? String(bio).trim() : (targetUser.bio || ''),
+    avatar_url: avatar_url !== undefined ? avatar_url : (targetUser.avatar_url || ''),
+    branch_id: branch_id || targetUser.branch_id || 'branch_tar',
+    cooperative_id: cooperative_id || targetUser.cooperative_id || 'coop_01',
+    updated_at: new Date().toISOString()
+  };
+
+  if (password && String(password).trim().length > 0) {
+    updatedUserObj.password_hash = String(password).trim();
+    updatedUserObj.raw_password = String(password).trim();
+  }
+
+  // Update in database
+  db.update('users', u => u.id === targetUser.id, () => updatedUserObj);
+
+  // Record audit trail
+  try {
+    const auditRecord = {
+      id: `audit_usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      module: 'User Management',
+      table_name: 'users',
+      record_id: targetUser.id,
+      action: 'UPDATE',
+      description: `User profile updated for ${newFullName} (${targetUser.username})`,
+      changes: {
+        full_name: newFullName,
+        email: newEmail,
+        branch_id: updatedUserObj.branch_id,
+        phone: updatedUserObj.phone,
+        password_updated: Boolean(password)
+      },
+      user_id: targetUser.id,
+      performed_by: targetUser.username || newFullName,
+      created_at: new Date().toISOString()
+    };
+    db.insert('configuration_audit_trails', auditRecord);
+  } catch (auditErr) {
+    console.warn('[server] Error logging user profile audit trail:', auditErr);
+  }
+
+  const enriched = getEnrichedUserProfile(updatedUserObj);
+
+  res.json({
+    success: true,
+    message: 'User profile updated successfully.',
+    data: enriched
+  });
+});
+
 // ==========================================
 // 20.55 USER DOCUMENT MANAGEMENT API
 // Stores documents in custom_fields table with entity = 'User'

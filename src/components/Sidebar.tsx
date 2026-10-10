@@ -29,6 +29,7 @@ export type TabKey =
   | 'member_profile'
   | 'member_fields'
   | 'user_documents'
+  | 'user_profile'
   | 'loans'
   | 'savings'
   | 'share_capital'
@@ -116,6 +117,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'User Docs',
       icon: FolderOpen,
       badge: 'Docs',
+      alwaysShow: true
+    },
+    {
+      id: 'user_profile' as TabKey,
+      label: 'User Profile & Assignments',
+      shortLabel: 'My Profile',
+      icon: UserCircle,
+      badge: 'Account',
       alwaysShow: true
     },
     {

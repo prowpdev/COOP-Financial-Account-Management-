@@ -1,4 +1,4 @@
-import { ShareCapitalSetting } from '../types';
+import { ShareCapitalSetting, User } from '../types';
 import { loadAuthSession } from './authSession';
 
 export const DEFAULT_API_BASE = 'http://coop-backend.test/api/';
@@ -969,6 +969,29 @@ getLoanApplications: async (params?: {
     }),
   getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
   getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
+
+  // User Profile Management (Retrieves & updates user data with assigned branch and cooperative)
+  getUserProfile: (userId?: string) => {
+    const endpoint = userId ? `/users/${encodeURIComponent(userId)}` : '/users/profile';
+    return fetchApi<{ success: boolean; data: User; message?: string }>(endpoint);
+  },
+  updateUserProfile: (userIdOrData: string | (Partial<User> & { password?: string; id?: string }), data?: Partial<User> & { password?: string }) => {
+    let endpoint = '/users/profile';
+    let payload: any;
+    if (typeof userIdOrData === 'string') {
+      endpoint = `/users/${encodeURIComponent(userIdOrData)}`;
+      payload = data || {};
+    } else {
+      payload = userIdOrData;
+      if (payload.id) {
+        endpoint = `/users/${encodeURIComponent(payload.id)}`;
+      }
+    }
+    return fetchApi<{ success: boolean; message: string; data: User }>(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
 
   // User Document Management (Stores to user_documents table with foreign key to users)
   getUserDocuments: (params?: { user_id?: string; category?: string; field_type?: string; search?: string } | string) => {

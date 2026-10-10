@@ -22,7 +22,7 @@ class MemberController extends BaseController
      */
     public function index(): never
     {
-        $branchId = $this->getQuery('branchId');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
         $status   = $this->getQuery('status');
         $search   = $this->getQuery('search');
 
@@ -42,6 +42,11 @@ class MemberController extends BaseController
         $member = $this->members->find($id);
         if (!$member) {
             $this->error('Member not found', 404);
+        }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($member['branch_id']) && $member['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Member belongs to a different branch.', 403);
         }
 
         $this->success($member);

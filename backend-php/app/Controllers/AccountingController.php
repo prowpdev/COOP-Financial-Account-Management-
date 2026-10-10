@@ -54,7 +54,7 @@ class AccountingController extends BaseController
      */
     public function journals(): never
     {
-        $branchId  = $this->getQuery('branchId');
+        $branchId  = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
         $startDate = $this->getQuery('startDate');
         $endDate   = $this->getQuery('endDate');
 
@@ -74,6 +74,11 @@ class AccountingController extends BaseController
         $entry = $this->accounting->findJournalEntry($id);
         if (!$entry) {
             $this->error('Journal entry not found.', 404);
+        }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($entry['branch_id']) && $entry['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Journal entry belongs to a different branch.', 403);
         }
 
         $this->success($entry);

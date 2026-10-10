@@ -22,7 +22,7 @@ class LoanController extends BaseController
      */
     public function index(): never
     {
-        $branchId = $this->getQuery('branchId');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
         $status   = $this->getQuery('status');
         $memberId = $this->getQuery('memberId');
 
@@ -42,6 +42,11 @@ class LoanController extends BaseController
         $loan = $this->loans->find($id);
         if (!$loan) {
             $this->error('Loan record not found', 404);
+        }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($loan['branch_id']) && $loan['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Loan record belongs to a different branch.', 403);
         }
 
         $this->success($loan);
@@ -309,10 +314,9 @@ class LoanController extends BaseController
      */
     public function applications(): never
     {
-        $branchId = $_POST['branchId'] ?? null;
-        $status = $_POST['status'] ?? null;
-        $memberId = $_POST['memberId'] ?? null;
-        // print_r($memberId);
+        $branchId = $this->getCurrentUserBranchId() ?? ($_POST['branchId'] ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id'));
+        $status = $_POST['status'] ?? $this->getQuery('status');
+        $memberId = $_POST['memberId'] ?? $this->getQuery('memberId');
 
         try {
             $apps = $this->loans->allApplications($branchId, $status, $memberId);

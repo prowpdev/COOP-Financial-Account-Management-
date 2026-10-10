@@ -19,7 +19,7 @@ class CashController extends BaseController
 
     public function index(): never
     {
-        $branchId = $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
         $accounts = $this->cash->all($branchId);
 
         $totalVaults = 0;
@@ -62,6 +62,12 @@ class CashController extends BaseController
         if (!$acc) {
             $this->error('Cash account not found.', 404);
         }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($acc['branch_id']) && $acc['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Cash account belongs to a different branch.', 403);
+        }
+
         $this->success($acc);
     }
 

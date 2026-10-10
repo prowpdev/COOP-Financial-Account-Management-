@@ -20,26 +20,109 @@ class DocumentController extends BaseController
         $this->users = new UserModel($db);
     }
 
-    public function index(string $userId): never
+    /**
+     * GET /api/user-documents or /api/users/:id/documents
+     * Retrieve user documents filtered by the current_user branch, enriched with user details.
+     */
+    public function getUserdocuments(?string $userId = null): never
     {
-        if ($this->users->findById($userId) === null) {
-            $this->error('User not found.', 404);
+        $targetUserId = $userId ?: ($this->getQuery('user_id') ?: $this->getQuery('userId'));
+        $search = $this->getQuery('search');
+        $branchId = $this->getCurrentUserBranchId();
+
+        // 1. If a specific user ID is requested
+        if ($targetUserId) {
+            $user = $this->users->findById($targetUserId);
+            if ($user === null) {
+                $this->error('User not found.', 404);
+            }
+
+            // Enforce branch tenancy: target user must belong to current user's branch
+            if ($branchId && $branchId !== 'all' && !empty($user['branch_id']) && $user['branch_id'] !== $branchId) {
+                $this->error('Access denied. User belongs to a different branch.', 403);
+            }
+
+            $userBranch = $branchId ?: ($user['branch_id'] ?? null);
+            $docsList = $this->documents->forBranch($userBranch, $targetUserId, $search);
+            $docsKeyed = $this->documents->forUser($targetUserId, $userBranch);
+
+            unset($user['password_hash']);
+            $this->json([
+                'success' => true,
+                'user' => [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                    'name' => $user['full_name'],
+                    'full_name' => $user['full_name'],
+                    'email' => $user['email'],
+                    'role_name' => $user['role_name'] ?? 'Staff',
+                    'branch_id' => $user['branch_id'] ?? null,
+                    'branch_name' => $user['branch_name'] ?? null,
+                ],
+                'data' => $docsList,
+                'documents' => $docsKeyed,
+                'count' => count($docsList),
+            ]);
         }
 
-        $this->success($this->documents->forUser($userId));
+        // 2. Fetch all user documents for current_user branch
+        $docsList = $this->documents->forBranch($branchId, null, $search);
+
+        $currentUser = $this->getCurrentUser();
+        $this->json([
+            'success' => true,
+            'current_user_branch' => $branchId,
+            'user' => $currentUser ? [
+                'id' => $currentUser['id'],
+                'username' => $currentUser['username'] ?? '',
+                'name' => $currentUser['full_name'] ?? $currentUser['name'] ?? '',
+                'email' => $currentUser['email'] ?? '',
+                'role_name' => $currentUser['role_name'] ?? 'Staff',
+                'branch_id' => $currentUser['branch_id'] ?? $branchId,
+                'branch_name' => $currentUser['branch_name'] ?? null,
+            ] : null,
+            'data' => $docsList,
+            'documents' => $docsList,
+            'count' => count($docsList),
+        ]);
     }
 
-    public function store(string $userId): never
+    public function index(?string $userId = null): never
     {
-        $user = $this->users->findById($userId);
+        $this->getUserdocuments($userId);
+    }
+
+    /**
+     * POST /api/user-documents or /api/users/:id/documents
+     * Upload user document and store to user_documents table
+     */
+    public function uploadUserdocuments(?string $userId = null): never
+    {
+        $input = $this->getRequestBody();
+        $targetUserId = $userId ?: (string)($input['user_id'] ?? $input['userId'] ?? '');
+        if ($targetUserId === '') {
+            $current = $this->getCurrentUser();
+            $targetUserId = $current['id'] ?? '';
+        }
+
+        if ($targetUserId === '') {
+            $this->error('Target user ID is required.', 422);
+        }
+
+        $user = $this->users->findById($targetUserId);
         if ($user === null) {
             $this->error('User not found.', 404);
         }
 
-        $input = $this->getRequestBody();
-        $docKey = trim((string)($input['doc_key'] ?? $input['field_key'] ?? ''));
+        // Enforce branch tenancy check
+        $branchId = $this->getCurrentUserBranchId();
+        if ($branchId && $branchId !== 'all' && !empty($user['branch_id']) && $user['branch_id'] !== $branchId) {
+            $this->error('Access denied. Cannot upload documents for a user in another branch.', 403);
+        }
+
+        $docKey = trim((string)($input['doc_key'] ?? $input['field_key'] ?? $input['field_name'] ?? ''));
         if ($docKey === '') {
-            $this->error('Document key (doc_key or field_key) is required.', 422);
+            $docKey = 'doc_' . time() . '_' . substr(bin2hex(random_bytes(4)), 0, 6);
         }
 
         $data = trim((string)($input['dataUrl'] ?? $input['data_url'] ?? $input['url'] ?? $input['path'] ?? ''));
@@ -47,19 +130,23 @@ class DocumentController extends BaseController
             $this->error('Document data is required.', 422);
         }
 
+        $title = (string)($input['title'] ?? $input['name'] ?? $input['file_name'] ?? 'uploaded_document');
+
         if (preg_match('/^(?:https?:\/\/|\/|assets\/)/i', $data) === 1) {
-            $name = (string)($input['name'] ?? 'uploaded_document');
+            $name = (string)($input['name'] ?? $input['file_name'] ?? $title);
             $mimeType = strtolower((string)($input['file_type'] ?? $input['type'] ?? 'application/octet-stream'));
             $document = [
                 'name' => $name,
+                'title' => $title,
                 'type' => $mimeType,
+                'file_type' => $mimeType,
                 'path' => $data,
                 'url' => $data,
                 'dataUrl' => $data,
-                'size' => (int)($input['size'] ?? 0),
+                'size' => (int)($input['size'] ?? $input['file_size'] ?? 0),
                 'uploaded_at' => $input['uploaded_at'] ?? date('c'),
             ];
-            $this->documents->save($userId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
+            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
             $this->success($this->userWithDocuments($user), 'Document attached to user profile successfully.');
         }
 
@@ -94,12 +181,12 @@ class DocumentController extends BaseController
         $directory = dirname(__DIR__, 2)
             . DIRECTORY_SEPARATOR . 'assets'
             . DIRECTORY_SEPARATOR . 'members'
-            . DIRECTORY_SEPARATOR . $userId;
+            . DIRECTORY_SEPARATOR . $targetUserId;
         if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
             $this->error('Unable to create member document directory.', 500);
         }
 
-        $originalName = (string)($input['name'] ?? 'uploaded_document');
+        $originalName = (string)($input['name'] ?? $input['file_name'] ?? $title);
         $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
         $safeName = trim((string)$safeName, '._-');
         if ($safeName === '') {
@@ -113,15 +200,17 @@ class DocumentController extends BaseController
 
         $document = [
             'name' => $originalName,
+            'title' => $title,
             'type' => $mimeType,
-            'path' => '/assets/members/' . rawurlencode($userId) . '/' . rawurlencode($fileName),
+            'file_type' => $mimeType,
+            'path' => '/assets/members/' . rawurlencode($targetUserId) . '/' . rawurlencode($fileName),
             'file_name' => $fileName,
             'size' => strlen($binary),
             'uploaded_at' => $input['uploaded_at'] ?? date('c'),
         ];
 
         try {
-            $this->documents->save($userId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
+            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
         } catch (\Throwable $e) {
             if (is_file($filePath) && !unlink($filePath)) {
                 throw new \RuntimeException('Document was not saved and its temporary file could not be removed.', 0, $e);
@@ -130,6 +219,11 @@ class DocumentController extends BaseController
         }
 
         $this->success($this->userWithDocuments($user), 'Document attached to user profile successfully.');
+    }
+
+    public function store(string $userId): never
+    {
+        $this->uploadUserdocuments($userId);
     }
 
     public function destroy(string $userId, string $docKey): never

@@ -203,13 +203,22 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Controls: Notification Bell & Actions */}
           <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-            {/* Authenticated user identity */}
-            <div className="hidden lg:flex items-center bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
-              <UserCircle className="w-4 h-4 text-blue-400 mr-2 shrink-0" />
-              <span className="text-xs text-slate-200 font-medium">
-                {currentUser.name || currentUser.username} ({currentUser.role_name || currentUser.role_id})
-              </span>
-            </div>
+            {/* Authenticated user identity (Clickable to view/edit profile) */}
+            <button
+              onClick={() => onNavigateTab?.('user_profile')}
+              title="View and edit your user profile & assignments"
+              className="hidden lg:flex items-center bg-slate-800/90 hover:bg-slate-750 hover:border-blue-500/50 rounded-xl px-2.5 py-1.5 border border-slate-700 transition cursor-pointer text-left group"
+            >
+              <UserCircle className="w-4 h-4 text-blue-400 group-hover:text-blue-300 mr-2 shrink-0 transition-colors" />
+              <div className="flex flex-col">
+                <span className="text-xs text-slate-200 group-hover:text-white font-medium transition-colors">
+                  {currentUser.name || currentUser.username}
+                </span>
+                <span className="text-[10px] text-slate-400 group-hover:text-blue-300">
+                  {currentUser.role_name || currentUser.role_id} • Profile
+                </span>
+              </div>
+            </button>
 
             {/* Notification Bell Icon for Loan Applications & Interest Alerts */}
             <NotificationBell onNavigateTab={onNavigateTab} />
@@ -331,15 +340,43 @@ export const Header: React.FC<HeaderProps> = ({
               {showMobileMenu && (
                 <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
                   {/* Authenticated user identity */}
-                  <div className="p-2 bg-slate-800/80 rounded-xl mb-1">
-                    <div className="flex items-center space-x-2 text-xs text-slate-400 mb-1">
-                      <UserCircle className="w-4 h-4 text-blue-400" />
-                      <span>Signed in as:</span>
+                  <div
+                    onClick={() => {
+                      if (onNavigateTab) {
+                        onNavigateTab('user_profile');
+                        setShowMobileMenu(false);
+                      }
+                    }}
+                    className="p-2.5 bg-slate-800/80 hover:bg-slate-800 rounded-xl mb-1 cursor-pointer transition border border-slate-700/60"
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                      <div className="flex items-center space-x-1.5">
+                        <UserCircle className="w-4 h-4 text-blue-400" />
+                        <span>Signed in as:</span>
+                      </div>
+                      <span className="text-[10px] text-blue-400 font-semibold underline">Edit</span>
                     </div>
-                    <div className="text-xs text-slate-200">
-                      {currentUser.name || currentUser.username} ({currentUser.role_name || currentUser.role_id})
+                    <div className="text-xs font-semibold text-slate-100">
+                      {currentUser.name || currentUser.username}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {currentUser.role_name || currentUser.role_id} • {currentUser.branch_name || 'Main Branch'}
                     </div>
                   </div>
+
+                  {/* User Profile Direct Button */}
+                  {onNavigateTab && (
+                    <button
+                      onClick={() => {
+                        onNavigateTab('user_profile');
+                        setShowMobileMenu(false);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-300 hover:bg-slate-800 text-left cursor-pointer"
+                    >
+                      <UserCircle className="w-4 h-4 text-indigo-400" />
+                      <span>My User Profile & Assignments</span>
+                    </button>
+                  )}
 
                   {/* Setup Wizard */}
                   {onOpenSetupWizard && (

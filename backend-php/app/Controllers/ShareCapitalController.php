@@ -22,7 +22,8 @@ class ShareCapitalController extends BaseController
     public function index(): never
     {
         $memberId = $this->getQuery('memberId');
-        $result = $this->shareCapital->all($memberId);
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $result = $this->shareCapital->all($memberId, $branchId);
 
         $this->json([
             'success' => true,
@@ -39,6 +40,11 @@ class ShareCapitalController extends BaseController
         $account = $this->shareCapital->find($id);
         if (!$account) {
             $this->error('Share capital account not found.', 404);
+        }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($account['branch_id']) && $account['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Share capital account belongs to a different branch.', 403);
         }
 
         $account['transactions'] = $this->shareCapital->getTransactions($account['id']);

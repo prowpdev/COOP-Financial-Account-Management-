@@ -22,7 +22,7 @@ class SavingsController extends BaseController
      */
     public function index(): never
     {
-        $branchId = $this->getQuery('branchId');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
         $memberId = $this->getQuery('memberId');
 
         $result = $this->savings->all($branchId, $memberId);
@@ -41,6 +41,11 @@ class SavingsController extends BaseController
         $account = $this->savings->find($id);
         if (!$account) {
             $this->error('Savings account not found.', 404);
+        }
+
+        $userBranchId = $this->getCurrentUserBranchId();
+        if ($userBranchId && $userBranchId !== 'all' && !empty($account['branch_id']) && $account['branch_id'] !== $userBranchId) {
+            $this->error('Access denied. Savings account belongs to a different branch.', 403);
         }
 
         $transactions = $this->savings->getTransactions($account['id']);
