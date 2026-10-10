@@ -159,6 +159,8 @@ $router->put('/api/share-capital/settings/:id', [ShareCapitalController::class, 
 $router->get('/api/cash-accounts', [CashController::class, 'index']);
 $router->post('/api/cash-accounts', [CashController::class, 'store']);
 $router->post('/api/config/cash-accounts', [CashController::class, 'store']);
+$router->put('/api/config/cash-accounts/:id', [CashController::class, 'update']);
+$router->delete('/api/config/cash-accounts/:id', [CashController::class, 'destroy']);
 $router->get('/api/cash-accounts/:id', [CashController::class, 'show']);
 $router->put('/api/cash-accounts/:id', [CashController::class, 'update']);
 $router->delete('/api/cash-accounts/:id', [CashController::class, 'destroy']);
@@ -202,6 +204,7 @@ $router->get('/api/config/branches', [ConfigController::class, 'branches']);
 $router->post('/api/branches', [ConfigController::class, 'storeBranch']);
 $router->post('/api/config/branches', [ConfigController::class, 'storeBranch']);
 $router->put('/api/config/branches/:id', [ConfigController::class, 'updateBranch']);
+$router->delete('/api/config/branches/:id', [ConfigController::class, 'destroyBranch']);
 // $router->post('/api/config/documents', [ConfigController::class, 'uploadDocument']);
 
 // Loan Products
@@ -234,12 +237,14 @@ $router->put('/api/config/system-settings', [ConfigController::class, 'updateSys
 $router->get('/api/config/fees', [ConfigController::class, 'fees']);
 $router->post('/api/config/fees', [ConfigController::class, 'storeFee']);
 $router->put('/api/config/fees/:id', [ConfigController::class, 'updateFee']);
+$router->delete('/api/config/fees/:id', [ConfigController::class, 'destroyFee']);
 
 // Approval Workflows & Rules
 $router->get('/api/config/approval-workflows', [ConfigController::class, 'approvalWorkflows']);
 $router->get('/api/config/approval-rules', [ConfigController::class, 'approvalRules']);
 $router->post('/api/config/approval-rules', [ConfigController::class, 'storeApprovalRule']);
 $router->put('/api/config/approval-rules/:id', [ConfigController::class, 'updateApprovalRule']);
+$router->delete('/api/config/approval-rules/:id', [ConfigController::class, 'deleteApprovalRule']);
 
 // Custom Fields
 $router->get('/api/config/custom-fields', [ConfigController::class, 'customFields']);
@@ -248,7 +253,9 @@ $router->put('/api/config/custom-fields/:id', [ConfigController::class, 'updateC
 $router->delete('/api/config/custom-fields/:id', [ConfigController::class, 'deleteCustomField']);
 
 // Numbering Formats & Payment Allocation
+$router->post('/api/config/numbering-formats', [ConfigController::class, 'storeNumberingFormat']);
 $router->put('/api/config/numbering-formats/:id', [ConfigController::class, 'updateNumberingFormat']);
+$router->delete('/api/config/numbering-formats/:id', [ConfigController::class, 'deleteNumberingFormat']);
 $router->get('/api/config/payment-allocation-rules/alloc_cda_std', [ConfigController::class, 'getAllocationRules']);
 $router->put('/api/config/payment-allocation-rules/:id', [ConfigController::class, 'updatePaymentAllocationRule']);
 

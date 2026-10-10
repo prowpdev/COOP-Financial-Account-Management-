@@ -95,6 +95,7 @@ class ConfigService
             INSERT INTO branches (id, code, name, address, contact_number, manager_name, is_main_branch, active)
             VALUES (:id, :code, :name, :address, :contact_number, :manager_name, :is_main_branch, :active)
             ON DUPLICATE KEY UPDATE
+                code = VALUES(code),
                 name = VALUES(name),
                 address = VALUES(address),
                 contact_number = VALUES(contact_number),
@@ -117,6 +118,11 @@ class ConfigService
         $res = $this->db->prepare("SELECT * FROM branches WHERE id = ?");
         $res->execute([$id]);
         return $res->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function deleteBranch(string $id): bool
+    {
+        return $this->db->prepare('DELETE FROM branches WHERE id = ?')->execute([$id]);
     }
 
     public function getFee(string $id): ?array
@@ -322,24 +328,38 @@ class ConfigService
     {
         $id = $data['id'] ?? ('ar_' . bin2hex(random_bytes(4)));
         $sql = "
-            INSERT INTO approval_rules (id, workflow_id, min_amount, max_amount, required_role, step_order)
-            VALUES (:id, :workflow_id, :min_amount, :max_amount, :required_role, :step_order)
+            INSERT INTO approval_rules (id, workflow_id, level_name, `order`, required_role, minimum_amount, maximum_amount, required_approvals, active)
+            VALUES (:id, :workflow_id, :level_name, :rule_order, :required_role, :minimum_amount, :maximum_amount, :required_approvals, :active)
             ON DUPLICATE KEY UPDATE
-                min_amount = VALUES(min_amount),
-                max_amount = VALUES(max_amount),
+                workflow_id = VALUES(workflow_id),
+                level_name = VALUES(level_name),
+                `order` = VALUES(`order`),
                 required_role = VALUES(required_role),
-                step_order = VALUES(step_order)
+                minimum_amount = VALUES(minimum_amount),
+                maximum_amount = VALUES(maximum_amount),
+                required_approvals = VALUES(required_approvals),
+                active = VALUES(active)
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             'id'            => $id,
             'workflow_id'   => $data['workflow_id'] ?? 'wf_loan_origination',
-            'min_amount'    => (float)($data['min_amount'] ?? 0),
-            'max_amount'    => (float)($data['max_amount'] ?? 1000000),
+            'level_name'    => $data['level_name'] ?? 'Approval Level',
+            'rule_order'    => (int)($data['order'] ?? $data['step_order'] ?? 1),
             'required_role' => $data['required_role'] ?? 'Loan Officer',
-            'step_order'    => (int)($data['step_order'] ?? 1)
+            'minimum_amount' => (float)($data['minimum_amount'] ?? $data['min_amount'] ?? 0),
+            'maximum_amount' => (float)($data['maximum_amount'] ?? $data['max_amount'] ?? 1000000),
+            'required_approvals' => (int)($data['required_approvals'] ?? 1),
+            'active' => isset($data['active']) ? (int)(bool)$data['active'] : 1
         ]);
-        return array_merge(['id' => $id], $data);
+        $saved = $this->db->prepare('SELECT * FROM approval_rules WHERE id = ?');
+        $saved->execute([$id]);
+        return $saved->fetch(PDO::FETCH_ASSOC) ?: array_merge(['id' => $id], $data);
+    }
+
+    public function deleteApprovalRule(string $id): bool
+    {
+        return $this->db->prepare('DELETE FROM approval_rules WHERE id = ?')->execute([$id]);
     }
 
     public function getApprovalWorkflows(): array
@@ -436,16 +456,59 @@ class ConfigService
     {
         $stmt = $this->db->prepare("
             UPDATE numbering_formats
-            SET prefix = :prefix, next_sequence = :next_sequence, padding = :padding
-            WHERE id = :id OR entity_type = :id
+            SET module = :module,
+                prefix = :prefix,
+                pattern = :pattern,
+                next_number = :next_number,
+                padding = :padding,
+                branch_specific = :branch_specific,
+                include_year = :include_year
+            WHERE id = :id
         ");
         $stmt->execute([
             'id'            => $id,
+            'module'        => $data['module'] ?? '',
             'prefix'        => $data['prefix'] ?? '',
-            'next_sequence' => (int)($data['next_sequence'] ?? 1),
-            'padding'       => (int)($data['padding'] ?? 5)
+            'pattern'       => $data['pattern'] ?? '',
+            'next_number'   => (int)($data['next_number'] ?? 1),
+            'padding'       => (int)($data['padding'] ?? 5),
+            'branch_specific' => isset($data['branch_specific']) ? (int)(bool)$data['branch_specific'] : 1,
+            'include_year'  => isset($data['include_year']) ? (int)(bool)$data['include_year'] : 1
         ]);
-        return array_merge(['id' => $id], $data);
+        $saved = $this->db->prepare('SELECT * FROM numbering_formats WHERE id = ?');
+        $saved->execute([$id]);
+        $record = $saved->fetch(PDO::FETCH_ASSOC);
+        if (!$record) {
+            throw new \RuntimeException("Numbering format '{$id}' not found.");
+        }
+        return $record;
+    }
+
+    public function saveNumberingFormat(array $data): array
+    {
+        $id = $data['id'] ?? ('num_' . bin2hex(random_bytes(4)));
+        $stmt = $this->db->prepare("
+            INSERT INTO numbering_formats (id, module, prefix, branch_specific, include_year, padding, next_number, pattern)
+            VALUES (:id, :module, :prefix, :branch_specific, :include_year, :padding, :next_number, :pattern)
+        ");
+        $stmt->execute([
+            'id' => $id,
+            'module' => $data['module'] ?? '',
+            'prefix' => $data['prefix'] ?? '',
+            'branch_specific' => isset($data['branch_specific']) ? (int)(bool)$data['branch_specific'] : 1,
+            'include_year' => isset($data['include_year']) ? (int)(bool)$data['include_year'] : 1,
+            'padding' => (int)($data['padding'] ?? 5),
+            'next_number' => (int)($data['next_number'] ?? 1),
+            'pattern' => $data['pattern'] ?? ''
+        ]);
+        $saved = $this->db->prepare('SELECT * FROM numbering_formats WHERE id = ?');
+        $saved->execute([$id]);
+        return $saved->fetch(PDO::FETCH_ASSOC) ?: array_merge(['id' => $id], $data);
+    }
+
+    public function deleteNumberingFormat(string $id): bool
+    {
+        return $this->db->prepare('DELETE FROM numbering_formats WHERE id = ?')->execute([$id]);
     }
     /**
      * PUT /api/config/payment-allocation-rules/:id
@@ -530,46 +593,53 @@ class ConfigService
     public function saveLoanProduct(array $data): array
     {
         $id = $data['id'] ?? ('lp_' . bin2hex(random_bytes(4)));
-        $sql = "
-            INSERT INTO loan_products (id, code, name, description, version, min_amount, max_amount, min_term_months, max_term_months, annual_interest_rate, interest_calculation_method, payment_frequency, grace_period_days, penalty_rate_percentage, gl_receivable_account_id, gl_interest_income_account_id, active)
-            VALUES (:id, :code, :name, :description, :version, :min_amount, :max_amount, :min_term_months, :max_term_months, :annual_interest_rate, :interest_calculation_method, :payment_frequency, :grace_period_days, :penalty_rate_percentage, :gl_receivable_account_id, :gl_interest_income_account_id, :active)
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                description = VALUES(description),
-                version = version + 1,
-                min_amount = VALUES(min_amount),
-                max_amount = VALUES(max_amount),
-                min_term_months = VALUES(min_term_months),
-                max_term_months = VALUES(max_term_months),
-                annual_interest_rate = VALUES(annual_interest_rate),
-                interest_calculation_method = VALUES(interest_calculation_method),
-                payment_frequency = VALUES(payment_frequency),
-                grace_period_days = VALUES(grace_period_days),
-                penalty_rate_percentage = VALUES(penalty_rate_percentage),
-                gl_receivable_account_id = VALUES(gl_receivable_account_id),
-                gl_interest_income_account_id = VALUES(gl_interest_income_account_id),
-                active = VALUES(active)
-        ";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            'id'                          => $id,
-            'code'                        => $data['code'] ?? ('LP-' . mt_rand(100, 999)),
-            'name'                        => $data['name'],
-            'description'                 => $data['description'] ?? '',
-            'version'                     => (int)($data['version'] ?? 1),
-            'min_amount'                  => (float)($data['min_amount'] ?? 5000),
-            'max_amount'                  => (float)($data['max_amount'] ?? 500000),
-            'min_term_months'             => (int)($data['min_term_months'] ?? 1),
-            'max_term_months'             => (int)($data['max_term_months'] ?? $data['default_term_months'] ?? 60),
-            'annual_interest_rate'        => (float)($data['annual_interest_rate'] ?? 6),
+        $params = [
+            'id' => $id,
+            'code' => $data['code'] ?? ('LP-' . mt_rand(100, 999)),
+            'name' => $data['name'],
+            'description' => $data['description'] ?? '',
+            'version' => (int)($data['version'] ?? 1),
+            'min_amount' => (float)($data['min_amount'] ?? 5000),
+            'max_amount' => (float)($data['max_amount'] ?? 500000),
+            'min_term_months' => (int)($data['min_term_months'] ?? 1),
+            'max_term_months' => (int)($data['max_term_months'] ?? $data['default_term_months'] ?? 60),
+            'default_term_months' => (int)($data['default_term_months'] ?? 12),
+            'annual_interest_rate' => (float)($data['annual_interest_rate'] ?? 6),
             'interest_calculation_method' => $data['interest_calculation_method'] ?? 'Diminishing Balance',
-            'payment_frequency'           => $data['payment_frequency'] ?? 'Monthly',
-            'grace_period_days'           => (int)($data['grace_period_days'] ?? 0),
-            'penalty_rate_percentage'     => (float)($data['penalty_rate_percentage'] ?? 2),
-            'gl_receivable_account_id'    => $data['gl_receivable_account_id'] ?? $data['debit_account_id'] ?? '',
+            'payment_frequency' => $data['payment_frequency'] ?? 'Monthly',
+            'grace_period_days' => (int)($data['grace_period_days'] ?? 0),
+            'processing_fee_percentage' => (float)($data['processing_fee_percentage'] ?? 0),
+            'service_fee_fixed' => (float)($data['service_fee_fixed'] ?? 0),
+            'penalty_rule_id' => $data['penalty_rule_id'] ?? null,
+            'collateral_required' => !empty($data['collateral_required']) ? 1 : 0,
+            'guarantor_required' => !empty($data['guarantor_required']) ? 1 : 0,
+            'debit_account_id' => $data['debit_account_id'] ?? $data['gl_receivable_account_id'] ?? '',
+            'required_documents' => is_array($data['required_documents'] ?? null)
+                ? json_encode($data['required_documents'], JSON_UNESCAPED_UNICODE)
+                : ($data['required_documents'] ?? '[]'),
+            'approval_workflow_id' => $data['approval_workflow_id'] ?? null,
+            'effective_from' => $data['effective_from'] ?? null,
+            'effective_until' => $data['effective_until'] ?? null,
+            'penalty_rate_percentage' => (float)($data['penalty_rate_percentage'] ?? 2),
+            'gl_receivable_account_id' => $data['gl_receivable_account_id'] ?? $data['debit_account_id'] ?? '',
             'gl_interest_income_account_id' => $data['gl_interest_income_account_id'] ?? '',
-            'active'                      => isset($data['active']) ? (int)(bool)$data['active'] : 1
-        ]);
+            'active' => isset($data['active']) ? (int)(bool)$data['active'] : 1
+        ];
+        $columns = array_keys($params);
+        $columns = array_values(array_filter($columns, static fn(string $column): bool => $column !== 'id'));
+
+        if (isset($data['id'])) {
+            $updateColumns = array_values(array_filter($columns, static fn(string $column): bool => $column !== 'version'));
+            $set = implode(', ', array_map(static fn(string $column): string => "`{$column}` = :{$column}", $updateColumns));
+            $stmt = $this->db->prepare("UPDATE loan_products SET {$set}, version = version + 1 WHERE id = :id");
+            unset($params['version']);
+            $stmt->execute($params);
+        } else {
+            $insertColumns = implode(', ', array_map(static fn(string $column): string => "`{$column}`", array_merge(['id'], $columns)));
+            $placeholders = implode(', ', array_map(static fn(string $column): string => ":{$column}", array_merge(['id'], $columns)));
+            $stmt = $this->db->prepare("INSERT INTO loan_products ({$insertColumns}) VALUES ({$placeholders})");
+            $stmt->execute($params);
+        }
         return $this->getLoanProduct($id);
     }
     public function getLoanProduct(string $id): array
@@ -580,6 +650,10 @@ class ConfigService
     }
     public function updateCustomField(string $id, array $data): array
     {
+        $options = $data['options'] ?? [];
+        if (is_array($options)) {
+            $options = json_encode($options, JSON_UNESCAPED_UNICODE);
+        }
         $stmt = $this->db->prepare("
         UPDATE custom_fields
         SET
@@ -588,24 +662,26 @@ class ConfigService
             label         = :label,
             field_type    = :field_type,
             options       = :options,
-            is_required   = :is_required
+            is_required   = :is_required,
+            active        = :active,
+            display_order = :display_order
         WHERE id = :id
         ");
 
         $stmt->execute([
             'id'            => $id,
-            'entity_type'   => $data['entity'] ?? '',
-            'field_key'     => $data['field_name'] ?? '',
-            'label'         => $data['field_label'] ?? '',
+            'entity_type'   => $data['entity_type'] ?? $data['entity'] ?? 'Member',
+            'field_key'     => $data['field_key'] ?? $data['field_name'] ?? '',
+            'label'         => $data['label'] ?? $data['field_label'] ?? '',
             'field_type'    => $data['field_type'] ?? 'Text',
-            'options'       => json_encode($data['options'] ?? []),
-            'is_required'   => !empty($data['required']) ? 1 : 0,
-            
+            'options'       => $options,
+            'is_required'   => !empty($data['is_required'] ?? $data['required']) ? 1 : 0,
+            'active'        => isset($data['active']) ? (int)(bool)$data['active'] : 1,
+            'display_order' => (int)($data['display_order'] ?? 0)
         ]);
 
-        return array_merge(
-            ['id' => $id],
-            $data
-        );
+        $saved = $this->db->prepare('SELECT * FROM custom_fields WHERE id = ?');
+        $saved->execute([$id]);
+        return $saved->fetch(PDO::FETCH_ASSOC) ?: array_merge(['id' => $id], $data);
     }
 }

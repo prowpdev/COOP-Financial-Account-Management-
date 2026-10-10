@@ -252,6 +252,12 @@ class ConfigController extends BaseController
         $this->success($saved, 'Branch updated successfully.');
     }
 
+    public function destroyBranch(string $id): never
+    {
+        $this->config->deleteBranch($id);
+        $this->success(null, 'Branch deleted successfully.');
+    }
+
     /**
      * GET /api/config/fees
      */
@@ -341,6 +347,12 @@ class ConfigController extends BaseController
         $this->success($saved, 'Approval rule updated successfully.');
     }
 
+    public function deleteApprovalRule(string $id): never
+    {
+        $this->config->deleteApprovalRule($id);
+        $this->success(null, 'Approval rule deleted successfully.');
+    }
+
     /**
      * GET /api/config/custom-fields
      */
@@ -374,7 +386,7 @@ class ConfigController extends BaseController
     {
         $input = $this->getRequestBody();
         $saved = $this->config->updateCustomField($id, $input);
-        $this->success($saved, 'Numbering format updated successfully.');
+        $this->success($saved, 'Custom field updated successfully.');
     }
     /**
      * PUT /api/config/numbering-formats/:id
@@ -384,6 +396,21 @@ class ConfigController extends BaseController
         $input = $this->getRequestBody();
         $saved = $this->config->updateNumberingFormat($id, $input);
         $this->success($saved, 'Numbering format updated successfully.');
+    }
+
+    public function storeNumberingFormat(): never
+    {
+        $input = $this->getRequestBody();
+        if (empty($input['module']) || empty($input['prefix']) || empty($input['pattern'])) {
+            $this->error('Module, prefix, and pattern are required.', 422);
+        }
+        $this->success($this->config->saveNumberingFormat($input), 'Numbering format created successfully.', 201);
+    }
+
+    public function deleteNumberingFormat(string $id): never
+    {
+        $this->config->deleteNumberingFormat($id);
+        $this->success(null, 'Numbering format deleted successfully.');
     }
 
     /**

@@ -203,6 +203,10 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(account)
     }),
+  deleteAccount: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/chart-of-accounts/${id}`, {
+      method: 'DELETE'
+    }),
 
   // Accounting Mapping
   getAccountingMappings: () =>
@@ -320,6 +324,10 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(branch)
     }),
+  deleteBranch: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/branches/${id}`, {
+      method: 'DELETE'
+    }),
 
   // Approval Workflows & Rules
   createApprovalWorkflow: (wf: any) =>
@@ -336,6 +344,10 @@ export const api = {
     fetchApi<{ success: boolean; data: any }>(`/config/approval-rules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(rule)
+    }),
+  deleteApprovalRule: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/approval-rules/${id}`, {
+      method: 'DELETE'
     }),
 
   // Custom Fields & Member Types
@@ -376,6 +388,15 @@ export const api = {
     fetchApi<{ success: boolean; data: any }>(`/config/numbering-formats/${id}`, {
       method: 'PUT',
       body: JSON.stringify(fmt)
+    }),
+  createNumberingFormat: (fmt: any) =>
+    fetchApi<{ success: boolean; data: any }>('/config/numbering-formats', {
+      method: 'POST',
+      body: JSON.stringify(fmt)
+    }),
+  deleteNumberingFormat: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/config/numbering-formats/${id}`, {
+      method: 'DELETE'
     }),
 
   // Payment Allocation Priorities

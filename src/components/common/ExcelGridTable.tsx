@@ -21,7 +21,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 
 export type ColumnType = 'text' | 'number' | 'currency' | 'percent' | 'badge' | 'boolean' | 'date';
@@ -49,6 +51,7 @@ export interface ExcelGridTableProps<T> {
   exportFileName?: string;
   getRowId?: (item: T, index: number) => string;
   onRowClick?: (item: T) => void;
+  onRowDelete?: (item: T) => Promise<void> | void;
   onCellEdit?: (item: T, columnKey: string, newValue: any) => Promise<void> | void;
   defaultSortKey?: string;
   defaultSortDir?: 'asc' | 'desc';
@@ -70,6 +73,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
   exportFileName = 'coopflex_export',
   getRowId = (item, idx) => item.id || `row_${idx}`,
   onRowClick,
+  onRowDelete,
   onCellEdit,
   defaultSortKey,
   defaultSortDir = 'asc',
@@ -123,12 +127,12 @@ export function ExcelGridTable<T extends Record<string, any>>({
   const [isSavingCell, setIsSavingCell] = useState(false);
 
   // Toast notification
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMsg({ message: msg, type });
     setTimeout(() => setToastMsg(null), 3500);
   };
 
@@ -361,7 +365,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
         return <span className="font-mono text-slate-200">{num.toLocaleString()}</span>;
       }
       case 'boolean': {
-        const isTrue = Boolean(val);
+        const isTrue = val === true || val === 1 || val === '1' || val === 'true';
         return isTrue ? (
           <span className="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
             Active
@@ -403,6 +407,9 @@ export function ExcelGridTable<T extends Record<string, any>>({
     try {
       const col = columns.find(c => c.key === colKey);
       let parsedVal: any = editInputVal;
+      if (col?.type === 'boolean') {
+        parsedVal = editInputVal === 'true' || editInputVal === '1';
+      }
       if (col?.type === 'number' || col?.type === 'currency' || col?.type === 'percent') {
         parsedVal = parseFloat(editInputVal);
         if (isNaN(parsedVal)) parsedVal = 0;
@@ -411,7 +418,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
       showToast(`Updated ${col?.header || colKey} successfully!`);
       setEditingCell(null);
     } catch (err: any) {
-      showToast(`Failed to update: ${err.message || err}`);
+      showToast(`Failed to update: ${err.message || err}`, 'error');
     } finally {
       setIsSavingCell(false);
     }
@@ -432,9 +439,13 @@ export function ExcelGridTable<T extends Record<string, any>>({
     >
       {/* Toast Notification */}
       {toastMsg && (
-        <div className="absolute top-4 right-4 z-50 bg-emerald-950 border border-emerald-500/50 text-emerald-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-2">
-          <Check className="w-4 h-4 text-emerald-400" />
-          <span>{toastMsg}</span>
+        <div className={`absolute top-4 right-4 z-50 px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 ${
+          toastMsg.type === 'error'
+            ? 'bg-rose-950 border border-rose-500/50 text-rose-300'
+            : 'bg-emerald-950 border border-emerald-500/50 text-emerald-300'
+        }`}>
+          {toastMsg.type === 'error' ? <AlertCircle className="w-4 h-4 text-rose-400" /> : <Check className="w-4 h-4 text-emerald-400" />}
+          <span>{toastMsg.message}</span>
         </div>
       )}
 
@@ -750,6 +761,11 @@ export function ExcelGridTable<T extends Record<string, any>>({
                   </th>
                 );
               })}
+              {onRowDelete && (
+                <th className="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-200">
+                  Actions
+                </th>
+              )}
             </tr>
 
             {/* Optional Row 3: Per-Column Filter Row */}
@@ -776,6 +792,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
                     />
                   </th>
                 ))}
+                {onRowDelete && <th className="p-1" />}
               </tr>
             )}
           </thead>
@@ -785,7 +802,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
             {isLoading ? (
               <tr>
                 <td
-                  colSpan={activeCols.length + (viewMode === 'excel' ? 1 : 0)}
+                  colSpan={activeCols.length + (viewMode === 'excel' ? 1 : 0) + (onRowDelete ? 1 : 0)}
                   className="py-16 text-center text-slate-400"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
@@ -797,7 +814,7 @@ export function ExcelGridTable<T extends Record<string, any>>({
             ) : processedData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={activeCols.length + (viewMode === 'excel' ? 1 : 0)}
+                  colSpan={activeCols.length + (viewMode === 'excel' ? 1 : 0) + (onRowDelete ? 1 : 0)}
                   className="py-16 text-center text-slate-400"
                 >
                   <div className="flex flex-col items-center justify-center space-y-1">
@@ -887,13 +904,16 @@ export function ExcelGridTable<T extends Record<string, any>>({
                             <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
                               <input
                                 autoFocus
-                                type={
-                                  col.type === 'number' || col.type === 'currency' || col.type === 'percent'
-                                    ? 'number'
-                                    : 'text'
-                                }
-                                value={editInputVal}
-                                onChange={e => setEditInputVal(e.target.value)}
+                                type={col.type === 'boolean'
+                                  ? 'checkbox'
+                                  : col.type === 'number' || col.type === 'currency' || col.type === 'percent'
+                                  ? 'number'
+                                  : 'text'}
+                                checked={col.type === 'boolean'
+                                  ? editInputVal === 'true' || editInputVal === '1'
+                                  : undefined}
+                                value={col.type === 'boolean' ? undefined : editInputVal}
+                                onChange={e => setEditInputVal(col.type === 'boolean' ? String(e.target.checked) : e.target.value)}
                                 onKeyDown={e => {
                                   if (e.key === 'Enter') handleCommitEdit(item, col.key);
                                   if (e.key === 'Escape') setEditingCell(null);
@@ -920,6 +940,26 @@ export function ExcelGridTable<T extends Record<string, any>>({
                         </td>
                       );
                     })}
+                    {onRowDelete && (
+                      <td className={`${rowHeightClass} text-center`}>
+                        <button
+                          type="button"
+                          title="Delete record"
+                          aria-label="Delete record"
+                          onClick={async event => {
+                            event.stopPropagation();
+                            try {
+                              await onRowDelete(item);
+                            } catch (err: any) {
+                              showToast(`Failed to delete: ${err.message || err}`, 'error');
+                            }
+                          }}
+                          className="inline-flex items-center justify-center rounded p-1.5 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })
