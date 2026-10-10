@@ -4,6 +4,7 @@ import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db/database';
 import { initialSeedData } from './server/db/seed';
+import { seedMultiBranchFinancialData } from './server/db/financialSeeder';
 import apiRouter from './server/routes/api';
 
 const app = express();
@@ -128,6 +129,9 @@ try {
       ];
       db.save();
     }
+
+    // Seed realistic multi-branch operational financial records if not yet populated
+    seedMultiBranchFinancialData(db);
   }
 } catch (dbErr) {
   console.error('[server] Error during database initialization:', dbErr);

@@ -868,33 +868,49 @@ getLoanApplications: async (params?: {
     const ops = res.data?.statement_of_operations;
 
     if (type === 'balance_sheet') {
-      const assets = pos?.categories?.filter((c: any) => c.category.includes('Asset')).flatMap((c: any) => c.accounts) || [];
-      const liab = pos?.categories?.filter((c: any) => c.category.includes('Liabilit')).flatMap((c: any) => c.accounts) || [];
-      const eq = pos?.categories?.filter((c: any) => c.category === 'Equity').flatMap((c: any) => c.accounts) || [];
+      const assets = pos?.assets || pos?.categories?.filter((c: any) => c.category.includes('Asset')).flatMap((c: any) => c.accounts) || [];
+      const liab = pos?.liabilities || pos?.categories?.filter((c: any) => c.category.includes('Liabilit')).flatMap((c: any) => c.accounts) || [];
+      const eq = pos?.equity || pos?.categories?.filter((c: any) => c.category.includes('Equity') || c.category.includes('Surplus') || c.category.includes('Capital')).flatMap((c: any) => c.accounts) || [];
       return {
         success: true,
         data: {
+          categories: pos?.categories || [],
           assets,
           total_assets: pos?.total_assets || 0,
+          total_current_assets: pos?.total_current_assets || 0,
+          total_loans_receivables: pos?.total_loans_receivables || 0,
+          total_ppe: pos?.total_ppe || 0,
           liabilities: liab,
           total_liabilities: pos?.total_liabilities || 0,
+          total_deposit_liabilities: pos?.total_deposit_liabilities || 0,
+          total_current_liabilities: pos?.total_current_liabilities || 0,
           equity: eq,
+          total_share_capital: pos?.total_share_capital || 0,
+          total_reserves: pos?.total_reserves || 0,
+          net_surplus: pos?.net_surplus || 0,
           total_equity: pos?.total_equity || 0,
-          total_liabilities_and_equity: pos?.total_liabilities_and_equity || 0
+          total_liabilities_and_equity: pos?.total_liabilities_and_equity || 0,
+          is_balanced: pos?.is_balanced ?? (Math.abs((pos?.total_assets || 0) - (pos?.total_liabilities_and_equity || 0)) < 0.01)
         }
       };
     }
     if (type === 'income_statement') {
-      const rev = ops?.categories?.find((c: any) => c.category === 'Income')?.accounts || [];
-      const exp = ops?.categories?.find((c: any) => c.category === 'Expenses')?.accounts || [];
+      const rev = ops?.revenue || ops?.categories?.find((c: any) => c.category === 'Operating Revenue' || c.category === 'Income')?.accounts || [];
+      const exp = ops?.expenses || ops?.categories?.find((c: any) => c.category === 'Operating Expenses' || c.category === 'Expenses')?.accounts || [];
+      const totalRev = ops?.total_revenue ?? ops?.total_income ?? 0;
+      const totalExp = ops?.total_expenses ?? ops?.total_expense ?? 0;
+      const surplus = ops?.net_surplus ?? Number((totalRev - totalExp).toFixed(2));
       return {
         success: true,
         data: {
+          categories: ops?.categories || [],
           revenues: rev,
-          total_revenue: ops?.total_income || 0,
+          total_revenue: totalRev,
+          total_income: totalRev,
           expenses: exp,
-          total_expense: ops?.total_expenses || 0,
-          net_surplus: ops?.net_surplus || 0
+          total_expense: totalExp,
+          total_expenses: totalExp,
+          net_surplus: surplus
         }
       };
     }

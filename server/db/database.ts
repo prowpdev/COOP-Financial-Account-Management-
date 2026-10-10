@@ -50,7 +50,7 @@ export interface DatabaseSchema {
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'coop_database.json');
 
-class DatabaseEngine {
+export class DatabaseEngine {
   private data: DatabaseSchema = {
     cooperatives: [],
     branches: [],

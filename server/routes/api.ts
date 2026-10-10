@@ -3824,84 +3824,201 @@ router.get('/reports/trial-balance', (req: Request, res: Response) => {
 
 // Dynamic Financial Statements (Statement of Financial Position & Statement of Operations)
 router.get('/reports/financial-statements', (req: Request, res: Response) => {
-  const { branch_id } = req.query;
-  const accounts = db.getTable('chart_of_accounts');
-  const mappings = db.getTable('financial_statement_mappings');
-  let journalLines = db.getTable('journal_lines');
+  const { branch_id, as_of_date } = req.query;
+  const accounts = db.getTable('chart_of_accounts') || [];
+  let journalLines = db.getTable('journal_lines') || [];
+  let journalEntries = db.getTable('journal_entries') || [];
 
-  if (branch_id && branch_id !== 'all') {
-    const journalEntries = db.getTable('journal_entries').filter(j => j.branch_id === branch_id);
+  if (as_of_date && typeof as_of_date === 'string') {
+    journalEntries = journalEntries.filter(j => j.posting_date <= as_of_date);
     const jEntryIds = new Set(journalEntries.map(j => j.id));
     journalLines = journalLines.filter(l => jEntryIds.has(l.journal_entry_id));
   }
 
-  // Compute balance for every account
+  if (branch_id && branch_id !== 'all') {
+    journalEntries = journalEntries.filter(j => j.branch_id === branch_id);
+    const jEntryIds = new Set(journalEntries.map(j => j.id));
+    journalLines = journalLines.filter(l => jEntryIds.has(l.journal_entry_id));
+  }
+
+  // Compute balance for every account in Chart of Accounts
   const accountBalances = accounts.map(acc => {
-    const lines = journalLines.filter(l => l.account_id === acc.id);
-    const debit = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
-    const credit = lines.reduce((sum, l) => sum + (l.credit || 0), 0);
+    const rawCode = String(acc.code || acc.account_code || '');
+    const lines = journalLines.filter(l => {
+      const lineAccId = String(l.account_id || '');
+      return (
+        lineAccId === acc.id ||
+        lineAccId === rawCode ||
+        lineAccId.replace('acc_', '') === rawCode
+      );
+    });
+
+    const debit = lines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
+    const credit = lines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
     const net = acc.normal_balance === 'Debit' ? (debit - credit) : (credit - debit);
 
     return {
-      ...acc,
+      id: acc.id,
+      code: rawCode,
+      account_code: rawCode,
+      name: acc.name,
+      category: acc.category || acc.type || 'Asset',
+      type: acc.type || acc.category || 'Asset',
+      report_group: acc.report_group || acc.category,
+      normal_balance: acc.normal_balance || 'Debit',
+      debit: Number(debit.toFixed(2)),
+      credit: Number(credit.toFixed(2)),
       balance: Number(net.toFixed(2))
     };
   });
 
-  // Assign each account to its explicit report group, then fall back to its type.
-  const accountGroups = new Map<string, string>();
-  accountBalances.forEach(acc => {
-    const explicitGroup = mappings.find(m => m.category === acc.report_group);
-    const typeGroup = mappings.find(m =>
-      Array.isArray(m.account_types) && m.account_types.some((type: string) =>
-        type === acc.category || type === acc.type
-      )
-    );
-    const group = explicitGroup || typeGroup;
-    if (group) accountGroups.set(acc.id, group.category);
-  });
+  // 1. Group into standard CDA Statement of Financial Position Categories
+  // Assets
+  const currentAssets = accountBalances.filter(a => 
+    a.category === 'Asset' && (
+      a.report_group === 'Current Assets' || 
+      a.code.startsWith('11')
+    )
+  );
+  const loansAndReceivables = accountBalances.filter(a => 
+    a.category === 'Asset' && (
+      a.report_group === 'Loans and Receivables' || 
+      a.report_group === 'Receivables' || 
+      a.report_group === 'Contra-Asset' ||
+      a.code.startsWith('12') || 
+      a.code.startsWith('13')
+    )
+  );
+  const ppeAndNonCurrent = accountBalances.filter(a => 
+    a.category === 'Asset' && (
+      a.report_group === 'Property, Plant & Equipment' || 
+      a.report_group === 'Non-current Assets' ||
+      a.code.startsWith('15')
+    )
+  );
 
-  const categories = mappings.map(m => {
-    const matchedAccounts = accountBalances.filter(acc => accountGroups.get(acc.id) === m.category);
-    const total = Number(matchedAccounts.reduce((sum, a) => sum + a.balance, 0).toFixed(2));
-    return {
-      category: m.category,
-      accounts: matchedAccounts,
-      total
-    };
-  });
+  const totalCurrentAssets = Number(currentAssets.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalLoansReceivables = Number(loansAndReceivables.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalPPE = Number(ppeAndNonCurrent.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalAssets = Number((totalCurrentAssets + totalLoansReceivables + totalPPE).toFixed(2));
 
-  const currentAssets = categories.find(c => c.category === 'Current Assets')?.total || 0;
-  const nonCurrentAssets = categories.find(c => c.category === 'Non-current Assets')?.total || 0;
-  const totalAssets = Number((currentAssets + nonCurrentAssets).toFixed(2));
+  // Liabilities
+  const depositLiabilities = accountBalances.filter(a => 
+    a.category === 'Liability' && (
+      a.report_group === 'Deposit Liabilities' || 
+      a.code.startsWith('21')
+    )
+  );
+  const currentLiabilities = accountBalances.filter(a => 
+    a.category === 'Liability' && (
+      a.report_group === 'Current Liabilities' || 
+      a.report_group === 'Long-term Liabilities' ||
+      a.code.startsWith('22')
+    )
+  );
 
-  const currentLiabilities = categories.find(c => c.category === 'Current Liabilities')?.total || 0;
-  const longTermLiabilities = categories.find(c => c.category === 'Long-term Liabilities')?.total || 0;
-  const totalLiabilities = Number((currentLiabilities + longTermLiabilities).toFixed(2));
+  const totalDepositLiabilities = Number(depositLiabilities.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalCurrentLiabilities = Number(currentLiabilities.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalLiabilities = Number((totalDepositLiabilities + totalCurrentLiabilities).toFixed(2));
 
-  const totalEquity = categories.find(c => c.category === 'Equity')?.total || 0;
-  const totalLiabAndEquity = Number((totalLiabilities + totalEquity).toFixed(2));
+  // Revenues (Statement of Operations)
+  const revenues = accountBalances.filter(a => 
+    a.category === 'Revenue' || 
+    a.type === 'Income' || 
+    a.code.startsWith('4')
+  );
+  const totalRevenues = Number(revenues.reduce((s, a) => s + a.balance, 0).toFixed(2));
 
-  const income = categories.find(c => c.category === 'Income')?.total || 0;
-  const expenses = categories.find(c => c.category === 'Expenses')?.total || 0;
-  const netSurplus = Number((income - expenses).toFixed(2));
+  // Expenses (Statement of Operations)
+  const expenses = accountBalances.filter(a => 
+    a.category === 'Expense' || 
+    a.type === 'Expense' || 
+    a.code.startsWith('5')
+  );
+  const totalExpenses = Number(expenses.reduce((s, a) => s + a.balance, 0).toFixed(2));
+
+  // Net Operating Surplus
+  const netSurplus = Number((totalRevenues - totalExpenses).toFixed(2));
+
+  // Equity (including Paid-Up Share Capital, Statutory Reserves, and Current Period Undivided Net Surplus)
+  const shareCapital = accountBalances.filter(a => 
+    a.category === 'Equity' && (
+      a.report_group === 'Share Capital' || 
+      a.code.startsWith('31')
+    )
+  );
+  const statutoryReserves = accountBalances.filter(a => 
+    a.category === 'Equity' && (
+      a.report_group === 'Statutory Reserves' || 
+      (a.code.startsWith('32') && a.code !== '3900')
+    )
+  );
+
+  const totalShareCapital = Number(shareCapital.reduce((s, a) => s + a.balance, 0).toFixed(2));
+  const totalReserves = Number(statutoryReserves.reduce((s, a) => s + a.balance, 0).toFixed(2));
+
+  // Create an explicit Undivided Net Surplus line item in Equity to balance Assets
+  const undividedSurplusAccount = {
+    id: 'acc_3900',
+    code: '3900',
+    account_code: '3900',
+    name: 'Current Period Undivided Net Surplus / (Deficit)',
+    category: 'Equity',
+    type: 'Equity',
+    report_group: 'Equity Surplus',
+    normal_balance: 'Credit',
+    balance: netSurplus,
+    debit: netSurplus < 0 ? Math.abs(netSurplus) : 0,
+    credit: netSurplus >= 0 ? netSurplus : 0
+  };
+
+  const equityWithSurplus = [...shareCapital, ...statutoryReserves, undividedSurplusAccount];
+  const totalEquity = Number((totalShareCapital + totalReserves + netSurplus).toFixed(2));
+  const totalLiabilitiesAndEquity = Number((totalLiabilities + totalEquity).toFixed(2));
+  const isBalanced = Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
 
   res.json({
     success: true,
     data: {
       statement_of_financial_position: {
-        categories,
+        categories: [
+          { category: 'Current Assets', accounts: currentAssets, total: totalCurrentAssets },
+          { category: 'Loans and Receivables', accounts: loansAndReceivables, total: totalLoansReceivables },
+          { category: 'Property, Plant & Equipment', accounts: ppeAndNonCurrent, total: totalPPE },
+          { category: 'Deposit Liabilities', accounts: depositLiabilities, total: totalDepositLiabilities },
+          { category: 'Current Liabilities', accounts: currentLiabilities, total: totalCurrentLiabilities },
+          { category: 'Share Capital', accounts: shareCapital, total: totalShareCapital },
+          { category: 'Statutory Reserves', accounts: statutoryReserves, total: totalReserves },
+          { category: 'Undivided Net Surplus', accounts: [undividedSurplusAccount], total: netSurplus }
+        ],
+        assets: [...currentAssets, ...loansAndReceivables, ...ppeAndNonCurrent],
+        liabilities: [...depositLiabilities, ...currentLiabilities],
+        equity: equityWithSurplus,
+        total_current_assets: totalCurrentAssets,
+        total_loans_receivables: totalLoansReceivables,
+        total_ppe: totalPPE,
         total_assets: totalAssets,
+        total_deposit_liabilities: totalDepositLiabilities,
+        total_current_liabilities: totalCurrentLiabilities,
         total_liabilities: totalLiabilities,
+        total_share_capital: totalShareCapital,
+        total_reserves: totalReserves,
+        net_surplus: netSurplus,
         total_equity: totalEquity,
-        total_liabilities_and_equity: totalLiabAndEquity
+        total_liabilities_and_equity: totalLiabilitiesAndEquity,
+        is_balanced: isBalanced
       },
       statement_of_operations: {
-        categories: categories.filter(c => c.category === 'Income' || c.category === 'Expenses'),
-        revenue: categories.find(c => c.category === 'Income')?.accounts || [],
-        expenses: categories.find(c => c.category === 'Expenses')?.accounts || [],
-        total_income: income,
-        total_expenses: expenses,
+        categories: [
+          { category: 'Operating Revenue', accounts: revenues, total: totalRevenues },
+          { category: 'Operating Expenses', accounts: expenses, total: totalExpenses }
+        ],
+        revenue: revenues,
+        expenses: expenses,
+        total_income: totalRevenues,
+        total_revenue: totalRevenues,
+        total_expenses: totalExpenses,
+        total_expense: totalExpenses,
         net_surplus: netSurplus
       }
     }
