@@ -114,6 +114,65 @@ class UserController extends BaseController
     }
 
     /**
+     * GET /api/users/me
+     */
+    public function profile(): never
+    {
+        $id = $this->getAuthenticatedUserId();
+        if ($id === null) {
+            $this->error('Authenticated staff account is required.', 401);
+        }
+
+        $user = $this->users->findById($id);
+        if (!$user || empty($user['active'])) {
+            $this->error('User profile not found.', 404);
+        }
+
+        $this->success($user);
+    }
+
+    /**
+     * PUT /api/users/me
+     */
+    public function updateProfile(): never
+    {
+        $id = $this->getAuthenticatedUserId();
+        if ($id === null) {
+            $this->error('Authenticated staff account is required.', 401);
+        }
+
+        $input = $this->getRequestBody();
+        $fullName = trim((string)($input['full_name'] ?? ''));
+        $email = trim((string)($input['email'] ?? ''));
+        $cooperativeId = trim((string)($input['cooperative_id'] ?? ''));
+
+        if ($fullName === '' || $email === '' || $cooperativeId === '') {
+            $this->error('Name, email, and cooperative assignment are required.', 422);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error('Enter a valid email address.', 422);
+        }
+        if (!$this->users->cooperativeExists($cooperativeId)) {
+            $this->error('The selected cooperative does not exist.', 422);
+        }
+        if ($this->users->emailInUse($email, $id)) {
+            $this->error('That email address is already assigned to another user.', 409);
+        }
+
+        $user = $this->users->update($id, [
+            'full_name' => $fullName,
+            'email' => $email,
+            'cooperative_id' => $cooperativeId,
+            'updated_by' => $id,
+        ]);
+        if (!$user) {
+            $this->error('User profile could not be updated.', 404);
+        }
+
+        $this->success($user, 'Profile updated successfully.');
+    }
+
+    /**
      * DELETE /api/users/:id
      */
     public function destroy(string $id): never

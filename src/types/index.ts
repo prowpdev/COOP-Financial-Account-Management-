@@ -17,7 +17,7 @@ export interface Cooperative {
 
 export interface Branch {
   id: string;
-  cooperative_id: string;
+  cooperative_id?: string;
   code: string;
   name: string;
   address: string;
@@ -438,13 +438,25 @@ export interface UserDocument {
 export interface User {
   id: string;
   name: string;
+  full_name?: string;
   username: string;
   email?: string;
   role_id: string;
   role_name: string;
   branch_id: string;
   branch_name?: string;
+  branch_code?: string;
+  branch_address?: string;
+  branch_phone?: string;
+  cooperative_id: string;
+  cooperative_name?: string;
+  cooperative_registration_no?: string;
+  cooperative_address?: string;
+  cooperative_phone?: string;
+  cooperative_email?: string;
   active?: boolean;
+  last_login?: string | null;
+  created_at?: string;
   documents?: UserDocument[];
   custom_field_values?: Record<string, any>;
 }
@@ -474,4 +486,3 @@ export interface VerificationTestResult {
 export type AuthSession =
   | { type: 'staff'; user: User; token: string }
   | { type: 'member'; member: Member; token: string };
-

@@ -53,6 +53,8 @@ $router->post('/api/auth/change-password', [AuthController::class, 'changePasswo
 // Staff User Accounts & Roles
 $router->get('/api/users', [UserController::class, 'index']);
 $router->get('/api/user-roles', [UserRoleController::class, 'index']);
+$router->get('/api/users/me', [UserController::class, 'profile']);
+$router->put('/api/users/me', [UserController::class, 'updateProfile']);
 $router->get('/api/users/:id', [UserController::class, 'show']);
 $router->delete('/api/users/:id', [UserController::class, 'destroy']);
 //DOCUMENTS

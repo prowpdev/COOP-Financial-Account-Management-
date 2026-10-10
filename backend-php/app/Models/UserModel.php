@@ -24,13 +24,16 @@ class UserModel
     public function all(): array
     {
         $sql = "
-            SELECT u.id, u.username, u.full_name, u.email, u.role_id, u.branch_id,
+            SELECT u.id, u.username, u.full_name, u.full_name AS name, u.email, u.role_id, u.branch_id, u.cooperative_id,
                    u.active, u.last_login, u.created_at,
                    r.name AS role_name,
-                   b.name AS branch_name
+                   b.name AS branch_name, b.code AS branch_code, b.address AS branch_address, b.contact_number AS branch_phone,
+                   c.name AS cooperative_name, c.cda_registration_no AS cooperative_registration_no,
+                   c.address AS cooperative_address, c.contact_phone AS cooperative_phone, c.contact_email AS cooperative_email
             FROM users u
             LEFT JOIN user_roles r ON u.role_id = r.id
             LEFT JOIN branches b ON u.branch_id = b.id
+            LEFT JOIN cooperatives c ON u.cooperative_id = c.id
         ";
         $params = [];
 
@@ -51,13 +54,16 @@ class UserModel
     public function findById(string $id): ?array
     {
         $sql = "
-            SELECT u.id, u.username, u.full_name, u.email, u.role_id, u.branch_id,
+            SELECT u.id, u.username, u.full_name, u.full_name AS name, u.email, u.role_id, u.branch_id, u.cooperative_id,
                    u.active, u.last_login, u.created_at,
                    r.name AS role_name, r.permissions AS role_permissions,
-                   b.name AS branch_name
+                   b.name AS branch_name, b.code AS branch_code, b.address AS branch_address, b.contact_number AS branch_phone,
+                   c.name AS cooperative_name, c.cda_registration_no AS cooperative_registration_no,
+                   c.address AS cooperative_address, c.contact_phone AS cooperative_phone, c.contact_email AS cooperative_email
             FROM users u
             LEFT JOIN user_roles r ON u.role_id = r.id
             LEFT JOIN branches b ON u.branch_id = b.id
+            LEFT JOIN cooperatives c ON u.cooperative_id = c.id
             WHERE u.id = :id
         ";
         $params = ['id' => $id];
@@ -74,6 +80,20 @@ class UserModel
         return $row ?: null;
     }
 
+    public function cooperativeExists(string $cooperativeId): bool
+    {
+        $stmt = $this->db->prepare('SELECT 1 FROM cooperatives WHERE id = ? LIMIT 1');
+        $stmt->execute([$cooperativeId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    public function emailInUse(string $email, string $excludeUserId): bool
+    {
+        $stmt = $this->db->prepare('SELECT 1 FROM users WHERE email = ? AND id <> ? LIMIT 1');
+        $stmt->execute([$email, $excludeUserId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
     /**
      * Find user by username or email (includes password_hash for authentication)
      */
@@ -82,12 +102,19 @@ class UserModel
         $sql = "
             SELECT 
                 u.*,
+                u.full_name AS name,
                 r.name AS role_name,
                 r.permissions AS role_permissions,
-                b.name AS branch_name
+                b.name AS branch_name,
+                c.name AS cooperative_name,
+                c.cda_registration_no AS cooperative_registration_no,
+                c.address AS cooperative_address,
+                c.contact_phone AS cooperative_phone,
+                c.contact_email AS cooperative_email
             FROM users u
             LEFT JOIN user_roles r ON u.role_id = r.id
             LEFT JOIN branches b ON u.branch_id = b.id
+            LEFT JOIN cooperatives c ON u.cooperative_id = c.id
             WHERE (u.username = :username OR u.email = :email)
         ";
         $params = [
@@ -136,6 +163,7 @@ class UserModel
                 email,
                 role_id,
                 branch_id,
+                cooperative_id,
                 active,
                 last_login,
                 created_at
@@ -148,6 +176,7 @@ class UserModel
                 :email,
                 :role_id,
                 :branch_id,
+                :cooperative_id,
                 :active,
                 :last_login,
                 :created_at
@@ -164,6 +193,7 @@ class UserModel
             'email'         => $data['email'],
             'role_id'       => $data['role_id'],
             'branch_id'     => $data['branch_id'],
+            'cooperative_id' => $data['cooperative_id'] ?? $this->defaultCooperativeId(),
             'active'        => $active,
             'last_login'    => $lastLogin,
             'created_at'    => $createdAt,
@@ -172,7 +202,7 @@ class UserModel
         $this->audit->recordAuditTrail(
             'users',
             'None',
-            ['id' => $id, 'username' => $data['username'], 'branch_id' => $data['branch_id'] ?? null],
+            ['id' => $id, 'username' => $data['username'], 'branch_id' => $data['branch_id'] ?? null, 'cooperative_id' => $data['cooperative_id'] ?? null],
             (string)($data['created_by'] ?? 'System'),
             'User account created',
             'CREATE'
@@ -268,6 +298,7 @@ class UserModel
             'email',
             'role_id',
             'branch_id',
+            'cooperative_id',
             'active',
             'last_login',
         ];
@@ -336,5 +367,12 @@ class UserModel
 
         $value = trim((string) $branchId);
         return $value === '' || strtolower($value) === 'all' ? null : $value;
+    }
+
+    private function defaultCooperativeId(): ?string
+    {
+        $stmt = $this->db->query('SELECT id FROM cooperatives ORDER BY created_at ASC LIMIT 1');
+        $id = $stmt->fetchColumn();
+        return $id === false ? null : (string)$id;
     }
 }
