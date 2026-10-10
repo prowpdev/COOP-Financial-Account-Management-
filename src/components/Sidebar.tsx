@@ -17,11 +17,13 @@ import {
   UserCircle,
   UserCheck,
   X,
-  FolderOpen
+  FolderOpen,
+  ShieldAlert
 } from 'lucide-react';
-import { FeatureToggle } from '../types';
+import { FeatureToggle, User } from '../types';
 
 export type TabKey =
+  | 'superadmin_console'
   | 'dashboard'
   | 'configuration'
   | 'excel_workbench'
@@ -42,6 +44,7 @@ interface SidebarProps {
   activeTab: TabKey;
   onSelectTab: (tab: TabKey) => void;
   featureToggles: FeatureToggle[];
+  currentUser?: User;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenMemberPortal?: () => void;
@@ -53,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   featureToggles,
+  currentUser,
   isCollapsed = false,
   onToggleCollapse,
   onOpenMemberPortal,
@@ -65,6 +69,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const navItems = [
+    {
+      id: 'superadmin_console' as TabKey,
+      label: 'Super Admin Console',
+      shortLabel: 'Super Admin',
+      icon: ShieldAlert,
+      badge: 'Gov',
+      superAdminOnly: true
+    },
     {
       id: 'dashboard' as TabKey,
       label: 'Executive Dashboard',
@@ -180,7 +192,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
 
+  const isSuperAdmin = currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
+
   const visibleItems = navItems.filter(item => {
+    if (isSuperAdmin) {
+      // Superadmin can ONLY access User & Role Management, Branches/Coop (superadmin_console), Audit Logs, and User Profile
+      return item.id === 'superadmin_console' || item.id === 'audit_logs' || item.id === 'user_profile';
+    }
+    // Operational staff cannot access superadmin governance console
+    if (item.superAdminOnly) {
+      return false;
+    }
     if (item.alwaysShow) return true;
     if (item.featureKey) return isFeatureEnabled(item.featureKey);
     return true;

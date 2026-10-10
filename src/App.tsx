@@ -16,6 +16,7 @@ import { AccountingModule } from './components/operations/AccountingModule';
 import { FinancialReportsView } from './components/reports/FinancialReportsView';
 import { AuditLogsView } from './components/compliance/AuditLogsView';
 import { FlexibilityTestSuite } from './components/verification/FlexibilityTestSuite';
+import { SuperAdminConsole } from './components/admin/SuperAdminConsole';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthPortal } from './components/auth/AuthPortal';
 import { MemberPortal } from './components/member/MemberPortal';
@@ -37,6 +38,7 @@ import {
 import { RefreshCw } from 'lucide-react';
 
 const VALID_TABS: TabKey[] = [
+  'superadmin_console',
   'dashboard',
   'configuration',
   'excel_workbench',
@@ -55,6 +57,13 @@ const VALID_TABS: TabKey[] = [
 ];
 
 const TAB_ALIASES: Record<string, TabKey> = {
+  superadmin: 'superadmin_console',
+  super_admin: 'superadmin_console',
+  admin_console: 'superadmin_console',
+  superadmin_console: 'superadmin_console',
+  users: 'superadmin_console',
+  user_management: 'superadmin_console',
+  roles: 'superadmin_console',
   cbu: 'share_capital',
   sharecapital: 'share_capital',
   capital: 'share_capital',
@@ -290,6 +299,17 @@ export default function App() {
     }
   }, [currentUser?.branch_id]);
 
+  // Enforce role_superadmin navigation bounds: Superadmin can ONLY access governance and audit tabs
+  useEffect(() => {
+    const isSuperAdmin = currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
+    if (isSuperAdmin) {
+      const allowedGovernanceTabs: TabKey[] = ['superadmin_console', 'audit_logs', 'user_profile'];
+      if (!allowedGovernanceTabs.includes(activeTab)) {
+        setActiveTab('superadmin_console');
+      }
+    }
+  }, [currentUser?.role_id, currentUser?.is_super_admin, activeTab]);
+
   // Load foundational data
   const refreshGlobalState = async () => {
     try {
@@ -499,6 +519,7 @@ export default function App() {
             setIsMobileSidebarOpen(false);
           }}
           featureToggles={featureToggles}
+          currentUser={currentUser}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           isOpenMobile={isMobileSidebarOpen}
@@ -506,6 +527,16 @@ export default function App() {
         />
 
         <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-x-hidden min-w-0">
+          {activeTab === 'superadmin_console' && (
+            <SuperAdminConsole
+              currentUser={currentUser}
+              branches={branches}
+              cooperativeProfile={profile}
+              onRefresh={refreshGlobalState}
+              onNavigateToAudit={() => setActiveTab('audit_logs')}
+            />
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardView
               selectedBranchId={selectedBranchId}

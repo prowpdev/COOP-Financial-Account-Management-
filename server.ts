@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/db/database';
 import { initialSeedData } from './server/db/seed';
 import { seedMultiBranchFinancialData } from './server/db/financialSeeder';
+import { runBranchIsolationMigration } from './server/db/branchMigration';
 import apiRouter from './server/routes/api';
 
 const app = express();
@@ -132,6 +133,9 @@ try {
 
     // Seed realistic multi-branch operational financial records if not yet populated
     seedMultiBranchFinancialData(db);
+
+    // Enforce role_superadmin, default users, and branch_id foreign keys across all tables
+    runBranchIsolationMigration(db);
   }
 } catch (dbErr) {
   console.error('[server] Error during database initialization:', dbErr);

@@ -625,8 +625,8 @@ getMemberReport: async (memberId: string) => {
     });
   },
   // update loan status
-  updateLoan:async(loanId:number,status:any)=>{
-    fetchApi<{ success: boolean; data: any }>(`/loan/${loanId}`, {
+  updateLoan: async (loanId: string | number, status: any) => {
+    return fetchApi<{ success: boolean; data: any }>(`/loan/${loanId}`, {
         method: 'PUT',
         body: JSON.stringify(status)
     });
@@ -983,8 +983,41 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(userData)
     }),
-  getUsersList: () => fetchApi<{ success: boolean; data: any[] }>('/users'),
+  getUsersList: (params?: { branch_id?: string; role_id?: string; status?: string; search?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.branch_id && params.branch_id !== 'all') query.set('branch_id', params.branch_id);
+    if (params?.role_id && params.role_id !== 'all') query.set('role_id', params.role_id);
+    if (params?.status && params.status !== 'all') query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString();
+    return fetchApi<{ success: boolean; data: any[] }>(qs ? `/users?${qs}` : '/users');
+  },
+  createUser: (userData: { username: string; email: string; full_name: string; password?: string; role_id?: string; branch_id?: string; phone?: string; active?: boolean }) =>
+    fetchApi<{ success: boolean; message: string; data: any }>('/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    }),
+  updateUser: (userId: string, data: Partial<User> & { password?: string; role_id?: string; active?: boolean }) =>
+    fetchApi<{ success: boolean; message: string; data: User }>(`/users/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  toggleUserStatus: (userId: string, active: boolean) =>
+    fetchApi<{ success: boolean; message: string; data: { id: string; username: string; active: boolean } }>(`/users/${encodeURIComponent(userId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active })
+    }),
   getUserRoles: () => fetchApi<{ success: boolean; data: any[] }>('/user-roles'),
+  updateUserRole: (roleId: string, roleData: { name?: string; description?: string; permissions?: string[] }) =>
+    fetchApi<{ success: boolean; message: string; data: any }>(`/user-roles/${encodeURIComponent(roleId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(roleData)
+    }),
+  saveCoopProfile: (data: any) =>
+    fetchApi<{ success: boolean; data: any }>('/config/cooperative', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
 
   // User Profile Management (Retrieves & updates user data with assigned branch and cooperative)
   getUserProfile: (userId?: string) => {

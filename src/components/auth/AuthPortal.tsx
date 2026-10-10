@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect,useState } from "react";
 import axios from "axios"
 import {
   X,
@@ -53,7 +53,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [staffRegEmail, setStaffRegEmail] = useState("");
   const [staffRegPassword, setStaffRegPassword] = useState("");
   const [staffRegRoleId, setStaffRegRoleId] = useState("role_admin");
-  const staffRegBranchId = "branch_tar";
+  const [staffRegBranchId , setStaffBranchId] = useState("");
   const [branchId,setBranchId] = useState("");
 
   // Member Login fields
@@ -74,6 +74,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [memFarmHectares, setMemFarmHectares] = useState("");
   const [memPrimaryCrop, setMemPrimaryCrop] = useState("");
   const [memPassword, setMemPassword] = useState("");
+  const [branches,setBranches] = useState([]);
   const [branchForm, isBranchFormOpen] = useState(true);
   const [branchFormResponse, setBranchFormResponse] = useState(false);
   const [branchFormResponseMessage, setBranchFormResponseMessage] = useState("");
@@ -87,7 +88,25 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const registerBranch = () => {
     isBranchFormOpen(true);
   };
-  
+
+ const LoadBranches = async () => {
+  const res = await axios.get(`${apiEndpoint}public/branches`);
+  return res.data.data;
+};
+
+useEffect(() => {
+  const fetchBranches = async () => {
+    try {
+      const response = await LoadBranches();
+      setBranches(response);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+    }
+  };
+
+  fetchBranches();
+}, []);
+
 const handleCreate = async (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -770,9 +789,22 @@ const getErrorMessage = (error: unknown): string => {
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Branch Assignment
                       </label>
-                      <div className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
-                        Tarlac Main Branch (TAR)
-                      </div>
+                      <select
+                      name="branch_id"
+                      value={staffRegBranchId}
+                      onChange={(e) =>
+                        setStaffBranchId(e.target.value)
+                      }
+                      className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">Select Branch</option>
+
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </select>
                     </div>
                   </div>
 

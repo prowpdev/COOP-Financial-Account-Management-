@@ -1179,7 +1179,12 @@ router.put('/config/numbering-formats/:id', (req: Request, res: Response) => {
 // 11. MULTI-BRANCH MANAGEMENT (Test 11)
 // ==========================================
 
-router.post('/config/branches', (req: Request, res: Response) => {
+router.get(['/branches', '/config/branches'], (req: Request, res: Response) => {
+  const branches = db.getTable('branches') || [];
+  res.json({ success: true, data: branches });
+});
+
+router.post(['/branches', '/config/branches'], (req: Request, res: Response) => {
   const {
     code,
     name,
@@ -1191,15 +1196,22 @@ router.post('/config/branches', (req: Request, res: Response) => {
     reason
   } = req.body;
 
+  if (!name) {
+    return res.status(422).json({ success: false, message: 'Branch name is required' });
+  }
+
+  const generatedCode = (code || `BR${Date.now().toString().slice(-3)}`).toUpperCase();
   const newBranch = {
     id: `branch_${Date.now()}`,
     cooperative_id: cooperative_id || 'coop_01',
-    code: (code || `BR${Date.now().toString().slice(-3)}`).toUpperCase(),
+    code: generatedCode,
     name,
     address: address || '',
     phone: phone || '',
     manager_name: manager_name || '',
-    active: true
+    active: true,
+    branch_id: `branch_${Date.now()}`,
+    created_at: new Date().toISOString()
   };
 
   db.insert('branches', newBranch);
@@ -1218,20 +1230,20 @@ router.post('/config/branches', (req: Request, res: Response) => {
     active: true
   });
 
-  db.recordAudit(`Branch Created: ${newBranch.name} (${newBranch.code})`, 'None', newBranch, changed_by || 'Admin', reason || 'Expanded cooperative branch network');
+  db.recordAudit(`Branch Created: ${newBranch.name} (${newBranch.code})`, 'None', newBranch, changed_by || req.headers['x-user-name'] as string || 'Superadmin', reason || 'Expanded cooperative branch network');
 
   res.json({ success: true, data: newBranch });
 });
 
-router.put('/config/branches/:id', (req: Request, res: Response) => {
+router.put(['/branches/:id', '/config/branches/:id'], (req: Request, res: Response) => {
   const { id } = req.params;
-  const branches = db.getTable('branches');
+  const branches = db.getTable('branches') || [];
   const b = branches.find(item => item.id === id);
   if (!b) return res.status(404).json({ success: false, error: 'Branch not found' });
   const oldSnapshot = { ...b };
   const updated = { ...b, ...req.body, id: b.id };
   db.update('branches', item => item.id === id, () => updated);
-  db.recordAudit(`Branch Updated: ${b.name}`, oldSnapshot, updated, req.body.changed_by || 'Admin', req.body.reason || 'Spreadsheet branch edit');
+  db.recordAudit(`Branch Updated: ${b.name}`, oldSnapshot, updated, req.body.changed_by || req.headers['x-user-name'] as string || 'Superadmin', req.body.reason || 'Branch details update');
   res.json({ success: true, data: updated });
 });
 
@@ -4333,16 +4345,19 @@ router.post('/auth/login', (req: Request, res: Response) => {
   const branches = db.getTable('branches') || [];
   const userBranch = branches.find(b => b.id === user.branch_id);
 
+  const isSuperAdmin = user.role_id === 'role_superadmin' || Boolean(user.is_super_admin);
+
   const safeUser = {
     id: user.id,
     username: user.username,
     name: user.full_name,
     email: user.email,
     role_id: user.role_id,
-    role_name: userRole?.name || 'Administrator',
+    role_name: userRole?.name || (isSuperAdmin ? 'Super Administrator' : 'Administrator'),
     branch_id: user.branch_id,
     branch_name: userBranch?.name || 'Head Office',
-    active: user.active,
+    is_super_admin: isSuperAdmin,
+    active: user.active !== false,
     last_login: new Date().toISOString()
   };
 
@@ -4387,6 +4402,7 @@ router.post('/auth/register', (req: Request, res: Response) => {
     email: email.trim(),
     role_id: assignedRoleId,
     branch_id: assignedBranchId,
+    is_super_admin: assignedRoleId === 'role_superadmin',
     active: true,
     last_login: new Date().toISOString(),
     created_at: new Date().toISOString()
@@ -4403,6 +4419,7 @@ router.post('/auth/register', (req: Request, res: Response) => {
     role_name: userRole?.name || 'Loan Officer',
     branch_id: assignedBranchId,
     branch_name: userBranch?.name || 'Tarlac Main Branch',
+    is_super_admin: assignedRoleId === 'role_superadmin',
     active: true
   };
 
@@ -4413,21 +4430,48 @@ router.post('/auth/register', (req: Request, res: Response) => {
   });
 });
 
+// GET /users - Support multi-branch filtering, role filtering, status filtering, and search
 router.get('/users', (req: Request, res: Response) => {
   const users = db.getTable('users') || [];
   const roles = db.getTable('user_roles') || [];
   const branches = db.getTable('branches') || [];
+  const { branch_id, role_id, status, search } = req.query;
 
-  const enriched = users.map(u => ({
+  let filtered = [...users];
+
+  if (branch_id && branch_id !== 'all') {
+    filtered = filtered.filter(u => u.branch_id === branch_id);
+  }
+  if (role_id && role_id !== 'all') {
+    filtered = filtered.filter(u => u.role_id === role_id);
+  }
+  if (status && status !== 'all') {
+    const wantActive = status === 'active';
+    filtered = filtered.filter(u => (u.active !== false) === wantActive);
+  }
+  if (search && typeof search === 'string' && search.trim()) {
+    const q = search.trim().toLowerCase();
+    filtered = filtered.filter(u =>
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.full_name || u.name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.phone || '').toLowerCase().includes(q)
+    );
+  }
+
+  const enriched = filtered.map(u => ({
     id: u.id,
     username: u.username,
-    name: u.full_name,
-    email: u.email,
+    name: u.full_name || u.name || u.username,
+    full_name: u.full_name || u.name || u.username,
+    email: u.email || '',
+    phone: u.phone || u.contact_number || '',
     role_id: u.role_id,
     role_name: roles.find(r => r.id === u.role_id)?.name || u.role_id,
+    is_super_admin: u.role_id === 'role_superadmin' || Boolean(u.is_super_admin),
     branch_id: u.branch_id,
     branch_name: branches.find(b => b.id === u.branch_id)?.name || u.branch_id,
-    active: u.active,
+    active: u.active !== false,
     last_login: u.last_login,
     created_at: u.created_at
   }));
@@ -4435,9 +4479,143 @@ router.get('/users', (req: Request, res: Response) => {
   res.json({ success: true, data: enriched });
 });
 
+// POST /users - Create new user account (Superadmin capability)
+router.post('/users', (req: Request, res: Response) => {
+  const { username, email, full_name, name, password, role_id, branch_id, phone, active } = req.body;
+
+  const resolvedFullName = (full_name || name || '').trim();
+  const resolvedUsername = (username || '').trim();
+  const resolvedEmail = (email || '').trim();
+  const resolvedPassword = (password || 'admin123').trim();
+
+  if (!resolvedUsername || !resolvedFullName || !resolvedEmail) {
+    return res.status(422).json({ success: false, message: 'Username, Full Name, and Email are required.' });
+  }
+
+  const users = db.getTable('users') || [];
+  if (users.some(u => u.username?.toLowerCase() === resolvedUsername.toLowerCase())) {
+    return res.status(409).json({ success: false, message: `Username "${resolvedUsername}" is already taken.` });
+  }
+  if (users.some(u => u.email?.toLowerCase() === resolvedEmail.toLowerCase())) {
+    return res.status(409).json({ success: false, message: `Email "${resolvedEmail}" is already registered.` });
+  }
+
+  const branches = db.getTable('branches') || [];
+  const assignedBranchId = branch_id || branches[0]?.id || 'branch_tar';
+  const roles = db.getTable('user_roles') || [];
+  const assignedRoleId = role_id || 'role_loan_officer';
+  const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  const newUser = {
+    id: newUserId,
+    username: resolvedUsername,
+    password_hash: resolvedPassword,
+    raw_password: resolvedPassword,
+    full_name: resolvedFullName,
+    email: resolvedEmail,
+    phone: phone ? String(phone).trim() : '',
+    role_id: assignedRoleId,
+    branch_id: assignedBranchId,
+    is_super_admin: assignedRoleId === 'role_superadmin',
+    active: active !== undefined ? Boolean(active) : true,
+    last_login: null,
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('users', newUser);
+
+  db.recordAudit(
+    'User Management: Account Created',
+    'None',
+    `${newUser.full_name} (${newUser.username}) [${assignedRoleId}]`,
+    req.headers['x-user-name'] as string || 'Superadmin',
+    `Created user account assigned to ${assignedBranchId}`
+  );
+
+  res.status(201).json({
+    success: true,
+    message: `User account "${newUser.username}" created successfully.`,
+    data: newUser
+  });
+});
+
+// PATCH /users/:id/status - Toggle active/inactive status quickly
+router.patch('/users/:id/status', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { active } = req.body;
+  const users = db.getTable('users') || [];
+  const user = users.find(u => u.id === id || u.username === id);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  const updatedActive = Boolean(active);
+  db.update('users', u => u.id === user.id, u => ({ ...u, active: updatedActive, updated_at: new Date().toISOString() }));
+
+  db.recordAudit(
+    'User Management: Status Changed',
+    user.active !== false ? 'Active' : 'Inactive',
+    updatedActive ? 'Active' : 'Inactive',
+    req.headers['x-user-name'] as string || 'Superadmin',
+    `User ${user.username} account status toggled to ${updatedActive ? 'Active' : 'Inactive'}`
+  );
+
+  res.json({
+    success: true,
+    message: `User "${user.username}" is now ${updatedActive ? 'Active' : 'Inactive'}.`,
+    data: { id: user.id, username: user.username, active: updatedActive }
+  });
+});
+
+// GET /user-roles - List all user roles with assigned counts
 router.get('/user-roles', (req: Request, res: Response) => {
   const roles = db.getTable('user_roles') || [];
-  res.json({ success: true, data: roles });
+  const users = db.getTable('users') || [];
+
+  const rolesWithCounts = roles.map(r => {
+    const userCount = users.filter(u => u.role_id === r.id).length;
+    return {
+      ...r,
+      user_count: userCount
+    };
+  });
+
+  res.json({ success: true, data: rolesWithCounts });
+});
+
+// PUT /user-roles/:id - Update role metadata and permissions
+router.put('/user-roles/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, description, permissions } = req.body;
+  const roles = db.getTable('user_roles') || [];
+  const role = roles.find(r => r.id === id);
+  if (!role) {
+    return res.status(404).json({ success: false, message: 'User role not found' });
+  }
+
+  const updatedRole = {
+    ...role,
+    name: name || role.name,
+    description: description !== undefined ? description : role.description,
+    permissions: Array.isArray(permissions) ? permissions : role.permissions,
+    updated_at: new Date().toISOString()
+  };
+
+  db.update('user_roles', r => r.id === role.id, () => updatedRole);
+
+  db.recordAudit(
+    'Role Management: Role Updated',
+    role.name,
+    updatedRole.name,
+    req.headers['x-user-name'] as string || 'Superadmin',
+    `Updated permissions for role ${role.name}`
+  );
+
+  res.json({
+    success: true,
+    message: `Role "${updatedRole.name}" updated successfully.`,
+    data: updatedRole
+  });
 });
 
 // Helper: Enrich user record with complete assigned branch and cooperative information
@@ -4631,6 +4809,9 @@ router.put(['/users/profile', '/users/me', '/users/:id'], (req: Request, res: Re
     title: title !== undefined ? String(title).trim() : (targetUser.title || ''),
     bio: bio !== undefined ? String(bio).trim() : (targetUser.bio || ''),
     avatar_url: avatar_url !== undefined ? avatar_url : (targetUser.avatar_url || ''),
+    role_id: req.body.role_id !== undefined ? req.body.role_id : targetUser.role_id,
+    is_super_admin: req.body.role_id === 'role_superadmin' || (req.body.is_super_admin !== undefined ? Boolean(req.body.is_super_admin) : (targetUser.role_id === 'role_superadmin' || Boolean(targetUser.is_super_admin))),
+    active: req.body.active !== undefined ? Boolean(req.body.active) : (targetUser.active !== false),
     branch_id: branch_id || targetUser.branch_id || 'branch_tar',
     cooperative_id: cooperative_id || targetUser.cooperative_id || 'coop_01',
     updated_at: new Date().toISOString()

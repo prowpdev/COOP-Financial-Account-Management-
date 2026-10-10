@@ -1020,6 +1020,18 @@ export const initialSeedData: DatabaseSchema = {
 
   user_roles: [
     {
+      id: 'role_superadmin',
+      name: 'Super Administrator',
+      description: 'Exclusive platform governance: user & role administration, branch & cooperative setup, and global audit oversight',
+      permissions: [
+        'users.view', 'users.create', 'users.edit', 'users.activate', 'users.deactivate',
+        'roles.view', 'roles.edit',
+        'branches.view', 'branches.create', 'branches.edit',
+        'cooperative.view', 'cooperative.edit',
+        'audit.view', 'audit.export'
+      ]
+    },
+    {
       id: 'role_admin',
       name: 'System Administrator',
       description: 'Unrestricted access to all configuration centers, modules, and audits',
@@ -1076,6 +1088,63 @@ export const initialSeedData: DatabaseSchema = {
     }
   ],
 
-  users: [],
+  users: [
+    {
+      id: 'usr_superadmin',
+      username: 'superadmin',
+      password_hash: 'admin123',
+      raw_password: 'admin123',
+      full_name: 'Chief Super Administrator',
+      email: 'superadmin@coopflex.ph',
+      role_id: 'role_superadmin',
+      branch_id: 'branch_tar',
+      is_super_admin: true,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    },
+    {
+      id: 'usr_admin',
+      username: 'admin',
+      password_hash: 'admin123',
+      raw_password: 'admin123',
+      full_name: 'Coop Administrator',
+      email: 'admin@coopflex.ph',
+      role_id: 'role_admin',
+      branch_id: 'branch_tar',
+      is_super_admin: false,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    },
+    {
+      id: 'usr_manager_tar',
+      username: 'manager_tarlac',
+      password_hash: 'manager123',
+      raw_password: 'manager123',
+      full_name: 'Roberto Valenzuela',
+      email: 'rvalenzuela@coopflex.ph',
+      role_id: 'role_manager',
+      branch_id: 'branch_tar',
+      is_super_admin: false,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    },
+    {
+      id: 'usr_officer_tar',
+      username: 'officer_tarlac',
+      password_hash: 'officer123',
+      raw_password: 'officer123',
+      full_name: 'Elena Santos',
+      email: 'esantos@coopflex.ph',
+      role_id: 'role_loan_officer',
+      branch_id: 'branch_tar',
+      is_super_admin: false,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    }
+  ],
   user_documents: []
 };

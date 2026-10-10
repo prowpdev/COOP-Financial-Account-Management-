@@ -22,8 +22,10 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
+  contact_number?: string;
   manager_name: string;
   active: boolean;
+  is_main?: boolean;
 }
 
 export interface SystemSetting {
@@ -142,6 +144,7 @@ export interface Member {
   branch_name?: string;
   member_type_id: string;
   member_type_name?: string;
+  membership_type?: string;
   first_name: string;
   last_name: string;
   middle_name?: string;
@@ -313,6 +316,7 @@ export interface CashAccount {
   opening_balance: number;
   current_balance: number;
   currency: string;
+  type?: string;
   active: boolean;
 }
 
@@ -404,6 +408,7 @@ export interface UserRole {
   name: string;
   description: string;
   permissions: string[];
+  user_count?: number;
 }
 
 export interface UserDocument {
@@ -465,6 +470,7 @@ export interface User {
   cooperative_currency?: string;
   cooperative_currency_symbol?: string;
   cooperative_fiscal_year?: string;
+  is_super_admin?: boolean;
   active?: boolean;
   last_login?: string | null;
   created_at?: string;
@@ -477,11 +483,16 @@ export interface CoopProfile {
   registration_no?: string;
   currency_code?: string;
   currency_symbol?: string;
+  currency?: string;
   operating_mode?: string;
   tax_exempt?: boolean;
+  tax_id?: string;
   fiscal_year_start_month?: number;
+  fiscal_year?: string;
   contact_email?: string;
   contact_phone?: string;
+  email?: string;
+  phone?: string;
   address?: string;
 }
 
