@@ -68,6 +68,7 @@ class Router
 
     public function dispatch(string $method, string $uri, PDO $db): void
     {
+        AuditLogger::setCurrentActor(null);
         $uri = parse_url($uri, PHP_URL_PATH) ?? '/';
         $uri = rtrim($uri, '/');
         if ($uri === '') {
@@ -128,6 +129,14 @@ class Router
                         if (is_array($result)) {
                             $authClaims = $result;
                         }
+                    }
+
+                    if ($authClaims !== null) {
+                        $actor = $authClaims['username']
+                            ?? $authClaims['email']
+                            ?? $authClaims['sub']
+                            ?? null;
+                        AuditLogger::setCurrentActor(is_string($actor) ? $actor : null);
                     }
 
                     $controller = new $controllerClass($db);

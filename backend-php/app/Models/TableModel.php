@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Core\BranchScope;
 use InvalidArgumentException;
 use PDO;
 
 abstract class TableModel
 {
+    private ?bool $branchIdColumnExists = null;
+
     public function __construct(protected PDO $db)
     {
     }
@@ -17,16 +20,23 @@ abstract class TableModel
 
     public function all(): array
     {
-        return $this->db->query('SELECT * FROM `' . static::TABLE . '`')->fetchAll(PDO::FETCH_ASSOC);
+        [$query, $params] = $this->applyBranchScope('SELECT * FROM `' . static::TABLE . '`');
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function findBy(string $column, mixed $value): ?array
     {
         $column = $this->quoteIdentifier($column);
-        $stmt = $this->db->prepare(
-            'SELECT * FROM `' . static::TABLE . '` WHERE ' . $column . ' = ? LIMIT 1'
+        [$query, $params] = $this->applyBranchScope(
+            'SELECT * FROM `' . static::TABLE . '` WHERE ' . $column . ' = ?',
+            [$value]
         );
-        $stmt->execute([$value]);
+
+        $stmt = $this->db->prepare($query . ' LIMIT 1');
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -56,19 +66,54 @@ abstract class TableModel
         foreach ($data as $field => $_) {
             $assignments[] = $this->quoteIdentifier((string)$field) . ' = ?';
         }
-        $stmt = $this->db->prepare(
-            'UPDATE `' . static::TABLE . '` SET ' . implode(', ', $assignments)
-            . ' WHERE ' . $this->quoteIdentifier($column) . ' = ?'
-        );
-        return $stmt->execute([...array_values($data), $value]);
+
+        $query = 'UPDATE `' . static::TABLE . '` SET ' . implode(', ', $assignments)
+            . ' WHERE ' . $this->quoteIdentifier($column) . ' = ?';
+        $params = [...array_values($data), $value];
+
+        [$query, $params] = $this->applyBranchScope($query, $params);
+
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute($params);
     }
 
     public function deleteBy(string $column, mixed $value): bool
     {
-        $stmt = $this->db->prepare(
-            'DELETE FROM `' . static::TABLE . '` WHERE ' . $this->quoteIdentifier($column) . ' = ?'
-        );
-        return $stmt->execute([$value]);
+        $query = 'DELETE FROM `' . static::TABLE . '` WHERE ' . $this->quoteIdentifier($column) . ' = ?';
+        $params = [$value];
+
+        [$query, $params] = $this->applyBranchScope($query, $params);
+
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    private function applyBranchScope(string $query, array $params = []): array
+    {
+        $branchId = BranchScope::currentBranchId();
+        if ($branchId === null || !$this->hasBranchIdColumn()) {
+            return [$query, $params];
+        }
+
+        $query .= str_contains(strtolower($query), ' where ')
+            ? ' AND `branch_id` = ?'
+            : ' WHERE `branch_id` = ?';
+        $params[] = $branchId;
+
+        return [$query, $params];
+    }
+
+    private function hasBranchIdColumn(): bool
+    {
+        if ($this->branchIdColumnExists !== null) {
+            return $this->branchIdColumnExists;
+        }
+
+        $stmt = $this->db->prepare('DESCRIBE `' . static::TABLE . '`');
+        $stmt->execute();
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $this->branchIdColumnExists = in_array('branch_id', $columns, true);
+        return $this->branchIdColumnExists;
     }
 
     private function quoteIdentifier(string $identifier): string

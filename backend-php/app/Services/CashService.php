@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\BranchScope;
+use App\Core\AuditLogger;
 use PDO;
 
 class CashService
 {
+    private AuditLogger $audit;
+
     public function __construct(private PDO $db)
     {
+        $this->audit = new AuditLogger($db);
     }
 
     public function all(?string $branchId = null): array
@@ -23,10 +28,7 @@ class CashService
         ";
         $params = [];
 
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND ca.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'ca.branch_id', $branchId);
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -35,8 +37,11 @@ class CashService
 
     public function find(string $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT * FROM cash_accounts WHERE id = ? OR account_number = ? LIMIT 1");
-        $stmt->execute([$id, $id]);
+        $sql = 'SELECT * FROM cash_accounts WHERE (id = :id OR account_number = :account_number)';
+        $params = ['id' => $id, 'account_number' => $id];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -167,8 +172,11 @@ class CashService
 
         try {
             // Deduct from source
-            $fromStmt = $this->db->prepare("SELECT * FROM cash_accounts WHERE id = ? FOR UPDATE");
-            $fromStmt->execute([$fromId]);
+            $sql = 'SELECT * FROM cash_accounts WHERE id = :id';
+            $params = ['id' => $fromId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $fromStmt = $this->db->prepare($sql . ' FOR UPDATE');
+            $fromStmt->execute($params);
             $from = $fromStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$from) {
@@ -181,11 +189,17 @@ class CashService
             }
 
             $newFromBal = $fromBalBefore - $amount;
-            $this->db->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newFromBal, $fromId]);
+            $sql = 'UPDATE cash_accounts SET current_balance = :balance WHERE id = :id';
+            $params = ['balance' => $newFromBal, 'id' => $fromId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $this->db->prepare($sql)->execute($params);
 
             // Add to target
-            $toStmt = $this->db->prepare("SELECT * FROM cash_accounts WHERE id = ? FOR UPDATE");
-            $toStmt->execute([$toId]);
+            $sql = 'SELECT * FROM cash_accounts WHERE id = :id';
+            $params = ['id' => $toId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $toStmt = $this->db->prepare($sql . ' FOR UPDATE');
+            $toStmt->execute($params);
             $to = $toStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$to) {
@@ -194,13 +208,24 @@ class CashService
 
             $toBalBefore = (float)$to['current_balance'];
             $newToBal = $toBalBefore + $amount;
-            $this->db->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newToBal, $toId]);
+            $sql = 'UPDATE cash_accounts SET current_balance = :balance WHERE id = :id';
+            $params = ['balance' => $newToBal, 'id' => $toId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $this->db->prepare($sql)->execute($params);
 
             // Log transactions safely without assuming non-existent columns
             $ref = 'TXFR-' . date('Ymd') . '-' . mt_rand(100, 999);
 
             $this->recordCashTransaction($fromId, 'Transfer Out', $amount, $fromBalBefore, $newFromBal, $ref, $date, $notes);
             $this->recordCashTransaction($toId, 'Transfer In', $amount, $toBalBefore, $newToBal, $ref, $date, $notes);
+            $this->audit->recordAuditTrail(
+                'cash_transfer',
+                ['from_account_id' => $fromId, 'from_balance' => $fromBalBefore, 'to_account_id' => $toId, 'to_balance' => $toBalBefore],
+                ['reference' => $ref, 'amount' => $amount, 'from_balance' => $newFromBal, 'to_balance' => $newToBal],
+                'System',
+                'Cash account transfer',
+                'TRANSACTION'
+            );
 
             $this->db->commit();
 
@@ -219,6 +244,7 @@ class CashService
     public function save(array $data): array
     {
         $id = $data['id'] ?? ('cash_' . bin2hex(random_bytes(6)));
+        $existing = $this->find($id);
         $name = $data['name'] ?? 'Cash Vault Account';
         $accountNo = $data['account_number'] ?? $data['account_code'] ?? ('CASH-' . mt_rand(1000, 9999));
         $bankName = $data['bank_name'] ?? 'Cash Depository';
@@ -268,13 +294,30 @@ class CashService
             'active'          => $active
         ]);
 
-        return $this->find($id) ?? $data;
+        $saved = $this->find($id) ?? $data;
+        $this->audit->recordAuditTrail(
+            'cash_accounts',
+            $existing ? ['id' => $id, 'branch_id' => $existing['branch_id'] ?? null] : 'None',
+            ['id' => $id, 'branch_id' => $branchId, 'account_number' => $accountNo],
+            (string)($data['updated_by'] ?? $data['created_by'] ?? 'System'),
+            'Cash account saved',
+            $existing ? 'UPDATE' : 'CREATE'
+        );
+        return $saved;
     }
 
     public function delete(string $id): bool
     {
-        $stmt = $this->db->prepare("DELETE FROM cash_accounts WHERE id = ?");
-        return $stmt->execute([$id]);
+        $sql = 'DELETE FROM cash_accounts WHERE id = :id';
+        $params = ['id' => $id];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail('cash_accounts', ['id' => $id], 'None', 'System', 'Cash account deleted', 'DELETE');
+        }
+        return $deleted;
     }
 
     public function replenish(string $accountId, float $amount, ?string $sourceId, string $notes, string $date): array
@@ -286,8 +329,11 @@ class CashService
         $this->db->beginTransaction();
 
         try {
-            $toStmt = $this->db->prepare("SELECT * FROM cash_accounts WHERE id = ? FOR UPDATE");
-            $toStmt->execute([$accountId]);
+            $sql = 'SELECT * FROM cash_accounts WHERE id = :id';
+            $params = ['id' => $accountId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $toStmt = $this->db->prepare($sql . ' FOR UPDATE');
+            $toStmt->execute($params);
             $target = $toStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$target) {
@@ -295,8 +341,11 @@ class CashService
             }
 
             if ($sourceId) {
-                $fromStmt = $this->db->prepare("SELECT * FROM cash_accounts WHERE id = ? FOR UPDATE");
-                $fromStmt->execute([$sourceId]);
+                $sql = 'SELECT * FROM cash_accounts WHERE id = :id';
+                $params = ['id' => $sourceId];
+                BranchScope::appendCondition($sql, $params, 'branch_id');
+                $fromStmt = $this->db->prepare($sql . ' FOR UPDATE');
+                $fromStmt->execute($params);
                 $source = $fromStmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($source && (float)$source['current_balance'] < $amount) {
@@ -306,7 +355,10 @@ class CashService
                 if ($source) {
                     $sourceBalBefore = (float)$source['current_balance'];
                     $newSourceBal = $sourceBalBefore - $amount;
-                    $this->db->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newSourceBal, $sourceId]);
+                    $sql = 'UPDATE cash_accounts SET current_balance = :balance WHERE id = :id';
+                    $params = ['balance' => $newSourceBal, 'id' => $sourceId];
+                    BranchScope::appendCondition($sql, $params, 'branch_id');
+                    $this->db->prepare($sql)->execute($params);
                     $this->recordCashTransaction(
                         $sourceId,
                         'Transfer Out',
@@ -322,7 +374,10 @@ class CashService
 
             $targetBalBefore = (float)$target['current_balance'];
             $newTargetBal = $targetBalBefore + $amount;
-            $this->db->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newTargetBal, $accountId]);
+            $sql = 'UPDATE cash_accounts SET current_balance = :balance WHERE id = :id';
+            $params = ['balance' => $newTargetBal, 'id' => $accountId];
+            BranchScope::appendCondition($sql, $params, 'branch_id');
+            $this->db->prepare($sql)->execute($params);
 
             $ref = 'REP-' . date('Ymd') . '-' . mt_rand(100, 999);
             $this->recordCashTransaction(
@@ -334,6 +389,15 @@ class CashService
                 $ref,
                 $date,
                 $notes
+            );
+
+            $this->audit->recordAuditTrail(
+                'cash_replenishment',
+                ['account_id' => $accountId, 'balance' => $targetBalBefore, 'source_account_id' => $sourceId],
+                ['reference' => $ref, 'amount' => $amount, 'balance' => $newTargetBal],
+                'System',
+                'Cash account replenished',
+                'TRANSACTION'
             );
 
             $this->db->commit();

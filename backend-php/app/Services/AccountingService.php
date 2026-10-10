@@ -6,6 +6,7 @@ namespace App\Services;
 
 use PDO;
 use App\Core\AuditLogger;
+use App\Core\BranchScope;
 
 class AccountingService
 {
@@ -42,81 +43,86 @@ class AccountingService
         return $res ?: null;
     }
 
-    /**
+      /**
      * Create or update account in Chart of Accounts
      */
     public function saveAccount(array $data): array
     {
         try {
-
             $this->db->beginTransaction();
-
             $id = $data['id'] ?? ('coa_' . bin2hex(random_bytes(6)));
+            $isUpdate = isset($data['id']);
 
-            $sql = "
-            INSERT INTO chart_of_accounts
-            (
-                id,
-                account_code,
-                name,
-                category,
-                normal_balance,
-                is_active,
-                parent_account_id,
-                report_group,
-                description,
-                created_at
-            )
-            VALUES
-            (
-                :id,
-                :account_code,
-                :name,
-                :category,
-                :normal_balance,
-                :is_active,
-                :parent_account_id,
-                :report_group,
-                :description,
-                NOW()
-            )
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                category = VALUES(category),
-                normal_balance = VALUES(normal_balance),
-                is_active = VALUES(is_active),
-                parent_account_id = VALUES(parent_account_id),
-                report_group = VALUES(report_group),
-                description = VALUES(description)
-        ";
+            if ($isUpdate) {
+                $stmt = $this->db->prepare('SELECT * FROM chart_of_accounts WHERE id = ? FOR UPDATE');
+                $stmt->execute([$id]);
+                $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $stmt = $this->db->prepare($sql);
+                if (!$existing) {
+                    throw new \Exception('Chart of accounts record not found.');
+                }
 
-            $test = $stmt->execute([
-                ':id'                => $id,
-                ':account_code'      => $data['account_code'],
-                ':name'              => $data['name'],
-                ':category'          => $data['category'],
-                ':normal_balance'    => $data['normal_balance'],
-                ':is_active'         => isset($data['is_active'])
-                    ? (int) $data['is_active']
-                    : 1,
-                ':parent_account_id' => $data['parent_account_id'] ?? null,
-                ':report_group'      => $data['report_group'] ?? 'General',
-                ':description'       => $data['description'] ?? null
-            ]);
-            print_r($test);
-            // Get the actual saved record BEFORE commit
-            $stmt = $this->db->prepare("
-            SELECT *
-            FROM chart_of_accounts
-            WHERE account_code = :account_code
-            LIMIT 1
-        ");
+                $accountData = array_merge($existing, $data);
+                $stmt = $this->db->prepare("
+                    UPDATE chart_of_accounts
+                    SET account_code = :account_code,
+                        name = :name,
+                        category = :category,
+                        normal_balance = :normal_balance,
+                        is_active = :is_active,
+                        parent_account_id = :parent_account_id,
+                        report_group = :report_group,
+                        description = :description
+                    WHERE id = :id
+                ");
+            } else {
+                $accountData = $data;
+                $stmt = $this->db->prepare("
+                    INSERT INTO chart_of_accounts
+                    (
+                        id,
+                        account_code,
+                        name,
+                        category,
+                        normal_balance,
+                        is_active,
+                        parent_account_id,
+                        report_group,
+                        description,
+                        created_at
+                    )
+                    VALUES
+                    (
+                        :id,
+                        :account_code,
+                        :name,
+                        :category,
+                        :normal_balance,
+                        :is_active,
+                        :parent_account_id,
+                        :report_group,
+                        :description,
+                        NOW()
+                    )
+                ");
+            }
 
             $stmt->execute([
-                ':account_code' => $data['account_code']
+                ':id'                => $id,
+                ':account_code'      => trim((string) $accountData['account_code']),
+                ':name'              => $accountData['name'],
+                ':category'          => $accountData['category'],
+                ':normal_balance'    => $accountData['normal_balance'],
+                ':is_active'         => isset($accountData['is_active'])
+                    ? (int) $accountData['is_active']
+                    : 1,
+                ':parent_account_id' => $accountData['parent_account_id'] ?? null,
+                ':report_group'      => $accountData['report_group'] ?? 'General',
+                ':description'       => $accountData['description'] ?? null
             ]);
+
+            $stmt = $this->db->prepare('SELECT * FROM chart_of_accounts WHERE id = ? LIMIT 1');
+            $stmt->execute([$id]);
 
             $account = $stmt->fetch(\PDO::FETCH_ASSOC);
 
@@ -153,10 +159,7 @@ class AccountingService
         ";
         $params = [];
 
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND je.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'je.branch_id', $branchId);
 
         if ($startDate) {
             $sql .= " AND je.posting_date >= :start_date";
@@ -195,14 +198,16 @@ class AccountingService
      */
     public function findJournalEntry(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT je.*, b.name AS branch_name
             FROM journal_entries je
             LEFT JOIN branches b ON je.branch_id = b.id
-            WHERE je.id = ? OR je.voucher_number = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $id]);
+            WHERE (je.id = :id OR je.voucher_number = :voucher_number)
+        ";
+        $params = ['id' => $id, 'voucher_number' => $id];
+        BranchScope::appendCondition($sql, $params, 'je.branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $entry = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$entry) {
@@ -406,6 +411,14 @@ class AccountingService
             }
 
 
+            $this->audit->recordAuditTrail(
+                'journal_entries',
+                'None',
+                ['id' => $id, 'voucher_number' => $voucherNo, 'branch_id' => $branchId, 'total_debit' => $totalDebit, 'total_credit' => $totalCredit],
+                (string)$created_by,
+                'Journal entry posted',
+                'TRANSACTION'
+            );
             $this->db->commit();
             return $this->findJournalEntry($id) ?? [];
         } catch (\Exception $e) {
@@ -454,6 +467,14 @@ class AccountingService
         // Mark original as Reversed
         $upd = $this->db->prepare("UPDATE journal_entries SET status = 'Reversed' WHERE id = ?");
         $upd->execute([$id]);
+        $this->audit->recordAuditTrail(
+            'journal_entries',
+            ['id' => $id, 'status' => $original['status']],
+            ['id' => $id, 'status' => 'Reversed', 'reversal_id' => $reversalEntry['id'] ?? null],
+            'System',
+            $reason,
+            'TRANSACTION'
+        );
 
         return $reversalEntry;
     }
@@ -461,7 +482,12 @@ class AccountingService
     public function deleteAccount(string $id): bool
     {
         $stmt = $this->db->prepare("DELETE FROM chart_of_accounts WHERE id = ? OR account_code = ?");
-        return $stmt->execute([$id, $id]);
+        $stmt->execute([$id, $id]);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail('chart_of_accounts', ['id_or_code' => $id], 'None', 'System', 'Chart of accounts entry deleted', 'DELETE');
+        }
+        return $deleted;
     }
 
     public function getAccountingMappings(): array

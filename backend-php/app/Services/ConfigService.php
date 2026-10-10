@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\BranchScope;
 use PDO;
 
 class ConfigService
@@ -48,10 +49,37 @@ class ConfigService
     private function fetchAll(string $table): array
     {
         try {
-            $stmt = $this->db->query("SELECT * FROM `{$table}`");
+            $branchId = $this->currentBranchId();
+            $sql = "SELECT * FROM `{$table}`";
+            $params = [];
+
+            if ($branchId !== null && $this->tableHasBranchId($table)) {
+                $sql .= ' WHERE `branch_id` = :branch_id';
+                $params[':branch_id'] = $branchId;
+            }
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {
             return [];
+        }
+    }
+
+    private function currentBranchId(): ?string
+    {
+        return BranchScope::currentBranchId();
+    }
+
+    private function tableHasBranchId(string $table): bool
+    {
+        try {
+            $stmt = $this->db->prepare('DESCRIBE `' . $table . '`');
+            $stmt->execute();
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return in_array('branch_id', $columns, true);
+        } catch (\PDOException $e) {
+            return false;
         }
     }
 

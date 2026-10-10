@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\BranchScope;
+use App\Core\AuditLogger;
 use PDO;
 
 class SavingsService
 {
-    public function __construct(private PDO $db) {}
+    private AuditLogger $audit;
+
+    public function __construct(private PDO $db)
+    {
+        $this->audit = new AuditLogger($db);
+    }
 
     /**
      * Get savings accounts with member and product info
@@ -130,10 +137,7 @@ class SavingsService
         ";
         $params = [];
 
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND sa.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'sa.branch_id', $branchId);
 
         if ($memberId) {
             $sql .= " AND sa.member_id = :member_id";
@@ -152,7 +156,7 @@ class SavingsService
      */
     public function find(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT sa.*,
                    CONCAT(m.first_name, ' ', m.last_name) AS member_name,
                    m.member_no,
@@ -162,10 +166,12 @@ class SavingsService
                  LEFT JOIN members m ON sa.member_id = m.id
                  LEFT JOIN savings_products sp ON sa.savings_product_id = sp.id
                  LEFT JOIN branches b ON sa.branch_id = b.id
-            WHERE sa.id = ? OR sa.account_number = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $id]);
+            WHERE (sa.id = :id OR sa.account_number = :account_number)
+        ";
+        $params = ['id' => $id, 'account_number' => $id];
+        BranchScope::appendCondition($sql, $params, 'sa.branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -214,6 +220,15 @@ class SavingsService
                 );
             }
 
+            $this->audit->recordAuditTrail(
+                'savings_accounts',
+                'None',
+                ['id' => $id, 'member_id' => $data['member_id'], 'branch_id' => $data['branch_id'], 'opening_balance' => $initialDeposit],
+                (string)($data['created_by'] ?? 'System'),
+                'Savings account opened',
+                'CREATE'
+            );
+
             $this->db->commit();
             return $this->find($id) ?? [];
         } catch (\Exception $e) {
@@ -227,12 +242,16 @@ class SavingsService
      */
     public function getTransactions(string $accountId): array
     {
-        $stmt = $this->db->prepare("
-            SELECT * FROM savings_transactions
-            WHERE savings_account_id = ?
-            ORDER BY transaction_date DESC, created_at DESC
-        ");
-        $stmt->execute([$accountId]);
+        $sql = "
+            SELECT st.*
+            FROM savings_transactions st
+            INNER JOIN savings_accounts sa ON sa.id = st.savings_account_id
+            WHERE st.savings_account_id = :account_id
+        ";
+        $params = ['account_id' => $accountId];
+        BranchScope::appendCondition($sql, $params, 'sa.branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY st.transaction_date DESC, st.created_at DESC');
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -457,6 +476,15 @@ class SavingsService
                 createdBy: $createdBy
             );
 
+            $this->audit->recordAuditTrail(
+                'savings_transactions',
+                ['balance' => $currentBalance],
+                ['id' => $txId, 'account_id' => $accountId, 'member_id' => $actualMemberId, 'type' => $type, 'amount' => $amount, 'balance' => $newBalance, 'reference' => $ref],
+                $createdBy,
+                'Savings ' . strtolower($type),
+                'TRANSACTION'
+            );
+
             /*
          * 9. Everything succeeded.
          */
@@ -510,8 +538,16 @@ class SavingsService
      */
     public function delete(string $id): bool
     {
-        $stmt = $this->db->prepare('DELETE FROM savings_accounts WHERE id = ?');
-        return $stmt->execute([$id]);
+        $sql = 'DELETE FROM savings_accounts WHERE id = :id';
+        $params = ['id' => $id];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail('savings_accounts', ['id' => $id], 'None', 'System', 'Savings account deleted', 'DELETE');
+        }
+        return $deleted;
     }
 
     /**

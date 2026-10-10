@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Services\AmortizationService;
 use PDO;
 use App\Core\AuditLogger;
+use App\Core\BranchScope;
 
 class LoanService
 {
@@ -36,10 +37,7 @@ class LoanService
         ";
         $params = [];
 
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND l.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'l.branch_id', $branchId);
 
         if ($status && $status !== 'all') {
             $sql .= " AND l.status = :status";
@@ -63,7 +61,7 @@ class LoanService
      */
     public function find(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT l.*,
                    CONCAT(m.first_name, ' ', m.last_name) AS member_name,
                    m.member_no,
@@ -75,10 +73,12 @@ class LoanService
             JOIN members m ON l.member_id = m.id
             JOIN loan_products lp ON l.loan_product_id = lp.id
             JOIN branches b ON l.branch_id = b.id
-            WHERE l.id = ? OR l.loan_account_no = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $id]);
+            WHERE (l.id = :id OR l.loan_account_no = :loan_account_no)
+        ";
+        $params = ['id' => $id, 'loan_account_no' => $id];
+        BranchScope::appendCondition($sql, $params, 'l.branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $loan = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $loan ?: null;
@@ -89,12 +89,16 @@ class LoanService
      */
     public function getSchedule(string $loanId): array
     {
-        $stmt = $this->db->prepare("
-            SELECT * FROM loan_amortization_schedules
-            WHERE loan_id = ?
-            ORDER BY installment_no ASC
-        ");
-        $stmt->execute([$loanId]);
+        $sql = "
+            SELECT s.*
+            FROM loan_amortization_schedules s
+            INNER JOIN loans l ON l.id = s.loan_id
+            WHERE s.loan_id = :loan_id
+        ";
+        $params = ['loan_id' => $loanId];
+        BranchScope::appendCondition($sql, $params, 'l.branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY s.installment_no ASC');
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -922,6 +926,23 @@ class LoanService
                 $loanId
             ]);
 
+            $this->audit->recordAuditTrail(
+                'loan_payments',
+                ['loan_id' => $loanId, 'balance' => $loan['current_balance'] ?? null],
+                [
+                    'payment_id' => $paymentId,
+                    'receipt_no' => $refNo,
+                    'loan_id' => $loanId,
+                    'member_id' => $loan['member_id'],
+                    'amount' => $amount,
+                    'principal_paid' => $totalPrincipalPaid,
+                    'interest_paid' => $totalInterestPaid,
+                ],
+                (string)$receivedBy,
+                'Loan repayment recorded',
+                'TRANSACTION'
+            );
+
             $this->db->commit();
 
             return [
@@ -943,8 +964,16 @@ class LoanService
      */
     public function delete(string $id): bool
     {
-        $stmt = $this->db->prepare('DELETE FROM loans WHERE id = ?');
-        return $stmt->execute([$id]);
+        $sql = 'DELETE FROM loans WHERE id = :id';
+        $params = ['id' => $id];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail('loans', ['id' => $id], 'None', 'System', 'Loan deleted', 'DELETE');
+        }
+        return $deleted;
     }
     /**
      * Update an existing loan.
@@ -955,16 +984,15 @@ class LoanService
 
         try {
             // Check if loan exists
-            $stmt = $this->db->prepare("
+            $selectSql = "
                 SELECT *
                 FROM loans
                 WHERE id = :id
-                LIMIT 1
-            ");
-
-            $stmt->execute([
-                ':id' => $loanId
-            ]);
+            ";
+            $selectParams = [':id' => $loanId];
+            BranchScope::appendCondition($selectSql, $selectParams, 'branch_id');
+            $stmt = $this->db->prepare($selectSql . ' LIMIT 1');
+            $stmt->execute($selectParams);
 
             $loan = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1015,23 +1043,31 @@ class LoanService
                 SET " . implode(", ", $updates) . "
                 WHERE id = :id
             ";
+            BranchScope::appendCondition($sql, $params, 'branch_id');
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
+            $this->audit->recordAuditTrail(
+                'loans',
+                ['id' => $loanId],
+                ['id' => $loanId, 'updated_fields' => array_values(array_intersect($allowedFields, array_keys($data)))],
+                (string)($data['updated_by'] ?? 'System'),
+                'Loan updated',
+                'UPDATE'
+            );
 
             /*
             * Get updated loan
             */
-            $stmt = $this->db->prepare("
+            $selectSql = "
                 SELECT *
                 FROM loans
                 WHERE id = :id
-                LIMIT 1
-            ");
-
-            $stmt->execute([
-                ':id' => $loanId
-            ]);
+            ";
+            $selectParams = [':id' => $loanId];
+            BranchScope::appendCondition($selectSql, $selectParams, 'branch_id');
+            $stmt = $this->db->prepare($selectSql . ' LIMIT 1');
+            $stmt->execute($selectParams);
 
             $updatedLoan = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1061,6 +1097,14 @@ class LoanService
 
         $stmt = $this->db->prepare('UPDATE `loans` SET `status`= ? WHERE `id`= ?');
         $stmt->execute([$status['status'],$id]);
+        $this->audit->recordAuditTrail(
+            'loans',
+            ['id' => $id],
+            ['id' => $id, 'status' => $status['status'] ?? null],
+            (string)($status['updated_by'] ?? 'System'),
+            'Loan status changed',
+            'UPDATE'
+        );
 
         $this->db->commit();
         return $this->find($id) ?? [];
@@ -1347,7 +1391,7 @@ class LoanService
      */
     public function findApplication(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT
                 la.*,
 
@@ -1365,13 +1409,12 @@ class LoanService
                 ON la.branch_id = b.id
 
             WHERE la.id = :id
+        ";
+        $params = ['id' => $id];
+        BranchScope::appendCondition($sql, $params, 'la.branch_id');
 
-            LIMIT 1
-        ");
-
-        $stmt->execute([
-            'id' => $id
-        ]);
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
 
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
@@ -1400,10 +1443,7 @@ class LoanService
         ";
         
         $params = [];
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND la.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'la.branch_id', $branchId);
         if ($status && $status !== 'all') {
             $sql .= " AND LOWER(la.status) = LOWER(:status)";
             $params['status'] = $status;
@@ -1452,6 +1492,14 @@ class LoanService
             'remarks' => $remarks,
             'id' => $applicationId
         ]);
+        $this->audit->recordAuditTrail(
+            'loan_applications',
+            ['id' => $applicationId, 'status' => $app['status']],
+            ['id' => $applicationId, 'status' => 'Rejected'],
+            (string)$reviewer,
+            'Loan application rejected',
+            'UPDATE'
+        );
 
         return $this->findApplication($applicationId);
     }

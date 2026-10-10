@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Core\BranchScope;
 use PDO;
 
 class DocumentModel
@@ -16,10 +17,16 @@ class DocumentModel
 
     public function forUser(string $userId): array
     {
-        $stmt = $this->db->prepare(
-            'SELECT doc_key, document_data, notes FROM user_documents WHERE user_id = ? ORDER BY doc_key'
-        );
-        $stmt->execute([$userId]);
+        $sql = '
+            SELECT d.doc_key, d.document_data, d.notes
+            FROM user_documents d
+            INNER JOIN users u ON u.id = d.user_id
+            WHERE d.user_id = :user_id
+        ';
+        $params = ['user_id' => $userId];
+        BranchScope::appendCondition($sql, $params, 'u.branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY d.doc_key');
+        $stmt->execute($params);
 
         $documents = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {

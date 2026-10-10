@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\JwtAuth;
+use App\Core\BranchScope;
 use App\Models\UserModel;
 use App\Services\MemberService;
 use App\Services\ShareCapitalService;
@@ -183,15 +184,17 @@ class AuthController extends BaseController
 
         // 2. Search by email or phone if not found
         if (!$member) {
-            $stmt = $this->db->prepare("
+            $sql = "
                 SELECT m.*, b.name AS branch_name, mt.name AS member_type_name
                 FROM members m
                 LEFT JOIN branches b ON m.branch_id = b.id
                 LEFT JOIN member_types mt ON m.member_type_id = mt.id
-                WHERE m.email = :identifier OR m.phone = :identifier
-                LIMIT 1
-            ");
-            $stmt->execute(['identifier' => $identifier]);
+                WHERE (m.email = :identifier OR m.phone = :identifier)
+            ";
+            $params = ['identifier' => $identifier];
+            BranchScope::appendCondition($sql, $params, 'm.branch_id');
+            $stmt = $this->db->prepare($sql . ' LIMIT 1');
+            $stmt->execute($params);
             $member = $stmt->fetch(PDO::FETCH_ASSOC);
         }
 

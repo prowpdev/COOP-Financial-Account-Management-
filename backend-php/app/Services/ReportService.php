@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\BranchScope;
 use PDO;
 
 class ReportService
@@ -66,10 +67,7 @@ public function getTrialBalance(
         'as_of_date' => $asOfDate
     ];
 
-    if ($branchId !== null && $branchId !== '' && $branchId !== 'all') {
-        $sql .= " AND je.branch_id = :branch_id";
-        $params['branch_id'] = $branchId;
-    }
+    BranchScope::appendCondition($sql, $params, 'je.branch_id', $branchId);
 
     $sql .= "
         GROUP BY jl.account_id
@@ -396,16 +394,13 @@ public function getFinancialStatements(
 public function getDashboardStats(): array
 {
     // Get branch filter from query string
-    $branchId = $_GET['branch_id'] ?? 'all';
-
-    // Normalize the branch ID
-    $branchId = is_string($branchId) ? trim($branchId) : 'all';
+    $branchId = BranchScope::currentBranchId();
 
     // Build the branch filter
     $branchFilter = '';
     $params = [];
 
-    if ($branchId !== 'all' && $branchId !== '') {
+    if ($branchId !== null) {
         $branchFilter = ' AND branch_id = :branch_id';
         $params[':branch_id'] = $branchId;
     }
@@ -445,7 +440,7 @@ public function getDashboardStats(): array
     // Share Capital
     // Filter by branch through the member's branch_id,
     // matching the TypeScript implementation.
-    if ($branchId !== 'all' && $branchId !== '') {
+    if ($branchId !== null) {
         $shareCapitalParams = [':branch_id' => $branchId];
 
         $stmt = $this->db->prepare(

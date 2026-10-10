@@ -6,6 +6,7 @@ namespace App\Services;
 
 use PDO;
 use App\Core\AuditLogger;
+use App\Core\BranchScope;
 
 class ShareCapitalService
 {   
@@ -32,6 +33,8 @@ class ShareCapitalService
         ";
         $params = [];
 
+        BranchScope::appendCondition($sql, $params, 'm.branch_id');
+
         if ($memberId) {
             $sql .= " AND sc.member_id = :member_id";
             $params['member_id'] = $memberId;
@@ -49,7 +52,7 @@ class ShareCapitalService
      */
     public function find(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT sc.*,
                    CONCAT(m.first_name, ' ', m.last_name) AS member_name,
                    m.member_no,
@@ -57,10 +60,12 @@ class ShareCapitalService
             FROM share_capital_accounts sc
             JOIN members m ON sc.member_id = m.id
             JOIN branches b ON m.branch_id = b.id
-            WHERE sc.id = ? OR sc.account_number = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $id]);
+            WHERE (sc.id = :id OR sc.account_number = :account_number)
+        ";
+        $params = ['id' => $id, 'account_number' => $id];
+        BranchScope::appendCondition($sql, $params, 'm.branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -1847,12 +1852,17 @@ class ShareCapitalService
      */
     public function getTransactions(string $accountId): array
     {
-        $stmt = $this->db->prepare("
-            SELECT * FROM share_capital_transactions
-            WHERE share_account_id = ?
-            ORDER BY transaction_date DESC, created_at DESC
-        ");
-        $stmt->execute([$accountId]);
+        $sql = "
+            SELECT sct.*
+            FROM share_capital_transactions sct
+            INNER JOIN share_capital_accounts sc ON sc.id = sct.share_account_id
+            INNER JOIN members m ON m.id = sc.member_id
+            WHERE sct.share_account_id = :account_id
+        ";
+        $params = ['account_id' => $accountId];
+        BranchScope::appendCondition($sql, $params, 'm.branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY sct.transaction_date DESC, sct.created_at DESC');
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -2740,7 +2750,12 @@ public function updateAccount(string $id, array $data): array
     public function delete(string $id): bool
     {
         $stmt = $this->db->prepare('DELETE FROM share_capital_accounts WHERE id = ?');
-        return $stmt->execute([$id]);
+        $stmt->execute([$id]);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail('share_capital_accounts', ['id' => $id], 'None', 'System', 'Share capital account deleted', 'DELETE');
+        }
+        return $deleted;
     }
 
     /**

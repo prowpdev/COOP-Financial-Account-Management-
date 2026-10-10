@@ -5,10 +5,17 @@ declare(strict_types=1);
 namespace App\Services;
 
 use PDO;
+use App\Core\AuditLogger;
+use App\Core\BranchScope;
 
 class MemberService
 {
-    public function __construct(private PDO $db) {}
+    private AuditLogger $audit;
+
+    public function __construct(private PDO $db)
+    {
+        $this->audit = new AuditLogger($db);
+    }
 
     /**
      * Get all members with optional filters
@@ -22,10 +29,7 @@ class MemberService
                 WHERE 1=1";
         $params = [];
 
-        if ($branchId && $branchId !== 'all') {
-            $sql .= " AND m.branch_id = :branch_id";
-            $params['branch_id'] = $branchId;
-        }
+        BranchScope::appendCondition($sql, $params, 'm.branch_id', $branchId);
 
         if ($status && $status !== 'all') {
             $sql .= " AND m.status = :status";
@@ -57,15 +61,17 @@ class MemberService
      */
     public function find(string $id): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT m.*, b.name AS branch_name, mt.name AS member_type_name
             FROM members m
             LEFT JOIN branches b ON m.branch_id = b.id
             LEFT JOIN member_types mt ON m.member_type_id = mt.id
-            WHERE m.id = ? OR m.member_no = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $id]);
+            WHERE (m.id = :id OR m.member_no = :member_no)
+        ";
+        $params = ['id' => $id, 'member_no' => $id];
+        BranchScope::appendCondition($sql, $params, 'm.branch_id');
+        $stmt = $this->db->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
         $member = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($member) {
@@ -112,6 +118,15 @@ class MemberService
             'joined_date'         => $data['joined_date'] ?? date('Y-m-d'),
             'custom_field_values' => isset($data['custom_field_values']) ? json_encode($data['custom_field_values']) : null,
         ]);
+
+        $this->audit->recordAuditTrail(
+            'members',
+            'None',
+            ['id' => $id, 'member_no' => $memberNo, 'branch_id' => $data['branch_id']],
+            (string)($data['created_by'] ?? 'System'),
+            'Member created',
+            'CREATE'
+        );
 
         return $this->find($id) ?? [];
     }
@@ -164,9 +179,21 @@ class MemberService
         SET " . implode(', ', $fields) . "
         WHERE id = :id
     ";
+        BranchScope::appendCondition($sql, $params, 'branch_id');
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
+
+        if ($stmt->rowCount() > 0) {
+            $this->audit->recordAuditTrail(
+                'members',
+                ['id' => $id],
+                ['id' => $id, 'updated_fields' => array_values(array_intersect_key($data, array_flip([...$allowed, 'custom_field_values'])))],
+                (string)($data['updated_by'] ?? 'System'),
+                'Member updated',
+                'UPDATE'
+            );
+        }
 
         return $this->find($id);
     }
@@ -176,8 +203,23 @@ class MemberService
      */
     public function delete(string $id): bool
     {
-        $stmt = $this->db->prepare('DELETE FROM members WHERE id = ?');
-        return $stmt->execute([$id]);
+        $sql = 'DELETE FROM members WHERE id = :id';
+        $params = ['id' => $id];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            $this->audit->recordAuditTrail(
+                'members',
+                ['id' => $id],
+                'None',
+                'System',
+                'Member deleted',
+                'DELETE'
+            );
+        }
+        return $deleted;
     }
 
     /**

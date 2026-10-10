@@ -193,6 +193,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       width: '130px',
       type: 'text',
       sortable: true,
+      editable: true,
       accessor: a => a.account_code || a.code
     },
     { key: 'name', header: 'Account Name', width: '250px', type: 'text', sortable: true, editable: true },
@@ -255,7 +256,8 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       width: '140px',
       type: 'text',
       sortable: true,
-      accessor: a => a.parent_account_id || a.parent_id || '—'
+      editable: true,
+      accessor: a => a.parent_account_id || a.parent_id || ''
     },
     {
       key: 'description',
@@ -264,7 +266,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       type: 'text',
       sortable: true,
       editable: true,
-      accessor: a => a.description || '—'
+      accessor: a => a.description || ''
     },
     {
       key: 'is_active',
@@ -273,6 +275,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
       type: 'boolean',
       align: 'center',
       sortable: true,
+      editable: true,
       accessor: a => (a.is_active !== undefined ? a.is_active : a.active !== false)
     }
   ];
@@ -446,19 +449,36 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
   };
 
   const handleEditAccount = async (account: Account, fieldKey: string, newVal: any) => {
+    const value = fieldKey === 'account_code' ? String(newVal).trim() : newVal;
+    if (fieldKey === 'account_code' && !value) {
+      throw new Error('Account code is required.');
+    }
+    if (fieldKey === 'name' && !String(newVal).trim()) {
+      throw new Error('Account name is required.');
+    }
+    if (fieldKey === 'category' && !['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'].includes(newVal)) {
+      throw new Error('Select a valid account category.');
+    }
+    if (fieldKey === 'normal_balance' && !['Debit', 'Credit'].includes(newVal)) {
+      throw new Error('Normal balance must be Debit or Credit.');
+    }
+
+    const activeValue = fieldKey === 'is_active'
+      ? (typeof newVal === 'boolean' ? newVal : String(newVal).toLowerCase() === 'true')
+      : newVal;
     const updated = {
       ...account,
-      [fieldKey]: newVal,
-      ...(fieldKey === 'account_code' ? { code: newVal } : {}),
-      ...(fieldKey === 'code' ? { account_code: newVal } : {}),
-      ...(fieldKey === 'category' ? { type: newVal === 'Revenue' ? 'Income' : newVal } : {}),
-      ...(fieldKey === 'is_active' ? { active: newVal } : {}),
+      [fieldKey]: fieldKey === 'is_active' ? activeValue : fieldKey === 'name' ? String(value).trim() : value,
+      ...(fieldKey === 'account_code' ? { account_code: value, code: value } : {}),
+      ...(fieldKey === 'parent_account_id' ? { parent_account_id: value || null, parent_id: value || null } : {}),
+      ...(fieldKey === 'category' ? { type: value === 'Revenue' ? 'Income' : value } : {}),
+      ...(fieldKey === 'is_active' ? { is_active: activeValue, active: activeValue } : {}),
       changed_by: currentUser.name,
       reason: `Excel Spreadsheet direct edit: ${fieldKey}`
     };
     await api.updateAccount(account.id, updated);
-    notify('success', `Account "${account.account_code || account.code} - ${account.name}" updated!`);
-    onRefresh();
+    notify('success', `Account "${updated.account_code || updated.code} - ${updated.name}" updated successfully.`);
+    if (onRefresh) await onRefresh();
   };
 
   const handleEditFee = async (fee: Fee, fieldKey: string, newVal: any) => {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\BranchScope;
+use App\Core\AuditLogger;
 use App\Services\ConfigService;
 use PDO;
 
@@ -51,8 +53,12 @@ class ConfigController extends BaseController
      */
     public function auditLogs(): never
     {
-        $stmt = $this->db->query("SELECT * FROM configuration_audit_trails ORDER BY created_at DESC");
-        $logs = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $sql = 'SELECT * FROM configuration_audit_trails';
+        $params = [];
+        BranchScope::appendCondition($sql, $params, 'branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY created_at DESC');
+        $stmt->execute($params);
+        $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $this->success($logs);
     }
 
@@ -65,22 +71,15 @@ class ConfigController extends BaseController
         if (empty($input['setting'])) {
             $this->error('Setting or action description is required.', 422);
         }
-        $id = 'audit_' . bin2hex(random_bytes(8));
-        $now = date('c');
-        $stmt = $this->db->prepare("
-            INSERT INTO configuration_audit_trails (id, setting, old_value, new_value, changed_by, created_at, reason)
-            VALUES (:id, :setting, :old_value, :new_value, :changed_by, :created_at, :reason)
-        ");
-        $stmt->execute([
-            'id' => $id,
-            'setting' => $input['setting'],
-            'old_value' => (string)($input['old_value'] ?? 'None'),
-            'new_value' => (string)($input['new_value'] ?? 'None'),
-            'changed_by' => (string)($input['changed_by'] ?? 'Administrator'),
-            'created_at' => $now,
-            'reason' => (string)($input['reason'] ?? 'System event')
-        ]);
-        $this->success(['id' => $id, 'created_at' => $now], 'Audit log recorded successfully.', 201);
+        $id = (new AuditLogger($this->db))->recordAuditTrail(
+            (string)$input['setting'],
+            $input['old_value'] ?? 'None',
+            $input['new_value'] ?? 'None',
+            (string)($input['changed_by'] ?? 'Administrator'),
+            (string)($input['reason'] ?? 'System event'),
+            (string)($input['action'] ?? 'UPDATE')
+        );
+        $this->success(['id' => $id], 'Audit log recorded successfully.', 201);
     }
 
     /**
