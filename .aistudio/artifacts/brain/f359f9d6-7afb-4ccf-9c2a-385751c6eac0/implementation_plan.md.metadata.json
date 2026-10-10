@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for adding granular transaction type filtering and member-specific ledger filtering across Member Reports and Account Reports, with dynamic balance recalculation and synchronized CSV/Print exports.",
+  "updatedAt":  "2026-10-10T07:08:56.997081982Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

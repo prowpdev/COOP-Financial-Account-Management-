@@ -16,7 +16,8 @@ import {
   PiggyBank,
   Coins,
   FileSpreadsheet,
-  Building2
+  Building2,
+  Filter
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Member } from '../../types';
@@ -41,6 +42,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
   const [to, setTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'manual_jv' | 'share_capital' | 'savings' | 'loans'>('all');
+  const [selectedTxType, setSelectedTxType] = useState<string>('all');
   const [expandedJVs, setExpandedJVs] = useState<Set<string>>(new Set());
 
   // Modal for quick manual JV posting for this member
@@ -120,6 +122,119 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
 
   const allTransactions: any[] = report?.transactions || [];
 
+  // Categorize any transaction record into granular functional type
+  const classifyTransaction = (row: any): string => {
+    const typeStr = String(row.type || '').toLowerCase();
+    const catStr = String(row.category || '').toLowerCase();
+    const descStr = String(row.description || '').toLowerCase();
+
+    // 1. Loans
+    if (
+      typeStr.includes('released') ||
+      typeStr.includes('disburse') ||
+      descStr.includes('released') ||
+      descStr.includes('approved/released')
+    ) {
+      return 'loan_released';
+    }
+    if (
+      typeStr.includes('loan payment') ||
+      descStr.includes('principal') ||
+      typeStr.includes('repayment') ||
+      descStr.includes('amortization') ||
+      typeStr.includes('amortization')
+    ) {
+      if (descStr.includes('interest only') || typeStr.includes('interest payment')) {
+        return 'loan_interest';
+      }
+      return 'loan_payment';
+    }
+    if (typeStr.includes('interest') && (catStr.includes('loan') || descStr.includes('loan'))) {
+      return 'loan_interest';
+    }
+
+    // 2. Savings
+    if (catStr === 'savings' || typeStr.includes('saving')) {
+      if (typeStr.includes('withdraw') || descStr.includes('withdraw')) {
+        return 'savings_withdrawal';
+      }
+      if (typeStr.includes('interest') || descStr.includes('interest')) {
+        return 'savings_interest';
+      }
+      return 'savings_deposit';
+    }
+
+    // 3. Share Capital (CBU)
+    if (catStr === 'share capital' || typeStr.includes('share') || descStr.includes('share capital') || descStr.includes('cbu')) {
+      return 'share_capital';
+    }
+
+    // 4. Membership Fee
+    if (typeStr.includes('membership fee') || descStr.includes('membership fee')) {
+      return 'membership_fee';
+    }
+
+    // 5. Manual JV / General Ledger
+    if (row.is_manual_jv || row.is_jv || typeStr.includes('manual jv') || typeStr.includes('journal voucher')) {
+      return 'manual_jv';
+    }
+
+    return 'other';
+  };
+
+  const txCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: allTransactions.length,
+      loan_all: 0,
+      loan_released: 0,
+      loan_payment: 0,
+      loan_interest: 0,
+      savings_all: 0,
+      savings_deposit: 0,
+      savings_withdrawal: 0,
+      share_capital: 0,
+      manual_jv: 0,
+      membership_fee: 0
+    };
+
+    allTransactions.forEach(row => {
+      const cls = classifyTransaction(row);
+      if (cls === 'loan_released') {
+        counts.loan_released++;
+        counts.loan_all++;
+      } else if (cls === 'loan_payment') {
+        counts.loan_payment++;
+        counts.loan_all++;
+      } else if (cls === 'loan_interest') {
+        counts.loan_interest++;
+        counts.loan_all++;
+      } else if (cls === 'savings_deposit') {
+        counts.savings_deposit++;
+        counts.savings_all++;
+      } else if (cls === 'savings_withdrawal') {
+        counts.savings_withdrawal++;
+        counts.savings_all++;
+      } else if (cls === 'savings_interest') {
+        counts.savings_all++;
+      } else if (cls === 'share_capital') {
+        counts.share_capital++;
+      } else if (cls === 'membership_fee') {
+        counts.membership_fee++;
+      } else if (cls === 'manual_jv') {
+        counts.manual_jv++;
+      }
+
+      if (row.category === 'Loans' && !['loan_released', 'loan_payment', 'loan_interest'].includes(cls)) {
+        counts.loan_all++;
+      }
+      if (row.category === 'Savings' && !['savings_deposit', 'savings_withdrawal', 'savings_interest'].includes(cls)) {
+        counts.savings_all++;
+      }
+    });
+
+    return counts;
+  }, [allTransactions]);
+
   const filteredRows = useMemo(() => {
     return allTransactions.filter((row: any) => {
       // Date filter
@@ -140,6 +255,32 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
         if (!isLoan) return false;
       }
 
+      // Granular Transaction Type filter
+      if (selectedTxType !== 'all') {
+        const rowClass = classifyTransaction(row);
+        if (selectedTxType === 'loan_all') {
+          if (!['loan_released', 'loan_payment', 'loan_interest'].includes(rowClass) && row.category !== 'Loans') return false;
+        } else if (selectedTxType === 'loan_payment') {
+          if (rowClass !== 'loan_payment' && rowClass !== 'loan_interest') return false;
+        } else if (selectedTxType === 'loan_released') {
+          if (rowClass !== 'loan_released') return false;
+        } else if (selectedTxType === 'loan_interest') {
+          if (rowClass !== 'loan_interest' && !String(row.description || '').toLowerCase().includes('interest')) return false;
+        } else if (selectedTxType === 'savings_all') {
+          if (!['savings_deposit', 'savings_withdrawal', 'savings_interest'].includes(rowClass) && row.category !== 'Savings') return false;
+        } else if (selectedTxType === 'savings_deposit') {
+          if (rowClass !== 'savings_deposit') return false;
+        } else if (selectedTxType === 'savings_withdrawal') {
+          if (rowClass !== 'savings_withdrawal') return false;
+        } else if (selectedTxType === 'share_capital') {
+          if (rowClass !== 'share_capital') return false;
+        } else if (selectedTxType === 'manual_jv') {
+          if (rowClass !== 'manual_jv' && !row.is_manual_jv && !row.is_jv) return false;
+        } else if (selectedTxType === 'membership_fee') {
+          if (rowClass !== 'membership_fee') return false;
+        }
+      }
+
       // Search keyword filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -152,7 +293,50 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
 
       return true;
     });
-  }, [allTransactions, from, to, activeTab, searchQuery]);
+  }, [allTransactions, from, to, activeTab, selectedTxType, searchQuery]);
+
+  const filteredSummary = useMemo(() => {
+    let debits = 0;
+    let credits = 0;
+    let totalAmt = 0;
+    filteredRows.forEach(r => {
+      debits += Number(r.debit) || 0;
+      credits += Number(r.credit) || 0;
+      totalAmt += Number(r.amount) || 0;
+    });
+    return {
+      count: filteredRows.length,
+      debits,
+      credits,
+      net: debits - credits,
+      totalAmt
+    };
+  }, [filteredRows]);
+
+  const resetAllFilters = () => {
+    setFrom('');
+    setTo('');
+    setSelectedTxType('all');
+    setActiveTab('all');
+    setSearchQuery('');
+  };
+
+  const getTxTypeLabel = (key: string): string => {
+    const labels: Record<string, string> = {
+      all: 'All Transaction Types',
+      loan_all: 'All Loan Transactions',
+      loan_payment: 'Loan Payments / Amortizations',
+      loan_released: 'Loan Releases / Disbursements',
+      loan_interest: 'Loan Interest Payments',
+      savings_all: 'All Savings Transactions',
+      savings_deposit: 'Savings Deposits',
+      savings_withdrawal: 'Savings Withdrawals',
+      share_capital: 'Share Capital (CBU) Contributions',
+      manual_jv: 'Manual Journal Vouchers',
+      membership_fee: 'Membership Fees'
+    };
+    return labels[key] || key;
+  };
 
   const toggleExpand = (rowId: string) => {
     setExpandedJVs(prev => {
@@ -239,10 +423,16 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
   };
   
   const exportCsv = () => {
+    const typeLabel = getTxTypeLabel(selectedTxType);
+    const periodLabel = `${from || 'Beginning'} to ${to || 'Present'}`;
     const csv = [
-      ['Member Transaction Ledger & Journal Voucher Report', `${member?.first_name || ''} ${member?.last_name || ''}`],
+      ['Member Transaction Ledger & Subsidiary Report', `${member?.first_name || ''} ${member?.last_name || ''}`],
       ['Member No', member?.member_no || ''],
       ['Branch', member?.branch_name || ''],
+      ['Transaction Type Filter', typeLabel],
+      ['Category Tab Filter', activeTab.toUpperCase()],
+      ['Period Range', periodLabel],
+      ['Filtered Entries Count', filteredRows.length],
       ['Generated At', new Date().toISOString()],
       [],
       ['Date', 'Type', 'Voucher / Reference', 'Category', 'Description', 'Accounts Breakdown', 'Debit (PHP)', 'Credit (PHP)', 'Amount (PHP)', 'Status'],
@@ -257,15 +447,17 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
         row.credit || 0,
         row.amount || 0,
         row.status || 'Posted'
-      ])
+      ]),
+      ['Filtered Totals', '', '', '', `Matching Count: ${filteredRows.length}`, '', filteredSummary.debits, filteredSummary.credits, filteredSummary.totalAmt, '']
     ]
       .map(row => row.map(cell).join(','))
       .join('\r\n');
 
+    const typeSlug = selectedTxType !== 'all' ? `_${selectedTxType}` : '';
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `member_ledger_${member?.member_no || 'report'}.csv`;
+    link.download = `member_ledger_${member?.member_no || 'report'}${typeSlug}_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -295,8 +487,9 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
     <section className="space-y-4">
       {/* Top Filter & Control Panel */}
       <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 print:hidden space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
-          <div className="flex-1 max-w-md">
+        {/* Row 1: Member selector, Transaction Type selector, Dates, and Primary actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3">
+          <div className="lg:col-span-4">
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Select Member Account <span className="text-slate-400 font-normal">({safeMembers.length} enrolled)</span>
             </label>
@@ -312,29 +505,68 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="lg:col-span-3">
+            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
+              <Filter className="w-3.5 h-3.5 text-amber-400" />
+              <span>Transaction Type Filter</span>
+            </label>
+            <select
+              value={selectedTxType}
+              onChange={e => {
+                setSelectedTxType(e.target.value);
+                if (e.target.value !== 'all') {
+                  setActiveTab('all');
+                }
+              }}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+            >
+              <option value="all">All Transaction Types ({allTransactions.length})</option>
+              <optgroup label="Loan Facility">
+                <option value="loan_all">All Loans ({txCounts.loan_all})</option>
+                <option value="loan_released">Loan Releases / Disbursements ({txCounts.loan_released})</option>
+                <option value="loan_payment">Loan Payments / Repayments ({txCounts.loan_payment})</option>
+                <option value="loan_interest">Loan Interest Payments ({txCounts.loan_interest})</option>
+              </optgroup>
+              <optgroup label="Savings Operations">
+                <option value="savings_all">All Savings ({txCounts.savings_all})</option>
+                <option value="savings_deposit">Savings Deposits ({txCounts.savings_deposit})</option>
+                <option value="savings_withdrawal">Savings Withdrawals ({txCounts.savings_withdrawal})</option>
+              </optgroup>
+              <optgroup label="Share Capital & Fees">
+                <option value="share_capital">Share Capital (CBU) Contributions ({txCounts.share_capital})</option>
+                <option value="membership_fee">Membership Fees ({txCounts.membership_fee})</option>
+              </optgroup>
+              <optgroup label="Journals & Adjustments">
+                <option value="manual_jv">Manual Journal Vouchers ({txCounts.manual_jv})</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div className="lg:col-span-2 grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Date From</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">From</label>
               <input
                 type="date"
                 value={from}
                 onChange={e => setFrom(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Date To</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">To</label>
               <input
                 type="date"
                 value={to}
                 onChange={e => setTo(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
+          </div>
 
+          <div className="lg:col-span-3 flex flex-wrap items-end gap-2">
             <button
               onClick={load}
-              className="p-2 mt-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 cursor-pointer"
+              className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 cursor-pointer transition"
               title="Refresh Report"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -342,30 +574,168 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
 
             <button
               onClick={() => setShowJvModal(true)}
-              className="flex items-center space-x-1.5 mt-4 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow cursor-pointer transition"
+              className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow cursor-pointer transition"
               title="Create a manual balanced Journal Voucher for this member"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Post Manual JV</span>
+              <span>Post JV</span>
             </button>
 
             <button
               onClick={exportCsv}
-              className="flex items-center space-x-1 mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs text-white cursor-pointer"
+              className="flex items-center space-x-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs text-white cursor-pointer transition"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
               <span>CSV</span>
             </button>
 
             <button
               onClick={() => window.print()}
-              className="flex items-center space-x-1 mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs text-white cursor-pointer"
+              className="flex items-center space-x-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs text-white cursor-pointer transition"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / PDF</span>
+              <span>Print</span>
             </button>
           </div>
         </div>
+
+        {/* Row 2: Quick Filter Preset Chips */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80">
+          <span className="text-[11px] text-slate-400 font-semibold mr-1">Quick Presets:</span>
+          <button
+            onClick={() => { setSelectedTxType('all'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              selectedTxType === 'all' && activeTab === 'all'
+                ? 'bg-slate-800 text-white border border-slate-600'
+                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+            }`}
+          >
+            All Types ({allTransactions.length})
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('loan_released'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'loan_released'
+                ? 'bg-rose-600 text-white'
+                : 'bg-slate-950 text-rose-400 hover:text-rose-300 border border-slate-800'
+            }`}
+          >
+            <CreditCard className="w-3 h-3" />
+            <span>Loan Releases ({txCounts.loan_released})</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('loan_payment'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'loan_payment'
+                ? 'bg-amber-600 text-white'
+                : 'bg-slate-950 text-amber-400 hover:text-amber-300 border border-slate-800'
+            }`}
+          >
+            <CreditCard className="w-3 h-3" />
+            <span>Loan Payments ({txCounts.loan_payment})</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('loan_interest'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'loan_interest'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-slate-950 text-yellow-400 hover:text-yellow-300 border border-slate-800'
+            }`}
+          >
+            <span>Interest ({txCounts.loan_interest})</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('savings_deposit'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'savings_deposit'
+                ? 'bg-purple-600 text-white'
+                : 'bg-slate-950 text-purple-400 hover:text-purple-300 border border-slate-800'
+            }`}
+          >
+            <PiggyBank className="w-3 h-3" />
+            <span>Savings ({txCounts.savings_deposit})</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('share_capital'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'share_capital'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-950 text-blue-400 hover:text-blue-300 border border-slate-800'
+            }`}
+          >
+            <Coins className="w-3 h-3" />
+            <span>Share Capital ({txCounts.share_capital})</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTxType('manual_jv'); setActiveTab('all'); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center space-x-1 ${
+              selectedTxType === 'manual_jv'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-950 text-emerald-400 hover:text-emerald-300 border border-slate-800'
+            }`}
+          >
+            <BookOpen className="w-3 h-3" />
+            <span>Manual JV ({txCounts.manual_jv})</span>
+          </button>
+        </div>
+
+        {/* Live Filter Metrics Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+            <span className="text-slate-400 text-[10px] block uppercase font-medium">Filtered Records</span>
+            <div className="flex items-center space-x-1.5 mt-0.5">
+              <span className="text-base font-bold text-white">{filteredSummary.count}</span>
+              <span className="text-[11px] text-slate-500">of {allTransactions.length} lines</span>
+            </div>
+          </div>
+          <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+            <span className="text-slate-400 text-[10px] block uppercase font-medium">Period Debits</span>
+            <span className="text-base font-bold text-emerald-400 font-mono mt-0.5 block">{money(filteredSummary.debits)}</span>
+          </div>
+          <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+            <span className="text-slate-400 text-[10px] block uppercase font-medium">Period Credits</span>
+            <span className="text-base font-bold text-blue-400 font-mono mt-0.5 block">{money(filteredSummary.credits)}</span>
+          </div>
+          <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+            <span className="text-slate-400 text-[10px] block uppercase font-medium">Net Flow</span>
+            <span className={`text-base font-bold font-mono mt-0.5 block ${filteredSummary.net >= 0 ? 'text-white' : 'text-amber-400'}`}>
+              {money(filteredSummary.net)}
+            </span>
+          </div>
+        </div>
+
+        {/* Active Filters Callout Strip */}
+        {(selectedTxType !== 'all' || activeTab !== 'all' || from || to || searchQuery.trim()) && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-emerald-950/30 border border-emerald-800/40 rounded-xl text-xs text-emerald-300">
+            <span className="font-semibold text-emerald-400">Active Criteria:</span>
+            {selectedTxType !== 'all' && (
+              <span className="px-2 py-0.5 bg-emerald-900/60 rounded text-[11px] font-medium">
+                Type: {getTxTypeLabel(selectedTxType)}
+              </span>
+            )}
+            {activeTab !== 'all' && (
+              <span className="px-2 py-0.5 bg-emerald-900/60 rounded text-[11px] font-medium">
+                Tab: {activeTab.replace('_', ' ').toUpperCase()}
+              </span>
+            )}
+            {(from || to) && (
+              <span className="px-2 py-0.5 bg-emerald-900/60 rounded text-[11px]">
+                Dates: {from || 'Beginning'} to {to || 'Present'}
+              </span>
+            )}
+            {searchQuery && (
+              <span className="px-2 py-0.5 bg-emerald-900/60 rounded text-[11px]">
+                Search: "{searchQuery}"
+              </span>
+            )}
+            <button
+              onClick={resetAllFilters}
+              className="ml-auto text-[11px] text-amber-300 hover:text-amber-200 underline cursor-pointer"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
 
         {/* Filter Tabs & Search Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
@@ -476,6 +846,16 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
 
           <div className="text-right text-xs text-slate-400 print:text-slate-600">
             <p>Period: <strong className="text-white print:text-black">{from || 'Beginning'} to {to || 'Present'}</strong></p>
+            {selectedTxType !== 'all' && (
+              <p className="text-emerald-400 print:text-black font-semibold mt-0.5">
+                Type Filter: {getTxTypeLabel(selectedTxType)}
+              </p>
+            )}
+            {activeTab !== 'all' && (
+              <p className="text-blue-400 print:text-black font-semibold mt-0.5">
+                Category: {activeTab.replace('_', ' ').toUpperCase()}
+              </p>
+            )}
             <p className="mt-0.5">Status: <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-semibold text-[10px]">Active Member</span></p>
           </div>
         </header>
@@ -660,6 +1040,23 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
                 </tr>
               )}
             </tbody>
+            <tfoot className="bg-slate-900 font-bold text-white print:bg-slate-100 print:text-black border-t-2 border-slate-700">
+              <tr>
+                <td className="p-3 print:hidden"></td>
+                <td className="p-3" colSpan={4}>
+                  Filtered Totals ({filteredRows.length} matching transactions)
+                </td>
+                <td className="p-3 text-right font-mono text-emerald-400 print:text-black">
+                  {money(filteredSummary.debits)}
+                </td>
+                <td className="p-3 text-right font-mono text-blue-400 print:text-black">
+                  {money(filteredSummary.credits)}
+                </td>
+                <td className="p-3 text-right font-mono text-white print:text-black">
+                  {money(filteredSummary.totalAmt)}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 

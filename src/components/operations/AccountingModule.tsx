@@ -29,7 +29,7 @@ import { AccountingOverviewDashboard } from './AccountingOverviewDashboard';
 import { GLReconciliationView } from './GLReconciliationView';
 import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
-import { Account, Branch, JournalEntry, User, AccountingMapping } from '../../types';
+import { Account, Branch, JournalEntry, User, AccountingMapping, Member } from '../../types';
 
 interface AccountingModuleProps {
   accounts: Account[];
@@ -37,6 +37,7 @@ interface AccountingModuleProps {
   currentUser: User;
   selectedBranchId?: string;
   onSelectBranch?: (id: string) => void;
+  members?: Member[];
 }
 
 export type AccountingTabKey =
@@ -56,7 +57,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   branches,
   currentUser,
   selectedBranchId,
-  onSelectBranch
+  onSelectBranch,
+  members: propMembers
 }) => {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [mappings, setMappings] = useState<AccountingMapping[]>([]);
@@ -1060,6 +1062,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           journals={journals}
           branches={branches}
           selectedBranch={selectedBranch}
+          members={propMembers && propMembers.length > 0 ? propMembers : membersList}
         />
       )}
 
