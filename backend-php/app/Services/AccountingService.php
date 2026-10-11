@@ -48,10 +48,13 @@ class AccountingService
      */
     public function saveAccount(array $data): array
     {
+        
+
         try {
             $this->db->beginTransaction();
             $id = $data['id'] ?? ('coa_' . bin2hex(random_bytes(6)));
             $isUpdate = isset($data['id']);
+            $branchId = $data['branch_id'] ?? null;
 
             if ($isUpdate) {
                 $stmt = $this->db->prepare('SELECT * FROM chart_of_accounts WHERE id = ? FOR UPDATE');
@@ -66,6 +69,7 @@ class AccountingService
                 $stmt = $this->db->prepare("
                     UPDATE chart_of_accounts
                     SET account_code = :account_code,
+                        branch_id = :branch_id,
                         name = :name,
                         category = :category,
                         normal_balance = :normal_balance,
@@ -76,11 +80,13 @@ class AccountingService
                     WHERE id = :id
                 ");
             } else {
+               
                 $accountData = $data;
                 $stmt = $this->db->prepare("
                     INSERT INTO chart_of_accounts
                     (
                         id,
+                        branch_id,
                         account_code,
                         name,
                         category,
@@ -94,6 +100,7 @@ class AccountingService
                     VALUES
                     (
                         :id,
+                        :branch_id,
                         :account_code,
                         :name,
                         :category,
@@ -109,6 +116,7 @@ class AccountingService
 
             $stmt->execute([
                 ':id'                => $id,
+                ':branch_id'         => $branchId,
                 ':account_code'      => trim((string) $accountData['account_code']),
                 ':name'              => $accountData['name'],
                 ':category'          => $accountData['category'],
@@ -636,6 +644,211 @@ class AccountingService
 
         return $defaults;
     }
+    
+/**
+ * Create an accounting period.
+ */
+public function createAccountingPeriod(array $data): array
+{
+    $name = trim($data['name'] ?? '');
+    $startDate = $data['start_date'] ?? '';
+    $endDate = $data['end_date'] ?? '';
+
+    if ($name === '' || $startDate === '' || $endDate === '') {
+        throw new \InvalidArgumentException(
+            'Name, start date, and end date are required.'
+        );
+    }
+
+    // Validate actual YYYY-MM-DD dates.
+    $start = \DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
+    $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $endDate);
+
+    if (
+        !$start ||
+        $start->format('Y-m-d') !== $startDate ||
+        !$end ||
+        $end->format('Y-m-d') !== $endDate
+    ) {
+        throw new \InvalidArgumentException(
+            'Invalid date format. Use YYYY-MM-DD.'
+        );
+    }
+
+    if ($startDate > $endDate) {
+        throw new \InvalidArgumentException(
+            'Start date cannot be after end date.'
+        );
+    }
+
+    $fiscalYear = (int) ($data['fiscal_year'] ?? $start->format('Y'));
+
+    $this->db->beginTransaction();
+
+    try {
+        // Prevent overlapping periods within the same fiscal year.
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM accounting_periods
+            WHERE fiscal_year = ?
+              AND start_date <= ?
+              AND end_date >= ?
+            FOR UPDATE
+        ");
+
+        $stmt->execute([
+            $fiscalYear,
+            $endDate,
+            $startDate
+        ]);
+
+        if ($stmt->fetch(\PDO::FETCH_ASSOC)) {
+            throw new \InvalidArgumentException(
+                'The selected dates overlap an existing accounting period.'
+            );
+        }
+
+        // Determine the next available period number.
+        if (isset($data['period_number'])) {
+            $periodNumber = (int) $data['period_number'];
+
+            if ($periodNumber < 1) {
+                throw new \InvalidArgumentException(
+                    'Period number must be greater than zero.'
+                );
+            }
+        } else {
+            $stmt = $this->db->prepare("
+                SELECT COALESCE(MAX(period_number), 0) + 1
+                FROM accounting_periods
+                WHERE fiscal_year = ?
+            ");
+
+            $stmt->execute([$fiscalYear]);
+            $periodNumber = (int) $stmt->fetchColumn();
+        }
+
+        $id = $data['id'] ?? (
+            'period_' . bin2hex(random_bytes(6))
+        );
+
+        $stmt = $this->db->prepare("
+            INSERT INTO accounting_periods (
+                id,
+                name,
+                fiscal_year,
+                period_number,
+                start_date,
+                end_date,
+                status
+            ) VALUES (
+                :id,
+                :name,
+                :fiscal_year,
+                :period_number,
+                :start_date,
+                :end_date,
+                'Open'
+            )
+        ");
+
+        $stmt->execute([
+            ':id' => $id,
+            ':name' => $name,
+            ':fiscal_year' => $fiscalYear,
+            ':period_number' => $periodNumber,
+            ':start_date' => $startDate,
+            ':end_date' => $endDate
+        ]);
+
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM accounting_periods
+            WHERE id = ?
+        ");
+
+        $stmt->execute([$id]);
+        $period = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        $this->db->commit();
+
+        return $period;
+    } catch (\Throwable $e) {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+
+        throw $e;
+    }
+}
+
+/**
+ * Delete an accounting period.
+ *
+ * Closed/locked periods are protected.
+ */
+public function deleteAccountingPeriod(string $id): bool
+{
+    $this->db->beginTransaction();
+
+    try {
+        $stmt = $this->db->prepare("
+            SELECT id, status
+            FROM accounting_periods
+            WHERE id = ?
+            FOR UPDATE
+        ");
+
+        $stmt->execute([$id]);
+        $period = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$period) {
+            throw new \RuntimeException(
+                'Accounting period not found.'
+            );
+        }
+
+        if ($period['status'] !== 'Open') {
+            throw new \RuntimeException(
+                'Only open accounting periods can be deleted.'
+            );
+        }
+
+        // Do not delete a period containing posted journal entries.
+        // Adjust table/column names to match your database schema.
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM journal_entries
+            WHERE accounting_period_id = ?
+              AND status = 'Posted'
+        ");
+
+        $stmt->execute([$id]);
+
+        if ((int) $stmt->fetchColumn() > 0) {
+            throw new \RuntimeException(
+                'Cannot delete a period containing posted journal entries.'
+            );
+        }
+
+        $stmt = $this->db->prepare("
+            DELETE FROM accounting_periods
+            WHERE id = ?
+        ");
+
+        $stmt->execute([$id]);
+
+        $this->db->commit();
+
+        return true;
+    } catch (\Throwable $e) {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+
+        throw $e;
+    }
+}
 
     public function closePeriod(string $periodId, string $closedBy): bool
     {

@@ -90,6 +90,14 @@ class ConfigService
 
     public function saveBranch(array $data): array
     {
+        $stmt = $this->db->prepare("SELECT 1 FROM branches WHERE code = :code LIMIT 1");
+        $stmt->execute(['code' => $data['code']]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($result && !isset($data['id'])) {
+            throw new \RuntimeException("Branch code '{$data['code']}' already exists.");
+        }
+
         $id = $data['id'] ?? ('br_' . bin2hex(random_bytes(4)));
         $sql = "
             INSERT INTO branches (id, code, name, address, contact_number, manager_name, is_main_branch, active)
@@ -488,11 +496,12 @@ class ConfigService
     {
         $id = $data['id'] ?? ('num_' . bin2hex(random_bytes(4)));
         $stmt = $this->db->prepare("
-            INSERT INTO numbering_formats (id, module, prefix, branch_specific, include_year, padding, next_number, pattern)
-            VALUES (:id, :module, :prefix, :branch_specific, :include_year, :padding, :next_number, :pattern)
+            INSERT INTO numbering_formats (id, branch_id, module, prefix, branch_specific, include_year, padding, next_number, pattern)
+            VALUES (:id, :branch_id, :module, :prefix, :branch_specific, :include_year, :padding, :next_number, :pattern)
         ");
         $stmt->execute([
             'id' => $id,
+            "branch_id" => $data['branch_id'] ?? null,
             'module' => $data['module'] ?? '',
             'prefix' => $data['prefix'] ?? '',
             'branch_specific' => isset($data['branch_specific']) ? (int)(bool)$data['branch_specific'] : 1,

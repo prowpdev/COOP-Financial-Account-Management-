@@ -22,7 +22,7 @@ class SavingsController extends BaseController
      */
     public function index(): never
     {
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
         $memberId = $this->getQuery('memberId');
 
         $result = $this->savings->all($branchId, $memberId);

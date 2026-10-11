@@ -36,6 +36,8 @@ class AccountingController extends BaseController
     public function saveAccount(): never
     {
         $input = $this->getRequestBody();
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
+        $input['branch_id'] = $branchId;
 
         if (empty($input['account_code']) || empty($input['name']) || empty($input['category']) || empty($input['normal_balance'])) {
             $this->error('Account code, name, category, and normal balance are required.', 422);
@@ -235,6 +237,55 @@ class AccountingController extends BaseController
             $this->error('Failed to reopen accounting period.', 400);
         }
     }
+
+
+    /**
+     * Create an accounting period.
+     */
+    public function createAccountingPeriod(): void
+    {
+        try {
+            $input = $this->getRequestBody();
+            $period = $this->accounting->createAccountingPeriod($input);
+            $this->success(['period' => $period], 'Accounting period created successfully.');
+        } catch (\Throwable $e) {
+             $this->error('Failed to create accounting period.', 400);
+        }
+    }
+
+    /**
+     * Delete an accounting period.
+     */
+    public function deleteAccountingPeriod(): void
+    {
+        try {
+            $input = $this->getRequestBody();
+            $id = $input['period_id'] ?? $this->getQuery('period_id');
+
+            if (!$id) {
+                throw new \InvalidArgumentException(
+                    'Accounting period ID is required.'
+                );
+            }
+
+            $this->accounting->deleteAccountingPeriod($id);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Accounting period deleted successfully.'
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(
+                $e instanceof \InvalidArgumentException ? 422 : ($e instanceof \RuntimeException ? 409 : 500)
+            );
+
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
 
     /**
      * POST /api/accounting/journals/:id/reverse

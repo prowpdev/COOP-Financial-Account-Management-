@@ -22,7 +22,7 @@ class ShareCapitalController extends BaseController
     public function index(): never
     {
         $memberId = $this->getQuery('memberId');
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
         $result = $this->shareCapital->all($memberId, $branchId);
 
         $this->json([

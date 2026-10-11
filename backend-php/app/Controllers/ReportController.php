@@ -23,7 +23,7 @@ class ReportController extends BaseController
     public function trialBalance(): never
     {
         $asOfDate = $this->getQuery('asOfDate');
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
 
         $tb = $this->reports->getTrialBalance($asOfDate, $branchId);
         $this->success($tb);
@@ -35,7 +35,7 @@ class ReportController extends BaseController
     public function financialStatements(): never
     {
         $asOfDate = $this->getQuery('asOfDate');
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
 
         $fs = $this->reports->getFinancialStatements($asOfDate, $branchId);
         $this->success($fs);
@@ -46,7 +46,7 @@ class ReportController extends BaseController
      */
     public function dashboardStats(): never
     {
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branch_id') ?? $this->getQuery('branchId');
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branchId');
         $stats = $this->reports->getDashboardStats($branchId);
         $this->success($stats);
 

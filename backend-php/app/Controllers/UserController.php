@@ -51,17 +51,7 @@ class UserController extends BaseController
         $this->users->updateLastLogin($user['id']);
         unset($user['password_hash']);
 
-        try {
-            $jwt = \App\Core\JwtAuth::fromEnvironment();
-            $token = $jwt->issue([
-                'sub' => (string)$user['id'],
-                'type' => 'staff',
-                'role_id' => $user['role_id'] ?? null,
-                'branch_id' => $user['branch_id'] ?? null,
-            ]);
-        } catch (\Throwable) {
-            $token = 'coop_token_' . bin2hex(random_bytes(16));
-        }
+        $token = 'coop_token_' . bin2hex(random_bytes(16));
 
         $this->success([
             'user' => $user,
@@ -102,8 +92,7 @@ class UserController extends BaseController
      */
     public function index(): never
     {
-        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('branchId') ?? $this->getQuery('branch_id');
-        $list = $this->users->all($branchId);
+        $list = $this->users->all();
         $this->json([
             'success' => true,
             'data' => $list,
@@ -120,99 +109,67 @@ class UserController extends BaseController
         if (!$user) {
             $this->error('User not found.', 404);
         }
-
-        $userBranchId = $this->getCurrentUserBranchId();
-        if ($userBranchId && $userBranchId !== 'all' && !empty($user['branch_id']) && $user['branch_id'] !== $userBranchId) {
-            $this->error('Access denied. User belongs to a different branch.', 403);
-        }
-
         unset($user['password_hash']);
         $this->success($user);
     }
 
     /**
-     * GET /api/users/me, /api/users/profile, /api/users/:id
+     * GET /api/users/me
      */
-    public function profile(?string $id = null): never
+    public function profile(): never
     {
-        $userId = $id ?? $this->getAuthenticatedUserId() ?? $this->getQuery('userId') ?? $this->getQuery('user_id');
-        if ($userId === null) {
-            $all = $this->users->all();
-            $user = $all[0] ?? null;
-            if (!$user) {
-                $this->error('Authenticated staff account is required.', 401);
-            }
-        } else {
-            $user = $this->users->findById((string)$userId);
+        $id = $this->getAuthenticatedUserId();
+        if ($id === null) {
+            $this->error('Authenticated staff account is required.', 401);
         }
 
+        $user = $this->users->findById($id);
         if (!$user || empty($user['active'])) {
             $this->error('User profile not found.', 404);
         }
 
-        unset($user['password_hash']);
         $this->success($user);
     }
 
     /**
-     * PUT /api/users/me, /api/users/profile, /api/users/:id
+     * PUT /api/users/me
      */
-    public function updateProfile(?string  = null): never
+    public function updateProfile(): never
     {
-         = ->getRequestBody();
-         =  ?? ->getAuthenticatedUserId() ?? ['id'] ?? ['user_id'] ?? ->getQuery('userId');
-
-        if ( === null) {
-             = ->users->all();
-             = [0] ?? null;
-             = ['id'] ?? null;
+        $id = $this->getAuthenticatedUserId();
+        if ($id === null) {
+            $this->error('Authenticated staff account is required.', 401);
         }
 
-        if ( === null) {
-            ->error('Authenticated staff account is required.', 401);
+        $input = $this->getRequestBody();
+        $fullName = trim((string)($input['full_name'] ?? ''));
+        $email = trim((string)($input['email'] ?? ''));
+        $cooperativeId = trim((string)($input['cooperative_id'] ?? ''));
+
+        if ($fullName === '' || $email === '' || $cooperativeId === '') {
+            $this->error('Name, email, and cooperative assignment are required.', 422);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error('Enter a valid email address.', 422);
+        }
+        if (!$this->users->cooperativeExists($cooperativeId)) {
+            $this->error('The selected cooperative does not exist.', 422);
+        }
+        if ($this->users->emailInUse($email, $id)) {
+            $this->error('That email address is already assigned to another user.', 409);
         }
 
-         = trim((string)(['full_name'] ?? ['name'] ?? ''));
-         = trim((string)(['email'] ?? ''));
-         = trim((string)(['cooperative_id'] ?? ''));
-         = trim((string)(['branch_id'] ?? ''));
-
-        if ( === '' ||  === '') {
-            ->error('Full name and email are required.', 422);
-        }
-        if (!filter_var(, FILTER_VALIDATE_EMAIL)) {
-            ->error('Enter a valid email address.', 422);
-        }
-        if (->users->emailInUse(, (string))) {
-            ->error('That email address is already assigned to another user.', 409);
+        $user = $this->users->update($id, [
+            'full_name' => $fullName,
+            'email' => $email,
+            'cooperative_id' => $cooperativeId,
+            'updated_by' => $id,
+        ]);
+        if (!$user) {
+            $this->error('User profile could not be updated.', 404);
         }
 
-         = [
-            'full_name'  => ,
-            'email'      => ,
-            'updated_by' => ,
-        ];
-
-        if (!empty(['username'])) {
-            ['username'] = trim((string)['username']);
-        }
-        if (!empty()) {
-            ['cooperative_id'] = ;
-        }
-        if (!empty()) {
-            ['branch_id'] = ;
-        }
-        if (!empty(['password'])) {
-            ['password'] = (string)['password'];
-        }
-
-         = ->users->update((string), );
-        if (!) {
-            ->error('User profile could not be updated.', 404);
-        }
-
-        unset(['password_hash']);
-        ->success(, 'Profile updated successfully.');
+        $this->success($user, 'Profile updated successfully.');
     }
 
     /**

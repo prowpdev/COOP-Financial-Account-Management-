@@ -401,6 +401,9 @@ class ConfigController extends BaseController
     public function storeNumberingFormat(): never
     {
         $input = $this->getRequestBody();
+        $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branch_id');
+        $input['branch_id'] = $branchId;
+
         if (empty($input['module']) || empty($input['prefix']) || empty($input['pattern'])) {
             $this->error('Module, prefix, and pattern are required.', 422);
         }
