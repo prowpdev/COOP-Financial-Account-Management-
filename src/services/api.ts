@@ -51,7 +51,7 @@ async function getAuthSessionContext(): Promise<{ token?: string; branchId?: str
   };
 }
 
-function createRequestHeaders(headers: HeadersInit | undefined, token?: string): Headers {
+function createRequestHeaders(headers: HeadersInit | undefined, token?: string, branchId?: string): Headers {
   const requestHeaders = new Headers(headers);
   if (!requestHeaders.has('Content-Type')) {
     requestHeaders.set('Content-Type', 'application/json');
@@ -59,6 +59,10 @@ function createRequestHeaders(headers: HeadersInit | undefined, token?: string):
 
   if (token) {
     requestHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (branchId && !requestHeaders.has('x-branch-id')) {
+    requestHeaders.set('x-branch-id', branchId);
   }
 
   return requestHeaders;
@@ -69,6 +73,9 @@ function addCurrentUserBranchId(url: string, branchId?: string): string {
 
   const requestUrl = new URL(url, window.location.origin);
   requestUrl.searchParams.set('current_user_branch_id', branchId);
+  if (!requestUrl.searchParams.has('branch_id')) {
+    requestUrl.searchParams.set('branch_id', branchId);
+  }
   return requestUrl.toString();
 }
 
@@ -114,7 +121,7 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit, retri
       : addCurrentUserBranchId(targetUrl, branchId);
     const response = await fetch(requestUrl, {
       ...options,
-      headers: createRequestHeaders(options?.headers, token)
+      headers: createRequestHeaders(options?.headers, token, branchId)
     });
 
     const responseText = await response.text();
@@ -424,8 +431,9 @@ export const api = {
     }),
 
   // Operations: Members
-  getMembers: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/members');
+  getMembers: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/members${query}`);
     return { ...res, data: safeArray(res) };
   },
 getMemberReport: async (memberId: string) => {
@@ -637,8 +645,9 @@ getMemberReport: async (memberId: string) => {
     });
   },
   // Operations: Loans
-  getLoans: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/loans');
+  getLoans: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/loans${query}`);
     return { ...res, data: safeArray(res) };
   },
   calculateSchedule: async (params: any) => {
@@ -749,8 +758,9 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(params)
     }),
-  getAuditLogs: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/audit-logs');
+  getAuditLogs: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/audit-logs${query}`);
     return { ...res, data: safeArray(res) };
   },
   recordAuditLog: (params: { setting: string; old_value?: any; new_value?: any; changed_by?: string; reason?: string }) =>
@@ -760,8 +770,9 @@ getLoanApplications: async (params?: {
     }),
 
   // Operations: Savings
-  getSavingsAccounts: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/savings/accounts');
+  getSavingsAccounts: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/savings/accounts${query}`);
     return { ...res, data: safeArray(res) };
   },
   transactSavings: (params: any) =>
@@ -771,8 +782,9 @@ getLoanApplications: async (params?: {
     }),
 
   // Operations: Share Capital
-  getShareCapitalAccounts: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/share-capital/accounts');
+  getShareCapitalAccounts: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/share-capital/accounts${query}`);
     return { ...res, data: safeArray(res) };
   },
   getShareCapitalAccount: (id: string) =>
@@ -814,8 +826,9 @@ getLoanApplications: async (params?: {
     }),
 
   // Operations: General Accounting
-  getJournals: async () => {
-    const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting/journals');
+  getJournals: async (branch_id?: string) => {
+    const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
+    const res = await fetchApi<{ success: boolean; data: any[] }>(`/accounting/journals${query}`);
     return { ...res, data: safeArray(res) };
   },
   createManualJournal: (params: any) =>

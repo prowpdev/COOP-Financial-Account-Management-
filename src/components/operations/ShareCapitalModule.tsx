@@ -78,7 +78,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getShareCapitalAccounts();
+      const res = await api.getShareCapitalAccounts(selectedBranch);
       setAccounts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -112,10 +112,10 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   useEffect(() => {
     loadAccounts();
     loadSettings();
-    api.getMembers()
+    api.getMembers(selectedBranch)
       .then(res => setMembers(Array.isArray(res.data) ? res.data : []))
       .catch(err => setCreateError(err.message));
-  }, []);
+  }, [selectedBranch]);
 
   const activePolicy = scSettings[0] || null;
 

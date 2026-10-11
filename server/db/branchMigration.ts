@@ -24,35 +24,22 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
       ]
     });
     modified = true;
-  }
-
-  // 2. Ensure initial users exist with role_superadmin and other roles
-  if (!data.users || data.users.length === 0) {
-    data.users = initialSeedData.users.map(u => ({ ...u }));
-    modified = true;
   } else {
-    // Ensure at least one superadmin account exists
-    const hasSuperAdminUser = data.users.some(u => u.role_id === 'role_superadmin' || u.username === 'superadmin');
-    if (!hasSuperAdminUser) {
-      data.users.unshift({
-        id: 'usr_superadmin',
-        username: 'superadmin',
-        password_hash: 'admin123',
-        raw_password: 'admin123',
-        full_name: 'Chief Super Administrator',
-        email: 'superadmin@coopflex.ph',
-        role_id: 'role_superadmin',
-        branch_id: 'branch_tar',
-        is_super_admin: true,
-        active: true,
-        last_login: new Date().toISOString(),
-        created_at: '2026-01-01T08:00:00.000Z'
-      });
+    // Update role_superadmin permissions to guarantee full governance authority
+    const superRole = data.user_roles.find(r => r.id === 'role_superadmin');
+    if (superRole) {
+      superRole.permissions = [
+        'users.view', 'users.create', 'users.edit', 'users.activate', 'users.deactivate',
+        'roles.view', 'roles.edit',
+        'branches.view', 'branches.create', 'branches.edit',
+        'cooperative.view', 'cooperative.edit',
+        'audit.view', 'audit.export'
+      ];
       modified = true;
     }
   }
 
-  // Ensure default branch exists
+  // Ensure default branches exist
   if (!data.branches || data.branches.length === 0) {
     data.branches = [
       {
@@ -65,12 +52,122 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
         active: true,
         is_main: true,
         created_at: new Date().toISOString()
+      },
+      {
+        id: 'branch_urd',
+        cooperative_id: 'coop_01',
+        name: 'Urdaneta Branch',
+        code: 'URD',
+        address: 'MacArthur Highway, Nancayasan, Urdaneta City, Pangasinan',
+        contact_number: '+63 75 656 2200',
+        active: true,
+        is_main: false,
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'branch_sfe',
+        cooperative_id: 'coop_01',
+        name: 'San Fernando Branch',
+        code: 'SFE',
+        address: 'Quezon Avenue, City of San Fernando, La Union',
+        contact_number: '+63 72 888 3400',
+        active: true,
+        is_main: false,
+        created_at: new Date().toISOString()
       }
     ];
     modified = true;
   }
 
   const defaultBranchId = data.branches[0]?.id || 'branch_tar';
+
+  // 2. Ensure initial users exist with role_superadmin and distinct branch assignments
+  if (!data.users || data.users.length === 0) {
+    data.users = initialSeedData.users.map(u => ({ ...u }));
+    modified = true;
+  }
+
+  // Ensure at least one superadmin account exists
+  const hasSuperAdminUser = data.users.some(u => u.role_id === 'role_superadmin' || u.username === 'superadmin');
+  if (!hasSuperAdminUser) {
+    data.users.unshift({
+      id: 'usr_superadmin',
+      username: 'superadmin',
+      password_hash: 'admin123',
+      raw_password: 'admin123',
+      full_name: 'Chief Super Administrator',
+      email: 'superadmin@coopflex.ph',
+      role_id: 'role_superadmin',
+      branch_id: 'branch_tar',
+      cooperative_id: 'coop_01',
+      is_super_admin: true,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    });
+    modified = true;
+  }
+
+  // Ensure test branch users exist for multi-branch isolation verification
+  const testUsersToAdd = [
+    {
+      id: 'usr_officer_urd',
+      username: 'officer_urdaneta',
+      password_hash: 'officer123',
+      raw_password: 'officer123',
+      full_name: 'Mateo De Guzman',
+      email: 'mdeguzman@coopflex.ph',
+      role_id: 'role_loan_officer',
+      branch_id: 'branch_urd',
+      cooperative_id: 'coop_01',
+      is_super_admin: false,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    },
+    {
+      id: 'usr_manager_sfe',
+      username: 'manager_sanfernando',
+      password_hash: 'manager123',
+      raw_password: 'manager123',
+      full_name: 'Carmina Soriano',
+      email: 'csoriano@coopflex.ph',
+      role_id: 'role_manager',
+      branch_id: 'branch_sfe',
+      cooperative_id: 'coop_01',
+      is_super_admin: false,
+      active: true,
+      last_login: new Date().toISOString(),
+      created_at: '2026-01-01T08:00:00.000Z'
+    }
+  ];
+
+  for (const tu of testUsersToAdd) {
+    if (!data.users.some(u => u.username === tu.username)) {
+      data.users.push(tu);
+      modified = true;
+    }
+  }
+
+  // Ensure all users have cooperative_id, branch_id, and active status
+  for (const user of data.users) {
+    if (!user.cooperative_id) {
+      user.cooperative_id = 'coop_01';
+      modified = true;
+    }
+    if (!user.branch_id) {
+      user.branch_id = defaultBranchId;
+      modified = true;
+    }
+    if (user.active === undefined) {
+      user.active = true;
+      modified = true;
+    }
+    if (user.role_id === 'role_superadmin') {
+      user.is_super_admin = true;
+      modified = true;
+    }
+  }
 
   // Build ID lookup maps for parent relational backfilling
   const loanBranchMap = new Map<string, string>();
@@ -108,7 +205,7 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
     if (u.id && u.branch_id) userBranchMap.set(u.id, u.branch_id);
   });
 
-  // Table list to verify branch_id foreign key
+  // Table list to verify branch_id and user_id foreign keys
   const tables = Object.keys(data) as (keyof typeof data)[];
 
   for (const tableName of tables) {
@@ -117,6 +214,13 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
       for (const rec of records) {
         if (!rec || typeof rec !== 'object') continue;
 
+        // Ensure cooperative_id
+        if (!rec.cooperative_id && tableName !== 'system_settings' && tableName !== 'feature_toggles') {
+          rec.cooperative_id = 'coop_01';
+          modified = true;
+        }
+
+        // Ensure branch_id foreign key
         if (!rec.branch_id) {
           if (tableName === 'branches') {
             rec.branch_id = rec.id || defaultBranchId;
@@ -143,12 +247,20 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
           }
           modified = true;
         }
+
+        // Ensure created_by / user_id attribution on operational records
+        if (!rec.created_by && !rec.user_id && !rec.performed_by) {
+          if (['members', 'loans', 'loan_applications', 'savings_accounts', 'share_capital_accounts', 'journal_entries'].includes(tableName)) {
+            rec.created_by = 'usr_superadmin';
+            modified = true;
+          }
+        }
       }
     }
   }
 
   if (modified) {
     db.save();
-    console.log('[branchMigration] Successfully verified and updated branch_id foreign keys across all database tables.');
+    console.log('[branchMigration] Successfully verified and updated branch_id and user_id foreign keys across all database tables.');
   }
 }

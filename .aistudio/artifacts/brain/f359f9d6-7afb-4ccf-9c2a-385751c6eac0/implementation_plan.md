@@ -1,138 +1,177 @@
-# Financial Reports Real Data & CDA Equilibrium Restoration Plan
+# Superadmin Role Governance & Branch Data Isolation Architecture Plan
 
-A comprehensive solution to resolve data rendering issues in the **Statement of Financial Condition (Balance Sheet)** and **Statement of Operations (Income Statement)** by seeding authentic multi-branch cooperative operational records, fixing double-entry account classification and Net Surplus equity balancing, and providing an active-accounts toggle with CDA-compliant presentation.
+A comprehensive plan to establish strict role-based access control for **Superadmin** (dedicated governance console, user/role management, branch/cooperative setup, and global audit oversight with complete operational process isolation) and enforce **multi-branch data scoping** across all database tables and operational workflows.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following decisions were clarified and confirmed with the user in Phase 1:
+> Key architectural decisions regarding role governance and branch data scoping:
 >
-> - **Operational Dataset**: Seed realistic, CDA-compliant multi-branch operational sample data (active loans, savings deposits, share capital, loan interest, and operating expenses) so all branches reflect live financial activity immediately.
-> - **Zero-Balance Display**: Display active accounts with balances by default to eliminate clutter, with an intuitive toggle allowing users to inspect the full Chart of Accounts when desired.
-> - **Balance Sheet Equilibrium (A = L + E)**: Dynamically include Current Period Net Surplus from operations within the Equity section as *Undivided Net Surplus* to guarantee mathematical balance (`Total Assets = Total Liabilities + Total Equity`).
+> - **Dual Foreign Key Architecture (`branch_id` + `user_id`)**: Main operational tables (members, loans, savings, CBU, journals, GL, cash transactions) will track both `branch_id` (for branch-level tenancy, segregation, and trial balance) and `user_id` / `created_by` (for operator-level auditability and CDA regulatory compliance).
+> - **Strict Superadmin Boundary**: The `role_superadmin` role is strictly restricted to platform governance (User Management, User Roles, Cooperative Profile, Branches, and Audit Trail). Superadmin will have zero access to day-to-day cooperative business operations (loans, member deposits, teller drawers, journal vouchers, and financial reports).
+> - **Single-Branch User Scoping**: Regular staff users belong to exactly 1 branch and 1 cooperative. All operational views, queries, and mutations are automatically locked and filtered by the logged-in user's `branch_id`.
 
 ---
 
-### 1. Problem Diagnosis & Root Causes
+### 1. Overview & Core Concept
 
-1. **Sparse / Purged Operational Data**:
-   - The database currently contains only 2 test cash receipts (`OR-2026-TEST-001` and `002`), leaving `loans: 0`, `savings_accounts: 0`, and `expenses: 0`.
-   - Branch filtering (`Urdaneta`, `San Fernando`) returns ₱0 across all reports because initial branch vaults and operating transactions were never posted to the ledger for those branches.
-2. **Account Group Mapping Fallback Flaw (`/reports/financial-statements`)**:
-   - In `server/routes/api.ts`, `financial_statement_mappings` only defined 7 high-level categories (`Current Assets`, `Non-current Assets`, `Current Liabilities`, `Long-term Liabilities`, `Equity`, `Income`, `Expenses`).
-   - Accounts with CDA `report_group` values like `Loans and Receivables`, `Deposit Liabilities`, and `Share Capital` failed explicit grouping and fell back to the first generic type match—dumping all assets into `Current Assets` and failing to classify loan portfolios and deposits cleanly.
-3. **Broken Balance Sheet Equilibrium Equation**:
-   - Currently, `total_liabilities_and_equity` is computed as `totalLiabilities + totalEquity` without adding `netSurplus` from operations.
-   - Any revenue earned (e.g., ₱1,000 membership fee) increases Assets by ₱1,000 without a corresponding credit in Equity, causing an accounting discrepancy (`Assets ₱3,000 vs Liab + Equity ₱2,000`).
-4. **Statement of Operations Rendering Gaps**:
-   - `FinancialReportsView.tsx` lacked categorized groupings for revenues vs operating expenses and rendered flat account lists where 0-balance lines overwhelmed the display.
+- **What It Does**: 
+  1. Enforces strict role boundary for **Superadmin**: superadmins only see and manage Users, Roles, Branches, Cooperatives, and the Audit Trail. All regular cooperative operational views are hidden and blocked.
+  2. Embeds `branch_id` and `user_id` foreign keys into all main operational records in the database, ensuring strict relational integrity.
+  3. Scopes all operational data (members, loans, savings accounts, share capital, journal vouchers, general ledger, and cash transactions) to the authenticated user's assigned `branch_id`.
+  4. Delivers a dedicated **Superadmin Governance Module** with user status toggling (Active/Inactive), password modification, role assignment, branch management, cooperative details, and global audit verification.
+- **Target Audience / Persona**:
+  - **Super Administrator**: Platform owner responsible for onboarding staff, assigning security permissions, setting up branches, and auditing all operations.
+  - **Branch Staff (Loan Officers, Tellers, Accountants, Branch Managers)**: Cooperative personnel who must only access and process records belonging to their specific home branch.
+- **Key Value**: Guarantees multi-branch data isolation, prevents cross-branch operational leakage, and fulfills CDA statutory audit requirements.
 
 ---
 
-### 2. Architecture & Data Strategy
+### 2. User Experience & Visual Design
+
+#### Key User Flows
+
+1. **Superadmin Login & Governance Navigation**:
+   - Superadmin logs in (`role_superadmin`).
+   - The navigation sidebar dynamically strips all operational links (Loans, Savings, Share Capital, Accounting, Financial Reports, Workbench).
+   - Only 3 navigation items appear: **Platform Governance** (SuperAdmin Console), **Audit Trail** (Global Audit Logs), and **My Profile**.
+   - Attempting to access operational tabs via URL redirects immediately to the SuperAdmin Console.
+2. **User Management & Role Governance**:
+   - Superadmin navigates to the User Management sub-module.
+   - Quick filters allow viewing users by branch, role, or active/inactive status.
+   - Superadmin can toggle user status (`Active` <-> `Inactive`) with one click, modify user details (name, email, phone, role, branch assignment), and reset passwords.
+   - In User Roles, superadmin can inspect and edit permission sets for each role (`role_admin`, `role_manager`, `role_accountant`, `role_loan_officer`, `role_teller`, `role_bod`).
+3. **Branch & Cooperative Management**:
+   - Superadmin can configure cooperative legal details (CDA registration, address, contact, tax ID).
+   - Superadmin can add new branches or edit existing branch details (code, name, address, contact number, active status).
+4. **Regular Staff Branch-Scoped Experience**:
+   - Operational staff logs in (e.g. Loan Officer assigned to `branch_tar`).
+   - The UI locks to their assigned branch (`branch_tar`). Cross-branch selector dropdowns in operational modules are hidden or disabled.
+   - All records (Members, Loans, Savings Accounts, Journals, Ledger) display only records where `branch_id === currentUser.branch_id`.
+   - New loans, members, or transactions automatically inherit `branch_id: currentUser.branch_id` and `user_id: currentUser.id`.
+
+#### Visual Identity & Theme
+- **Governance Console**: Enterprise dark/slate design (`bg-slate-900/95`, borders `border-slate-800`), consistent with the cooperative design system.
+- **Status Indicators**: Unboxed typography with status dots (`text-emerald-400` for active, `text-rose-400` for inactive) adhering to zero-pill discipline.
+- **Interactive Tabs**: Clean segmented controls for switching between Users, Roles, Branches, and Cooperative Profile.
+- **Data Tables**: High-density tables with clear typographic hierarchy, search filter bars, and contextual actions.
+
+---
+
+### 3. Key Product Decisions & Trade-Offs
+
+- **Decision 1: Foreign Key Structure on Main Operational Tables**
+  - *Chosen Approach*: Add and enforce both `branch_id` and `user_id` / `created_by` on all core database records.
+  - *Why*: In Philippine cooperative accounting, transactions require both branch segregation (for branch financial condition reports and regulatory compliance) and operator attribution (for teller balancing and audit trails). 
+  - *Alternatives Considered*: Storing only `branch_id` would lose operator traceability; storing only `user_id` would require expensive multi-hop joins to resolve branch ownership.
+- **Decision 2: Strict Superadmin Operational Segregation**
+  - *Chosen Approach*: Completely hide and guard operational modules for `role_superadmin`. Superadmin can only access governance and audit logs.
+  - *Why*: Separation of duties is a core internal control principle; platform administrators must not originate loans or post cash transactions.
+  - *Alternatives Considered*: Allowing superadmin to view operational data in read-only mode was rejected to maintain the strict boundary requested by the user.
+- **Decision 3: Backend & Frontend Defense-in-Depth for Branch Isolation**
+  - *Chosen Approach*: Enforce branch filtering on both the client (UI branch locking) and the server (`server/routes/api.ts` filters queries by `branch_id` and rejects cross-branch access).
+  - *Why*: Prevents API-level data exposure even if a client-side filter is bypassed.
+
+---
+
+### 4. Technical Architecture & Data Strategy
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   COOPERATIVE FINANCIAL ENGINE                         │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-         ┌──────────────────────────┴──────────────────────────┐
-         ▼                                                     ▼
-┌─────────────────────────────────────┐   ┌─────────────────────────────────────┐
-│   General Ledger Journal Postings   │   │     Operational Sub-Ledgers         │
-├─────────────────────────────────────┤   ├─────────────────────────────────────┤
-│ • Branch Cash Float & Vaults (1110) │   │ • Active Loans Portfolio            │
-│ • Bank Clearings (1120 / 1121)      │   │ • Member Savings Deposits           │
-│ • Loans Receivable (1210 / 1230)    │   │ • Share Capital (CBU)               │
-│ • Deposit Liabilities (2110 / 2120) │   │ • Branch Expense Vouchers           │
-│ • Paid-Up Share Capital (3110)      │   └─────────────────────────────────────┘
-│ • Loan Interest & Fees (4110 / 4120)│
-│ • Operating Expenses (5210 / 5230)  │
-└─────────────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│               GET /api/reports/financial-statements                    │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. Filter by branch_id (Consolidated or branch-specific)               │
-│ 2. Compute Net Balances for each CDA account code                      │
-│ 3. Group by CDA Report Classifications:                                │
-│    - Current Assets (Cash, Bank, Tellers)                              │
-│    - Loans & Receivables (Principal, Agri, Micro, Allowance)           │
-│    - Property & Equipment (Office IT, Depreciation)                    │
-│    - Deposit Liabilities (Savings, Time Deposits, Accrued Interest)    │
-│    - Share Capital & Statutory Reserves                                │
-│    - Current Period Net Surplus (Revenues - Expenses) -> Added to Eq   │
-│ 4. Verify A = L + E Equilibrium                                        │
-└────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                     FinancialReportsView.tsx                           │
-├────────────────────────────────────────────────────────────────────────┤
-│ • Statement of Financial Condition (Balance Sheet Grid + Summary)      │
-│ • Statement of Operations (Gross Revenue, Operating Expenses, Surplus) │
-│ • Active Balances vs Full Chart of Accounts Toggle                     │
-│ • Consolidated vs Branch Filter Selector                               │
-│ • Synchronized CSV Export & Print Layout                               │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          AUTHENTICATION & ROLE ROUTER                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                         │
+                  ┌──────────────────────┴──────────────────────┐
+                  ▼                                             ▼
+       ┌──────────────────────┐                     ┌──────────────────────┐
+       │   role_superadmin    │                     │  Operational Roles   │
+       │  (Platform Owner)    │                     │  (Officer/Cashier)   │
+       └──────────────────────┘                     └──────────────────────┘
+                  │                                             │
+      Restricted to Governance                      Scoped to currentUser.branch_id
+                  │                                             │
+   ┌──────────────┴──────────────┐               ┌──────────────┴──────────────┐
+   ▼                             ▼               ▼                             ▼
+┌─────────────────────────┐ ┌──────────────┐  ┌─────────────────────────┐ ┌──────────────┐
+│  SuperAdmin Console     │ │  Audit Logs  │  │  Operational Modules    │ │ Sub-Ledgers  │
+│  • User Management      │ │  (All Events │  │  • Members (branch-only)│ │ • Cash Vault │
+│  • Role Permissions     │ │   & Branches)│  │  • Loans (branch-only)  │ │ • Teller COH │
+│  • Branches (CRUD)      │ └──────────────┘  │  • Savings (branch-only)│ │ • GL/Journals│
+│  • Cooperative Profile  │                   │  • CBU (branch-only)    │ └──────────────┘
+└─────────────────────────┘                   └─────────────────────────┘
+                                                           │
+                                                           ▼
+                                         ┌───────────────────────────────────┐
+                                         │        SERVER API ROUTING         │
+                                         ├───────────────────────────────────┤
+                                         │ • req.query.branch_id enforcement │
+                                         │ • Stamp branch_id & created_by    │
+                                         │ • Return filtered entity arrays   │
+                                         └───────────────────────────────────┘
 ```
 
----
+#### Entity Relational Mapping & Foreign Keys
 
-### 3. Implementation Steps
-
-#### Step 1: Seed Realistic Multi-Branch Operational Records
-- In `server/db/seed.ts` & an initialization migration in `server/routes/api.ts`:
-  - **Cash & Bank Float**: Seed initial branch cash vaults and banks across Tarlac, Urdaneta, and San Fernando branches.
-  - **Members & Share Capital**: Seed representative members with active Paid-Up Share Capital (`acc_3110`).
-  - **Loans Portfolio**: Seed active loans with disbursements (`acc_1210`), amortizations, collected interest income (`acc_4110`), and service fees (`acc_4120`).
-  - **Savings Deposits**: Seed member savings accounts with active deposit balances (`acc_2110`).
-  - **Operating Expenses**: Post realistic operational expenses (Salaries & Benefits `acc_5210`, Office Rent & Utilities `acc_5230`, and Office Supplies `acc_5220`).
-  - **General Ledger Synchronization**: Generate balanced double-entry journal vouchers in `journal_entries` and `journal_lines` for all seeded operations.
-
-#### Step 2: Fix Backend Financial Statement API (`server/routes/api.ts`)
-- Update `GET /reports/financial-statements`:
-  - Accurately map account lines by matching both `acc.id` and `acc.code`.
-  - Group accounts into CDA-compliant structured categories:
-    - *Assets*: `Current Assets`, `Loans and Receivables`, `Property, Plant & Equipment`.
-    - *Liabilities*: `Deposit Liabilities`, `Current Liabilities`.
-    - *Equity*: `Share Capital`, `Statutory Reserves`, and dynamically computed `Current Period Undivided Net Surplus`.
-    - *Revenues*: `Interest Income on Loans`, `Service & Processing Fees`, `Membership Fees`.
-    - *Expenses*: `Administrative Expenses`, `Financial Expenses`, `Credit Losses`.
-  - Enforce Balance Sheet equilibrium:
-    - `total_equity = share_capital + reserves + net_surplus`
-    - `total_liabilities_and_equity = total_liabilities + total_equity`
-    - Verify `Math.abs(total_assets - total_liabilities_and_equity) < 0.01`.
-  - Ensure correct branch scoping when `branch_id` is supplied.
-
-#### Step 3: Align Frontend Service Adapter (`src/services/api.ts`)
-- In `getFinancialReport`:
-  - Return structured category breakdowns and accounts for both `balance_sheet` and `income_statement`.
-  - Include categorized subtotals (`current_assets`, `loans_receivable`, `deposit_liabilities`, `share_capital`, `net_surplus`).
-
-#### Step 4: Enhance Financial Reports View (`src/components/reports/FinancialReportsView.tsx`)
-- Add **Zero-Balance Toggle**:
-  - State `showZeroBalances` (default `false`) with an accessible toggle switch (*"Show Active Accounts Only"* vs *"Show All CDA Accounts"*).
-- **Statement of Financial Condition UI**:
-  - Present categorized cards for *Current Assets*, *Loans & Receivables*, *Deposit Liabilities*, and *Members' Equity & Retained Surplus*.
-  - Show explicit line for *Current Period Net Surplus* in the Equity section.
-  - Equilibrium status pill confirming *Balanced (₱X = ₱X)*.
-- **Statement of Operations UI**:
-  - Present categorized sections: *Gross Operating Revenues* vs *Operating Expenses*.
-  - Prominent *Net Operating Surplus for Allocation* card.
-- Synchronize CSV export and Print/PDF layout to include the active view and branch scope.
+| Entity Table | Primary Key | Foreign Key 1 (`branch_id`) | Foreign Key 2 (`user_id` / `created_by`) | Scope Enforced |
+|---|---|---|---|---|
+| `users` | `id` | `branch_id` | N/A | Superadmin manages; user belongs to 1 branch |
+| `members` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
+| `loans` | `id` | `branch_id` | `created_by` / `approved_by` | Filtered by user's `branch_id` |
+| `loan_applications`| `id` | `branch_id` | `submitted_by` | Filtered by user's `branch_id` |
+| `loan_payments` | `id` | `branch_id` | `received_by` | Filtered by user's `branch_id` |
+| `savings_accounts` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
+| `savings_transactions`| `id` | `branch_id` | `teller_id` / `user_id` | Filtered by user's `branch_id` |
+| `share_capital_accounts`| `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
+| `share_capital_transactions`| `id` | `branch_id` | `posted_by` | Filtered by user's `branch_id` |
+| `journal_entries` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
+| `journal_lines` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
+| `cash_accounts` | `id` | `branch_id` | `assigned_user_id` | Filtered by user's `branch_id` |
+| `cash_transactions`| `id` | `branch_id` | `user_id` | Filtered by user's `branch_id` |
+| `user_documents` | `id` | `branch_id` | `user_id` | Filtered by user's `branch_id` |
+| `audit_logs` | `id` | `branch_id` | `user_id` | Global for Superadmin, filtered for branch |
 
 ---
 
-### 4. Verification & Testing Checklist
+### 5. Implementation Steps
 
-- [ ] `compile_applet` passes with 0 TypeScript/build errors.
-- [ ] `lint_applet` confirms clean syntax and imports.
-- [ ] `GET /api/reports/financial-statements` returns non-zero assets, liabilities, equity, revenues, and expenses for consolidated and per-branch views.
-- [ ] Statement of Financial Condition verifies that `Total Assets === Total Liabilities + Total Equity`.
-- [ ] Statement of Operations verifies that `Net Surplus === Total Gross Revenue - Total Operating Expenses`.
-- [ ] Toggle switch between "Active Accounts with Balances" and "Full CDA Chart" functions instantaneously on both statements.
-- [ ] CSV Export and Print preview format correctly with active data and branch headers.
+#### Step 1: Database Migration & Schema Verification (`server/db/branchMigration.ts` & `database.ts`)
+- Verify and enforce `branch_id` and `user_id` on all existing and new records across all tables.
+- Ensure `role_superadmin` exists in `user_roles` with platform governance permissions.
+- Ensure at least one default superadmin user account exists (`superadmin`).
+- Ensure all users have `branch_id` and `cooperative_id` fields properly populated.
+
+#### Step 2: Backend API Routes Scoping & Protection (`server/routes/api.ts`)
+- Update `GET /members`, `GET /loans`, `GET /savings-accounts`, `GET /share-capital-accounts`, `GET /journal-entries`, `GET /general-ledger`, `GET /cash-accounts`, and `GET /dashboard/stats` to filter strictly by `branch_id` when supplied via query param or user context.
+- Update creation endpoints (`POST /members`, `POST /loans`, `POST /savings-accounts`, `POST /journal-entries`, `POST /cash-transactions`) to automatically inject `branch_id` and `user_id` / `created_by`.
+- Ensure Superadmin endpoints (`/users`, `/user-roles`, `/branches`, `/cooperative`, `/audit-logs`) provide complete CRUD and audit access.
+
+#### Step 3: SuperAdmin Governance Module (`src/components/admin/SuperAdminConsole.tsx`)
+- Enhance the dedicated module with clean tabbed navigation:
+  - **User Management**: View, search, filter by branch/role/status, create user, edit user details (role, branch, email, phone, name), quick toggle Active/Inactive status, and password reset.
+  - **User Roles**: View all system roles, inspect permissions, edit role description and permission checklist.
+  - **Branches**: View all branches, create new branch, edit branch details (code, name, address, contact, active status).
+  - **Cooperative Profile**: Manage cooperative legal identity, CDA registration, address, and tax information.
+  - **Audit Trail Link**: Direct access to view and filter system-wide transaction and configuration audit logs.
+
+#### Step 4: Frontend Navigation & Route Guards (`src/components/Sidebar.tsx` & `src/App.tsx`)
+- In `Sidebar.tsx`:
+  - When `currentUser.role_id === 'role_superadmin'`, render ONLY SuperAdmin Console, Audit Logs, and User Profile.
+  - When regular operational user is logged in, hide SuperAdmin Console completely.
+- In `App.tsx`:
+  - Enforce tab guard: If `isSuperAdmin`, redirect any unauthorized tab to `superadmin_console`.
+  - For regular operational users, lock `selectedBranchId` to `currentUser.branch_id` and pass `selectedBranchId` to all API queries.
+
+---
+
+### 6. Verification Checklist
+
+- [ ] `compile_applet` succeeds with 0 TypeScript/build errors.
+- [ ] `lint_applet` passes without errors.
+- [ ] Logging in as `superadmin` restricts sidebar navigation strictly to SuperAdmin Console, Audit Logs, and User Profile.
+- [ ] In SuperAdmin Console, user status toggle switches between Active and Deactivated immediately with live feedback.
+- [ ] SuperAdmin can edit user roles, branch assignments, passwords, and create new users and branches.
+- [ ] Logging in as an operational user (e.g. Loan Officer at Tarlac Branch) scopes members, loans, savings, and ledger records strictly to `branch_tar`.
+- [ ] Operational records created by the user automatically store `branch_id` and `user_id`.
+- [ ] Audit logs record all actions with `branch_id` and operator details.

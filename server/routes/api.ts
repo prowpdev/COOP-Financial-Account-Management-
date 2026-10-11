@@ -28,6 +28,13 @@ try {
   console.error('Error synchronizing chart of accounts with seed:', e);
 }
 
+// Helper: Extract effective branch_id scoping from query params or headers
+export function getEffectiveBranchId(req: Request): string | null {
+  const branchId = (req.query.branch_id || req.query.branchId || req.query.current_user_branch_id || req.headers['x-branch-id']) as string | undefined;
+  if (!branchId || branchId === 'all') return null;
+  return String(branchId).trim();
+}
+
 // ==========================================
 // 1. CONFIGURATION CENTER & SYSTEM SETTINGS
 // ==========================================
@@ -1327,9 +1334,13 @@ router.post('/config/accounting-periods/reopen', (req: Request, res: Response) =
 // ==========================================
 
 router.get('/members', (req: Request, res: Response) => {
-  const members = db.getTable('members');
-  const memberTypes = db.getTable('member_types');
-  const branches = db.getTable('branches');
+  const branchId = getEffectiveBranchId(req);
+  let members = db.getTable('members') || [];
+  if (branchId) {
+    members = members.filter(m => m.branch_id === branchId);
+  }
+  const memberTypes = db.getTable('member_types') || [];
+  const branches = db.getTable('branches') || [];
 
   const enriched = members.map(m => ({
     ...m,
@@ -1927,7 +1938,7 @@ router.post('/loans/calculate-schedule', (req: Request, res: Response) => {
 
 // Get all loan applications (supports GET and POST queries)
 const handleGetLoanApplications = (req: Request, res: Response) => {
-  const branchId = req.query.branchId || req.body?.branch_id || req.body?.branchId;
+  const branchId = getEffectiveBranchId(req) || req.query.branchId || req.body?.branch_id || req.body?.branchId;
   const status = req.query.status || req.body?.status;
   const memberId = req.query.memberId || req.body?.member_id || req.body?.memberId;
   const applications = db.getTable('loan_applications') || [];
@@ -2199,10 +2210,14 @@ router.post('/loans/applications/:id/reject', handleRejectLoanApplication);
 
 // Get all loans
 router.get('/loans', (req: Request, res: Response) => {
-  const loans = db.getTable('loans');
-  const members = db.getTable('members');
-  const products = db.getTable('loan_products');
-  const branches = db.getTable('branches');
+  const branchId = getEffectiveBranchId(req);
+  let loans = db.getTable('loans') || [];
+  if (branchId) {
+    loans = loans.filter(l => l.branch_id === branchId);
+  }
+  const members = db.getTable('members') || [];
+  const products = db.getTable('loan_products') || [];
+  const branches = db.getTable('branches') || [];
 
   const enriched = loans.map(l => {
     const mem = members.find(m => m.id === l.member_id);
@@ -2742,10 +2757,18 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
 // ==========================================
 
 router.get('/savings/accounts', (req: Request, res: Response) => {
-  const accounts = db.getTable('savings_accounts');
-  const members = db.getTable('members');
-  const products = db.getTable('savings_products');
-  const branches = db.getTable('branches');
+  const branchId = getEffectiveBranchId(req);
+  let accounts = db.getTable('savings_accounts') || [];
+  const members = db.getTable('members') || [];
+  const products = db.getTable('savings_products') || [];
+  const branches = db.getTable('branches') || [];
+
+  if (branchId) {
+    accounts = accounts.filter(a => {
+      const mem = members.find(m => m.id === a.member_id);
+      return a.branch_id === branchId || mem?.branch_id === branchId;
+    });
+  }
 
   const enriched = accounts.map(a => {
     const mem = members.find(m => m.id === a.member_id);
@@ -3040,7 +3063,7 @@ router.get('/share-capital/accounts', (req: Request, res: Response) => {
     db.save();
   }
 
-  const enriched = uniqueAccounts.map(a => {
+  let enriched = uniqueAccounts.map(a => {
     const mem = members.find(m => m.id === a.member_id);
     const br = branches.find(b => b.id === (a.branch_id || mem?.branch_id));
     return {
@@ -3050,6 +3073,12 @@ router.get('/share-capital/accounts', (req: Request, res: Response) => {
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : (a.member_name || 'Unknown')
     };
   });
+
+  const branchId = getEffectiveBranchId(req);
+  if (branchId) {
+    enriched = enriched.filter(a => a.branch_id === branchId);
+  }
+
   res.json({ success: true, data: enriched });
 });
 
@@ -3492,9 +3521,13 @@ router.post('/share-capital/pay', (req: Request, res: Response) => {
 // ==========================================
 
 router.get('/accounting/journals', (req: Request, res: Response) => {
-  const entries = db.getTable('journal_entries');
-  const lines = db.getTable('journal_lines');
-  const accounts = db.getTable('chart_of_accounts');
+  const branchId = getEffectiveBranchId(req);
+  let entries = db.getTable('journal_entries') || [];
+  if (branchId) {
+    entries = entries.filter(e => e.branch_id === branchId);
+  }
+  const lines = db.getTable('journal_lines') || [];
+  const accounts = db.getTable('chart_of_accounts') || [];
 
   const result = entries.map(e => ({
     ...e,
@@ -4267,7 +4300,7 @@ router.post('/accounting/reconciliation/auto-adjust', (req: Request, res: Respon
 // ==========================================
 
 router.get('/dashboard/stats', (req: Request, res: Response) => {
-  const { branch_id } = req.query;
+  const branch_id = getEffectiveBranchId(req) || req.query.branch_id;
 
   let members = db.getTable('members');
   let loans = db.getTable('loans');
@@ -7486,8 +7519,13 @@ router.post('/system/run-verification-tests', (req: Request, res: Response) => {
 // System Audit Logs & Regulatory Compliance Trail (CDA compliance)
 router.get(['/audit-logs', '/configuration_audit_trails', '/compliance/audit-logs'], (req: Request, res: Response) => {
   const auditLogs = db.getTable('configuration_audit_trails') || [];
+  const branchId = getEffectiveBranchId(req);
+  let filtered = [...auditLogs];
+  if (branchId) {
+    filtered = filtered.filter(a => a.branch_id === branchId);
+  }
   // Sort newest first
-  const sorted = [...auditLogs].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  const sorted = filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   res.json({
     success: true,
     data: sorted,

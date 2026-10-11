@@ -241,7 +241,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   const loadMembers = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getMembers();
+      const res = await api.getMembers(selectedBranch);
       const raw = (res as any)?.data !== undefined ? (res as any).data : res;
       let list: Member[] = [];
       if (Array.isArray(raw)) {
@@ -272,7 +272,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     const handleDataChanged = () => loadMembers();
     window.addEventListener('coop:data-changed', handleDataChanged);
     return () => window.removeEventListener('coop:data-changed', handleDataChanged);
-  }, []);
+  }, [selectedBranch]);
 
   const handleSeedSample = async () => {
     setIsSeeding(true);

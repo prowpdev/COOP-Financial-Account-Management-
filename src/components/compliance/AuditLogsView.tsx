@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Activity,
   Layers,
-  Printer
+  Printer,
+  Building2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Branch, ConfigurationAuditTrail, User, CoopProfile } from '../../types';
@@ -37,6 +38,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('all');
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const [selectedLogForDetails, setSelectedLogForDetails] = useState<ConfigurationAuditTrail | null>(null);
   
   // PDF Printable Report State
@@ -65,7 +67,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getAuditLogs();
+      const res = await api.getAuditLogs(selectedBranch);
       const rawLogs = Array.isArray(res.data) ? res.data : [];
       setLogs(rawLogs);
     } catch (err) {
@@ -77,7 +79,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [selectedBranch]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -121,6 +123,11 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
       if (selectedCategory !== 'all') {
         const cat = categorizeLog(log.setting).category;
         if (cat !== selectedCategory) return false;
+      }
+
+      // Branch filter
+      if (selectedBranch !== 'all' && (log as any).branch_id && (log as any).branch_id !== selectedBranch) {
+        return false;
       }
 
       // User filter
@@ -474,6 +481,25 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
               <option value="Compliance & Other" className="bg-slate-900 text-white">Compliance & Other</option>
             </select>
           </div>
+
+          {/* Branch Dropdown */}
+          {branches.length > 0 && (
+            <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedBranch}
+                onChange={e => setSelectedBranch(e.target.value)}
+                className="bg-transparent text-slate-200 focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="all" className="bg-slate-900 text-white">All Branches</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Operator / User Dropdown */}
           <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs">

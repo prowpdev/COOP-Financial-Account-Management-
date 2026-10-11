@@ -293,11 +293,13 @@ export default function App() {
   const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
 
+  // Enforce branch isolation for regular staff: Lock selectedBranchId to currentUser.branch_id
   useEffect(() => {
-    if (currentUser?.branch_id) {
+    const isSuperAdmin = currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
+    if (!isSuperAdmin && currentUser?.branch_id) {
       setSelectedBranchId(currentUser.branch_id);
     }
-  }, [currentUser?.branch_id]);
+  }, [currentUser?.role_id, currentUser?.branch_id, currentUser?.is_super_admin]);
 
   // Enforce role_superadmin navigation bounds: Superadmin can ONLY access governance and audit tabs
   useEffect(() => {
@@ -307,6 +309,8 @@ export default function App() {
       if (!allowedGovernanceTabs.includes(activeTab)) {
         setActiveTab('superadmin_console');
       }
+    } else if (activeTab === 'superadmin_console') {
+      setActiveTab('dashboard');
     }
   }, [currentUser?.role_id, currentUser?.is_super_admin, activeTab]);
 

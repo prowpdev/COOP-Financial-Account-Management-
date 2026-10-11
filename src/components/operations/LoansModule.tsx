@@ -209,9 +209,9 @@ const handleRepayBtn = async (
     setIsLoading(true);
     try {
       const [lRes, mRes, aRes] = await Promise.all([
-        api.getLoans(),
-        api.getMembers(),
-        api.getLoanApplications({ status: 'Pending' })
+        api.getLoans(selectedBranch),
+        api.getMembers(selectedBranch),
+        api.getLoanApplications({ branchId: selectedBranch, status: 'Pending' })
       ]);
       const safeLoans = Array.isArray(lRes.data) ? lRes.data : [];
       const safeMembers = Array.isArray(mRes.data) ? mRes.data : [];
@@ -233,7 +233,7 @@ const handleRepayBtn = async (
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedBranch]);
 
   // Synchronize origForm defaults as data populates
   useEffect(() => {

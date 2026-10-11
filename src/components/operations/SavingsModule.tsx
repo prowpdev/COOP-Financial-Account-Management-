@@ -90,7 +90,7 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getSavingsAccounts();
+      const res = await api.getSavingsAccounts(selectedBranch);
       setAccounts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -102,14 +102,14 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
 
   useEffect(() => {
     loadAccounts();
-    Promise.all([api.getMembers(), api.getSavingsProducts(), api.getAccounts()])
+    Promise.all([api.getMembers(selectedBranch), api.getSavingsProducts(), api.getAccounts()])
       .then(([memberRes, productRes, accountsRes]) => {
         setMembers(Array.isArray(memberRes.data) ? memberRes.data : []);
         setSavingsProducts(Array.isArray(productRes.data) ? productRes.data : []);
         setCoaAccounts(Array.isArray(accountsRes.data) ? accountsRes.data : []);
       })
       .catch(err => setOpenError(err.message || 'Failed to load account opening options.'));
-  }, []);
+  }, [selectedBranch]);
 
   const safeAccounts = Array.isArray(accounts) ? accounts : [];
   const safeCashAccounts = Array.isArray(cashAccounts) ? cashAccounts : [];

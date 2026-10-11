@@ -143,7 +143,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const loadJournals = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getJournals();
+      const res = await api.getJournals(selectedBranch);
       setJournals(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -173,7 +173,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     };
     window.addEventListener('coop:data-changed', handleDataChanged);
     return () => window.removeEventListener('coop:data-changed', handleDataChanged);
-  }, []);
+  }, [selectedBranch]);
 
   // Columns for General Journal / Voucher Register Table
   const generalJournalCols: ExcelColumn<JournalEntry>[] = [

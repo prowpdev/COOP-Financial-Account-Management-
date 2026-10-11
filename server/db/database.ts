@@ -176,13 +176,15 @@ export class DatabaseEngine {
     return deleted;
   }
 
-  public recordAudit(setting: string, oldValue: any, newValue: any, changedBy: string, reason: string) {
+  public recordAudit(setting: string, oldValue: any, newValue: any, changedBy: string, reason: string, branchId?: string, userId?: string) {
     const auditRecord = {
       id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       setting,
       old_value: typeof oldValue === 'object' ? JSON.stringify(oldValue) : String(oldValue ?? ''),
       new_value: typeof newValue === 'object' ? JSON.stringify(newValue) : String(newValue ?? ''),
       changed_by: changedBy || 'System Administrator',
+      branch_id: branchId || 'branch_tar',
+      user_id: userId || null,
       created_at: new Date().toISOString(),
       reason: reason || 'Configuration updated via Administration panel'
     };

@@ -80,7 +80,7 @@ export interface AccountingPeriod {
   closed_by: string | null;
 }
 
-type NumberingFormat = {
+export type NumberingFormat = {
   id: string;
   module: string;
   prefix: string;
