@@ -183,7 +183,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   ];
 
   const [form, setForm] = useState({
-    branch_id: branches[0]?.id || 'branch_tar',
+    branch_id: currentUser.branc_id,
     member_type_id: memberTypes[0]?.id || 'mt_regular',
     first_name: '',
     last_name: '',

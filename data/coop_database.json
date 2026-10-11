@@ -15,7 +15,8 @@
       "decimal_separator": ".",
       "fiscal_year_start": "01-01",
       "fiscal_year_end": "12-31",
-      "created_at": "2026-01-01T00:00:00Z"
+      "created_at": "2026-01-01T00:00:00Z",
+      "branch_id": "branch_tar"
     }
   ],
   "branches": [
@@ -27,7 +28,8 @@
       "address": "Poblacion, Tarlac City",
       "phone": "+63 (045) 982-1200",
       "manager_name": "Elena Rostro",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "branch_urd",
@@ -37,7 +39,8 @@
       "address": "MacArthur Highway, Urdaneta City, Pangasinan",
       "phone": "+63 (075) 568-3341",
       "manager_name": "Roberto Valenzuela",
-      "active": true
+      "active": true,
+      "branch_id": "branch_urd"
     },
     {
       "id": "branch_sfe",
@@ -47,69 +50,82 @@
       "address": "Dolores Crossing, San Fernando City, Pampanga",
       "phone": "+63 (045) 455-8812",
       "manager_name": "Carmela Santos",
-      "active": true
+      "active": true,
+      "branch_id": "branch_sfe"
     }
   ],
   "system_settings": [
     {
       "key": "cooperative_name",
       "value": "Multipurpose Cooperative System.",
-      "category": "Cooperative"
+      "category": "Cooperative",
+      "branch_id": "branch_tar"
     },
     {
       "key": "currency",
       "value": "PHP",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "currency_symbol",
       "value": "₱",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "decimal_precision",
       "value": "2",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "thousands_separator",
       "value": ",",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "decimal_separator",
       "value": ".",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "fiscal_year_start",
       "value": "01-01",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "fiscal_year_end",
       "value": "12-31",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     },
     {
       "key": "default_grace_period_days",
       "value": "5",
-      "category": "Loans"
+      "category": "Loans",
+      "branch_id": "branch_tar"
     },
     {
       "key": "default_penalty_rate",
       "value": "2.0",
-      "category": "Penalties"
+      "category": "Penalties",
+      "branch_id": "branch_tar"
     },
     {
       "key": "require_maker_checker_loans",
       "value": "true",
-      "category": "Approvals"
+      "category": "Approvals",
+      "branch_id": "branch_tar"
     },
     {
       "key": "require_balanced_opening_balances",
       "value": "true",
-      "category": "Accounting"
+      "category": "Accounting",
+      "branch_id": "branch_tar"
     }
   ],
   "feature_toggles": [
@@ -118,49 +134,56 @@
       "key": "feature_loans",
       "name": "Loans & Credit Facility",
       "description": "Enable loan origination, amortization schedules, and repayments",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_savings",
       "key": "feature_savings",
       "name": "Savings & Deposits",
       "description": "Member regular savings and time deposit facilities",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_share_capital",
       "key": "feature_share_capital",
       "name": "Share Capital (CBU)",
       "description": "Capital build-up, share subscription, and dividend accounts",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_cash_mgmt",
       "key": "feature_cash_management",
       "name": "Cash & Bank Management",
       "description": "Vault, cashier cash drawers, petty cash, and bank accounts",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_accounting",
       "key": "feature_accounting",
       "name": "General Accounting & GL",
       "description": "Dynamic Chart of Accounts, Journal entries, and postings",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_reports",
       "key": "feature_reports",
       "name": "Financial & Regulatory Reports",
       "description": "CDA-compliant financial statements, portfolio aging, and ledgers",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "feat_custom_fields",
       "key": "feature_custom_fields",
       "name": "Custom Fields & Extensibility",
       "description": "Dynamic member, loan, and document custom attributes",
-      "enabled": true
+      "enabled": true,
+      "branch_id": "branch_tar"
     }
   ],
   "chart_of_accounts": [
@@ -179,7 +202,8 @@
       "parent_id": null,
       "description": "Summary control account for all cash drawers, vaults, and bank repositories",
       "is_control": true,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1110",
@@ -196,7 +220,8 @@
       "parent_id": "acc_1100",
       "description": "Petty cash and daily cashier vault drawers",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1111",
@@ -213,7 +238,8 @@
       "parent_id": "acc_1100",
       "description": "Revolving petty cash fund for minor branch expenditures",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1112",
@@ -230,7 +256,8 @@
       "parent_id": "acc_1100",
       "description": "Branch heavy depository cash vault reserve funds",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1120",
@@ -247,7 +274,8 @@
       "parent_id": "acc_1100",
       "description": "LBP primary operating clearing depository",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1121",
@@ -264,7 +292,8 @@
       "parent_id": "acc_1100",
       "description": "DBP high-yield special reserve depository",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1130",
@@ -281,7 +310,8 @@
       "parent_id": "acc_1100",
       "description": "Maya, GCash, and electronic payment gateway funds",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1200",
@@ -298,7 +328,8 @@
       "parent_id": null,
       "description": "Aggregate control account for all active member loan facilities",
       "is_control": true,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1210",
@@ -315,7 +346,8 @@
       "parent_id": "acc_1200",
       "description": "Principal balance of outstanding member multi-purpose loans",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1220",
@@ -332,7 +364,8 @@
       "parent_id": "acc_1200",
       "description": "Emergency calamity and express medical credit lines",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1230",
@@ -349,7 +382,8 @@
       "parent_id": "acc_1200",
       "description": "Seasonal crop inputs, fertilizer, and agricultural financing",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1240",
@@ -366,7 +400,8 @@
       "parent_id": "acc_1200",
       "description": "Small business enterprise working capital financing",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1290",
@@ -383,7 +418,8 @@
       "parent_id": "acc_1200",
       "description": "Provision for PAR and non-performing loan impairments",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1310",
@@ -400,7 +436,8 @@
       "parent_id": null,
       "description": "Accrued but uncollected loan installment interest",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1510",
@@ -417,7 +454,8 @@
       "parent_id": null,
       "description": "Servers, teller terminals, and office workstations",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_1590",
@@ -434,7 +472,8 @@
       "parent_id": null,
       "description": "Depreciation reserve on operational equipment",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_2100",
@@ -451,7 +490,8 @@
       "parent_id": null,
       "description": "Control account for all member demand and term deposit liabilities",
       "is_control": true,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_2110",
@@ -468,7 +508,8 @@
       "parent_id": "acc_2100",
       "description": "Withdrawable member deposit savings balances",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_2120",
@@ -485,7 +526,8 @@
       "parent_id": "acc_2100",
       "description": "Fixed-term high-yield member placements",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_2210",
@@ -502,7 +544,8 @@
       "parent_id": null,
       "description": "Supplier payables and operational vendor balances",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_2220",
@@ -519,7 +562,8 @@
       "parent_id": null,
       "description": "Accrued interest payable to member savings deposits",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3100",
@@ -536,7 +580,8 @@
       "parent_id": null,
       "description": "Summary control account for subscribed and paid-up share capital",
       "is_control": true,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3110",
@@ -553,7 +598,8 @@
       "parent_id": "acc_3100",
       "description": "Member common share capital subscribed and paid",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3120",
@@ -570,7 +616,8 @@
       "parent_id": "acc_3100",
       "description": "Associate member preferred non-voting equity",
       "is_control": false,
-      "has_subsidiary": true
+      "has_subsidiary": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3210",
@@ -587,7 +634,8 @@
       "parent_id": null,
       "description": "Mandatory 10% statutory reserve mandated by CDA",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3220",
@@ -604,7 +652,8 @@
       "parent_id": null,
       "description": "Mandatory educational reserve (5% localized, 5% apex federation)",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3230",
@@ -621,7 +670,8 @@
       "parent_id": null,
       "description": "Mandatory 3% social community outreach fund",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3240",
@@ -638,7 +688,8 @@
       "parent_id": null,
       "description": "Discretionary cooperative stability and building fund",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_3900",
@@ -655,7 +706,8 @@
       "parent_id": null,
       "description": "Cumulative operating surplus available for dividend allocation",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_4110",
@@ -672,7 +724,8 @@
       "parent_id": null,
       "description": "Earned interest collected on member loan disbursements",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_4120",
@@ -689,7 +742,8 @@
       "parent_id": null,
       "description": "Loan origination, filing, and notarial service fees",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_4130",
@@ -706,7 +760,8 @@
       "parent_id": null,
       "description": "Default penalty charges assessed on delinquent installments",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_4140",
@@ -723,7 +778,8 @@
       "parent_id": null,
       "description": "Non-refundable membership application and seminar fees",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_4210",
@@ -740,7 +796,8 @@
       "parent_id": null,
       "description": "General membership registration income",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_5110",
@@ -757,7 +814,8 @@
       "parent_id": null,
       "description": "Annual dividend and monthly interest yield distributed on deposits",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_5210",
@@ -774,7 +832,8 @@
       "parent_id": null,
       "description": "Staff compensation, 13th month pay, and personnel allowances",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_5220",
@@ -791,7 +850,8 @@
       "parent_id": null,
       "description": "Electric, water, telecommunications, and stationery expenses",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_5230",
@@ -808,7 +868,8 @@
       "parent_id": null,
       "description": "Branch premise lease rentals and utility services",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "acc_5290",
@@ -825,7 +886,8 @@
       "parent_id": null,
       "description": "Expense entry provisioning reserve for doubtful loan accounts",
       "is_control": false,
-      "has_subsidiary": false
+      "has_subsidiary": false,
+      "branch_id": "branch_tar"
     }
   ],
   "financial_statement_mappings": [
@@ -834,49 +896,56 @@
       "account_types": [
         "Asset"
       ],
-      "display_order": 1
+      "display_order": 1,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Non-current Assets",
       "account_types": [
         "Asset"
       ],
-      "display_order": 2
+      "display_order": 2,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Current Liabilities",
       "account_types": [
         "Liability"
       ],
-      "display_order": 3
+      "display_order": 3,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Long-term Liabilities",
       "account_types": [
         "Liability"
       ],
-      "display_order": 4
+      "display_order": 4,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Equity",
       "account_types": [
         "Equity"
       ],
-      "display_order": 5
+      "display_order": 5,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Income",
       "account_types": [
         "Income"
       ],
-      "display_order": 6
+      "display_order": 6,
+      "branch_id": "branch_tar"
     },
     {
       "category": "Expenses",
       "account_types": [
         "Expense"
       ],
-      "display_order": 7
+      "display_order": 7,
+      "branch_id": "branch_tar"
     }
   ],
   "accounting_periods": [
@@ -887,7 +956,8 @@
       "end_date": "2026-01-31",
       "status": "Closed",
       "closed_at": "2026-02-05T17:00:00Z",
-      "closed_by": "Chief Accountant"
+      "closed_by": "Chief Accountant",
+      "branch_id": "branch_tar"
     },
     {
       "id": "period_2026_02",
@@ -896,7 +966,8 @@
       "end_date": "2026-02-28",
       "status": "Closed",
       "closed_at": "2026-03-05T17:00:00Z",
-      "closed_by": "Chief Accountant"
+      "closed_by": "Chief Accountant",
+      "branch_id": "branch_tar"
     },
     {
       "id": "period_2026_03",
@@ -905,7 +976,8 @@
       "end_date": "2026-03-31",
       "status": "Open",
       "closed_at": null,
-      "closed_by": null
+      "closed_by": null,
+      "branch_id": "branch_tar"
     },
     {
       "id": "period_2026_04",
@@ -914,7 +986,8 @@
       "end_date": "2026-04-30",
       "status": "Open",
       "closed_at": null,
-      "closed_by": null
+      "closed_by": null,
+      "branch_id": "branch_tar"
     }
   ],
   "accounting_mappings": [
@@ -924,7 +997,8 @@
       "name": "Loan Disbursement / Release",
       "debit_account_id": "acc_1210",
       "credit_account_id": "acc_1110",
-      "description": "Disbursement of approved loan principal to borrower"
+      "description": "Disbursement of approved loan principal to borrower",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_loan_payment",
@@ -932,7 +1006,8 @@
       "name": "Loan Repayment (Principal)",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_1210",
-      "description": "Collection of loan installment principal"
+      "description": "Collection of loan installment principal",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_interest_income",
@@ -940,7 +1015,8 @@
       "name": "Loan Interest Collection",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_4110",
-      "description": "Interest portion of loan repayment"
+      "description": "Interest portion of loan repayment",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_penalty_income",
@@ -948,7 +1024,8 @@
       "name": "Loan Penalty Collection",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_4130",
-      "description": "Late payment fee collected"
+      "description": "Late payment fee collected",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_fee_income",
@@ -956,7 +1033,8 @@
       "name": "Service and Processing Fee Collection",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_4120",
-      "description": "Deducted or collected processing fees"
+      "description": "Deducted or collected processing fees",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_savings_dep",
@@ -964,7 +1042,8 @@
       "name": "Member Savings Deposit",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_2110",
-      "description": "Member deposits cash into savings account"
+      "description": "Member deposits cash into savings account",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_savings_with",
@@ -972,7 +1051,8 @@
       "name": "Member Savings Withdrawal",
       "debit_account_id": "acc_2110",
       "credit_account_id": "acc_1110",
-      "description": "Member withdraws cash from savings account"
+      "description": "Member withdraws cash from savings account",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_cbu_payment",
@@ -980,7 +1060,8 @@
       "name": "Share Capital Contribution (CBU)",
       "debit_account_id": "acc_1110",
       "credit_account_id": "acc_3110",
-      "description": "Member adds capital build-up"
+      "description": "Member adds capital build-up",
+      "branch_id": "branch_tar"
     },
     {
       "id": "map_expense",
@@ -988,7 +1069,8 @@
       "name": "Operating Expense Payment",
       "debit_account_id": "acc_5220",
       "credit_account_id": "acc_1110",
-      "description": "Disbursement for operational expenditure"
+      "description": "Disbursement for operational expenditure",
+      "branch_id": "branch_tar"
     }
   ],
   "numbering_formats": [
@@ -998,7 +1080,8 @@
       "prefix": "JV",
       "pattern": "{BRANCH}-JV-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 42
+      "current_seq": 42,
+      "branch_id": "branch_tar"
     },
     {
       "id": "num_cd",
@@ -1006,7 +1089,8 @@
       "prefix": "CD",
       "pattern": "{BRANCH}-CD-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 38
+      "current_seq": 38,
+      "branch_id": "branch_tar"
     },
     {
       "id": "num_or",
@@ -1014,7 +1098,8 @@
       "prefix": "OR",
       "pattern": "{BRANCH}-OR-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 154
+      "current_seq": 154,
+      "branch_id": "branch_tar"
     },
     {
       "id": "num_ln",
@@ -1022,7 +1107,8 @@
       "prefix": "LN",
       "pattern": "LN-{YEAR}-{NUMBER}",
       "length": 5,
-      "current_seq": 28
+      "current_seq": 28,
+      "branch_id": "branch_tar"
     },
     {
       "id": "num_mem",
@@ -1030,7 +1116,8 @@
       "prefix": "MEM",
       "pattern": "MEM-{YEAR}-{NUMBER}",
       "length": 5,
-      "current_seq": 105
+      "current_seq": 105,
+      "branch_id": "branch_tar"
     }
   ],
   "approval_workflows": [
@@ -1039,14 +1126,16 @@
       "name": "Multi-Tier Loan Approval Workflow",
       "module": "Loans",
       "description": "Tiered loan approvals based on configurable principal thresholds",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "wf_expense_standard",
       "name": "Operational Expense Approval",
       "module": "Expenses",
       "description": "Approval hierarchy for cash and bank disbursements",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "approval_rules": [
@@ -1059,7 +1148,8 @@
       "required_role": "Loan Officer",
       "required_approvals": 1,
       "order": 1,
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "rule_loan_tier2",
@@ -1070,7 +1160,8 @@
       "required_role": "Branch Manager",
       "required_approvals": 1,
       "order": 2,
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "rule_loan_tier3",
@@ -1081,7 +1172,8 @@
       "required_role": "Board of Directors",
       "required_approvals": 2,
       "order": 3,
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "custom_fields": [
@@ -1102,7 +1194,8 @@
       ],
       "required": true,
       "default_value": "Farmer / Fisherfolk",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_barangay",
@@ -1113,7 +1206,8 @@
       "options": [],
       "required": true,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_monthly_income",
@@ -1124,7 +1218,8 @@
       "options": [],
       "required": false,
       "default_value": "25000",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_tin_number",
@@ -1135,7 +1230,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_notes",
@@ -1146,7 +1242,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_id_photo",
@@ -1157,7 +1254,8 @@
       "options": [],
       "required": true,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_member_photo",
@@ -1168,7 +1266,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_birth_certificate",
@@ -1179,7 +1278,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_marriage_certificate",
@@ -1190,7 +1290,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_supporting_docs",
@@ -1201,7 +1302,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_collateral_desc",
@@ -1212,7 +1314,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_id_doc",
@@ -1229,7 +1332,8 @@
       ],
       "required": true,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_contract",
@@ -1240,7 +1344,8 @@
       "options": [],
       "required": true,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_biodata",
@@ -1251,7 +1356,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_photo",
@@ -1262,7 +1368,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_spreadsheet",
@@ -1273,7 +1380,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_certifications",
@@ -1284,7 +1392,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "cf_user_other_files",
@@ -1295,7 +1404,8 @@
       "options": [],
       "required": false,
       "default_value": "",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "member_types": [
@@ -1314,7 +1424,8 @@
         "2x2 Photo",
         "Pre-Membership Seminar (PMES) Certificate"
       ],
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "mt_associate",
@@ -1330,7 +1441,8 @@
         "Proof of Billing",
         "2x2 Photo"
       ],
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "mt_youth",
@@ -1345,7 +1457,8 @@
         "Birth Certificate",
         "Parents Consent Form"
       ],
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "members": [
@@ -1732,7 +1845,8 @@
       "approval_workflow_id": "wf_loan_standard",
       "active": true,
       "effective_from": "2025-01-01",
-      "effective_until": null
+      "effective_until": null,
+      "branch_id": "branch_tar"
     },
     {
       "id": "lp_emergency",
@@ -1760,7 +1874,8 @@
       "approval_workflow_id": "wf_loan_standard",
       "active": true,
       "effective_from": "2025-01-01",
-      "effective_until": null
+      "effective_until": null,
+      "branch_id": "branch_tar"
     },
     {
       "id": "lp_agri",
@@ -1789,7 +1904,8 @@
       "approval_workflow_id": "wf_loan_standard",
       "active": true,
       "effective_from": "2025-01-01",
-      "effective_until": null
+      "effective_until": null,
+      "branch_id": "branch_tar"
     }
   ],
   "loan_product_versions": [
@@ -1801,7 +1917,8 @@
       "interest_calculation_method": "Diminishing Balance",
       "changed_at": "2025-01-01T00:00:00Z",
       "changed_by": "System Initializer",
-      "reason": "Initial CDA compliance configuration"
+      "reason": "Initial CDA compliance configuration",
+      "branch_id": "branch_tar"
     }
   ],
   "loan_applications": [
@@ -2057,7 +2174,8 @@
       "paid_interest": 208.33,
       "paid_penalty": 0,
       "paid_date": "2026-02-20",
-      "status": "Paid"
+      "status": "Paid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_2",
@@ -2073,7 +2191,8 @@
       "paid_interest": 208.33,
       "paid_penalty": 0,
       "paid_date": "2026-03-20",
-      "status": "Paid"
+      "status": "Paid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_3",
@@ -2089,7 +2208,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_4",
@@ -2105,7 +2225,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_5",
@@ -2121,7 +2242,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_6",
@@ -2137,7 +2259,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_7",
@@ -2153,7 +2276,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_8",
@@ -2169,7 +2293,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_9",
@@ -2185,7 +2310,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_10",
@@ -2201,7 +2327,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_11",
@@ -2217,7 +2344,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln1_12",
@@ -2233,7 +2361,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_1",
@@ -2249,7 +2378,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_2",
@@ -2265,7 +2395,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_3",
@@ -2281,7 +2412,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_4",
@@ -2297,7 +2429,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_5",
@@ -2313,7 +2446,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln2_6",
@@ -2329,7 +2463,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_tar"
     },
     {
       "id": "las_ln3_1",
@@ -2345,7 +2480,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_2",
@@ -2361,7 +2497,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_3",
@@ -2377,7 +2514,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_4",
@@ -2393,7 +2531,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_5",
@@ -2409,7 +2548,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_6",
@@ -2425,7 +2565,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_7",
@@ -2441,7 +2582,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_8",
@@ -2457,7 +2599,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_9",
@@ -2473,7 +2616,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_10",
@@ -2489,7 +2633,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_11",
@@ -2505,7 +2650,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     },
     {
       "id": "las_ln3_12",
@@ -2521,7 +2667,8 @@
       "paid_interest": 0,
       "paid_penalty": 0,
       "paid_date": null,
-      "status": "Unpaid"
+      "status": "Unpaid",
+      "branch_id": "branch_urd"
     }
   ],
   "loan_payments": [
@@ -2534,7 +2681,8 @@
       "total_amount": 2291.66,
       "cash_account_id": "cash_01",
       "received_by": "Elena Rostro",
-      "created_at": "2026-02-18 11:00:00"
+      "created_at": "2026-02-18 11:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "pay_ln1_2",
@@ -2545,7 +2693,8 @@
       "total_amount": 2291.66,
       "cash_account_id": "cash_01",
       "received_by": "Elena Rostro",
-      "created_at": "2026-03-18 11:00:00"
+      "created_at": "2026-03-18 11:00:00",
+      "branch_id": "branch_tar"
     }
   ],
   "loan_payment_allocations": [
@@ -2554,7 +2703,8 @@
       "payment_id": "pay_ln1_1",
       "loan_id": "ln_000001",
       "fee_type": "Principal",
-      "allocated_amount": 2083.33
+      "allocated_amount": 2083.33,
+      "branch_id": "branch_tar"
     },
     {
       "id": "alloc_ln1_1_i",
@@ -2562,14 +2712,16 @@
       "loan_id": "ln_000001",
       "fee_type": "Interest",
       "interest_amount": 208.33,
-      "allocated_amount": 208.33
+      "allocated_amount": 208.33,
+      "branch_id": "branch_tar"
     },
     {
       "id": "alloc_ln1_2_p",
       "payment_id": "pay_ln1_2",
       "loan_id": "ln_000001",
       "fee_type": "Principal",
-      "allocated_amount": 2083.33
+      "allocated_amount": 2083.33,
+      "branch_id": "branch_tar"
     },
     {
       "id": "alloc_ln1_2_i",
@@ -2577,7 +2729,8 @@
       "loan_id": "ln_000001",
       "fee_type": "Interest",
       "interest_amount": 208.33,
-      "allocated_amount": 208.33
+      "allocated_amount": 208.33,
+      "branch_id": "branch_tar"
     }
   ],
   "savings_products": [
@@ -2590,7 +2743,8 @@
       "interest_calculation_method": "Average Daily Balance",
       "withdrawal_limit_per_day": 50000,
       "debit_account_id": "acc_2110",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "sp_time_deposit",
@@ -2601,7 +2755,8 @@
       "interest_calculation_method": "Fixed Term Maturity",
       "withdrawal_limit_per_day": 0,
       "debit_account_id": "acc_2120",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "savings_accounts": [
@@ -2816,7 +2971,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-01-15",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-01-15 10:30:00"
+      "created_at": "2026-01-15 10:30:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "st_mem_000002_01",
@@ -2829,7 +2985,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-02-10",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-02-10 10:30:00"
+      "created_at": "2026-02-10 10:30:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "st_mem_000003_01",
@@ -2842,7 +2999,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-02-20",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-02-20 10:30:00"
+      "created_at": "2026-02-20 10:30:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "st_mem_000004_01",
@@ -2855,7 +3013,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-03-05",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-03-05 10:30:00"
+      "created_at": "2026-03-05 10:30:00",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "st_mem_000005_01",
@@ -2868,7 +3027,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-03-12",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-03-12 10:30:00"
+      "created_at": "2026-03-12 10:30:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "st_mem_000006_01",
@@ -2881,7 +3041,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-04-18",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-04-18 10:30:00"
+      "created_at": "2026-04-18 10:30:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "st_mem_000007_01",
@@ -2894,7 +3055,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2025-06-10",
       "notes": "Initial Savings Deposit",
-      "created_at": "2025-06-10 10:30:00"
+      "created_at": "2025-06-10 10:30:00",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "st_mem_000008_01",
@@ -2907,7 +3069,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-09-01",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-09-01 10:30:00"
+      "created_at": "2026-09-01 10:30:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "st_mem_000009_01",
@@ -2920,7 +3083,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-05-22",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-05-22 10:30:00"
+      "created_at": "2026-05-22 10:30:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "st_mem_000010_01",
@@ -2933,7 +3097,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-06-30",
       "notes": "Initial Savings Deposit",
-      "created_at": "2026-06-30 10:30:00"
+      "created_at": "2026-06-30 10:30:00",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "st_int_sample_01",
@@ -2946,7 +3111,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-10-10",
       "notes": "Quarterly savings deposit interest credited (2.5% p.a.)",
-      "created_at": "2026-10-10 14:00:00"
+      "created_at": "2026-10-10 14:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "st_int_sample_02",
@@ -2959,7 +3125,8 @@
       "cash_account_id": "cash_01",
       "transaction_date": "2026-10-10",
       "notes": "Quarterly savings deposit interest credited (2.5% p.a.)",
-      "created_at": "2026-10-10 14:05:00"
+      "created_at": "2026-10-10 14:05:00",
+      "branch_id": "branch_tar"
     }
   ],
   "share_capital_settings": [
@@ -2972,7 +3139,8 @@
       "max_share_holding_percentage": 10,
       "transfer_fee": 100,
       "withdrawal_rule": "Subject to Board approval and 30-day prior written notice",
-      "accounting_account_id": "acc_3110"
+      "accounting_account_id": "acc_3110",
+      "branch_id": "branch_tar"
     }
   ],
   "share_capital_accounts": [
@@ -3206,7 +3374,8 @@
       "amount": 5000,
       "transaction_date": "2026-01-15",
       "cash_account_id": "cash_01",
-      "created_at": "2026-01-15 10:00:00"
+      "created_at": "2026-01-15 10:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "sct_mem_000002_01",
@@ -3218,7 +3387,8 @@
       "amount": 5000,
       "transaction_date": "2026-02-10",
       "cash_account_id": "cash_01",
-      "created_at": "2026-02-10 10:00:00"
+      "created_at": "2026-02-10 10:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "sct_mem_000003_01",
@@ -3230,7 +3400,8 @@
       "amount": 5000,
       "transaction_date": "2026-02-20",
       "cash_account_id": "cash_01",
-      "created_at": "2026-02-20 10:00:00"
+      "created_at": "2026-02-20 10:00:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "sct_mem_000004_01",
@@ -3242,7 +3413,8 @@
       "amount": 5000,
       "transaction_date": "2026-03-05",
       "cash_account_id": "cash_01",
-      "created_at": "2026-03-05 10:00:00"
+      "created_at": "2026-03-05 10:00:00",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "sct_mem_000005_01",
@@ -3254,7 +3426,8 @@
       "amount": 2500,
       "transaction_date": "2026-03-12",
       "cash_account_id": "cash_01",
-      "created_at": "2026-03-12 10:00:00"
+      "created_at": "2026-03-12 10:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "sct_mem_000006_01",
@@ -3266,7 +3439,8 @@
       "amount": 2500,
       "transaction_date": "2026-04-18",
       "cash_account_id": "cash_01",
-      "created_at": "2026-04-18 10:00:00"
+      "created_at": "2026-04-18 10:00:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "sct_mem_000007_01",
@@ -3278,7 +3452,8 @@
       "amount": 2500,
       "transaction_date": "2025-06-10",
       "cash_account_id": "cash_01",
-      "created_at": "2025-06-10 10:00:00"
+      "created_at": "2025-06-10 10:00:00",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "sct_mem_000008_01",
@@ -3290,7 +3465,8 @@
       "amount": 2500,
       "transaction_date": "2026-09-01",
       "cash_account_id": "cash_01",
-      "created_at": "2026-09-01 10:00:00"
+      "created_at": "2026-09-01 10:00:00",
+      "branch_id": "branch_tar"
     },
     {
       "id": "sct_mem_000009_01",
@@ -3302,7 +3478,8 @@
       "amount": 2500,
       "transaction_date": "2026-05-22",
       "cash_account_id": "cash_01",
-      "created_at": "2026-05-22 10:00:00"
+      "created_at": "2026-05-22 10:00:00",
+      "branch_id": "branch_urd"
     },
     {
       "id": "sct_mem_000010_01",
@@ -3314,7 +3491,8 @@
       "amount": 2500,
       "transaction_date": "2026-06-30",
       "cash_account_id": "cash_01",
-      "created_at": "2026-06-30 10:00:00"
+      "created_at": "2026-06-30 10:00:00",
+      "branch_id": "branch_sfe"
     }
   ],
   "cash_accounts": [
@@ -3392,7 +3570,8 @@
       "max_amount": 5000,
       "applicable_module": "Loans",
       "accounting_account_id": "acc_4120",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "fee_serv",
@@ -3405,7 +3584,8 @@
       "max_amount": 250,
       "applicable_module": "Loans",
       "accounting_account_id": "acc_4120",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "fee_mem",
@@ -3418,7 +3598,8 @@
       "max_amount": 500,
       "applicable_module": "Members",
       "accounting_account_id": "acc_4210",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "fee_late",
@@ -3431,7 +3612,8 @@
       "max_amount": 150,
       "applicable_module": "Loans",
       "accounting_account_id": "acc_4130",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "penalty_rules": [
@@ -3445,7 +3627,8 @@
       "minimum_penalty": 50,
       "maximum_penalty": 2500,
       "accounting_account_id": "acc_4130",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pen_daily_fixed",
@@ -3457,7 +3640,8 @@
       "minimum_penalty": 20,
       "maximum_penalty": 1000,
       "accounting_account_id": "acc_4130",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "payment_allocation_rules": [
@@ -3487,7 +3671,8 @@
         }
       ],
       "is_default": true,
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "par_borrower_favorable",
@@ -3515,7 +3700,8 @@
         }
       ],
       "is_default": false,
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "payment_frequencies": [
@@ -3524,56 +3710,64 @@
       "name": "Daily",
       "days_interval": 1,
       "installments_per_year": 365,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_weekly",
       "name": "Weekly",
       "days_interval": 7,
       "installments_per_year": 52,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_biweekly",
       "name": "Bi-weekly",
       "days_interval": 14,
       "installments_per_year": 26,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_semimonthly",
       "name": "Semi-monthly (15th & 30th)",
       "days_interval": 15,
       "installments_per_year": 24,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_monthly",
       "name": "Monthly",
       "days_interval": 30,
       "installments_per_year": 12,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_quarterly",
       "name": "Quarterly",
       "days_interval": 90,
       "installments_per_year": 4,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_semiannual",
       "name": "Semi-annually",
       "days_interval": 180,
       "installments_per_year": 2,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     },
     {
       "id": "pf_annual",
       "name": "Annually",
       "days_interval": 365,
       "installments_per_year": 1,
-      "is_custom": false
+      "is_custom": false,
+      "branch_id": "branch_tar"
     }
   ],
   "document_requirements": [
@@ -3582,35 +3776,40 @@
       "name": "Valid Government Issued Photo ID",
       "code": "DOC-ID",
       "required_for": "All Members",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "doc_income",
       "name": "Proof of Income / 3 Months Payslip / ITR",
       "code": "DOC-INC",
       "required_for": "Borrowers",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "doc_brgy",
       "name": "Barangay Clearance & Residency Certificate",
       "code": "DOC-BRGY",
       "required_for": "New Members",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "doc_collateral",
       "name": "Original Title / OR-CR / Collateral Documents",
       "code": "DOC-COLL",
       "required_for": "Secured Loans",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "doc_pmes",
       "name": "Pre-Membership Education Seminar Certificate",
       "code": "DOC-PMES",
       "required_for": "Regular Members",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "notification_rules": [
@@ -3626,7 +3825,8 @@
         "Email Digest"
       ],
       "message_template": "Loan {loan_number} for member {member_name} is overdue by {days_overdue} days.",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "notif_loan_approved",
@@ -3639,7 +3839,8 @@
         "In-App System Notification"
       ],
       "message_template": "Loan {loan_number} of ₱{amount} has been approved and is ready for disbursement.",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "transaction_types": [
@@ -3650,7 +3851,8 @@
       "module": "Loans",
       "requires_approval": true,
       "numbering_format_id": "num_cd",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_loan_pmt",
@@ -3659,7 +3861,8 @@
       "module": "Loans",
       "requires_approval": false,
       "numbering_format_id": "num_or",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_sav_dep",
@@ -3668,7 +3871,8 @@
       "module": "Savings",
       "requires_approval": false,
       "numbering_format_id": "num_or",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_sav_wit",
@@ -3677,7 +3881,8 @@
       "module": "Savings",
       "requires_approval": true,
       "numbering_format_id": "num_cd",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_cbu_pmt",
@@ -3686,7 +3891,8 @@
       "module": "Share Capital",
       "requires_approval": false,
       "numbering_format_id": "num_or",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_exp_pmt",
@@ -3695,7 +3901,8 @@
       "module": "Accounting",
       "requires_approval": true,
       "numbering_format_id": "num_cd",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     },
     {
       "id": "tx_open_bal",
@@ -3704,7 +3911,8 @@
       "module": "Accounting",
       "requires_approval": true,
       "numbering_format_id": "num_jv",
-      "active": true
+      "active": true,
+      "branch_id": "branch_tar"
     }
   ],
   "journal_entries": [
@@ -3949,7 +4157,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_01",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_2",
@@ -3958,7 +4167,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_02",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_3",
@@ -3967,7 +4177,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_03",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_4",
@@ -3976,7 +4187,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_04",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_5",
@@ -3985,7 +4197,8 @@
       "credit": 0,
       "subsidiary_type": "Asset",
       "subsidiary_id": null,
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_6",
@@ -3994,7 +4207,8 @@
       "credit": 2565000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_02",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_cap_7",
@@ -4003,7 +4217,8 @@
       "credit": 500000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_04",
-      "journal_entry_id": "jv_cap_tar_01"
+      "journal_entry_id": "jv_cap_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_urd_1",
@@ -4012,7 +4227,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_05",
-      "journal_entry_id": "jv_cap_urd_02"
+      "journal_entry_id": "jv_cap_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_urd_2",
@@ -4021,7 +4237,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_vault_urd",
-      "journal_entry_id": "jv_cap_urd_02"
+      "journal_entry_id": "jv_cap_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_urd_3",
@@ -4030,7 +4247,8 @@
       "credit": 500000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_03",
-      "journal_entry_id": "jv_cap_urd_02"
+      "journal_entry_id": "jv_cap_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_sfe_1",
@@ -4039,7 +4257,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_06",
-      "journal_entry_id": "jv_cap_sfe_03"
+      "journal_entry_id": "jv_cap_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_sfe_2",
@@ -4048,7 +4267,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_vault_sfe",
-      "journal_entry_id": "jv_cap_sfe_03"
+      "journal_entry_id": "jv_cap_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_sfe_3",
@@ -4057,7 +4277,8 @@
       "credit": 500000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_05",
-      "journal_entry_id": "jv_cap_sfe_03"
+      "journal_entry_id": "jv_cap_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_sav_tar_1",
@@ -4066,7 +4287,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_01",
-      "journal_entry_id": "or_sav_tar_01"
+      "journal_entry_id": "or_sav_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_sav_tar_2",
@@ -4075,7 +4297,8 @@
       "credit": 450000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_01",
-      "journal_entry_id": "or_sav_tar_01"
+      "journal_entry_id": "or_sav_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_sav_urd_1",
@@ -4084,7 +4307,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_05",
-      "journal_entry_id": "or_sav_urd_02"
+      "journal_entry_id": "or_sav_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_sav_urd_2",
@@ -4093,7 +4317,8 @@
       "credit": 220000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_03",
-      "journal_entry_id": "or_sav_urd_02"
+      "journal_entry_id": "or_sav_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_sav_sfe_1",
@@ -4102,7 +4327,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_06",
-      "journal_entry_id": "or_sav_sfe_03"
+      "journal_entry_id": "or_sav_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_sav_sfe_2",
@@ -4111,7 +4337,8 @@
       "credit": 180000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_05",
-      "journal_entry_id": "or_sav_sfe_03"
+      "journal_entry_id": "or_sav_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_ln_tar_1",
@@ -4120,7 +4347,8 @@
       "credit": 0,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_01",
-      "journal_entry_id": "cd_loan_tar_01"
+      "journal_entry_id": "cd_loan_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_ln_tar_2",
@@ -4129,7 +4357,8 @@
       "credit": 0,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_02",
-      "journal_entry_id": "cd_loan_tar_01"
+      "journal_entry_id": "cd_loan_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_ln_tar_3",
@@ -4138,7 +4367,8 @@
       "credit": 833000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_01",
-      "journal_entry_id": "cd_loan_tar_01"
+      "journal_entry_id": "cd_loan_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_ln_tar_4",
@@ -4147,7 +4377,8 @@
       "credit": 17000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_loan_tar_01"
+      "journal_entry_id": "cd_loan_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_ln_urd_1",
@@ -4156,7 +4387,8 @@
       "credit": 0,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_03",
-      "journal_entry_id": "cd_loan_urd_02"
+      "journal_entry_id": "cd_loan_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_ln_urd_2",
@@ -4165,7 +4397,8 @@
       "credit": 392000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_05",
-      "journal_entry_id": "cd_loan_urd_02"
+      "journal_entry_id": "cd_loan_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_ln_urd_3",
@@ -4174,7 +4407,8 @@
       "credit": 8000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_loan_urd_02"
+      "journal_entry_id": "cd_loan_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_ln_sfe_1",
@@ -4183,7 +4417,8 @@
       "credit": 0,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_05",
-      "journal_entry_id": "cd_loan_sfe_03"
+      "journal_entry_id": "cd_loan_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_ln_sfe_2",
@@ -4192,7 +4427,8 @@
       "credit": 397000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_06",
-      "journal_entry_id": "cd_loan_sfe_03"
+      "journal_entry_id": "cd_loan_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_ln_sfe_3",
@@ -4201,7 +4437,8 @@
       "credit": 3000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_loan_sfe_03"
+      "journal_entry_id": "cd_loan_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_rp_1",
@@ -4210,7 +4447,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_01",
-      "journal_entry_id": "or_repay_tar_01"
+      "journal_entry_id": "or_repay_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_rp_2",
@@ -4219,7 +4457,8 @@
       "credit": 150000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_01",
-      "journal_entry_id": "or_repay_tar_01"
+      "journal_entry_id": "or_repay_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_rp_3",
@@ -4228,7 +4467,8 @@
       "credit": 100000,
       "subsidiary_type": "Member",
       "subsidiary_id": "mem_sample_02",
-      "journal_entry_id": "or_repay_tar_01"
+      "journal_entry_id": "or_repay_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_rp_4",
@@ -4237,7 +4477,8 @@
       "credit": 65000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "or_repay_tar_01"
+      "journal_entry_id": "or_repay_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_rp_5",
@@ -4246,7 +4487,8 @@
       "credit": 5000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "or_repay_tar_01"
+      "journal_entry_id": "or_repay_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_mf_1",
@@ -4255,7 +4497,8 @@
       "credit": 0,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_01",
-      "journal_entry_id": "or_memfee_01"
+      "journal_entry_id": "or_memfee_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_mf_2",
@@ -4264,7 +4507,8 @@
       "credit": 15000,
       "subsidiary_type": "Income",
       "subsidiary_id": null,
-      "journal_entry_id": "or_memfee_01"
+      "journal_entry_id": "or_memfee_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_tar_1",
@@ -4273,7 +4517,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_tar_01"
+      "journal_entry_id": "cd_exp_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_tar_2",
@@ -4282,7 +4527,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_tar_01"
+      "journal_entry_id": "cd_exp_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_tar_3",
@@ -4291,7 +4537,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_tar_01"
+      "journal_entry_id": "cd_exp_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_tar_4",
@@ -4300,7 +4547,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_tar_01"
+      "journal_entry_id": "cd_exp_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_tar_5",
@@ -4309,7 +4557,8 @@
       "credit": 41000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_03",
-      "journal_entry_id": "cd_exp_tar_01"
+      "journal_entry_id": "cd_exp_tar_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_exp_urd_1",
@@ -4318,7 +4567,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_urd_02"
+      "journal_entry_id": "cd_exp_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_exp_urd_2",
@@ -4327,7 +4577,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_urd_02"
+      "journal_entry_id": "cd_exp_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_exp_urd_3",
@@ -4336,7 +4587,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_urd_02"
+      "journal_entry_id": "cd_exp_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_exp_urd_4",
@@ -4345,7 +4597,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_urd_02"
+      "journal_entry_id": "cd_exp_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_exp_urd_5",
@@ -4354,7 +4607,8 @@
       "credit": 17000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_05",
-      "journal_entry_id": "cd_exp_urd_02"
+      "journal_entry_id": "cd_exp_urd_02",
+      "branch_id": "branch_urd"
     },
     {
       "id": "jl_exp_sfe_1",
@@ -4363,7 +4617,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_sfe_03"
+      "journal_entry_id": "cd_exp_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_exp_sfe_2",
@@ -4372,7 +4627,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_sfe_03"
+      "journal_entry_id": "cd_exp_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_exp_sfe_3",
@@ -4381,7 +4637,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_sfe_03"
+      "journal_entry_id": "cd_exp_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_exp_sfe_4",
@@ -4390,7 +4647,8 @@
       "credit": 0,
       "subsidiary_type": "Expense",
       "subsidiary_id": null,
-      "journal_entry_id": "cd_exp_sfe_03"
+      "journal_entry_id": "cd_exp_sfe_03",
+      "branch_id": "branch_sfe"
     },
     {
       "id": "jl_exp_sfe_5",
@@ -4399,12 +4657,35 @@
       "credit": 14000,
       "subsidiary_type": "Cash",
       "subsidiary_id": "cash_06",
-      "journal_entry_id": "cd_exp_sfe_03"
+      "journal_entry_id": "cd_exp_sfe_03",
+      "branch_id": "branch_sfe"
     }
   ],
   "general_ledger": [],
   "configuration_audit_trails": [],
   "user_roles": [
+    {
+      "id": "role_superadmin",
+      "name": "Super Administrator",
+      "description": "Exclusive platform governance: user & role administration, branch & cooperative setup, and global audit oversight",
+      "permissions": [
+        "users.view",
+        "users.create",
+        "users.edit",
+        "users.activate",
+        "users.deactivate",
+        "roles.view",
+        "roles.edit",
+        "branches.view",
+        "branches.create",
+        "branches.edit",
+        "cooperative.view",
+        "cooperative.edit",
+        "audit.view",
+        "audit.export"
+      ],
+      "branch_id": "branch_tar"
+    },
     {
       "id": "role_admin",
       "name": "System Administrator",
@@ -4435,7 +4716,8 @@
         "period.reopen",
         "reports.view",
         "reports.export"
-      ]
+      ],
+      "branch_id": "branch_tar"
     },
     {
       "id": "role_manager",
@@ -4452,7 +4734,8 @@
         "member.create",
         "reports.view",
         "reports.export"
-      ]
+      ],
+      "branch_id": "branch_tar"
     },
     {
       "id": "role_accountant",
@@ -4469,7 +4752,8 @@
         "period.reopen",
         "reports.view",
         "reports.export"
-      ]
+      ],
+      "branch_id": "branch_tar"
     },
     {
       "id": "role_loan_officer",
@@ -4481,7 +4765,8 @@
         "loan.edit",
         "member.view",
         "member.create"
-      ]
+      ],
+      "branch_id": "branch_tar"
     },
     {
       "id": "role_cashier",
@@ -4492,9 +4777,67 @@
         "cash_disbursement.create",
         "loan.view",
         "member.view"
-      ]
+      ],
+      "branch_id": "branch_tar"
     }
   ],
-  "users": [],
+  "users": [
+    {
+      "id": "usr_superadmin",
+      "username": "superadmin",
+      "password_hash": "admin123",
+      "raw_password": "admin123",
+      "full_name": "Chief Super Administrator",
+      "email": "superadmin@coopflex.ph",
+      "role_id": "role_superadmin",
+      "branch_id": "branch_tar",
+      "is_super_admin": true,
+      "active": true,
+      "last_login": "2026-10-10T23:13:09.124Z",
+      "created_at": "2026-01-01T08:00:00.000Z"
+    },
+    {
+      "id": "usr_admin",
+      "username": "admin",
+      "password_hash": "admin123",
+      "raw_password": "admin123",
+      "full_name": "Coop Administrator",
+      "email": "admin@coopflex.ph",
+      "role_id": "role_admin",
+      "branch_id": "branch_tar",
+      "is_super_admin": false,
+      "active": true,
+      "last_login": "2026-10-10T23:13:09.125Z",
+      "created_at": "2026-01-01T08:00:00.000Z"
+    },
+    {
+      "id": "usr_manager_tar",
+      "username": "manager_tarlac",
+      "password_hash": "manager123",
+      "raw_password": "manager123",
+      "full_name": "Roberto Valenzuela",
+      "email": "rvalenzuela@coopflex.ph",
+      "role_id": "role_manager",
+      "branch_id": "branch_tar",
+      "is_super_admin": false,
+      "active": true,
+      "last_login": "2026-10-10T23:13:09.125Z",
+      "created_at": "2026-01-01T08:00:00.000Z"
+    },
+    {
+      "id": "usr_officer_tar",
+      "username": "officer_tarlac",
+      "password_hash": "officer123",
+      "raw_password": "officer123",
+      "full_name": "Elena Santos",
+      "email": "esantos@coopflex.ph",
+      "role_id": "role_loan_officer",
+      "branch_id": "branch_tar",
+      "is_super_admin": false,
+      "active": true,
+      "last_login": "2026-10-10T23:13:09.125Z",
+      "created_at": "2026-01-01T08:00:00.000Z"
+    }
+  ],
   "user_documents": []
 }

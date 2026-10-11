@@ -417,6 +417,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ period_id, reopened_by })
     }),
+  createAccountingPeriod: (data: {name: string; start_date: string; end_date: string; status: string; created_by?: string;}) =>
+    fetchApi<{ success: boolean; data: any }>('/config/accounting-periods/create',{
+        method: 'POST',
+        body: JSON.stringify(data)
+    }),
 
   // Operations: Members
   getMembers: async () => {

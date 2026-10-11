@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  CalendarDays,
   Settings,
   BookOpen,
   ArrowLeftRight,
@@ -3234,6 +3235,7 @@ function CashAccountsConfig({
 // ==========================================
 // SUB-PANEL: NUMBERING FORMATS (Req 19, Test 10)
 // ==========================================
+
 function NumberingConfig({
   formats,
   currentUser,
@@ -3245,112 +3247,406 @@ function NumberingConfig({
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [pattern, setPattern] = useState('');
-  const [length, setLength] = useState(6);
+  const emptyForm = {
+    module: '',
+    prefix: '',
+    branch_specific: true,
+    include_year: true,
+    padding: 5,
+    next_number: 1,
+    pattern: '{PREFIX}-{BRANCH}-{YEAR}-{NUMBER}'
+  };
 
-  const handleSave = async (id: string) => {
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [data, setData] = useState(formats);
+
+  const updateField = <K extends keyof typeof emptyForm>(
+    key: K,
+    value: (typeof emptyForm)[K]
+  ) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const startEdit = (f: NumberingFormat) => {
+    setIsAdding(false);
+    setEditingId(f.id);
+
+    setForm({
+      module: f.module,
+      prefix: f.prefix,
+      branch_specific: Boolean(Number(f.branch_specific)),
+      include_year: Boolean(Number(f.include_year)),
+      padding: Number(f.padding) || 5,
+      next_number: Number(f.next_number) || 1,
+      pattern: f.pattern
+    });
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setIsAdding(false);
+    setForm(emptyForm);
+  };
+
+  const validateForm = () => {
+    if (!form.module.trim()) {
+      showNotice('error', 'Module name is required.');
+      return false;
+    }
+
+    if (!form.prefix.trim()) {
+      showNotice('error', 'Document prefix is required.');
+      return false;
+    }
+
+    if (!form.pattern.trim()) {
+      showNotice('error', 'Numbering pattern is required.');
+      return false;
+    }
+
+    if (form.padding < 1 || form.padding > 12) {
+      showNotice('error', 'Padding must be between 1 and 12 digits.');
+      return false;
+    }
+
+    if (!Number.isInteger(form.next_number) || form.next_number < 1) {
+      showNotice('error', 'Next number must be a positive integer.');
+      return false;
+    }
+
+    const allowedTokens = ['PREFIX', 'BRANCH', 'YEAR', 'MONTH', 'NUMBER'];
+    const tokens = form.pattern.match(/\{([^}]+)\}/g) || [];
+
+    for (const token of tokens) {
+      const tokenName = token.slice(1, -1);
+
+      if (!allowedTokens.includes(tokenName)) {
+        showNotice('error', `Unsupported pattern token: ${token}`);
+        return false;
+      }
+    }
+
+    if (!tokens.includes('{NUMBER}')) {
+      showNotice('error', 'Pattern must include the {NUMBER} token.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
+
+    setIsSaving(true);
+
     try {
-      await api.updateNumberingFormat(id, {
-        pattern,
-        length,
+      const payload = {
+        module: form.module.trim(),
+        prefix: form.prefix.trim(),
+        branch_specific: form.branch_specific ? 1 : 0,
+        include_year: form.include_year ? 1 : 0,
+        padding: form.padding,
+        next_number: form.next_number,
+        pattern: form.pattern.trim(),
         changed_by: currentUser.name,
-        reason: 'Adjusted document sequence numbering pattern'
-      });
-      setEditingId(null);
-      showNotice('success', 'Document numbering format updated without code deployment! (Req #19)');
+        reason: editingId
+          ? 'Updated document numbering configuration'
+          : 'Created document numbering configuration'
+      };
+
+      if (editingId) {
+        await api.updateNumberingFormat(editingId, payload);
+        showNotice('success', 'Numbering format updated successfully.');
+      } else {
+        const res =await api.createNumberingFormat(payload);
+        setData(prev => [...prev, res]);
+        showNotice('success', 'Numbering format created successfully.');
+
+      }
+
+      resetForm();
       onRefresh();
-    } catch (err: any) {
-      showNotice('error', err.message);
+    } catch (err: unknown) {
+      showNotice(
+        'error',
+        err instanceof Error ? err.message : 'Failed to save numbering format.'
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-white">Dynamic Document Numbering Formats</h2>
-        <p className="text-xs text-slate-400">
-          Configure voucher and document number templates: {'{BRANCH}'}, {'{YEAR}'}, {'{MONTH}'}, {'{NUMBER}'} (Req #19, Test #10).
+  const previewPattern = () => {
+    const now = new Date();
+
+    const branch = form.branch_specific ? 'BRANCH' : '';
+    const year = form.include_year ? String(now.getFullYear()) : '';
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const number = String(form.next_number).padStart(form.padding, '0');
+
+    return form.pattern
+      .replaceAll('{PREFIX}', form.prefix || 'PREFIX')
+      .replaceAll('{BRANCH}', branch)
+      .replaceAll('{YEAR}', year)
+      .replaceAll('{MONTH}', month)
+      .replaceAll('{NUMBER}', number)
+      .replace(/-{2,}/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  const renderForm = () => (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        void handleSave();
+      }}
+      className="bg-slate-800/80 rounded-xl p-5 border border-slate-700 space-y-5"
+    >
+      <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 className="text-sm font-bold text-emerald-400">
+          {editingId ? 'Edit Numbering Format' : 'Create Numbering Format'}
+        </h3>
+
+        <button
+          type="button"
+          onClick={resetForm}
+          className="text-slate-400 hover:text-white"
+          aria-label="Close form"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-slate-300 mb-1.5">
+            Module
+          </label>
+          <input
+            required
+            maxLength={50}
+            value={form.module}
+            onChange={e => updateField('module', e.target.value)}
+            placeholder="e.g. Journal Voucher"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-300 mb-1.5">
+            Prefix
+          </label>
+          <input
+            required
+            maxLength={20}
+            value={form.prefix}
+            onChange={e => updateField('prefix', e.target.value.toUpperCase())}
+            placeholder="e.g. JV"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-300 mb-1.5">
+            Number Padding
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={12}
+            required
+            value={form.padding}
+            onChange={e => updateField('padding', Number(e.target.value))}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          />
+          <p className="text-[10px] text-slate-500 mt-1">
+            Example: 5 digits produces 00001.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-300 mb-1.5">
+            Next Number
+          </label>
+          <input
+            type="number"
+            min={1}
+            required
+            value={form.next_number}
+            onChange={e => updateField('next_number', Number(e.target.value))}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          />
+          <p className="text-[10px] text-slate-500 mt-1">
+            Set the next sequence value. Restrict changes after transactions exist.
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-xs text-slate-300 mb-1.5">
+            Pattern Template
+          </label>
+          <input
+            required
+            maxLength={100}
+            value={form.pattern}
+            onChange={e => updateField('pattern', e.target.value.toUpperCase())}
+            placeholder="{PREFIX}-{BRANCH}-{YEAR}-{NUMBER}"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <label className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900 rounded-lg p-3 border border-slate-700">
+          <input
+            type="checkbox"
+            checked={form.branch_specific}
+            onChange={e => updateField('branch_specific', e.target.checked)}
+            className="accent-emerald-500"
+          />
+          Branch-specific numbering
+        </label>
+
+        <label className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900 rounded-lg p-3 border border-slate-700">
+          <input
+            type="checkbox"
+            checked={form.include_year}
+            onChange={e => updateField('include_year', e.target.checked)}
+            className="accent-emerald-500"
+          />
+          Include fiscal/calendar year
+        </label>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">
+          Numbering Preview
+        </p>
+        <p className="font-mono text-lg font-bold text-emerald-400 break-all">
+          {previewPattern() || 'Configure your pattern'}
+        </p>
+        <p className="text-[10px] text-slate-500 mt-2">
+          Tokens: {'{PREFIX}'} {'{BRANCH}'} {'{YEAR}'} {'{MONTH}'} {'{NUMBER}'}
         </p>
       </div>
 
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={resetForm}
+          disabled={isSaving}
+          className="px-4 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs disabled:opacity-50"
+        >
+          {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Format'}
+        </button>
+      </div>
+    </form>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white">
+            Dynamic Document Numbering Formats
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Configure prefixes, sequence padding, branch-specific numbering,
+            and document templates.
+          </p>
+        </div>
+
+        {!isAdding && !editingId && (
+          <button
+            type="button"
+            onClick={() => {
+              setForm(emptyForm);
+              setIsAdding(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            New Numbering Format
+          </button>
+        )}
+      </div>
+
+      {(isAdding || editingId) && renderForm()}
+
       <div className="space-y-3">
-        {formats.map(f => {
-          const isEditing = editingId === f.id;
-          return (
-            <div key={f.id} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-white">{f.module}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-bold">
+        {formats.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center">
+            <p className="text-sm text-slate-300">
+              No numbering formats configured.
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Create a format to start numbering documents.
+            </p>
+          </div>
+        ) : (
+          formats.map(f => (
+            <div
+              key={f.id}
+              className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-white">
+                    {f.module}
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                     Prefix: {f.prefix}
                   </span>
+                  {Boolean(Number(f.branch_specific)) && (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                      Branch-specific
+                    </span>
+                  )}
+                  {Boolean(Number(f.include_year)) && (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400">
+                      Year included
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs text-slate-300 font-mono mt-1">
-                  Pattern: <strong className="text-emerald-400">{f.pattern}</strong>
+
+                <div className="text-xs text-slate-300 font-mono mt-2 break-all">
+                  Pattern:{' '}
+                  <strong className="text-emerald-400">{f.pattern}</strong>
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  Seq: #{f.current_seq} (Padded to {f.length} digits)
+
+                <div className="text-[11px] text-slate-400 mt-1">
+                  Next number: #{f.next_number} · Padding: {f.padding} digits
                 </div>
               </div>
 
-              {isEditing ? (
-                <div className="flex items-center space-x-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
-                  <div>
-                    <label className="text-[10px] text-slate-400 block">Template Pattern</label>
-                    <input
-                      type="text"
-                      value={pattern}
-                      onChange={e => setPattern(e.target.value)}
-                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white w-48 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-400 block">Length</label>
-                    <input
-                      type="number"
-                      value={length}
-                      onChange={e => setLength(parseInt(e.target.value) || 6)}
-                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white w-16"
-                    />
-                  </div>
-                  <div className="flex items-end space-x-1 pt-3">
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      id="btn-save-numbering-pattern"
-                      onClick={() => handleSave(f.id)}
-                      className="px-3 py-1 bg-emerald-600 text-white font-semibold text-xs rounded"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  id={`btn-edit-num-${f.id}`}
-                  onClick={() => {
-                    setEditingId(f.id);
-                    setPattern(f.pattern);
-                    setLength(f.length);
-                  }}
-                  className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer shrink-0"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>Edit Pattern</span>
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => startEdit(f)}
+                className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-medium shrink-0"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Edit Format
+              </button>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );
 }
+
 
 // ==========================================
 // SUB-PANEL: BRANCH NETWORK (Req 20, Test 11)
@@ -3532,65 +3828,387 @@ function AccountingPeriodsConfig({
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [newPeriod, setNewPeriod] = useState({
+    name: '',
+    start_date: '',
+    end_date: ''
+  });
+
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!newPeriod.name.trim()) {
+      showNotice('error', 'Please enter an accounting period name.');
+      return;
+    }
+
+    if (!newPeriod.start_date || !newPeriod.end_date) {
+      showNotice('error', 'Please select the start and end dates.');
+      return;
+    }
+
+    if (newPeriod.start_date > newPeriod.end_date) {
+      showNotice('error', 'The start date cannot be after the end date.');
+      return;
+    }
+
+    // Prevent overlapping accounting periods.
+    const overlaps = periods.some(p => {
+      return (
+        newPeriod.start_date <= p.end_date &&
+        newPeriod.end_date >= p.start_date
+      );
+    });
+
+    if (overlaps) {
+      showNotice(
+        'error',
+        'This date range overlaps an existing accounting period.'
+      );
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Implement this API method in your API service.
+      await api.createAccountingPeriod({
+        name: newPeriod.name.trim(),
+        start_date: newPeriod.start_date,
+        end_date: newPeriod.end_date,
+        status: 'Open',
+        created_by: currentUser.name
+      });
+
+      showNotice('success', 'Accounting period created successfully.');
+
+      setNewPeriod({
+        name: '',
+        start_date: '',
+        end_date: ''
+      });
+
+      setIsAdding(false);
+      onRefresh();
+    } catch (err: unknown) {
+      showNotice(
+        'error',
+        err instanceof Error
+          ? err.message
+          : 'Failed to create accounting period.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleTogglePeriod = async (p: AccountingPeriod) => {
     try {
       if (p.status === 'Open') {
         await api.closeAccountingPeriod(p.id, currentUser.name);
-        showNotice('success', `Accounting period "${p.name}" is now CLOSED. Unauthorized postings into this period will be blocked.`);
+
+        showNotice(
+          'success',
+          `Accounting period "${p.name}" is now CLOSED.`
+        );
       } else {
         await api.reopenAccountingPeriod(p.id, currentUser.name);
-        showNotice('success', `Accounting period "${p.name}" is now REOPENED.`);
+
+        showNotice(
+          'success',
+          `Accounting period "${p.name}" is now REOPENED.`
+        );
       }
+
       onRefresh();
-    } catch (err: any) {
-      showNotice('error', err.message);
+    } catch (err: unknown) {
+      showNotice(
+        'error',
+        err instanceof Error ? err.message : 'Failed to update period.'
+      );
     }
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-white">Fiscal Accounting Periods & Cutoff Protection</h2>
-        <p className="text-xs text-slate-400">
-          Close or reopen accounting periods. Once closed, the Accounting Engine strictly blocks any operational transaction posting into that period (Req #29, Test #15).
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center
+                      sm:justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white">
+            Fiscal Accounting Periods
+          </h2>
+
+          <p className="text-xs text-slate-400 mt-1">
+            Manage fiscal periods and prevent unauthorized postings
+            to closed periods.
+          </p>
+        </div>
+
+        {!isAdding && (
+          <button
+            type="button"
+            onClick={() => setIsAdding(true)}
+            className="inline-flex items-center justify-center gap-2
+                       px-4 py-2 rounded-lg bg-emerald-600
+                       hover:bg-emerald-500 text-white text-xs
+                       font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            New Accounting Period
+          </button>
+        )}
       </div>
 
-      <div className="space-y-3">
-        {periods.map(p => (
-          <div key={p.id} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 flex items-center justify-between">
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-white">{p.name}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                  p.status === 'Closed' ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'
-                }`}>
-                  {p.status}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {p.start_date} through {p.end_date}
-              </p>
-              {p.closed_at && (
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Closed on {new Date(p.closed_at).toLocaleDateString()} by {p.closed_by}
-                </p>
-              )}
+      {/* Create Accounting Period Form */}
+      {isAdding && (
+        <form
+          onSubmit={handleCreate}
+          className="bg-slate-800/80 rounded-xl p-5
+                     border border-slate-700 space-y-5"
+        >
+          <div className="flex items-center justify-between
+                          border-b border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-emerald-400" />
+
+              <h3 className="text-sm font-bold text-white">
+                Create Accounting Period
+              </h3>
             </div>
 
             <button
-              id={`btn-toggle-period-${p.id}`}
-              onClick={() => handleTogglePeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                p.status === 'Open'
-                  ? 'bg-rose-600/80 hover:bg-rose-600 text-white'
-                  : 'bg-emerald-600/80 hover:bg-emerald-600 text-white'
-              }`}
+              type="button"
+              onClick={() => setIsAdding(false)}
+              className="text-slate-400 hover:text-white"
+              aria-label="Close form"
             >
-              {p.status === 'Open' ? 'Close Period' : 'Reopen Period'}
+              <X className="w-4 h-4" />
             </button>
           </div>
-        ))}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Period Name */}
+            <div className="md:col-span-2">
+              <label
+                htmlFor="period-name"
+                className="block text-xs text-slate-300 font-medium mb-1.5"
+              >
+                Accounting Period Name
+              </label>
+
+              <input
+                id="period-name"
+                type="text"
+                required
+                maxLength={100}
+                placeholder="e.g. October 2026"
+                value={newPeriod.name}
+                onChange={e =>
+                  setNewPeriod({
+                    ...newPeriod,
+                    name: e.target.value
+                  })
+                }
+                className="w-full bg-slate-900 border border-slate-700
+                           rounded-lg px-3 py-2.5 text-sm text-white
+                           placeholder:text-slate-500 focus:outline-none
+                           focus:border-emerald-500"
+              />
+
+              <p className="text-[11px] text-slate-500 mt-1">
+                Use a monthly, quarterly, or annual period name.
+              </p>
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label
+                htmlFor="period-start"
+                className="block text-xs text-slate-300 font-medium mb-1.5"
+              >
+                Start Date
+              </label>
+
+              <input
+                id="period-start"
+                type="date"
+                required
+                value={newPeriod.start_date}
+                max={newPeriod.end_date || undefined}
+                onChange={e =>
+                  setNewPeriod({
+                    ...newPeriod,
+                    start_date: e.target.value
+                  })
+                }
+                className="w-full bg-slate-900 border border-slate-700
+                           rounded-lg px-3 py-2.5 text-sm text-white
+                           focus:outline-none focus:border-emerald-500
+                           [color-scheme:dark]"
+              />
+            </div>
+
+            {/* End Date */}
+            <div>
+              <label
+                htmlFor="period-end"
+                className="block text-xs text-slate-300 font-medium mb-1.5"
+              >
+                End Date
+              </label>
+
+              <input
+                id="period-end"
+                type="date"
+                required
+                min={newPeriod.start_date || undefined}
+                value={newPeriod.end_date}
+                onChange={e =>
+                  setNewPeriod({
+                    ...newPeriod,
+                    end_date: e.target.value
+                  })
+                }
+                className="w-full bg-slate-900 border border-slate-700
+                           rounded-lg px-3 py-2.5 text-sm text-white
+                           focus:outline-none focus:border-emerald-500
+                           [color-scheme:dark]"
+              />
+            </div>
+          </div>
+
+          {/* Date Range Preview */}
+          {newPeriod.start_date && newPeriod.end_date && (
+            <div className="rounded-lg bg-slate-900/80 border
+                            border-slate-700 p-3">
+              <p className="text-[11px] text-slate-400 mb-1">
+                Selected Accounting Period
+              </p>
+
+              <p className="text-sm text-emerald-400 font-semibold">
+                {new Date(
+                  `${newPeriod.start_date}T12:00:00`
+                ).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+                {' — '}
+                {new Date(
+                  `${newPeriod.end_date}T12:00:00`
+                ).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </p>
+
+              {newPeriod.start_date > newPeriod.end_date && (
+                <p className="text-xs text-rose-400 mt-1">
+                  End date must not be earlier than start date.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsAdding(false)}
+              disabled={isSaving}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600
+                         text-slate-200 rounded-lg text-xs font-medium
+                         disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500
+                         text-white rounded-lg text-xs font-semibold
+                         disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Create Period'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Existing Accounting Periods */}
+      <div className="space-y-3">
+        {periods.length === 0 ? (
+          <div className="rounded-xl border border-dashed
+                          border-slate-700 p-8 text-center">
+            <CalendarDays className="w-8 h-8 text-slate-500 mx-auto mb-3" />
+
+            <p className="text-sm font-medium text-slate-300">
+              No accounting periods found
+            </p>
+
+            <p className="text-xs text-slate-500 mt-1">
+              Create your first accounting period to begin.
+            </p>
+          </div>
+        ) : (
+          periods.map(p => (
+            <div
+              key={p.id}
+              className="bg-slate-800/60 rounded-xl p-4
+                         border border-slate-700 flex flex-col
+                         sm:flex-row sm:items-center sm:justify-between gap-4"
+            >
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-bold text-white">
+                    {p.name}
+                  </span>
+
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                      p.status === 'Closed'
+                        ? 'bg-rose-500/20 text-rose-400'
+                        : 'bg-emerald-500/20 text-emerald-400'
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400 mt-1">
+                  {p.start_date} through {p.end_date}
+                </p>
+
+                {p.closed_at && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Closed on{' '}
+                    {new Date(p.closed_at).toLocaleDateString()}
+                    {p.closed_by ? ` by ${p.closed_by}` : ''}
+                  </p>
+                )}
+              </div>
+
+              <button
+                id={`btn-toggle-period-${p.id}`}
+                type="button"
+                onClick={() => handleTogglePeriod(p)}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold
+                            transition ${
+                              p.status === 'Open'
+                                ? 'bg-rose-600/80 hover:bg-rose-600 text-white'
+                                : 'bg-emerald-600/80 hover:bg-emerald-600 text-white'
+                            }`}
+              >
+                {p.status === 'Open' ? 'Close Period' : 'Reopen Period'}
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

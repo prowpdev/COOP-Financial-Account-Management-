@@ -80,14 +80,17 @@ export interface AccountingPeriod {
   closed_by: string | null;
 }
 
-export interface NumberingFormat {
+type NumberingFormat = {
   id: string;
   module: string;
   prefix: string;
+  branch_specific: number | boolean;
+  include_year: number | boolean;
+  padding: number;
+  next_number: number;
   pattern: string;
-  length: number;
-  current_seq: number;
-}
+  created_at?: string;
+};
 
 export interface ApprovalWorkflow {
   id: string;
