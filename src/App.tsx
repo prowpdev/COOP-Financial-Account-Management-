@@ -335,14 +335,14 @@ export default function App() {
         mtRes,
         cfRes
       ] = await Promise.all([
-        api.getCoopProfile(),
-        api.getBranches(),
-        api.getFeatureToggles(),
-        api.getAccounts(),
-        api.getLoanProducts(),
-        api.getCashAccounts(),
-        api.getMemberTypes(),
-        api.getCustomFields()
+        api.getCoopProfile().catch(() => ({ data: null })),
+        api.getBranches().catch(() => ({ data: [] })),
+        api.getFeatureToggles().catch(() => ({ data: null })),
+        api.getAccounts().catch(() => ({ data: [] })),
+        api.getLoanProducts().catch(() => ({ data: [] })),
+        api.getCashAccounts().catch(() => ({ data: [] })),
+        api.getMemberTypes().catch(() => ({ data: [] })),
+        api.getCustomFields().catch(() => ({ data: [] }))
       ]);
 
       if (profRes.data) setProfile(profRes.data);

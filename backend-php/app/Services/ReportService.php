@@ -657,6 +657,9 @@ class ReportService
         return [
             'total_members'           => $totalMembers,
             'active_loans_count'      => $loansActive,
+        return [
+            'total_members'           => $totalMembers,
+            'active_loans_count'      => $loansActive,
             'outstanding_portfolio'   => round($loanPortfolio, 2),
             'total_savings_deposits'  => round($savingsTotal, 2),
             'total_share_capital'     => round($shareCapitalTotal, 2),
@@ -665,8 +668,26 @@ class ReportService
             'total_journal_vouchers'  => $totalJournalVouchers,
         ];
     }
+
+    /**
+     * Get accounting periods list
+     */
+    public function getAccountingPeriods(?string $fiscalYear = null): array
+    {
+        $sql = "SELECT * FROM accounting_periods WHERE 1=1";
+        $params = [];
+        if (!empty($fiscalYear)) {
+            $sql .= " AND fiscal_year = :fiscal_year";
+            $params['fiscal_year'] = $fiscalYear;
+        }
+        $sql .= " ORDER BY fiscal_year DESC, period_number DESC, start_date DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     // generate report base on the period id
-    public function getJournalEntries(?string $periodId = null,?string $branchId = null): array 
+    public function getJournalEntries(?string $periodId = null, ?string $branchId = null): array 
     {
         $sql = "
             SELECT
@@ -717,5 +738,419 @@ class ReportService
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get comprehensive Journal Entries & GL Lines report filtered by period, branch, member, and GL accounts
+     */
+    public function getJournalEntriesReport(
+        ?string $periodId = null,
+        ?string $branchId = null,
+        ?string $memberId = null,
+        ?string $startDate = null,
+        ?string $endDate = null,
+        ?array $glAccounts = null
+    ): array {
+        $period = null;
+        if (!empty($periodId) && $periodId !== 'all') {
+            $periodStmt = $this->db->prepare("SELECT * FROM accounting_periods WHERE id = :id LIMIT 1");
+            $periodStmt->execute(['id' => $periodId]);
+            $period = $periodStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+
+        $effectiveStart = $startDate ?: ($period['start_date'] ?? null);
+        $effectiveEnd = $endDate ?: ($period['end_date'] ?? null);
+
+        $sql = "
+            SELECT
+                jl.id,
+                jl.journal_entry_id,
+                je.voucher_number,
+                COALESCE(je.reference_type, 'JV') AS voucher_type,
+                je.posting_date,
+                je.description,
+                je.reference_type,
+                je.reference_id,
+                je.status,
+                je.created_by,
+                jl.account_id,
+                coa.account_code,
+                coa.name AS account_name,
+                coa.category AS account_category,
+                coa.normal_balance,
+                jl.debit,
+                jl.credit,
+                jl.subsidiary_type,
+                jl.subsidiary_id,
+                m.member_no AS member_number,
+                CONCAT(m.first_name, ' ', m.last_name) AS member_name,
+                je.branch_id,
+                COALESCE(b.name, 'Main Branch') AS branch_name
+            FROM journal_lines jl
+            INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+            INNER JOIN chart_of_accounts coa ON coa.id = jl.account_id
+            LEFT JOIN members m ON m.id = jl.subsidiary_id
+            LEFT JOIN branches b ON b.id = je.branch_id
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+
+        if (!empty($branchId) && $branchId !== 'all') {
+            $sql .= " AND je.branch_id = :branch_id";
+            $params['branch_id'] = $branchId;
+        }
+
+        if (!empty($periodId) && !empty($period)) {
+            $sql .= " AND je.period_id = :period_id";
+            $params['period_id'] = $periodId;
+        } elseif (!empty($effectiveStart) && !empty($effectiveEnd)) {
+            $sql .= " AND je.posting_date >= :start_date AND je.posting_date <= :end_date";
+            $params['start_date'] = $effectiveStart;
+            $params['end_date'] = $effectiveEnd;
+        }
+
+        if (!empty($memberId) && $memberId !== 'all') {
+            $sql .= " AND jl.subsidiary_id = :member_id";
+            $params['member_id'] = $memberId;
+        }
+
+        if (!empty($glAccounts) && count($glAccounts) > 0) {
+            $glClauses = [];
+            foreach ($glAccounts as $idx => $code) {
+                $pName = "gl_" . $idx;
+                $glClauses[] = "(coa.account_code = :{$pName} OR jl.account_id = :{$pName})";
+                $params[$pName] = trim((string)$code);
+            }
+            $sql .= " AND (" . implode(" OR ", $glClauses) . ")";
+        }
+
+        $sql .= " ORDER BY je.posting_date ASC, je.id ASC, jl.id ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $rawLines = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $runningBalance = 0.0;
+        $totalDebit = 0.0;
+        $totalCredit = 0.0;
+        $lines = [];
+
+        foreach ($rawLines as $line) {
+            $debit = (float)($line['debit'] ?? 0);
+            $credit = (float)($line['credit'] ?? 0);
+            $runningBalance += ($debit - $credit);
+            $totalDebit += $debit;
+            $totalCredit += $credit;
+
+            $lines[] = [
+                'id' => $line['id'],
+                'journal_entry_id' => $line['journal_entry_id'],
+                'voucher_number' => $line['voucher_number'] ?: $line['journal_entry_id'],
+                'voucher_type' => $line['voucher_type'] ?: 'JV',
+                'posting_date' => $line['posting_date'] ?? '',
+                'description' => $line['description'] ?? '',
+                'reference_type' => $line['reference_type'] ?? '',
+                'reference_id' => $line['reference_id'] ?? '',
+                'status' => $line['status'] ?? 'Posted',
+                'created_by' => $line['created_by'] ?? '',
+                'account_id' => $line['account_id'],
+                'account_code' => $line['account_code'] ?: $line['account_id'],
+                'account_name' => $line['account_name'] ?: 'General Ledger Account',
+                'account_category' => $line['account_category'] ?: 'Other',
+                'normal_balance' => $line['normal_balance'] ?: 'Debit',
+                'debit' => round($debit, 2),
+                'credit' => round($credit, 2),
+                'net_change' => round($debit - $credit, 2),
+                'running_balance' => round($runningBalance, 2),
+                'subsidiary_type' => $line['subsidiary_type'],
+                'subsidiary_id' => $line['subsidiary_id'],
+                'member_name' => $line['member_name'] ? trim($line['member_name']) : null,
+                'member_number' => $line['member_number'] ?: null,
+                'branch_id' => $line['branch_id'] ?: 'branch_tar',
+                'branch_name' => $line['branch_name'] ?: 'Main Branch'
+            ];
+        }
+
+        return [
+            'period' => $period ?: ($effectiveStart ? [
+                'name' => "{$effectiveStart} to {$effectiveEnd}",
+                'start_date' => $effectiveStart,
+                'end_date' => $effectiveEnd
+            ] : null),
+            'count' => count($lines),
+            'total_debit' => round($totalDebit, 2),
+            'total_credit' => round($totalCredit, 2),
+            'net_balance' => round($totalDebit - $totalCredit, 2),
+            'lines' => $lines
+        ];
+    }
+
+    /**
+     * Get member transactions report (Savings, Share Capital CBU, Loan payments)
+     * filtered by period, branch, member, and GL accounts
+     */
+    public function getMemberTransactionsReport(
+        ?string $periodId = null,
+        ?string $branchId = null,
+        ?string $memberId = null,
+        ?string $startDate = null,
+        ?string $endDate = null,
+        ?array $glAccounts = null
+    ): array {
+        $period = null;
+        if (!empty($periodId) && $periodId !== 'all') {
+            $periodStmt = $this->db->prepare("SELECT * FROM accounting_periods WHERE id = :id LIMIT 1");
+            $periodStmt->execute(['id' => $periodId]);
+            $period = $periodStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+
+        $effectiveStart = $startDate ?: ($period['start_date'] ?? null);
+        $effectiveEnd = $endDate ?: ($period['end_date'] ?? null);
+
+        $coaStmt = $this->db->query("SELECT id, account_code, name FROM chart_of_accounts");
+        $coaRows = $coaStmt ? $coaStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $coaMap = [];
+        foreach ($coaRows as $c) {
+            $code = $c['account_code'] ?: $c['id'];
+            $coaMap[$code] = $c['name'];
+            $coaMap[$c['id']] = $c['name'];
+        }
+
+        $savingsGlCode = '2110';
+        $savingsGlName = $coaMap['2110'] ?? 'Savings Deposits Payable';
+
+        $cbuGlCode = '3110';
+        $cbuGlName = $coaMap['3110'] ?? 'Paid-Up Share Capital';
+
+        $loanGlCode = '1210';
+        $loanGlName = $coaMap['1210'] ?? 'Loans Receivable';
+
+        $results = [];
+
+        // 1. Savings Transactions
+        $sqlSavings = "
+            SELECT
+                st.id,
+                st.transaction_no,
+                st.savings_account_id,
+                st.member_id,
+                st.type,
+                st.amount,
+                st.balance_after,
+                st.transaction_date,
+                st.notes,
+                m.member_no,
+                m.first_name,
+                m.last_name,
+                m.branch_id,
+                COALESCE(b.name, 'Main Branch') AS branch_name
+            FROM savings_transactions st
+            INNER JOIN members m ON m.id = st.member_id
+            LEFT JOIN branches b ON b.id = m.branch_id
+            WHERE 1 = 1
+        ";
+        $savParams = [];
+        if (!empty($branchId) && $branchId !== 'all') {
+            $sqlSavings .= " AND m.branch_id = :branch_id";
+            $savParams['branch_id'] = $branchId;
+        }
+        if (!empty($memberId) && $memberId !== 'all') {
+            $sqlSavings .= " AND st.member_id = :member_id";
+            $savParams['member_id'] = $memberId;
+        }
+        if (!empty($effectiveStart) && !empty($effectiveEnd)) {
+            $sqlSavings .= " AND st.transaction_date >= :start_date AND st.transaction_date <= :end_date";
+            $savParams['start_date'] = $effectiveStart;
+            $savParams['end_date'] = $effectiveEnd;
+        }
+
+        $stmtSavings = $this->db->prepare($sqlSavings);
+        $stmtSavings->execute($savParams);
+        $savRows = $stmtSavings->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($savRows as $st) {
+            $isDeposit = str_contains(strtolower((string)$st['type']), 'deposit');
+            $amt = (float)($st['amount'] ?? 0);
+            $results[] = [
+                'id' => $st['id'],
+                'date' => substr((string)$st['transaction_date'], 0, 10),
+                'member_id' => $st['member_id'],
+                'member_no' => $st['member_no'] ?: 'MEM-N/A',
+                'member_name' => trim(($st['first_name'] ?? '') . ' ' . ($st['last_name'] ?? '')) ?: 'Unknown Member',
+                'product_type' => 'Savings Deposit',
+                'account_number' => $st['savings_account_id'],
+                'reference_no' => $st['transaction_no'] ?: $st['id'],
+                'description' => $st['notes'] ?: "Savings {$st['type']}",
+                'transaction_type' => $st['type'],
+                'debit' => !$isDeposit ? round($amt, 2) : 0.0,
+                'credit' => $isDeposit ? round($amt, 2) : 0.0,
+                'balance_after' => round((float)($st['balance_after'] ?? 0), 2),
+                'gl_code' => $savingsGlCode,
+                'gl_name' => $savingsGlName,
+                'branch_id' => $st['branch_id'] ?: 'branch_tar',
+                'branch_name' => $st['branch_name'] ?: 'Main Branch'
+            ];
+        }
+
+        // 2. Share Capital (CBU) Transactions
+        $sqlCbu = "
+            SELECT
+                sct.id,
+                sct.receipt_no,
+                sct.share_account_id,
+                sct.member_id,
+                sct.type,
+                sct.shares,
+                sct.amount,
+                sct.transaction_date,
+                m.member_no,
+                m.first_name,
+                m.last_name,
+                m.branch_id,
+                COALESCE(b.name, 'Main Branch') AS branch_name
+            FROM share_capital_transactions sct
+            INNER JOIN members m ON m.id = sct.member_id
+            LEFT JOIN branches b ON b.id = m.branch_id
+            WHERE 1 = 1
+        ";
+        $cbuParams = [];
+        if (!empty($branchId) && $branchId !== 'all') {
+            $sqlCbu .= " AND m.branch_id = :branch_id";
+            $cbuParams['branch_id'] = $branchId;
+        }
+        if (!empty($memberId) && $memberId !== 'all') {
+            $sqlCbu .= " AND sct.member_id = :member_id";
+            $cbuParams['member_id'] = $memberId;
+        }
+        if (!empty($effectiveStart) && !empty($effectiveEnd)) {
+            $sqlCbu .= " AND sct.transaction_date >= :start_date AND sct.transaction_date <= :end_date";
+            $cbuParams['start_date'] = $effectiveStart;
+            $cbuParams['end_date'] = $effectiveEnd;
+        }
+
+        $stmtCbu = $this->db->prepare($sqlCbu);
+        $stmtCbu->execute($cbuParams);
+        $cbuRows = $stmtCbu->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($cbuRows as $ct) {
+            $amt = (float)($ct['amount'] ?? 0);
+            $results[] = [
+                'id' => $ct['id'],
+                'date' => substr((string)$ct['transaction_date'], 0, 10),
+                'member_id' => $ct['member_id'],
+                'member_no' => $ct['member_no'] ?: 'MEM-N/A',
+                'member_name' => trim(($ct['first_name'] ?? '') . ' ' . ($ct['last_name'] ?? '')) ?: 'Unknown Member',
+                'product_type' => 'Share Capital (CBU)',
+                'account_number' => $ct['share_account_id'],
+                'reference_no' => $ct['receipt_no'] ?: $ct['id'],
+                'description' => "CBU {$ct['type']} (" . ($ct['shares'] ?? 0) . " shares)",
+                'transaction_type' => $ct['type'],
+                'debit' => 0.0,
+                'credit' => round($amt, 2),
+                'balance_after' => 0.0,
+                'gl_code' => $cbuGlCode,
+                'gl_name' => $cbuGlName,
+                'branch_id' => $ct['branch_id'] ?: 'branch_tar',
+                'branch_name' => $ct['branch_name'] ?: 'Main Branch'
+            ];
+        }
+
+        // 3. Loan Payments (GL 1210)
+        $sqlLp = "
+            SELECT
+                lp.id,
+                lp.receipt_no,
+                lp.loan_id,
+                lp.member_id,
+                lp.payment_date,
+                lp.total_amount,
+                m.member_no,
+                m.first_name,
+                m.last_name,
+                m.branch_id,
+                COALESCE(b.name, 'Main Branch') AS branch_name,
+                l.loan_account_no
+            FROM loan_payments lp
+            INNER JOIN members m ON m.id = lp.member_id
+            LEFT JOIN loans l ON l.id = lp.loan_id
+            LEFT JOIN branches b ON b.id = m.branch_id
+            WHERE 1 = 1
+        ";
+        $lpParams = [];
+        if (!empty($branchId) && $branchId !== 'all') {
+            $sqlLp .= " AND m.branch_id = :branch_id";
+            $lpParams['branch_id'] = $branchId;
+        }
+        if (!empty($memberId) && $memberId !== 'all') {
+            $sqlLp .= " AND lp.member_id = :member_id";
+            $lpParams['member_id'] = $memberId;
+        }
+        if (!empty($effectiveStart) && !empty($effectiveEnd)) {
+            $sqlLp .= " AND lp.payment_date >= :start_date AND lp.payment_date <= :end_date";
+            $lpParams['start_date'] = $effectiveStart;
+            $lpParams['end_date'] = $effectiveEnd;
+        }
+
+        $stmtLp = $this->db->prepare($sqlLp);
+        $stmtLp->execute($lpParams);
+        $lpRows = $stmtLp->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($lpRows as $lp) {
+            $amt = (float)($lp['total_amount'] ?? 0);
+            $results[] = [
+                'id' => $lp['id'],
+                'date' => substr((string)$lp['payment_date'], 0, 10),
+                'member_id' => $lp['member_id'],
+                'member_no' => $lp['member_no'] ?: 'MEM-N/A',
+                'member_name' => trim(($lp['first_name'] ?? '') . ' ' . ($lp['last_name'] ?? '')) ?: 'Unknown Member',
+                'product_type' => 'Loan Amortization',
+                'account_number' => $lp['loan_id'],
+                'reference_no' => $lp['receipt_no'] ?: $lp['id'],
+                'description' => "Amortization payment for Loan " . ($lp['loan_account_no'] ?: $lp['loan_id']),
+                'transaction_type' => 'Loan Payment',
+                'debit' => 0.0,
+                'credit' => round($amt, 2),
+                'balance_after' => 0.0,
+                'gl_code' => $loanGlCode,
+                'gl_name' => $loanGlName,
+                'branch_id' => $lp['branch_id'] ?: 'branch_tar',
+                'branch_name' => $lp['branch_name'] ?: 'Main Branch'
+            ];
+        }
+
+        // Filter by gl_accounts if specified
+        $finalResults = $results;
+        if (!empty($glAccounts) && count($glAccounts) > 0) {
+            $glLookup = array_flip(array_map('strval', $glAccounts));
+            $finalResults = array_values(array_filter($results, function ($r) use ($glLookup) {
+                $code = (string)($r['gl_code'] ?? '');
+                return isset($glLookup[$code]) || isset($glLookup["acc_{$code}"]);
+            }));
+        }
+
+        // Sort by date ascending
+        usort($finalResults, function ($a, $b) {
+            return strcmp((string)$a['date'], (string)$b['date']);
+        });
+
+        $totalDebit = 0.0;
+        $totalCredit = 0.0;
+        foreach ($finalResults as $r) {
+            $totalDebit += (float)$r['debit'];
+            $totalCredit += (float)$r['credit'];
+        }
+
+        return [
+            'period' => $period ?: ($effectiveStart ? [
+                'name' => "{$effectiveStart} to {$effectiveEnd}",
+                'start_date' => $effectiveStart,
+                'end_date' => $effectiveEnd
+            ] : null),
+            'count' => count($finalResults),
+            'total_debit' => round($totalDebit, 2),
+            'total_credit' => round($totalCredit, 2),
+            'transactions' => $finalResults
+        ];
     }
 }

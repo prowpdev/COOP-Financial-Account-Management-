@@ -4452,12 +4452,16 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
     if (branch_id && branch_id !== 'all' && entry.branch_id !== branch_id) {
       return false;
     }
-    if (selectedPeriod && entry.period_id === selectedPeriod.id) {
-      return true;
+    const entryDate = entry.posting_date || '';
+    if (selectedPeriod) {
+      if (entry.period_id === selectedPeriod.id) return true;
+      if (effectiveStart && effectiveEnd) {
+        return entryDate >= effectiveStart && entryDate <= effectiveEnd;
+      }
+      return false;
     }
     if (effectiveStart && effectiveEnd) {
-      const date = entry.posting_date || '';
-      return date >= effectiveStart && date <= effectiveEnd;
+      return entryDate >= effectiveStart && entryDate <= effectiveEnd;
     }
     return true;
   });
@@ -4575,7 +4579,8 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
   const branchMap = new Map(branches.map(b => [b.id, b]));
 
   const inDateRange = (dateStr?: string) => {
-    if (!effectiveStart || !effectiveEnd || !dateStr) return true;
+    if (!effectiveStart || !effectiveEnd) return true;
+    if (!dateStr) return false;
     const d = dateStr.slice(0, 10);
     return d >= effectiveStart && d <= effectiveEnd;
   };

@@ -18,6 +18,16 @@ class ReportController extends BaseController
     }
 
     /**
+     * GET /api/accounting-periods
+     */
+    public function accountingPeriods(): never
+    {
+        $fiscalYear = $this->getQuery('fiscal_year');
+        $periods = $this->reports->getAccountingPeriods($fiscalYear);
+        $this->success($periods);
+    }
+
+    /**
      * GET /api/reports/trial-balance
      */
     public function trialBalance(): never
@@ -53,27 +63,56 @@ class ReportController extends BaseController
 
     /**
      * GET /api/reports/journal-entries
+     * GET /api/reports/journal-entries/:period_id
      */
     public function journalEntries(?string $periodId = null): never
     {
         $periodId = $periodId ?? $this->getQuery('period_id');
-
         $branchId = $this->getCurrentUserBranchId()
             ?? $this->getQuery('current_branch_id')
             ?? $this->getQuery('branch_id');
+        $memberId = $this->getQuery('member_id');
+        $startDate = $this->getQuery('start_date');
+        $endDate = $this->getQuery('end_date');
+        $glAccountsParam = $this->getQuery('gl_account_ids');
+        $glAccounts = $glAccountsParam ? explode(',', (string)$glAccountsParam) : null;
 
-        $entries = $this->reports->getJournalEntries(
+        $report = $this->reports->getJournalEntriesReport(
             $periodId,
-            $branchId
+            $branchId,
+            $memberId,
+            $startDate,
+            $endDate,
+            $glAccounts
         );
 
-        $this->success([
-            'data' => $entries,
-            'count' => count($entries),
-            'filters' => [
-                'period_id' => $periodId,
-                'branch_id' => $branchId,
-            ],
-        ]);
+        $this->success($report);
+    }
+
+    /**
+     * GET /api/reports/member-transactions
+     */
+    public function memberTransactions(): never
+    {
+        $periodId = $this->getQuery('period_id');
+        $branchId = $this->getCurrentUserBranchId()
+            ?? $this->getQuery('current_branch_id')
+            ?? $this->getQuery('branch_id');
+        $memberId = $this->getQuery('member_id');
+        $startDate = $this->getQuery('start_date');
+        $endDate = $this->getQuery('end_date');
+        $glAccountsParam = $this->getQuery('gl_account_ids');
+        $glAccounts = $glAccountsParam ? explode(',', (string)$glAccountsParam) : null;
+
+        $report = $this->reports->getMemberTransactionsReport(
+            $periodId,
+            $branchId,
+            $memberId,
+            $startDate,
+            $endDate,
+            $glAccounts
+        );
+
+        $this->success($report);
     }
 }

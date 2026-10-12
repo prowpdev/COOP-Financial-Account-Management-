@@ -294,12 +294,19 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     // =========================================================================
     // 12. Financial Reports & Executive Dashboard
     // =========================================================================
+    $router->get('/api/accounting-periods', [ReportController::class, 'accountingPeriods']);
+    $router->get('/accounting-periods', [ReportController::class, 'accountingPeriods']);
+    $router->get('/api/config/accounting-periods', [ReportController::class, 'accountingPeriods']);
     $router->get('/api/reports/trial-balance', [ReportController::class, 'trialBalance']);
     $router->get('/api/reports/financial-statements', [ReportController::class, 'financialStatements']);
     $router->get('/api/dashboard/stats', [ReportController::class, 'dashboardStats']);
     // reports base on periods
     $router->get('/api/reports/journal-entries', [ReportController::class, 'journalEntries']);
     $router->get('/api/reports/journal-entries/:period_id', [ReportController::class, 'journalEntries']);
+    $router->get('/reports/journal-entries', [ReportController::class, 'journalEntries']);
+    $router->get('/reports/journal-entries/:period_id', [ReportController::class, 'journalEntries']);
+    $router->get('/api/reports/member-transactions', [ReportController::class, 'memberTransactions']);
+    $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
     // Notifications
     $router->get('/notifications', [ConfigController::class, 'notifications']);
 });
