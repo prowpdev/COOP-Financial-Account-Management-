@@ -297,6 +297,8 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/api/reports/trial-balance', [ReportController::class, 'trialBalance']);
     $router->get('/api/reports/financial-statements', [ReportController::class, 'financialStatements']);
     $router->get('/api/dashboard/stats', [ReportController::class, 'dashboardStats']);
+    // reports base on periods
+    $router->get('/api/reports/journal-entries/:period_id',[ReportController::class, 'journalEntries']);
     // Notifications
     $router->get('/notifications', [ConfigController::class, 'notifications']);
 });

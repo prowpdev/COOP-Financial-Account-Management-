@@ -239,6 +239,7 @@ class AccountingService
      */
     public function createJournalEntry(array $data): array
     {
+          
         $lines = $data['lines'] ?? [];
         if (count($lines) < 2) {
             throw new \InvalidArgumentException('Journal entry must contain at least two lines.');
@@ -276,7 +277,12 @@ class AccountingService
                 $defaultRef = 'Manual JV';
             }
             $voucherNo = $data['voucher_number'] ?? ($prefix . '-' . date('Ymd') . '-' . str_pad((string)mt_rand(1, 9999), 4, '0', STR_PAD_LEFT));
+
             $postingDate = $data['posting_date'] ?? date('Y-m-d');
+            $period_id = $this->getAccountingPeriodId($data['posting_date']);
+           
+          
+
             $branchId = $data['branch_id'] ?? 'br_main';
             $created_by = $data['created_by'] ?? ($data['performed_by'] ?? 'System User');
 
@@ -300,7 +306,7 @@ class AccountingService
                 'description'    => $data['description'] ?? ($prefix . ' Entry'),
                 'total_debit'    => $totalDebit,
                 'total_credit'   => $totalCredit,
-                'period_id'      => $data['period_id'] ?? ('period_' . date('Y_m')),
+                'period_id'      => $period_id,
                 'created_by'     => $created_by
             ]);
 
@@ -433,6 +439,47 @@ class AccountingService
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /**
+ * Get the accounting period ID for a given transaction date.
+    *
+    * @param string $postingDate Date in YYYY-MM-DD format.
+    * @return string Existing accounting period ID.
+    * @throws \RuntimeException If no accounting period matches the date.
+    */
+    private function getAccountingPeriodId(string $postingDate): string
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $postingDate);
+
+        if (!$date || $date->format('Y-m-d') !== $postingDate) {
+            throw new \InvalidArgumentException(
+                "Invalid posting date: {$postingDate}. Expected YYYY-MM-DD."
+            );
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM accounting_periods
+            WHERE start_date <= :start_check
+            AND end_date >= :end_check
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            'start_check' => $postingDate,
+            'end_check'   => $postingDate,
+        ]);
+
+        $periodId = $stmt->fetchColumn();
+
+        if ($periodId === false) {
+            throw new \RuntimeException(
+                "No accounting period found for posting date {$postingDate}."
+            );
+        }
+
+        return (string) $periodId;
     }
 
     /**

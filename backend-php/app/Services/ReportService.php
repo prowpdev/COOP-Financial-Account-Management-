@@ -665,4 +665,57 @@ class ReportService
             'total_journal_vouchers'  => $totalJournalVouchers,
         ];
     }
+    // generate report base on the period id
+    public function getJournalEntries(?string $periodId = null,?string $branchId = null): array 
+    {
+        $sql = "
+            SELECT
+                je.id,
+                je.voucher_number,
+                je.branch_id,
+                je.posting_date,
+                je.reference_type,
+                je.description,
+                je.total_debit,
+                je.total_credit,
+                je.period_id,
+                je.status,
+                je.created_by,
+                je.posted_at,
+                ap.name AS period_name,
+                ap.fiscal_year,
+                ap.period_number,
+                ap.start_date AS period_start_date,
+                ap.end_date AS period_end_date
+            FROM journal_entries je
+            INNER JOIN accounting_periods ap
+                ON ap.id = je.period_id
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+
+        if (!empty($periodId)) {
+            $sql .= " AND je.period_id = :period_id";
+            $params['period_id'] = $periodId;
+        }
+
+        if (!empty($branchId)) {
+            $sql .= " AND je.branch_id = :branch_id";
+            $params['branch_id'] = $branchId;
+        }
+
+        $sql .= "
+            ORDER BY
+                ap.fiscal_year DESC,
+                ap.period_number DESC,
+                je.posting_date DESC,
+                je.posted_at DESC
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

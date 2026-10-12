@@ -47,8 +47,33 @@ class ReportController extends BaseController
     public function dashboardStats(): never
     {
         $branchId = $this->getCurrentUserBranchId() ?? $this->getQuery('current_branch_id') ?? $this->getQuery('branchId');
-        $stats = $this->reports->getDashboardStats($branchId);
+        $stats = $this->reports->getDashboardStats();
         $this->success($stats);
+    }
 
+    /**
+     * GET /api/reports/journal-entries
+     */
+    public function journalEntries(string $periodId): never
+    {
+        $periodId = $this->getQuery('period_id');
+
+        $branchId = $this->getCurrentUserBranchId()
+            ?? $this->getQuery('current_branch_id')
+            ?? $this->getQuery('branch_id');
+
+        $entries = $this->reports->getJournalEntries(
+            $periodId,
+            $branchId
+        );
+
+        $this->success([
+            'data' => $entries,
+            'count' => count($entries),
+            'filters' => [
+                'period_id' => $periodId,
+                'branch_id' => $branchId,
+            ],
+        ]);
     }
 }
