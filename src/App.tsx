@@ -347,6 +347,8 @@ export default function App() {
       if (cfRes.data) setCustomFields(cfRes.data);
     } catch (err) {
       console.error('Failed loading system context:', err);
+       clearAuthSession();
+      setAuthSession(null);
     } finally {
       setIsLoading(false);
     }

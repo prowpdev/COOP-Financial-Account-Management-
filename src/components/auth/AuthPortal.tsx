@@ -80,6 +80,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [branchFormResponseMessage, setBranchFormResponseMessage] = useState("");
   const [newBranch, setNewBranch] = useState({
     code: "",
+    coop_id: "",
     name: "",
     address: "",
     phone: "",
@@ -94,6 +95,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   return res.data.data;
 };
 
+
 useEffect(() => {
   const fetchBranches = async () => {
     try {
@@ -106,6 +108,87 @@ useEffect(() => {
 
   fetchBranches();
 }, []);
+const [newCooperative, setNewCooperative] = useState({
+  name: "",
+  coop_type: "",
+  cda_registration_no: "",
+  tax_identification_no: "",
+  contact_email: "",
+  contact_phone: "",
+  address: "",
+  fiscal_year_start: "01-01",
+  base_currency: "PHP",
+});
+
+const handleCreateCoop = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  setIsLoading(true);
+  setErrorMessage("");
+  setBranchFormResponse(false);
+  setBranchFormResponseMessage("");
+
+try {
+  const res = await axios.post(
+    `${apiEndpoint}public/cooperative/create`,
+    newCooperative
+  );
+
+  if (res.data.success) {
+    setBranchFormResponse(true);
+    setBranchFormResponseMessage(
+      res.data.message || "Cooperative created successfully."
+    );
+
+    setErrorMessage("");
+
+    setNewCooperative({
+      name: "",
+      coop_type: "",
+      cda_registration_no: "",
+      tax_identification_no: "",
+      contact_email: "",
+      contact_phone: "",
+      address: "",
+      fiscal_year_start: "01-01",
+      base_currency: "PHP",
+    });
+  } else {
+    setBranchFormResponse(false);
+    setBranchFormResponseMessage("");
+
+    setErrorMessage(
+      res.data.error ||
+        res.data.message ||
+        "Failed to create cooperative."
+    );
+  }
+} catch (err: any) {
+  setBranchFormResponse(false);
+  setBranchFormResponseMessage("");
+
+  const message =
+    err.response?.data?.error ||
+    err.response?.data?.message ||
+    err.message ||
+    "Failed to create cooperative.";
+
+  setErrorMessage(message);
+} finally {
+  setTimeout(() => {
+    setIsLoading(false);
+    setActivePortal("staff")
+    setAuthMode("login")
+     setBranchFormResponse(false);
+  },2000)
+}
+
+};
+  const [cooperatives,setCooperatives] = useState([]);
+  const loacCooperatives = async() =>{
+    const res = await api.getCooperatives();
+    setCooperatives(res.data);
+  }
 
 const handleCreate = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -135,6 +218,7 @@ const handleCreate = async (e: React.FormEvent) => {
     }
     setNewBranch({
           code: "",
+          coop_id: "",
           name: "",
           address: "",
           phone: "",
@@ -147,6 +231,9 @@ const handleCreate = async (e: React.FormEvent) => {
     setIsLoading(false);
     setTimeout(() => {
       setErrorMessage("");
+      setBranchFormResponse(false);
+      setActivePortal("staff")
+      
     }, 3000);
   }
 };
@@ -388,7 +475,8 @@ const getErrorMessage = (error: unknown): string => {
           <div className="bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl shadow-black/80 overflow-hidden backdrop-blur-xl">
            
             {/* Dual Portal Switcher: Staff Management vs Member Portal */}
-            <div className="grid grid-cols-2 p-1.5 bg-slate-950 border-b border-slate-800 text-xs font-semibold">
+            <div className="grid grid-cols-1 p-1.5 bg-slate-950 border-b border-slate-800 text-xs font-semibold">
+            {/* <div className="grid grid-cols-2 p-1.5 bg-slate-950 border-b border-slate-800 text-xs font-semibold"> */}
               <button
                 type="button"
                 id="tab-portal-staff"
@@ -415,7 +503,7 @@ const getErrorMessage = (error: unknown): string => {
                   setErrorMessage("");
                   setSuccessMessage("");
                 }}
-                className={`py-3 px-4 rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+                className={`hidden py-3 px-4 rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer ${
                   activePortal === "member"
                     ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40 border border-emerald-500/40 font-bold"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
@@ -430,7 +518,7 @@ const getErrorMessage = (error: unknown): string => {
             </div>
 
             {/* Portal Header & Sub-Tabs */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-800/60 flex items-center justify-between">
+           <div className="px-6 pt-6 pb-4 border-b border-slate-800/60 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center space-x-2">
                   <span>
@@ -449,43 +537,42 @@ const getErrorMessage = (error: unknown): string => {
                     : "View your loans, deposits, share capital, passbook and schedules."}
                 </p>
               </div>
-              {activePortal != "branch" && (
-                 <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-                <button
-                  type="button"
-                  id="auth-mode-login"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setErrorMessage("");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    authMode === "login"
-                      ? "bg-slate-800 text-white shadow"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  id="auth-mode-register"
-                  onClick={() => {
-                    setAuthMode("register");
-                    setErrorMessage("");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    authMode === "register"
-                      ? "bg-slate-800 text-white shadow"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  Register
-                </button>
+              {activePortal !== "branch" && activePortal !== "cooperative" && (
+  <div className="flex rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
+    <button
+      type="button"
+      id="auth-mode-login"
+      onClick={() => {
+        setAuthMode("login");
+        setErrorMessage("");
+      }}
+      className={`cursor-pointer rounded-lg px-3 py-1.5 font-medium transition ${
+        authMode === "login"
+          ? "bg-slate-800 text-white shadow"
+          : "text-slate-400 hover:text-slate-200"
+      }`}
+    >
+      Sign In
+    </button>
+
+    <button
+      type="button"
+      id="auth-mode-register"
+      onClick={() => {
+        setAuthMode("register");
+        setErrorMessage("");
+      }}
+      className={`cursor-pointer rounded-lg px-3 py-1.5 font-medium transition ${
+        authMode === "register"
+          ? "bg-slate-800 text-white shadow"
+          : "text-slate-400 hover:text-slate-200"
+      }`}
+    >
+      Register
+    </button>
+  </div>
+)}
               </div>
-              )}
-              {/* Toggle Login vs Register */}
-             
-            </div>
 
             {/* Notifications */}
             {errorMessage && (
@@ -517,6 +604,242 @@ const getErrorMessage = (error: unknown): string => {
                     </div>
                   </div>
               )}
+              {/* ---------------------------------------------------- */}
+              {/* BRANCH PORTAL REGISTER */}
+          
+{activePortal === "cooperative" && (
+  <form onSubmit={handleCreateCoop} className="space-y-5">
+    <div className="border-b border-slate-700 pb-3 hidden">
+      <h3 className="text-sm font-bold text-emerald-400">
+        Cooperative Information
+      </h3>
+      <p className="mt-1 text-xs text-slate-400">
+        Enter the cooperative's registration, contact, and financial information.
+      </p>
+    </div>
+
+    <div className="grid grid-cols-1 gap-4">
+      {/* Cooperative Name */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Cooperative Name <span className="text-red-400">*</span>
+        </label>
+        <input
+          type="text"
+          required
+          placeholder="e.g. Mayap Care Agriculture Coop."
+          value={newCooperative.name}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              name: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Cooperative Type */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Cooperative Type <span className="text-red-400">*</span>
+        </label>
+        <input
+          type="text"
+          required
+          placeholder="e.g. Agricultural / Multi-Purpose"
+          value={newCooperative.coop_type}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              coop_type: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* CDA Registration Number */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          CDA Registration Number
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. CDA-REG-CAR-2018-09142"
+          value={newCooperative.cda_registration_no}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              cda_registration_no: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-mono text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Tax Identification Number */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Tax Identification Number (TIN)
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. 009-881-209-000"
+          value={newCooperative.tax_identification_no}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              tax_identification_no: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Contact Email */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Contact Email
+        </label>
+        <input
+          type="email"
+          placeholder="contact@example.coop"
+          value={newCooperative.contact_email}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              contact_email: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Contact Number */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Contact Number
+        </label>
+        <input
+          type="tel"
+          placeholder="+63 (045) 982-1144"
+          value={newCooperative.contact_phone}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              contact_phone: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Office Address */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Office Physical Address
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. Barangay Care, Tarlac City, Tarlac"
+          value={newCooperative.address}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              address: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
+
+      {/* Fiscal Year */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Fiscal Year Start <span className="text-red-400">*</span>
+        </label>
+        <select
+          required
+          value={newCooperative.fiscal_year_start}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              fiscal_year_start: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        >
+          <option value="01-01">January 1</option>
+          <option value="02-01">February 1</option>
+          <option value="03-01">March 1</option>
+          <option value="04-01">April 1</option>
+          <option value="05-01">May 1</option>
+          <option value="06-01">June 1</option>
+          <option value="07-01">July 1</option>
+          <option value="08-01">August 1</option>
+          <option value="09-01">September 1</option>
+          <option value="10-01">October 1</option>
+          <option value="11-01">November 1</option>
+          <option value="12-01">December 1</option>
+        </select>
+      </div>
+
+      {/* Base Currency */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300">
+          Base Currency <span className="text-red-400">*</span>
+        </label>
+        <select
+          required
+          value={newCooperative.base_currency}
+          onChange={(e) =>
+            setNewCooperative({
+              ...newCooperative,
+              base_currency: e.target.value,
+            })
+          }
+          className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        >
+          <option value="PHP">PHP - Philippine Peso (₱)</option>
+          <option value="USD">USD - US Dollar ($)</option>
+          <option value="EUR">EUR - Euro (€)</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex justify-end gap-2 border-t border-slate-700 pt-4">
+      <button
+        type="button"
+        onClick={() => setActivePortal("staff")}
+        className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700"
+      >
+        Go Back
+      </button>
+
+      <button
+        type="submit"
+        disabled={isLoading}
+        className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isLoading ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Saving...
+          </>
+        ) : (
+          "Save Cooperative"
+        )}
+      </button>
+    </div>
+  </form>
+)}
+
+              {/* ---------------------------------------------------- */}
+              {/* ---------------------------------------------------- */}
+              {/* BRANCH PORTAL REGISTER */}
+              {/* ---------------------------------------------------- */}
               {activePortal === "branch" && (
                 <form
                 onSubmit={handleCreate}
@@ -547,7 +870,7 @@ const getErrorMessage = (error: unknown): string => {
                       className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono"
                     />
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="text-xs text-slate-300 font-medium">
                       Branch Name
                     </label>
@@ -562,7 +885,7 @@ const getErrorMessage = (error: unknown): string => {
                       className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
-                  <div>
+                 <div className="sm:col-span-3">
                     <label className="text-xs text-slate-300 font-medium">
                       Branch Manager
                     </label>
@@ -581,20 +904,6 @@ const getErrorMessage = (error: unknown): string => {
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs text-slate-300 font-medium">
-                      Office Physical Address
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Session Road, Baguio City"
-                      value={newBranch.address}
-                      onChange={(e) =>
-                        setNewBranch({ ...newBranch, address: e.target.value })
-                      }
-                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-300 font-medium">
                       Contact Number
                     </label>
                     <input
@@ -607,6 +916,44 @@ const getErrorMessage = (error: unknown): string => {
                       className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
+                  <div className="sm:col-span-1">
+                    <div>
+                      <label className="text-xs text-slate-300 font-medium">
+                        Coop Assignment
+                      </label>
+                      <select
+                      name="cooperative_name"
+                      value={newBranch.coop_id}
+                      onChange={(e) =>
+                       setNewBranch({ ...newBranch, coop_id: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    >
+                      <option value="">Select Branch</option>
+
+                      {cooperatives.map((coop) => (
+                        <option key={coop.id} value={coop.id}>
+                          {coop.name}
+                        </option>
+                      ))}
+                    </select>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="text-xs text-slate-300 font-medium">
+                      Office Physical Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Session Road, Baguio City"
+                      value={newBranch.address}
+                      onChange={(e) =>
+                        setNewBranch({ ...newBranch, address: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  
                 </div>
                 <div className="flex justify-end space-x-2 pt-2">
                   <button
@@ -691,7 +1038,18 @@ const getErrorMessage = (error: unknown): string => {
                     Please Add your Cooperative Branch?{" "}
                     <button
                       type="button"
-                      onClick={() => setActivePortal("branch")}
+                      onClick={() => {
+                        setActivePortal("branch");
+                        loacCooperatives();
+                      }}
+                      className="text-emerald-400 hover:text-emerald-300 focus:outline-none"
+                    >
+                      Register here {' '}
+                    </button>
+                    {''} Or Add Cooperative {''}
+                    <button
+                      type="button"
+                      onClick={() => setActivePortal("cooperative")}
                       className="text-emerald-400 hover:text-emerald-300 focus:outline-none"
                     >
                       Register here

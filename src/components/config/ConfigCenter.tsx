@@ -3662,6 +3662,7 @@ function BranchesConfig({
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
+
   const [isAdding, setIsAdding] = useState(false);
   const [newBranch, setNewBranch] = useState({
     code: '',
@@ -3699,7 +3700,7 @@ function BranchesConfig({
         <button
           id="btn-add-branch"
           onClick={() => setIsAdding(true)}
-          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+          className="noted hidden flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>+ Register New Branch</span>

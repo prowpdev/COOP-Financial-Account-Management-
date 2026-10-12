@@ -73,9 +73,9 @@ function addCurrentUserBranchId(url: string, branchId?: string): string {
 
   const requestUrl = new URL(url, window.location.origin);
   requestUrl.searchParams.set('current_user_branch_id', branchId);
-  if (!requestUrl.searchParams.has('branch_id')) {
-    requestUrl.searchParams.set('branch_id', branchId);
-  }
+  // if (!requestUrl.searchParams.has('branch_id')) {
+  //   requestUrl.searchParams.set('branch_id', branchId);
+  // }
   return requestUrl.toString();
 }
 
@@ -780,7 +780,8 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(params)
     }),
-
+  // get share capital settings
+ 
   // Operations: Share Capital
   getShareCapitalAccounts: async (branch_id?: string) => {
     const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
@@ -957,6 +958,10 @@ getLoanApplications: async (params?: {
   getCoopProfile: async () => {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
     return { success: true, data: res.data?.cooperative || res.data?.cooperatives?.[0] };
+  },
+  getCooperatives: async () => {
+    const res = await fetchApi<{ success: boolean; data: any }>('/public/cooperatives');
+    return { success: true, data: res.data };
   },
   getBranches: async () => {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');

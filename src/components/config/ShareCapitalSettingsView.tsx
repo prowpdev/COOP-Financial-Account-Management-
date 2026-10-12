@@ -64,7 +64,14 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
     accounting_account_id: 'acc_3110',
     reason: ''
   });
-
+  const [activeSettingData,setActiveSettingData] = useState([]);
+  const scs =  async() => {
+    const res = await api.getShareCapitalSettings();
+    console.log(res)
+  }
+  useEffect(()=>{
+    scs();
+  },[])
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
@@ -86,17 +93,17 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
       setSettingsList(initialSettings);
     }
   }, [initialSettings]);
-
+  
   const activeSetting: ShareCapitalSetting = settingsList[0] || {
-    id: 'sc_setting_01',
-    cooperative_id: 'coop_01',
-    par_value_per_share: 100,
-    min_subscription_shares: 100,
-    min_paid_up_shares: 25,
-    max_share_holding_percentage: 10,
-    transfer_fee: 100,
+    id: '',
+    cooperative_id: '',
+    par_value_per_share: 0,
+    min_subscription_shares: 0,
+    min_paid_up_shares: 0,
+    max_share_holding_percentage: 0,
+    transfer_fee: 0,
     withdrawal_rule: 'Subject to Board approval and 30-day prior written notice',
-    accounting_account_id: 'acc_3110'
+    accounting_account_id: ''
   };
 
   const equityAccounts = accounts.filter(a => 
@@ -233,7 +240,7 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
           <button
             id="btn-create-cbu-setting"
             onClick={handleOpenCreate}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition cursor-pointer"
+            className="noted hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ New Policy Version</span>
@@ -285,7 +292,7 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
               <Coins className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-emerald-400">
-              ₱{Number(activeSetting.par_value_per_share || 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ₱{Number(activeSetting.par_value_per_share ).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-[10px] text-slate-400">Nominal statutory value per 1 share</p>
           </div>

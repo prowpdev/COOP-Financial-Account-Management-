@@ -5043,7 +5043,8 @@
       "branch_id": "branch_tar",
       "user_id": null,
       "created_at": "2026-10-11T08:37:44.195Z",
-      "reason": "User officer_urdaneta account status toggled to Inactive"
+      "reason": "User officer_urdaneta account status toggled to Inactive",
+      "cooperative_id": "coop_01"
     },
     {
       "id": "audit_1791707864206_s6r0kh",
@@ -5054,7 +5055,8 @@
       "branch_id": "branch_tar",
       "user_id": null,
       "created_at": "2026-10-11T08:37:44.206Z",
-      "reason": "User officer_urdaneta account status toggled to Active"
+      "reason": "User officer_urdaneta account status toggled to Active",
+      "cooperative_id": "coop_01"
     }
   ],
   "user_roles": [
