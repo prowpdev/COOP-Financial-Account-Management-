@@ -55,6 +55,19 @@ $router->get('/api/public/branches', [BranchController::class, 'index']);
 // Add cooperative public with secret
 $router->get('/api/public/cooperatives', [CooperativeController::class, 'index']);
 $router->post('/api/public/cooperative/create', [CooperativeController::class, 'create']);
+
+// Reports Module Endpoints (Accessible with JWT or Session)
+$router->get('/api/accounting-periods', [ReportController::class, 'accountingPeriods']);
+$router->get('/accounting-periods', [ReportController::class, 'accountingPeriods']);
+$router->get('/api/reports/journal-entries', [ReportController::class, 'journalEntries']);
+$router->get('/api/reports/journal-entries/:period_id', [ReportController::class, 'journalEntries']);
+$router->get('/reports/journal-entries', [ReportController::class, 'journalEntries']);
+$router->get('/reports/journal-entries/:period_id', [ReportController::class, 'journalEntries']);
+$router->get('/api/reports/member-transactions', [ReportController::class, 'memberTransactions']);
+$router->get('/api/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
+$router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
+$router->get('/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
+
 // All routes in this group require a valid JWT bearer token.
 $router->group([JwtAuthMiddleware::class], function (Router $router): void {
 
@@ -307,7 +320,9 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/reports/journal-entries', [ReportController::class, 'journalEntries']);
     $router->get('/reports/journal-entries/:period_id', [ReportController::class, 'journalEntries']);
     $router->get('/api/reports/member-transactions', [ReportController::class, 'memberTransactions']);
+    $router->get('/api/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
     $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
+    $router->get('/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
     // Notifications
     $router->get('/notifications', [ConfigController::class, 'notifications']);
 

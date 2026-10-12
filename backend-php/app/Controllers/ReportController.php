@@ -91,10 +91,11 @@ class ReportController extends BaseController
 
     /**
      * GET /api/reports/member-transactions
+     * GET /api/reports/member-transactions/:period_id
      */
-    public function memberTransactions(): never
+    public function memberTransactions(?string $periodId = null): never
     {
-        $periodId = $this->getQuery('period_id');
+        $periodId = $periodId ?? $this->getQuery('period_id');
         $branchId = $this->getCurrentUserBranchId()
             ?? $this->getQuery('current_branch_id')
             ?? $this->getQuery('branch_id');
