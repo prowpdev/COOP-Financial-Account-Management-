@@ -44,8 +44,9 @@ class DatabaseSeeder
 
     public function run(): array
     {
+        return [];
         $results = [];
-        // Base/reference data first
+        // // Base/reference data first
         $results['branches'] =(new BranchSeeder($this->db))->run();
 
         $results['chart_of_accounts'] = (new ChartOfAccountSeeder($this->db))->run();

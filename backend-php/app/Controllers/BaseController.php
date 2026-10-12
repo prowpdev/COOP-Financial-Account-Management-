@@ -64,7 +64,7 @@ abstract class BaseController
         if ($userId && is_string($userId)) {
             // Check if user is in users table
             $stmt = $this->db->prepare("
-                SELECT u.id, u.username, u.full_name, u.email, u.role_id, u.branch_id,
+                SELECT u.id, u.username, u.full_name, u.email, u.role_id, u.branch_id, u.cooperative_id,
                        u.active, r.name AS role_name, b.name AS branch_name
                 FROM users u
                 LEFT JOIN user_roles r ON u.role_id = r.id
@@ -222,5 +222,19 @@ abstract class BaseController
     protected function getQuery(string $key, mixed $default = null): mixed
     {
         return $_GET[$key] ?? $default;
+    }
+
+    protected function addTransactionContext(array $input): array
+    {
+        $branchId = $this->getCurrentUserBranchId()
+            ?? $this->getQuery('current_branch_id')
+            ?? $this->getQuery('branch_id');
+
+        $currentUser = $this->getCurrentUser();
+
+        $input['branch_id'] = $branchId;
+        $input['user_id'] = $currentUser['id'] ?? null;
+
+        return $input;
     }
 }

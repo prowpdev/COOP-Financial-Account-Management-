@@ -17,20 +17,20 @@ class ShareCapitalSettingSeeder
         $settings = [
             [
                 'sc_setting_01',
-                'coop_01',
+                'coop_89936a99659a',
                 100.00,
                 100,
                 25,
                 10.00,
                 100.00,
                 'Subject to Board approval and 30-day prior written notice',
-                'acc_3110',
+                'coa_e3c4c94ab0cf',
             ],
         ];
 
         $sql = "
             INSERT INTO share_capital_settings (
-                id,
+                id, 
                 cooperative_id,
                 par_value_per_share,
                 min_subscription_shares,

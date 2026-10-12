@@ -127,7 +127,8 @@ class ShareCapitalController extends BaseController
      */
     public function getSettings(): never
     {
-        $settings = $this->shareCapital->getSettings();
+        $user = $this->getCurrentUser();
+        $settings = $this->shareCapital->getSettings($user['cooperative_id']);
         $this->success($settings);
     }
 

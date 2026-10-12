@@ -100,10 +100,11 @@ class ConfigService
 
         $id = $data['id'] ?? ('br_' . bin2hex(random_bytes(4)));
         $sql = "
-            INSERT INTO branches (id, code, name, address, contact_number, manager_name, is_main_branch, active)
-            VALUES (:id, :code, :name, :address, :contact_number, :manager_name, :is_main_branch, :active)
+            INSERT INTO branches (id, coop_id, code, name, address, contact_number, manager_name, is_main_branch, active)
+            VALUES (:id, :coop_id, :code, :name, :address, :contact_number, :manager_name, :is_main_branch, :active)
             ON DUPLICATE KEY UPDATE
                 code = VALUES(code),
+                coop_id = VALUES(coop_id),
                 name = VALUES(name),
                 address = VALUES(address),
                 contact_number = VALUES(contact_number),
@@ -114,6 +115,7 @@ class ConfigService
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             'id'             => $id,
+            'coop_id'           => $data['coop_id'],
             'code'           => $data['code'],
             'name'           => $data['name'],
             'address'        => $data['address'] ?? '',

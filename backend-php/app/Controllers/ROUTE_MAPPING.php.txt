@@ -1,0 +1,51 @@
+/*
+Suggested route-to-controller mapping (adapt to your router's actual syntax):
+
+GET    /api/branches                         BranchController@index
+POST   /api/branches                         BranchController@store
+PUT    /api/branches/{id}                    BranchController@update
+DELETE /api/branches/{id}                    BranchController@destroy
+
+GET    /api/config/loan-products              LoanProductController@index
+POST   /api/config/loan-products              LoanProductController@store
+GET    /api/config/loan-products/{id}         LoanProductController@show
+PUT    /api/config/loan-products/{id}         LoanProductController@update
+DELETE /api/config/loan-products/{id}         LoanProductController@destroy
+
+GET    /api/config/savings-products           SavingsProductController@index
+POST   /api/config/savings-products           SavingsProductController@store
+PUT    /api/config/savings-products/{id}      SavingsProductController@update
+DELETE /api/config/savings-products/{id}      SavingsProductController@destroy
+
+GET    /api/config/fees                       FeeController@index
+GET    /api/config/fees/{id}                  FeeController@show
+POST   /api/config/fees                       FeeController@store
+PUT    /api/config/fees/{id}                  FeeController@update
+DELETE /api/config/fees/{id}                  FeeController@destroy
+
+GET    /api/config/feature-toggles            FeatureToggleController@index
+POST   /api/config/feature-toggles/toggle     FeatureToggleController@update
+PUT    /api/config/system-settings            SystemSettingController@update
+GET    /api/config/system-settings            SystemSettingController@index
+
+GET    /api/config/approval-workflows         ApprovalWorkflowController@index
+GET    /api/config/approval-rules             ApprovalRuleController@index
+POST   /api/config/approval-rules             ApprovalRuleController@store
+PUT    /api/config/approval-rules/{id}        ApprovalRuleController@update
+DELETE /api/config/approval-rules/{id}        ApprovalRuleController@destroy
+
+GET    /api/config/custom-fields              CustomFieldController@index
+POST   /api/config/custom-fields              CustomFieldController@store
+PUT    /api/config/custom-fields/{id}         CustomFieldController@update
+DELETE /api/config/custom-fields/{id}         CustomFieldController@destroy
+
+POST   /api/config/numbering-formats          NumberingFormatController@store
+PUT    /api/config/numbering-formats/{id}     NumberingFormatController@update
+DELETE /api/config/numbering-formats/{id}     NumberingFormatController@destroy
+
+GET    /api/config/payment-allocation-rules   PaymentAllocationRuleController@index
+PUT    /api/config/payment-allocation-rules/{id} PaymentAllocationRuleController@update
+
+GET    /api/audit-logs                        ConfigurationAuditTrailController@index
+POST   /api/audit-logs                        ConfigurationAuditTrailController@store
+*/

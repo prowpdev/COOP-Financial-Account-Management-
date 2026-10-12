@@ -2761,23 +2761,23 @@ public function updateAccount(string $id, array $data): array
     /**
      * Get share capital settings
      */
-    public function getSettings(): array
+    public function getSettings(string $coop_id): array
     {
-        $stmt = $this->db->query("SELECT scs.*, coa.account_code, coa.name AS gl_account_name FROM share_capital_settings scs LEFT JOIN chart_of_accounts coa ON scs.accounting_account_id = coa.id");
+        $stmt = $this->db->prepare("
+            SELECT 
+                scs.*,
+                coa.account_code,
+                coa.name AS gl_account_name
+            FROM share_capital_settings scs
+            LEFT JOIN chart_of_accounts coa 
+                ON scs.accounting_account_id = coa.id
+            WHERE scs.cooperative_id = ?
+        ");
+
+        $stmt->execute([$coop_id]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (empty($results)) {
-            // Return baseline default
-            return [[
-                'id' => 'sc_setting_01',
-                'cooperative_id' => 'coop_01',
-                'par_value_per_share' => 100.00,
-                'min_subscription_shares' => 100,
-                'min_paid_up_shares' => 25,
-                'max_share_holding_percentage' => 10.00,
-                'transfer_fee' => 100.00,
-                'withdrawal_rule' => 'Subject to Board approval and 30-day prior written notice',
-                'accounting_account_id' => 'acc_3110'
-            ]];
+            return [];
         }
         return $results;
     }
