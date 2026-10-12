@@ -14,6 +14,7 @@ import { SavingsModule } from './components/operations/SavingsModule';
 import { ShareCapitalModule } from './components/operations/ShareCapitalModule';
 import { AccountingModule } from './components/operations/AccountingModule';
 import { FinancialReportsView } from './components/reports/FinancialReportsView';
+import { ReportsModule } from './components/reports/ReportsModule';
 import { AuditLogsView } from './components/compliance/AuditLogsView';
 import { FlexibilityTestSuite } from './components/verification/FlexibilityTestSuite';
 import { SuperAdminConsole } from './components/admin/SuperAdminConsole';
@@ -52,6 +53,7 @@ const VALID_TABS: TabKey[] = [
   'share_capital',
   'accounting',
   'reports',
+  'reports_module',
   'audit_logs',
   'verification'
 ];
@@ -73,6 +75,12 @@ const TAB_ALIASES: Record<string, TabKey> = {
   kyc: 'member_profile',
   settings: 'configuration',
   config: 'configuration',
+  reports_module: 'reports_module',
+  reportsmodule: 'reports_module',
+  report_module: 'reports_module',
+  ledger_workbench: 'reports_module',
+  reports_workbench: 'reports_module',
+  excel_reports: 'reports_module',
   excel: 'excel_workbench',
   workbench: 'excel_workbench',
   ledger: 'accounting',
@@ -672,6 +680,17 @@ export default function App() {
             <FinancialReportsView
               selectedBranchId={selectedBranchId}
               branches={branches}
+              onSelectBranch={setSelectedBranchId}
+            />
+          )}
+
+          {activeTab === 'reports_module' && (
+            <ReportsModule
+              accounts={accounts}
+              branches={branches}
+              currentUser={currentUser}
+              coopProfile={profile}
+              selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
             />
           )}

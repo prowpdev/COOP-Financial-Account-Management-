@@ -37,6 +37,7 @@ export type TabKey =
   | 'share_capital'
   | 'accounting'
   | 'reports'
+  | 'reports_module'
   | 'audit_logs'
   | 'verification';
 
@@ -173,6 +174,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Reports',
       icon: BarChart3,
       featureKey: 'feature_reports'
+    },
+    {
+      id: 'reports_module' as TabKey,
+      label: 'Reports & Ledger Workbench',
+      shortLabel: 'Reports Module',
+      icon: FileSpreadsheet,
+      badge: 'Excel',
+      alwaysShow: true
     },
     {
       id: 'audit_logs' as TabKey,

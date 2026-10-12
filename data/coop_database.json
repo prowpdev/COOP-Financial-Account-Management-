@@ -1039,6 +1039,94 @@
       "closed_by": null,
       "branch_id": "branch_tar",
       "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_05",
+      "name": "May 2026",
+      "start_date": "2026-05-01",
+      "end_date": "2026-05-31",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_06",
+      "name": "June 2026",
+      "start_date": "2026-06-01",
+      "end_date": "2026-06-30",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_07",
+      "name": "July 2026",
+      "start_date": "2026-07-01",
+      "end_date": "2026-07-31",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_08",
+      "name": "August 2026",
+      "start_date": "2026-08-01",
+      "end_date": "2026-08-31",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_09",
+      "name": "September 2026",
+      "start_date": "2026-09-01",
+      "end_date": "2026-09-30",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_10",
+      "name": "October 2026",
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-31",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_11",
+      "name": "November 2026",
+      "start_date": "2026-11-01",
+      "end_date": "2026-11-30",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "period_2026_12",
+      "name": "December 2026",
+      "start_date": "2026-12-01",
+      "end_date": "2026-12-31",
+      "status": "Open",
+      "closed_at": null,
+      "closed_by": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
     }
   ],
   "accounting_mappings": [
@@ -2874,6 +2962,21 @@
       "created_at": "2026-03-18 11:00:00",
       "branch_id": "branch_tar",
       "cooperative_id": "coop_01"
+    },
+    {
+      "id": "pay_oct_01",
+      "receipt_no": "OR-LN-2026-1001",
+      "loan_id": "ln_000001",
+      "member_id": "mem_000001",
+      "payment_date": "2026-10-28",
+      "total_amount": 26500,
+      "principal_amount": 24000,
+      "interest_amount": 2500,
+      "cash_account_id": "cash_01",
+      "received_by": "Elena Rostro",
+      "created_at": "2026-10-28 16:00:00",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
     }
   ],
   "loan_payment_allocations": [
@@ -3356,6 +3459,21 @@
       "created_at": "2026-10-10 14:05:00",
       "branch_id": "branch_tar",
       "cooperative_id": "coop_01"
+    },
+    {
+      "id": "st_oct_01",
+      "transaction_no": "TX-SA-2026-1001",
+      "savings_account_id": "sa_mem_000001",
+      "member_id": "mem_000001",
+      "type": "Deposit",
+      "amount": 45000,
+      "balance_after": 48500,
+      "cash_account_id": "cash_01",
+      "transaction_date": "2026-10-05",
+      "notes": "Consolidated Member Harvest Savings Deposit",
+      "created_at": "2026-10-05 09:30:00",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
     }
   ],
   "share_capital_settings": [
@@ -3763,6 +3881,20 @@
       "cash_account_id": "cash_01",
       "created_at": "2026-06-30 10:00:00",
       "branch_id": "branch_sfe",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "sct_oct_01",
+      "share_account_id": "sca_mem_000001",
+      "receipt_no": "OR-CBU-2026-1001",
+      "member_id": "mem_000001",
+      "type": "Subscription Payment",
+      "shares": 150,
+      "amount": 15000,
+      "transaction_date": "2026-10-20",
+      "cash_account_id": "cash_01",
+      "created_at": "2026-10-20 11:00:00",
+      "branch_id": "branch_tar",
       "cooperative_id": "coop_01"
     }
   ],
@@ -4467,6 +4599,74 @@
       "created_by": "Branch Manager",
       "posted_at": "2026-03-27T16:00:00Z",
       "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jv_2026_10_01",
+      "voucher_number": "JV-2026-OCT-001",
+      "voucher_type": "JV",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-05",
+      "reference_type": "SAVINGS_DEPOSIT",
+      "reference_id": "TX-SA-2026-1001",
+      "description": "October Consolidated Member Savings Deposits Batch 1",
+      "total_debit": 45000,
+      "total_credit": 45000,
+      "period_id": "period_2026_10",
+      "status": "Posted",
+      "created_by": "Elena Rostro",
+      "posted_at": "2026-10-05T09:30:00Z",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jv_2026_10_02",
+      "voucher_number": "JV-2026-OCT-002",
+      "voucher_type": "JV",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-12",
+      "reference_type": "LOAN_DISBURSEMENT",
+      "reference_id": "LN-2026-OCT-001",
+      "description": "October Agricultural Crop Loan Release - Juan Dela Cruz",
+      "total_debit": 80000,
+      "total_credit": 80000,
+      "period_id": "period_2026_10",
+      "status": "Posted",
+      "created_by": "Elena Rostro",
+      "posted_at": "2026-10-12T14:15:00Z",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jv_2026_10_03",
+      "voucher_number": "JV-2026-OCT-003",
+      "voucher_type": "JV",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-20",
+      "reference_type": "SHARE_CAPITAL",
+      "reference_id": "OR-CBU-2026-1001",
+      "description": "Capital Build-Up (CBU) Subscription Contribution - Maria Clara",
+      "total_debit": 15000,
+      "total_credit": 15000,
+      "period_id": "period_2026_10",
+      "status": "Posted",
+      "created_by": "Elena Rostro",
+      "posted_at": "2026-10-20T11:00:00Z",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jv_2026_10_04",
+      "voucher_number": "JV-2026-OCT-004",
+      "voucher_type": "JV",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-10-28",
+      "reference_type": "LOAN_REPAYMENT",
+      "reference_id": "OR-LN-2026-1001",
+      "description": "Monthly Loan Amortization Collection & Interest Income",
+      "total_debit": 26500,
+      "total_credit": 26500,
+      "period_id": "period_2026_10",
+      "status": "Posted",
+      "created_by": "Elena Rostro",
+      "posted_at": "2026-10-28T16:00:00Z",
+      "cooperative_id": "coop_01"
     }
   ],
   "journal_lines": [
@@ -5029,6 +5229,116 @@
       "subsidiary_id": "cash_06",
       "journal_entry_id": "cd_exp_sfe_03",
       "branch_id": "branch_sfe",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_1_1",
+      "journal_entry_id": "jv_2026_10_01",
+      "account_id": "acc_1110",
+      "debit": 45000,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_1_2",
+      "journal_entry_id": "jv_2026_10_01",
+      "account_id": "acc_2110",
+      "debit": 0,
+      "credit": 45000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_000001",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_2_1",
+      "journal_entry_id": "jv_2026_10_02",
+      "account_id": "acc_1210",
+      "debit": 80000,
+      "credit": 0,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_000001",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_2_2",
+      "journal_entry_id": "jv_2026_10_02",
+      "account_id": "acc_1110",
+      "debit": 0,
+      "credit": 78400,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_2_3",
+      "journal_entry_id": "jv_2026_10_02",
+      "account_id": "acc_4210",
+      "debit": 0,
+      "credit": 1600,
+      "subsidiary_type": null,
+      "subsidiary_id": null,
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_3_1",
+      "journal_entry_id": "jv_2026_10_03",
+      "account_id": "acc_1110",
+      "debit": 15000,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_3_2",
+      "journal_entry_id": "jv_2026_10_03",
+      "account_id": "acc_3110",
+      "debit": 0,
+      "credit": 15000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_sample_02",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_4_1",
+      "journal_entry_id": "jv_2026_10_04",
+      "account_id": "acc_1110",
+      "debit": 26500,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_4_2",
+      "journal_entry_id": "jv_2026_10_04",
+      "account_id": "acc_1210",
+      "debit": 0,
+      "credit": 24000,
+      "subsidiary_type": "Member",
+      "subsidiary_id": "mem_000001",
+      "branch_id": "branch_tar",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jl_oct_4_3",
+      "journal_entry_id": "jv_2026_10_04",
+      "account_id": "acc_4110",
+      "debit": 0,
+      "credit": 2500,
+      "subsidiary_type": null,
+      "subsidiary_id": null,
+      "branch_id": "branch_tar",
       "cooperative_id": "coop_01"
     }
   ],

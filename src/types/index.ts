@@ -18,6 +18,7 @@ export interface Cooperative {
 export interface Branch {
   id: string;
   cooperative_id?: string;
+  cooperative_name?: string;
   code: string;
   name: string;
   address: string;

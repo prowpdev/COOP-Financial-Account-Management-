@@ -1183,15 +1183,95 @@ router.put('/config/numbering-formats/:id', (req: Request, res: Response) => {
 });
 
 // ==========================================
-// 11. MULTI-BRANCH MANAGEMENT (Test 11)
+// 11. COOPERATIVES & MULTI-BRANCH MANAGEMENT
 // ==========================================
 
-router.get(['/branches', '/config/branches'], (req: Request, res: Response) => {
-  const branches = db.getTable('branches') || [];
-  res.json({ success: true, data: branches });
+// GET all cooperatives
+router.get(['/cooperatives', '/config/cooperatives', '/public/cooperatives'], (req: Request, res: Response) => {
+  const cooperatives = db.getTable('cooperatives') || [];
+  res.json({ success: true, data: cooperatives });
 });
 
-router.post(['/branches', '/config/branches'], (req: Request, res: Response) => {
+// POST register new cooperative institution
+router.post(['/cooperatives', '/config/cooperatives', '/public/cooperative', '/public/cooperatives', '/cooperative/register'], (req: Request, res: Response) => {
+  const {
+    name,
+    registration_no,
+    tax_identification_number,
+    tax_id,
+    address,
+    email,
+    phone,
+    currency,
+    currency_symbol,
+    changed_by,
+    reason
+  } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(422).json({ success: false, message: 'Cooperative legal name is required.' });
+  }
+
+  const newCoopId = `coop_${Date.now()}`;
+  const newCoop = {
+    id: newCoopId,
+    name: name.trim(),
+    registration_no: (registration_no || '').trim() || `CDA-REG-${Date.now().toString().slice(-6)}`,
+    tax_identification_number: (tax_id || tax_identification_number || '').trim() || '000-000-000-000',
+    address: (address || '').trim() || 'Philippines',
+    email: (email || '').trim() || 'info@coopflex.ph',
+    phone: (phone || '').trim() || '+63 900 000 0000',
+    currency: currency || 'PHP',
+    currency_symbol: currency_symbol || '₱',
+    decimal_places: 2,
+    thousands_separator: ',',
+    decimal_separator: '.',
+    fiscal_year_start: '01-01',
+    fiscal_year_end: '12-31',
+    created_at: new Date().toISOString()
+  };
+
+  db.insert('cooperatives', newCoop);
+  db.recordAudit(
+    `Cooperative Registered: ${newCoop.name}`,
+    'None',
+    newCoop,
+    changed_by || (req.headers['x-user-name'] as string) || 'Public User / Onboarding',
+    reason || 'New cooperative institution onboarded via Portal'
+  );
+
+  res.status(201).json({
+    success: true,
+    message: `Cooperative "${newCoop.name}" registered successfully.`,
+    data: newCoop
+  });
+});
+
+// GET branches (enriched with assigned cooperative)
+router.get(['/branches', '/config/branches', '/public/branches'], (req: Request, res: Response) => {
+  const branches = db.getTable('branches') || [];
+  const cooperatives = db.getTable('cooperatives') || [];
+  const { cooperative_id } = req.query;
+
+  let filtered = [...branches];
+  if (cooperative_id && cooperative_id !== 'all') {
+    filtered = filtered.filter(b => b.cooperative_id === cooperative_id);
+  }
+
+  const enriched = filtered.map(b => {
+    const coop = cooperatives.find(c => c.id === b.cooperative_id) || cooperatives[0];
+    return {
+      ...b,
+      cooperative_id: b.cooperative_id || coop?.id || 'coop_01',
+      cooperative_name: coop?.name || 'Main Cooperative'
+    };
+  });
+
+  res.json({ success: true, data: enriched });
+});
+
+// POST create branch (assigned to a cooperative)
+router.post(['/branches', '/config/branches', '/public/branch', '/public/branches'], (req: Request, res: Response) => {
   const {
     code,
     name,
@@ -1203,21 +1283,27 @@ router.post(['/branches', '/config/branches'], (req: Request, res: Response) => 
     reason
   } = req.body;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     return res.status(422).json({ success: false, message: 'Branch name is required' });
   }
 
-  const generatedCode = (code || `BR${Date.now().toString().slice(-3)}`).toUpperCase();
+  const cooperatives = db.getTable('cooperatives') || [];
+  const assignedCoopId = cooperative_id || cooperatives[0]?.id || 'coop_01';
+  const coop = cooperatives.find(c => c.id === assignedCoopId) || cooperatives[0];
+
+  const generatedCode = (code || `BR${Date.now().toString().slice(-3)}`).toUpperCase().trim();
+  const branchId = `branch_${Date.now()}`;
   const newBranch = {
-    id: `branch_${Date.now()}`,
-    cooperative_id: cooperative_id || 'coop_01',
+    id: branchId,
+    cooperative_id: assignedCoopId,
+    cooperative_name: coop?.name || 'Main Cooperative',
     code: generatedCode,
-    name,
-    address: address || '',
-    phone: phone || '',
-    manager_name: manager_name || '',
+    name: name.trim(),
+    address: (address || '').trim(),
+    phone: (phone || '').trim(),
+    manager_name: (manager_name || '').trim(),
     active: true,
-    branch_id: `branch_${Date.now()}`,
+    branch_id: branchId,
     created_at: new Date().toISOString()
   };
 
@@ -1230,6 +1316,7 @@ router.post(['/branches', '/config/branches'], (req: Request, res: Response) => 
     account_number: `COH-${newBranch.code}-01`,
     bank_name: `${newBranch.name} Cash Vault`,
     branch_id: newBranch.id,
+    cooperative_id: assignedCoopId,
     gl_account_id: 'acc_1110',
     opening_balance: 50000,
     current_balance: 50000,
@@ -1237,21 +1324,55 @@ router.post(['/branches', '/config/branches'], (req: Request, res: Response) => 
     active: true
   });
 
-  db.recordAudit(`Branch Created: ${newBranch.name} (${newBranch.code})`, 'None', newBranch, changed_by || req.headers['x-user-name'] as string || 'Superadmin', reason || 'Expanded cooperative branch network');
+  db.recordAudit(
+    `Branch Created: ${newBranch.name} (${newBranch.code})`,
+    'None',
+    newBranch,
+    changed_by || (req.headers['x-user-name'] as string) || 'Superadmin',
+    reason || `Branch assigned to cooperative ${coop?.name || assignedCoopId}`
+  );
 
-  res.json({ success: true, data: newBranch });
+  res.status(201).json({
+    success: true,
+    message: `Branch "${newBranch.name}" registered successfully.`,
+    data: newBranch
+  });
 });
 
+// PUT update branch (including cooperative assignment)
 router.put(['/branches/:id', '/config/branches/:id'], (req: Request, res: Response) => {
   const { id } = req.params;
   const branches = db.getTable('branches') || [];
   const b = branches.find(item => item.id === id);
   if (!b) return res.status(404).json({ success: false, error: 'Branch not found' });
+
+  const cooperatives = db.getTable('cooperatives') || [];
+  const coopId = req.body.cooperative_id || b.cooperative_id || cooperatives[0]?.id || 'coop_01';
+  const coop = cooperatives.find(c => c.id === coopId) || cooperatives[0];
+
   const oldSnapshot = { ...b };
-  const updated = { ...b, ...req.body, id: b.id };
+  const updated = {
+    ...b,
+    ...req.body,
+    id: b.id,
+    cooperative_id: coopId,
+    cooperative_name: coop?.name || b.cooperative_name
+  };
+
   db.update('branches', item => item.id === id, () => updated);
-  db.recordAudit(`Branch Updated: ${b.name}`, oldSnapshot, updated, req.body.changed_by || req.headers['x-user-name'] as string || 'Superadmin', req.body.reason || 'Branch details update');
-  res.json({ success: true, data: updated });
+  db.recordAudit(
+    `Branch Updated: ${b.name}`,
+    oldSnapshot,
+    updated,
+    req.body.changed_by || (req.headers['x-user-name'] as string) || 'Superadmin',
+    req.body.reason || 'Branch details and cooperative assignment updated'
+  );
+
+  res.json({
+    success: true,
+    message: `Branch "${updated.name}" updated successfully.`,
+    data: updated
+  });
 });
 
 // ==========================================
@@ -4292,6 +4413,293 @@ router.post('/accounting/reconciliation/auto-adjust', (req: Request, res: Respon
   res.json({
     success: true,
     message: 'Reconciliation audit snapshot verified and recorded.'
+  });
+});
+
+// ==========================================
+// UNIFIED REPORTS & LEDGER WORKBENCH ENDPOINTS
+// ==========================================
+
+// 1. Accounting periods list
+router.get(['/accounting-periods', '/api/accounting-periods', '/config/accounting-periods', '/api/config/accounting-periods'], (req: Request, res: Response) => {
+  const periods = db.getTable('accounting_periods') || [];
+  res.json({ success: true, data: periods });
+});
+
+// 2. Journal entries report filtered by accounting period or date range, with GL account and member details
+router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/reports/journal-entries/:period_id', '/api/reports/journal-entries/:period_id'], (req: Request, res: Response) => {
+  const period_id = req.params.period_id || (req.query.period_id as string);
+  const branch_id = (req.query.branch_id as string) || getEffectiveBranchId(req);
+  const member_id = req.query.member_id as string;
+  const start_date = req.query.start_date as string;
+  const end_date = req.query.end_date as string;
+  const gl_accounts = req.query.gl_account_ids ? String(req.query.gl_account_ids).split(',') : null;
+
+  const periods = db.getTable('accounting_periods') || [];
+  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+
+  const effectiveStart = start_date || selectedPeriod?.start_date;
+  const effectiveEnd = end_date || selectedPeriod?.end_date;
+
+  const allEntries = db.getTable('journal_entries') || [];
+  const allLines = db.getTable('journal_lines') || [];
+  const accounts = db.getTable('chart_of_accounts') || [];
+  const members = db.getTable('members') || [];
+  const branches = db.getTable('branches') || [];
+
+  // Filter entries
+  const filteredEntries = allEntries.filter(entry => {
+    if (branch_id && branch_id !== 'all' && entry.branch_id !== branch_id) {
+      return false;
+    }
+    if (selectedPeriod && entry.period_id === selectedPeriod.id) {
+      return true;
+    }
+    if (effectiveStart && effectiveEnd) {
+      const date = entry.posting_date || '';
+      return date >= effectiveStart && date <= effectiveEnd;
+    }
+    return true;
+  });
+
+  const entryIds = new Set(filteredEntries.map(e => e.id));
+  const entryMap = new Map(filteredEntries.map(e => [e.id, e]));
+
+  // Lines
+  let matchingLines = allLines.filter(line => entryIds.has(line.journal_entry_id));
+
+  // If gl_accounts provided, filter lines
+  if (gl_accounts && gl_accounts.length > 0) {
+    const glSet = new Set(gl_accounts);
+    matchingLines = matchingLines.filter(line => {
+      const acc = accounts.find(a => a.id === line.account_id);
+      return glSet.has(line.account_id) || (acc && (glSet.has(acc.code) || glSet.has(acc.account_code)));
+    });
+  }
+
+  // If member_id provided, filter lines where subsidiary_id === member_id
+  if (member_id && member_id !== 'all') {
+    matchingLines = matchingLines.filter(line => line.subsidiary_id === member_id);
+  }
+
+  // Enrich lines
+  let runningBalance = 0;
+  const enrichedLines = matchingLines.map(line => {
+    const entry = entryMap.get(line.journal_entry_id);
+    const acc = accounts.find(a => a.id === line.account_id);
+    const mem = line.subsidiary_id ? members.find(m => m.id === line.subsidiary_id) : null;
+    const branch = branches.find(b => b.id === (line.branch_id || entry?.branch_id));
+
+    const debit = Number(line.debit || 0);
+    const credit = Number(line.credit || 0);
+    runningBalance += (debit - credit);
+
+    return {
+      id: line.id,
+      journal_entry_id: line.journal_entry_id,
+      voucher_number: entry?.voucher_number || line.journal_entry_id,
+      voucher_type: entry?.voucher_type || 'JV',
+      posting_date: entry?.posting_date || entry?.posted_at?.split('T')[0] || '',
+      description: entry?.description || '',
+      reference_type: entry?.reference_type || '',
+      reference_id: entry?.reference_id || '',
+      status: entry?.status || 'Posted',
+      created_by: entry?.created_by || '',
+      account_id: line.account_id,
+      account_code: acc?.account_code || acc?.code || line.account_id,
+      account_name: acc?.name || 'General Ledger Account',
+      account_category: acc?.category || acc?.type || 'Other',
+      normal_balance: acc?.normal_balance || 'Debit',
+      debit,
+      credit,
+      net_change: debit - credit,
+      running_balance: runningBalance,
+      subsidiary_type: line.subsidiary_type || null,
+      subsidiary_id: line.subsidiary_id || null,
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : null,
+      member_number: mem?.member_no || null,
+      branch_id: line.branch_id || entry?.branch_id || 'branch_tar',
+      branch_name: branch?.name || 'Main Branch'
+    };
+  });
+
+  // Sort lines chronologically
+  enrichedLines.sort((a, b) => a.posting_date.localeCompare(b.posting_date));
+
+  // Recalculate running balance after sorting
+  let bal = 0;
+  enrichedLines.forEach(l => {
+    bal += (l.debit - l.credit);
+    l.running_balance = Number(bal.toFixed(2));
+  });
+
+  const totalDebit = Number(enrichedLines.reduce((s, l) => s + l.debit, 0).toFixed(2));
+  const totalCredit = Number(enrichedLines.reduce((s, l) => s + l.credit, 0).toFixed(2));
+  const netBalance = Number((totalDebit - totalCredit).toFixed(2));
+
+  res.json({
+    success: true,
+    data: {
+      period: selectedPeriod || (effectiveStart ? { name: `${effectiveStart} to ${effectiveEnd}`, start_date: effectiveStart, end_date: effectiveEnd } : null),
+      count: enrichedLines.length,
+      total_debit: totalDebit,
+      total_credit: totalCredit,
+      net_balance: netBalance,
+      lines: enrichedLines
+    }
+  });
+});
+
+// 3. Member transactions report filtered by accounting period, branch, member, and GL accounts
+router.get(['/reports/member-transactions', '/api/reports/member-transactions'], (req: Request, res: Response) => {
+  const period_id = req.query.period_id as string;
+  const branch_id = (req.query.branch_id as string) || getEffectiveBranchId(req);
+  const member_id = req.query.member_id as string;
+  const start_date = req.query.start_date as string;
+  const end_date = req.query.end_date as string;
+  const gl_accounts = req.query.gl_account_ids ? String(req.query.gl_account_ids).split(',') : null;
+
+  const periods = db.getTable('accounting_periods') || [];
+  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+  const effectiveStart = start_date || selectedPeriod?.start_date;
+  const effectiveEnd = end_date || selectedPeriod?.end_date;
+
+  const members = db.getTable('members') || [];
+  const savingsTx = db.getTable('savings_transactions') || [];
+  const cbuTx = db.getTable('share_capital_transactions') || [];
+  const loanPayments = db.getTable('loan_payments') || [];
+  const branches = db.getTable('branches') || [];
+  const accounts = db.getTable('chart_of_accounts') || [];
+
+  const memberMap = new Map(members.map(m => [m.id, m]));
+  const branchMap = new Map(branches.map(b => [b.id, b]));
+
+  const inDateRange = (dateStr?: string) => {
+    if (!effectiveStart || !effectiveEnd || !dateStr) return true;
+    const d = dateStr.slice(0, 10);
+    return d >= effectiveStart && d <= effectiveEnd;
+  };
+
+  const results: any[] = [];
+
+  // 1. Savings Transactions (GL 2110)
+  const savingsGl = accounts.find(a => (a.code === '2110' || a.account_code === '2110' || a.id === 'acc_2110')) || { account_code: '2110', name: 'Savings Deposits Payable' };
+  savingsTx.forEach(st => {
+    if (branch_id && branch_id !== 'all' && st.branch_id !== branch_id) return;
+    if (member_id && member_id !== 'all' && st.member_id !== member_id) return;
+    if (!inDateRange(st.transaction_date || st.created_at)) return;
+
+    const mem = memberMap.get(st.member_id);
+    const branch = branchMap.get(st.branch_id);
+    const isDeposit = String(st.type).toLowerCase().includes('deposit');
+    const amt = Number(st.amount || 0);
+
+    results.push({
+      id: st.id,
+      date: (st.transaction_date || st.created_at || '').slice(0, 10),
+      member_id: st.member_id,
+      member_no: mem?.member_no || 'MEM-N/A',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      product_type: 'Savings Deposit',
+      account_number: st.savings_account_id,
+      reference_no: st.transaction_no || st.id,
+      description: st.notes || `Savings ${st.type}`,
+      transaction_type: st.type,
+      debit: !isDeposit ? amt : 0,
+      credit: isDeposit ? amt : 0,
+      balance_after: Number(st.balance_after || 0),
+      gl_code: savingsGl.account_code || savingsGl.code || '2110',
+      gl_name: savingsGl.name || 'Savings Deposits Payable',
+      branch_id: st.branch_id,
+      branch_name: branch?.name || 'Main Branch'
+    });
+  });
+
+  // 2. Share Capital (CBU) Transactions (GL 3110)
+  const cbuGl = accounts.find(a => (a.code === '3110' || a.account_code === '3110' || a.id === 'acc_3110')) || { account_code: '3110', name: 'Paid-Up Share Capital' };
+  cbuTx.forEach(ct => {
+    if (branch_id && branch_id !== 'all' && ct.branch_id !== branch_id) return;
+    if (member_id && member_id !== 'all' && ct.member_id !== member_id) return;
+    if (!inDateRange(ct.transaction_date || ct.created_at)) return;
+
+    const mem = memberMap.get(ct.member_id);
+    const branch = branchMap.get(ct.branch_id);
+    const amt = Number(ct.amount || 0);
+
+    results.push({
+      id: ct.id,
+      date: (ct.transaction_date || ct.created_at || '').slice(0, 10),
+      member_id: ct.member_id,
+      member_no: mem?.member_no || 'MEM-N/A',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      product_type: 'Share Capital (CBU)',
+      account_number: ct.share_account_id,
+      reference_no: ct.receipt_no || ct.id,
+      description: `CBU ${ct.type} (${ct.shares || 0} shares)`,
+      transaction_type: ct.type,
+      debit: 0,
+      credit: amt,
+      balance_after: 0,
+      gl_code: cbuGl.account_code || cbuGl.code || '3110',
+      gl_name: cbuGl.name || 'Paid-Up Share Capital',
+      branch_id: ct.branch_id,
+      branch_name: branch?.name || 'Main Branch'
+    });
+  });
+
+  // 3. Loan Payments (GL 1210 / 4110)
+  const loanGl = accounts.find(a => (a.code === '1210' || a.account_code === '1210' || a.id === 'acc_1210')) || { account_code: '1210', name: 'Loans Receivable' };
+  loanPayments.forEach(lp => {
+    if (branch_id && branch_id !== 'all' && lp.branch_id !== branch_id) return;
+    if (member_id && member_id !== 'all' && lp.member_id !== member_id) return;
+    if (!inDateRange(lp.payment_date || lp.created_at)) return;
+
+    const mem = memberMap.get(lp.member_id);
+    const branch = branchMap.get(lp.branch_id);
+    const amt = Number(lp.total_amount || 0);
+
+    results.push({
+      id: lp.id,
+      date: (lp.payment_date || lp.created_at || '').slice(0, 10),
+      member_id: lp.member_id,
+      member_no: mem?.member_no || 'MEM-N/A',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      product_type: 'Loan Amortization',
+      account_number: lp.loan_id,
+      reference_no: lp.receipt_no || lp.id,
+      description: `Amortization: Principal ₱${Number(lp.principal_amount || 0).toLocaleString()}, Interest ₱${Number(lp.interest_amount || 0).toLocaleString()}`,
+      transaction_type: 'Loan Payment',
+      debit: 0,
+      credit: amt,
+      balance_after: 0,
+      gl_code: loanGl.account_code || loanGl.code || '1210',
+      gl_name: loanGl.name || 'Loans Receivable',
+      branch_id: lp.branch_id,
+      branch_name: branch?.name || 'Main Branch'
+    });
+  });
+
+  // Filter by gl_accounts if specified
+  let finalResults = results;
+  if (gl_accounts && gl_accounts.length > 0) {
+    const glSet = new Set(gl_accounts);
+    finalResults = results.filter(r => glSet.has(r.gl_code) || glSet.has(`acc_${r.gl_code}`));
+  }
+
+  finalResults.sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalDebit = Number(finalResults.reduce((s, r) => s + r.debit, 0).toFixed(2));
+  const totalCredit = Number(finalResults.reduce((s, r) => s + r.credit, 0).toFixed(2));
+
+  res.json({
+    success: true,
+    data: {
+      period: selectedPeriod || (effectiveStart ? { name: `${effectiveStart} to ${effectiveEnd}`, start_date: effectiveStart, end_date: effectiveEnd } : null),
+      count: finalResults.length,
+      total_debit: totalDebit,
+      total_credit: totalCredit,
+      transactions: finalResults
+    }
   });
 });
 

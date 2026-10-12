@@ -19,7 +19,7 @@ import {
   UserCheck,
   UserX
 } from 'lucide-react';
-import { User, UserRole, Branch, CoopProfile } from '../../types';
+import { User, UserRole, Branch, CoopProfile, Cooperative } from '../../types';
 import { api } from '../../services/api';
 
 interface SuperAdminConsoleProps {
@@ -84,12 +84,15 @@ export const SuperAdminConsole: React.FC<SuperAdminConsoleProps> = ({
     permissions: []
   });
 
+  const [cooperativesList, setCooperativesList] = useState<Cooperative[]>([]);
+
   const [branchForm, setBranchForm] = useState({
     code: '',
     name: '',
     address: '',
     phone: '',
-    manager_name: ''
+    manager_name: '',
+    cooperative_id: ''
   });
 
   // Cooperative Form
@@ -117,10 +120,11 @@ export const SuperAdminConsole: React.FC<SuperAdminConsoleProps> = ({
   const loadConsoleData = async () => {
     setIsLoading(true);
     try {
-      const [usersRes, rolesRes, branchesRes] = await Promise.all([
+      const [usersRes, rolesRes, branchesRes, coopsRes] = await Promise.all([
         api.getUsersList(),
         api.getUserRoles(),
-        api.getBranches()
+        api.getBranches(),
+        api.getCooperatives()
       ]);
 
       if (usersRes.data) {
@@ -131,6 +135,9 @@ export const SuperAdminConsole: React.FC<SuperAdminConsoleProps> = ({
       }
       if (branchesRes.data) {
         setBranchList(branchesRes.data);
+      }
+      if (coopsRes.data) {
+        setCooperativesList(coopsRes.data);
       }
     } catch (err: any) {
       console.error('Failed to load superadmin console data:', err);
@@ -318,7 +325,8 @@ export const SuperAdminConsole: React.FC<SuperAdminConsoleProps> = ({
       name: '',
       address: '',
       phone: '',
-      manager_name: ''
+      manager_name: '',
+      cooperative_id: cooperativesList[0]?.id || 'coop_01'
     });
     setIsAddBranchOpen(true);
   };
@@ -351,7 +359,8 @@ export const SuperAdminConsole: React.FC<SuperAdminConsoleProps> = ({
       name: b.name,
       address: b.address || '',
       phone: b.phone || b.contact_number || '',
-      manager_name: b.manager_name || ''
+      manager_name: b.manager_name || '',
+      cooperative_id: b.cooperative_id || cooperativesList[0]?.id || 'coop_01'
     });
     setIsEditBranchOpen(true);
   };

@@ -54,9 +54,9 @@ class ReportController extends BaseController
     /**
      * GET /api/reports/journal-entries
      */
-    public function journalEntries(string $periodId): never
+    public function journalEntries(?string $periodId = null): never
     {
-        $periodId = $this->getQuery('period_id');
+        $periodId = $periodId ?? $this->getQuery('period_id');
 
         $branchId = $this->getCurrentUserBranchId()
             ?? $this->getQuery('current_branch_id')

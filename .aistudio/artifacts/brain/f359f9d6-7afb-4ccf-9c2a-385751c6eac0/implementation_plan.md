@@ -1,177 +1,126 @@
-# Superadmin Role Governance & Branch Data Isolation Architecture Plan
+# Unified Reports & Ledger Workbench Module Architecture Plan
 
-A comprehensive plan to establish strict role-based access control for **Superadmin** (dedicated governance console, user/role management, branch/cooperative setup, and global audit oversight with complete operational process isolation) and enforce **multi-branch data scoping** across all database tables and operational workflows.
+A dedicated, Excel-like reporting workbench allowing users to filter General Ledger and Member transactions across CDA accounting periods, toggle specific GL accounts via interactive checkboxes, filter by member, and export to CSV and PDF.
 
----
-
-### User Review & Critical Decisions
+## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Key architectural decisions regarding role governance and branch data scoping:
->
-> - **Dual Foreign Key Architecture (`branch_id` + `user_id`)**: Main operational tables (members, loans, savings, CBU, journals, GL, cash transactions) will track both `branch_id` (for branch-level tenancy, segregation, and trial balance) and `user_id` / `created_by` (for operator-level auditability and CDA regulatory compliance).
-> - **Strict Superadmin Boundary**: The `role_superadmin` role is strictly restricted to platform governance (User Management, User Roles, Cooperative Profile, Branches, and Audit Trail). Superadmin will have zero access to day-to-day cooperative business operations (loans, member deposits, teller drawers, journal vouchers, and financial reports).
-> - **Single-Branch User Scoping**: Regular staff users belong to exactly 1 branch and 1 cooperative. All operational views, queries, and mutations are automatically locked and filtered by the logged-in user's `branch_id`.
+> The following user preferences were confirmed during the interactive clarification phase:
+
+- **Dual Sheets in Excel Grid**: General Ledger transactions and Member transactions will be rendered in a tabbed dual-sheet workbench layout within the same display module.
+- **Member Filtering Scope**: Member transactions can be filtered by individual member, member account, or across all active members within the selected period alongside the GL account selection.
+- **Navigation Placement**: Accessible via a dedicated "Reports & Ledger Workbench" item in the primary sidebar navigation.
 
 ---
 
-### 1. Overview & Core Concept
+## 1. Overview & Core Concept
 
-- **What It Does**: 
-  1. Enforces strict role boundary for **Superadmin**: superadmins only see and manage Users, Roles, Branches, Cooperatives, and the Audit Trail. All regular cooperative operational views are hidden and blocked.
-  2. Embeds `branch_id` and `user_id` foreign keys into all main operational records in the database, ensuring strict relational integrity.
-  3. Scopes all operational data (members, loans, savings accounts, share capital, journal vouchers, general ledger, and cash transactions) to the authenticated user's assigned `branch_id`.
-  4. Delivers a dedicated **Superadmin Governance Module** with user status toggling (Active/Inactive), password modification, role assignment, branch management, cooperative details, and global audit verification.
-- **Target Audience / Persona**:
-  - **Super Administrator**: Platform owner responsible for onboarding staff, assigning security permissions, setting up branches, and auditing all operations.
-  - **Branch Staff (Loan Officers, Tellers, Accountants, Branch Managers)**: Cooperative personnel who must only access and process records belonging to their specific home branch.
-- **Key Value**: Guarantees multi-branch data isolation, prevents cross-branch operational leakage, and fulfills CDA statutory audit requirements.
+### What It Does
+The **Reports Module** provides finance officers, internal auditors, and branch managers with an interactive Excel-grade reporting workbench. Users select an accounting period (e.g., October 1 – October 31 from the `accounting_periods` table), select which General Ledger accounts to include via multi-select checkboxes, and optionally filter by member. The system populates a dual-sheet spreadsheet with real-time totals, formula sums, and instant export to CSV and audit-ready printable PDF.
 
----
+### Target Audience & Persona
+- **Accountants & Bookkeepers**: Reconciling journal entries against chart-of-accounts balances for closing periods.
+- **Internal Auditors & Regulators (CDA)**: Auditing member passbooks, savings, share capital (CBU), and credit schedules against underlying general ledger postings.
+- **Branch Managers**: Reviewing monthly operational disbursements, receipts, and member activity.
 
-### 2. User Experience & Visual Design
-
-#### Key User Flows
-
-1. **Superadmin Login & Governance Navigation**:
-   - Superadmin logs in (`role_superadmin`).
-   - The navigation sidebar dynamically strips all operational links (Loans, Savings, Share Capital, Accounting, Financial Reports, Workbench).
-   - Only 3 navigation items appear: **Platform Governance** (SuperAdmin Console), **Audit Trail** (Global Audit Logs), and **My Profile**.
-   - Attempting to access operational tabs via URL redirects immediately to the SuperAdmin Console.
-2. **User Management & Role Governance**:
-   - Superadmin navigates to the User Management sub-module.
-   - Quick filters allow viewing users by branch, role, or active/inactive status.
-   - Superadmin can toggle user status (`Active` <-> `Inactive`) with one click, modify user details (name, email, phone, role, branch assignment), and reset passwords.
-   - In User Roles, superadmin can inspect and edit permission sets for each role (`role_admin`, `role_manager`, `role_accountant`, `role_loan_officer`, `role_teller`, `role_bod`).
-3. **Branch & Cooperative Management**:
-   - Superadmin can configure cooperative legal details (CDA registration, address, contact, tax ID).
-   - Superadmin can add new branches or edit existing branch details (code, name, address, contact number, active status).
-4. **Regular Staff Branch-Scoped Experience**:
-   - Operational staff logs in (e.g. Loan Officer assigned to `branch_tar`).
-   - The UI locks to their assigned branch (`branch_tar`). Cross-branch selector dropdowns in operational modules are hidden or disabled.
-   - All records (Members, Loans, Savings Accounts, Journals, Ledger) display only records where `branch_id === currentUser.branch_id`.
-   - New loans, members, or transactions automatically inherit `branch_id: currentUser.branch_id` and `user_id: currentUser.id`.
-
-#### Visual Identity & Theme
-- **Governance Console**: Enterprise dark/slate design (`bg-slate-900/95`, borders `border-slate-800`), consistent with the cooperative design system.
-- **Status Indicators**: Unboxed typography with status dots (`text-emerald-400` for active, `text-rose-400` for inactive) adhering to zero-pill discipline.
-- **Interactive Tabs**: Clean segmented controls for switching between Users, Roles, Branches, and Cooperative Profile.
-- **Data Tables**: High-density tables with clear typographic hierarchy, search filter bars, and contextual actions.
+### Key Value
+Eliminates manual multi-step reconciliation between the General Ledger and member subsidiary records by uniting them in an Excel workbench with synchronized period cutoffs and one-click regulatory export.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
+## 2. User Experience & Visual Design
 
-- **Decision 1: Foreign Key Structure on Main Operational Tables**
-  - *Chosen Approach*: Add and enforce both `branch_id` and `user_id` / `created_by` on all core database records.
-  - *Why*: In Philippine cooperative accounting, transactions require both branch segregation (for branch financial condition reports and regulatory compliance) and operator attribution (for teller balancing and audit trails). 
-  - *Alternatives Considered*: Storing only `branch_id` would lose operator traceability; storing only `user_id` would require expensive multi-hop joins to resolve branch ownership.
-- **Decision 2: Strict Superadmin Operational Segregation**
-  - *Chosen Approach*: Completely hide and guard operational modules for `role_superadmin`. Superadmin can only access governance and audit logs.
-  - *Why*: Separation of duties is a core internal control principle; platform administrators must not originate loans or post cash transactions.
-  - *Alternatives Considered*: Allowing superadmin to view operational data in read-only mode was rejected to maintain the strict boundary requested by the user.
-- **Decision 3: Backend & Frontend Defense-in-Depth for Branch Isolation**
-  - *Chosen Approach*: Enforce branch filtering on both the client (UI branch locking) and the server (`server/routes/api.ts` filters queries by `branch_id` and rejects cross-branch access).
-  - *Why*: Prevents API-level data exposure even if a client-side filter is bypassed.
+### Key User Flows
+1. **Period Selection**: The user opens the Reports Module and selects an accounting period from a dropdown populated from the `accounting_periods` database table (displaying period name, date range, and open/closed status).
+2. **GL Account Toggling**: A collapsible GL Account Filter panel displays all accounts grouped by class (Assets, Liabilities, Equity, Revenue, Expense) with "Select All", "Clear All", and quick search. The user checks/unchecks specific GL accounts.
+3. **Member Filter**: An optional searchable member selector allows narrowing down to specific member transactions or viewing all members active in that period.
+4. **Excel Grid Exploration**: 
+   - **Sheet 1 (General Ledger Transactions)**: Lists date, voucher number, GL code, account title, reference/description, debit, credit, net balance, and branch.
+   - **Sheet 2 (Member Subsidiary Ledger)**: Lists date, member number, member name, product type (Savings, CBU, Loan), receipt/reference, debit/credit amounts, and linked GL account.
+5. **Statistics & Summary Bar**: Bottom status bar calculates total rows, total debit, total credit, and variance in tabular figures.
+6. **Export**: 
+   - **CSV Export**: Downloads a structured CSV file for the active sheet or consolidated data.
+   - **PDF Export / Print Preview**: Opens a high-density, print-formatted view with official cooperative letterhead, period metadata, applied filter criteria, balanced summary totals, and signatures block for submission to the Board or CDA.
+
+### Visual Identity & Theme
+- **Aesthetic Direction**: High-density enterprise SaaS workbench adhering to the Universal Frontend Design Constitution. Deep slate canvas (`#0F172A`), crisp hairline dividers (`#334155`), and emerald accents (`#10B981`) for positive equilibrium.
+- **Typography**: `Plus Jakarta Sans` for clean UI controls, paired with `font-mono tabular-nums` for all amounts, vouchers, dates, and balances to guarantee vertical decimal alignment.
+- **Zero-Pill Discipline**: Statuses and metadata use clean, unboxed text separated by subtle middots (`·`). Interactive tabs for sheets (GL Ledger / Member Ledger) use clean segmented control styling.
+- **No Mechanical Clutter**: No code comments in headers, no decorative pulsing dots, and no artificial status tickers.
 
 ---
 
-### 4. Technical Architecture & Data Strategy
+## 3. Key Product Decisions & Trade-Offs
+
+### Decision 1: Dual-Sheet vs. Combined Single Sheet
+- **Chosen Approach**: Dual-sheet tabbed structure ("GL Ledger" and "Member Transactions") within the same workbench screen.
+- **Why**: General Ledger transactions are double-entry journal lines (debit/credit balancing to zero), whereas Member transactions are subsidiary records (individual passbook deposits, loan amortizations, share capital contributions). Combining them into one flat table creates awkward empty cells and distorted totals. Dual sheets preserve accounting integrity while sharing identical period and account filters.
+
+### Decision 2: Accounting Period Source & Custom Override
+- **Chosen Approach**: Pull dropdown options directly from `accounting_periods` table, displaying fiscal year and start/end dates, with an optional custom date range toggle for non-standard audit queries.
+- **Why**: Follows CDA accounting standards where books close on formal periods, preventing date-entry errors.
+
+### Decision 3: Client-Side + Server-Side Hybrid Filtering
+- **Chosen Approach**: Fetch journal entries and member transactions for the selected accounting period via optimized backend endpoints, then execute immediate client-side GL checkbox toggling and member search for instant 0ms latency responses without refetching.
+- **Why**: Allows instant checkbox responsiveness as the user toggles accounts without loading spinners on every click.
+
+---
+
+## 4. Technical Architecture & Data Strategy
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          AUTHENTICATION & ROLE ROUTER                            │
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-                  ┌──────────────────────┴──────────────────────┐
-                  ▼                                             ▼
-       ┌──────────────────────┐                     ┌──────────────────────┐
-       │   role_superadmin    │                     │  Operational Roles   │
-       │  (Platform Owner)    │                     │  (Officer/Cashier)   │
-       └──────────────────────┘                     └──────────────────────┘
-                  │                                             │
-      Restricted to Governance                      Scoped to currentUser.branch_id
-                  │                                             │
-   ┌──────────────┴──────────────┐               ┌──────────────┴──────────────┐
-   ▼                             ▼               ▼                             ▼
-┌─────────────────────────┐ ┌──────────────┐  ┌─────────────────────────┐ ┌──────────────┐
-│  SuperAdmin Console     │ │  Audit Logs  │  │  Operational Modules    │ │ Sub-Ledgers  │
-│  • User Management      │ │  (All Events │  │  • Members (branch-only)│ │ • Cash Vault │
-│  • Role Permissions     │ │   & Branches)│  │  • Loans (branch-only)  │ │ • Teller COH │
-│  • Branches (CRUD)      │ └──────────────┘  │  • Savings (branch-only)│ │ • GL/Journals│
-│  • Cooperative Profile  │                   │  • CBU (branch-only)    │ └──────────────┘
-└─────────────────────────┘                   └─────────────────────────┘
-                                                           │
-                                                           ▼
-                                         ┌───────────────────────────────────┐
-                                         │        SERVER API ROUTING         │
-                                         ├───────────────────────────────────┤
-                                         │ • req.query.branch_id enforcement │
-                                         │ • Stamp branch_id & created_by    │
-                                         │ • Return filtered entity arrays   │
-                                         └───────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Sidebar Navigation                              │
+│             [Reports & Ledger Workbench] (Tab: 'reports_module')       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        ReportsModule (Workbench)                       │
+├────────────────────────────────────────────────────────────────────────┤
+│ Controls Bar:                                                          │
+│  ├── [Period Dropdown] (from accounting_periods: Oct 1 - Oct 31, 2026) │
+│  ├── [Branch Selector] (Consolidated or specific branch)               │
+│  ├── [Member Filter] (Searchable Select: All or specific member)       │
+│  └── [Actions] -> [Export CSV] [Export PDF / Print] [Refresh]          │
+├────────────────────────────────────────────────────────────────────────┤
+│ GL Account Checkbox Bar / Drawer:                                      │
+│  ├── Quick Buttons: [Select All] [Deselect All] [Assets] [Liab] etc.   │
+│  └── Checkbox Badges for each GL Account (Code + Title)                │
+├────────────────────────────────────────────────────────────────────────┤
+│ Dual-Sheet Tab Switcher:                                               │
+│  ├── Sheet 1: General Ledger Transactions (Journal lines)              │
+│  └── Sheet 2: Member Transactions (Savings, CBU, Loans subsidiary)     │
+├────────────────────────────────────────────────────────────────────────┤
+│ ExcelGridTable Engine:                                                 │
+│  ├── High-density tabular grid with column sorting & search filters    │
+│  └── Monospace tabular-nums currency rendering                         │
+├────────────────────────────────────────────────────────────────────────┤
+│ Bottom Accounting Summary Bar:                                         │
+│  └── Total Transactions | Total Debit (₱) | Total Credit (₱) | Net (₱) │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                 ┌──────────────────┴──────────────────┐
+                 ▼                                     ▼
+┌─────────────────────────────────┐   ┌──────────────────────────────────┐
+│  Node / Express Backend API     │   │  PHP Backend Compatibility       │
+│  GET /api/reports/journal-      │   │  GET /api/reports/journal-       │
+│      entries?period_id=...      │   │      entries?period_id=...       │
+│  GET /api/reports/member-       │   │  GET /api/reports/financial-     │
+│      transactions?period_id=... │   │      statements                  │
+└─────────────────────────────────┘   └──────────────────────────────────┘
 ```
 
-#### Entity Relational Mapping & Foreign Keys
-
-| Entity Table | Primary Key | Foreign Key 1 (`branch_id`) | Foreign Key 2 (`user_id` / `created_by`) | Scope Enforced |
-|---|---|---|---|---|
-| `users` | `id` | `branch_id` | N/A | Superadmin manages; user belongs to 1 branch |
-| `members` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
-| `loans` | `id` | `branch_id` | `created_by` / `approved_by` | Filtered by user's `branch_id` |
-| `loan_applications`| `id` | `branch_id` | `submitted_by` | Filtered by user's `branch_id` |
-| `loan_payments` | `id` | `branch_id` | `received_by` | Filtered by user's `branch_id` |
-| `savings_accounts` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
-| `savings_transactions`| `id` | `branch_id` | `teller_id` / `user_id` | Filtered by user's `branch_id` |
-| `share_capital_accounts`| `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
-| `share_capital_transactions`| `id` | `branch_id` | `posted_by` | Filtered by user's `branch_id` |
-| `journal_entries` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
-| `journal_lines` | `id` | `branch_id` | `created_by` | Filtered by user's `branch_id` |
-| `cash_accounts` | `id` | `branch_id` | `assigned_user_id` | Filtered by user's `branch_id` |
-| `cash_transactions`| `id` | `branch_id` | `user_id` | Filtered by user's `branch_id` |
-| `user_documents` | `id` | `branch_id` | `user_id` | Filtered by user's `branch_id` |
-| `audit_logs` | `id` | `branch_id` | `user_id` | Global for Superadmin, filtered for branch |
-
----
-
-### 5. Implementation Steps
-
-#### Step 1: Database Migration & Schema Verification (`server/db/branchMigration.ts` & `database.ts`)
-- Verify and enforce `branch_id` and `user_id` on all existing and new records across all tables.
-- Ensure `role_superadmin` exists in `user_roles` with platform governance permissions.
-- Ensure at least one default superadmin user account exists (`superadmin`).
-- Ensure all users have `branch_id` and `cooperative_id` fields properly populated.
-
-#### Step 2: Backend API Routes Scoping & Protection (`server/routes/api.ts`)
-- Update `GET /members`, `GET /loans`, `GET /savings-accounts`, `GET /share-capital-accounts`, `GET /journal-entries`, `GET /general-ledger`, `GET /cash-accounts`, and `GET /dashboard/stats` to filter strictly by `branch_id` when supplied via query param or user context.
-- Update creation endpoints (`POST /members`, `POST /loans`, `POST /savings-accounts`, `POST /journal-entries`, `POST /cash-transactions`) to automatically inject `branch_id` and `user_id` / `created_by`.
-- Ensure Superadmin endpoints (`/users`, `/user-roles`, `/branches`, `/cooperative`, `/audit-logs`) provide complete CRUD and audit access.
-
-#### Step 3: SuperAdmin Governance Module (`src/components/admin/SuperAdminConsole.tsx`)
-- Enhance the dedicated module with clean tabbed navigation:
-  - **User Management**: View, search, filter by branch/role/status, create user, edit user details (role, branch, email, phone, name), quick toggle Active/Inactive status, and password reset.
-  - **User Roles**: View all system roles, inspect permissions, edit role description and permission checklist.
-  - **Branches**: View all branches, create new branch, edit branch details (code, name, address, contact, active status).
-  - **Cooperative Profile**: Manage cooperative legal identity, CDA registration, address, and tax information.
-  - **Audit Trail Link**: Direct access to view and filter system-wide transaction and configuration audit logs.
-
-#### Step 4: Frontend Navigation & Route Guards (`src/components/Sidebar.tsx` & `src/App.tsx`)
-- In `Sidebar.tsx`:
-  - When `currentUser.role_id === 'role_superadmin'`, render ONLY SuperAdmin Console, Audit Logs, and User Profile.
-  - When regular operational user is logged in, hide SuperAdmin Console completely.
-- In `App.tsx`:
-  - Enforce tab guard: If `isSuperAdmin`, redirect any unauthorized tab to `superadmin_console`.
-  - For regular operational users, lock `selectedBranchId` to `currentUser.branch_id` and pass `selectedBranchId` to all API queries.
-
----
-
-### 6. Verification Checklist
-
-- [ ] `compile_applet` succeeds with 0 TypeScript/build errors.
-- [ ] `lint_applet` passes without errors.
-- [ ] Logging in as `superadmin` restricts sidebar navigation strictly to SuperAdmin Console, Audit Logs, and User Profile.
-- [ ] In SuperAdmin Console, user status toggle switches between Active and Deactivated immediately with live feedback.
-- [ ] SuperAdmin can edit user roles, branch assignments, passwords, and create new users and branches.
-- [ ] Logging in as an operational user (e.g. Loan Officer at Tarlac Branch) scopes members, loans, savings, and ledger records strictly to `branch_tar`.
-- [ ] Operational records created by the user automatically store `branch_id` and `user_id`.
-- [ ] Audit logs record all actions with `branch_id` and operator details.
+### Key Components to Build & Update
+1. **`src/components/reports/ReportsModule.tsx`**:
+   - Primary container housing the period selector, GL checkbox toggle panel, member search filter, dual-sheet switcher, ExcelGridTable integration, and export handlers.
+2. **`src/components/reports/PrintableReportModal.tsx`**:
+   - Clean, professional print/PDF layout supporting official cooperative headers, period dates, applied GL accounts list, and signature lines.
+3. **`src/components/Sidebar.tsx`**:
+   - Register `'reports_module'` with `FileSpreadsheet` icon in `navItems`.
+4. **`src/types/index.ts`**:
+   - Add `'reports_module'` to `TabKey` type definition.
+5. **`src/App.tsx`**:
+   - Add route branch for `activeTab === 'reports_module'` rendering `<ReportsModule />`.
+6. **`src/services/api.ts` & `server/routes/api.ts`**:
+   - Implement `getJournalEntriesByPeriod(periodId, branchId)` and `getMemberTransactionsByPeriod(periodId, branchId, memberId)` in both frontend API service and server routes.

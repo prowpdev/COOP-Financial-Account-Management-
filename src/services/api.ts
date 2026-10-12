@@ -1268,5 +1268,70 @@ deleteMemberType : async (id) =>{
     fetchApi<{ success: boolean; total_credited: number; accounts_credited: number; message: string; transactions?: any[] }>('/savings/post-interest-batch', {
       method: 'POST',
       body: JSON.stringify(params || {})
-    })
+    }),
+
+  // Reports Module & Ledger Workbench
+  getAccountingPeriods: async () => {
+    const res = await fetchApi<{ success: boolean; data: any[] }>('/accounting-periods');
+    return { success: true, data: safeArray(res) };
+  },
+  getReportJournalEntries: async (params?: {
+    period_id?: string;
+    branch_id?: string;
+    member_id?: string;
+    start_date?: string;
+    end_date?: string;
+    gl_account_ids?: string[];
+  }) => {
+    const queryParts: string[] = [];
+    if (params?.period_id) queryParts.push(`period_id=${encodeURIComponent(params.period_id)}`);
+    if (params?.branch_id && params.branch_id !== 'all') queryParts.push(`branch_id=${encodeURIComponent(params.branch_id)}`);
+    if (params?.member_id && params.member_id !== 'all') queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
+    if (params?.start_date) queryParts.push(`start_date=${encodeURIComponent(params.start_date)}`);
+    if (params?.end_date) queryParts.push(`end_date=${encodeURIComponent(params.end_date)}`);
+    if (params?.gl_account_ids && params.gl_account_ids.length > 0) {
+      queryParts.push(`gl_account_ids=${encodeURIComponent(params.gl_account_ids.join(','))}`);
+    }
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    return fetchApi<{
+      success: boolean;
+      data: {
+        period: any;
+        count: number;
+        total_debit: number;
+        total_credit: number;
+        net_balance: number;
+        lines: any[];
+      };
+    }>(`/reports/journal-entries${qs}`);
+  },
+  getReportMemberTransactions: async (params?: {
+    period_id?: string;
+    branch_id?: string;
+    member_id?: string;
+    start_date?: string;
+    end_date?: string;
+    gl_account_ids?: string[];
+  }) => {
+    const queryParts: string[] = [];
+    if (params?.period_id) queryParts.push(`period_id=${encodeURIComponent(params.period_id)}`);
+    if (params?.branch_id && params.branch_id !== 'all') queryParts.push(`branch_id=${encodeURIComponent(params.branch_id)}`);
+    if (params?.member_id && params.member_id !== 'all') queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
+    if (params?.start_date) queryParts.push(`start_date=${encodeURIComponent(params.start_date)}`);
+    if (params?.end_date) queryParts.push(`end_date=${encodeURIComponent(params.end_date)}`);
+    if (params?.gl_account_ids && params.gl_account_ids.length > 0) {
+      queryParts.push(`gl_account_ids=${encodeURIComponent(params.gl_account_ids.join(','))}`);
+    }
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    return fetchApi<{
+      success: boolean;
+      data: {
+        period: any;
+        count: number;
+        total_debit: number;
+        total_credit: number;
+        transactions: any[];
+      };
+    }>(`/reports/member-transactions${qs}`);
+  }
 };

@@ -79,6 +79,16 @@ export function runBranchIsolationMigration(db: DatabaseEngine) {
     modified = true;
   }
 
+  const defaultCoopId = data.cooperatives?.[0]?.id || 'coop_01';
+  if (Array.isArray(data.branches)) {
+    for (const b of data.branches) {
+      if (!b.cooperative_id) {
+        b.cooperative_id = defaultCoopId;
+        modified = true;
+      }
+    }
+  }
+
   const defaultBranchId = data.branches[0]?.id || 'branch_tar';
 
   // 2. Ensure initial users exist with role_superadmin and distinct branch assignments
