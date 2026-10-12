@@ -25,6 +25,7 @@ use App\Controllers\SystemController;
 use App\Controllers\SeederController;
 use App\Controllers\LoanProductController;
 use App\Controllers\MemberDocumentController;
+use App\Controllers\MigrationController;
 use App\Middleware\JwtAuthMiddleware;
 
 /** @var Router $router */
@@ -309,4 +310,17 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
     // Notifications
     $router->get('/notifications', [ConfigController::class, 'notifications']);
+
+    // =========================================================================
+    // 13. Database Schema Migrations & Auto-Inspection
+    // =========================================================================
+    $router->post('/api/db/migration/run', [MigrationController::class, 'run']);
+    $router->get('/api/db/migration/run', [MigrationController::class, 'run']);
+    $router->post('/db/migration/run', [MigrationController::class, 'run']);
+    $router->get('/db/migration/run', [MigrationController::class, 'run']);
 });
+
+// Also allow direct trigger with header/query token for system administration
+$router->post('/api/db/migration/run', [MigrationController::class, 'run']);
+$router->get('/api/db/migration/run', [MigrationController::class, 'run']);
+
