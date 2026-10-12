@@ -301,7 +301,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           tin_number: form.tin_number,
           notes: form.notes
         },
-        performed_by: currentUser.name
+        performed_by: currentUser.name,
+        branch_id:currentUser.branch_id
       });
       setIsRegistering(false);
       setNotice(`Member "${form.first_name} ${form.last_name}" registered successfully with automated SA and CBU accounts.`);
@@ -468,9 +469,9 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Registering Branch</label>
-                  <input type="hidden" name="branch_id" value={form.branch_id} />
+                  <input type="hidden" name="branch_id" value={currentUser.branch_id} />
                   <div className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-300">
-                    {branches.find(branch => branch.id === form.branch_id)?.name || form.branch_id}
+                    {branches.find(branch => branch.id === currentUser.branch_id)?.name || currentUser.branch_id}
                   </div>
                 </div>
                 <div>

@@ -990,6 +990,23 @@ getLoanApplications: async (params?: {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
     return { success: true, data: res.data?.member_types || [] };
   },
+createMemberTypeService: async (payload: any) => {
+ return await fetchApi<{success: boolean;data: any;message?: string;}>('/member-types', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+},
+updateMemberTypeService: async (payload: any) =>{
+return await fetchApi<{success: boolean;data: any;message?: string;}>(`/member-types/${payload.id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+},
+deleteMemberType : async (id) =>{
+  return await fetchApi<{success: boolean;data: any;message?: string;}>(`/member-types/${id}`, {
+    method: 'DELETE'
+  });
+},
   getCustomFields: async () => {
     const res = await fetchApi<{ success: boolean; data: any }>('/config/all');
     return { success: true, data: res.data?.custom_fields || [] };

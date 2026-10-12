@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+    Edit3,
   CalendarDays,
   Settings,
   BookOpen,
@@ -2650,7 +2651,151 @@ function CustomFieldsConfig({
     required: false,
     options_text: ''
   });
+  const [isAddingMemberType, setIsAddingMemberType] = useState(false);
 
+  const [newMemberType, setNewMemberType] = useState({
+    coop_id: currentUser?.cooperative_id || '',
+    name: '',
+    code: '',
+    description: '',
+    voting_rights: true,
+    min_share_capital: '1000.00',
+    savings_requirement: '500.00',
+    loan_eligibility: true,
+    required_documents: [] as string[],
+    active: true,
+  }); 
+  const clearNewMemberFields = () =>{
+    setNewMemberType({
+      coop_id: currentUser?.cooperative_id || '',
+      name: '',
+      code: '',
+      description: '',
+      voting_rights: true,
+      min_share_capital: '1000.00',
+      savings_requirement: '500.00',
+      loan_eligibility: true,
+      required_documents: [] as string[],
+      active: true,
+    })
+  }
+  const [requiredDocumentInput, setRequiredDocumentInput] = useState('');
+  const [mtMethod,setMtMethod] = useState("create");
+  const [mtActiveId,setMtActiveId] = useState(null);
+
+  const handleCreateMemberType = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+        const payload = {
+            ...newMemberType,
+            name: newMemberType.name.trim(),
+            code: newMemberType.code.trim(),
+            description: newMemberType.description.trim() || null,
+            min_share_capital: Number(newMemberType.min_share_capital),
+            savings_requirement: Number(newMemberType.savings_requirement),
+            voting_rights: newMemberType.voting_rights ? 1 : 0,
+            loan_eligibility: newMemberType.loan_eligibility ? 1 : 0,
+            active: newMemberType.active ? 1 : 0,
+            required_documents: requiredDocumentInput,
+            coop_id: currentUser.cooperative_id,
+            id: mtActiveId || null
+          };  
+      if(mtMethod === "create"){
+      
+        try {
+          const response = await api.createMemberTypeService(payload);
+          if (!response.success) {
+            throw new Error('Failed to create member type.');
+          }
+          setIsAddingMemberType(false);
+          setRequiredDocumentInput('');
+  
+          setNewMemberType({
+            coop_id: currentUser?.cooperative_id || '',
+            name: '',
+            code: '',
+            description: '',
+            voting_rights: true,
+            min_share_capital: '1000.00',
+            savings_requirement: '500.00',
+            loan_eligibility: true,
+            required_documents: [],
+            active: true,
+          });
+          showNotice('success', `Created custom member type.`);
+        } catch (error) {
+          console.error('Error creating member type:', error);
+          // Display your existing error notification here.
+        }
+        finally{
+           onRefresh()
+        }
+
+      }
+      // 
+     else {
+  try {
+    const response = await api.updateMemberTypeService(payload);
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to update member type.');
+    }
+
+    setIsAddingMemberType(false);
+    setRequiredDocumentInput('');
+    clearNewMemberFields();
+
+    await onRefresh();
+
+    showNotice('success', 'Member type updated successfully.');
+  } catch (error) {
+    console.error('Error updating member type:', error);
+
+    showNotice(
+      'error',
+      error instanceof Error
+        ? error.message
+        : 'Failed to update member type.'
+    );
+  }
+}
+    };
+  // edit member type data
+  const [mtFormTitle,setMtFormTitle] = useState("Add Member Type");
+  const setNewMemberTypeEditData = (data: any) => {
+    setMtActiveId(data.id);
+    let documents: string[] = [];
+    setMtFormTitle("Edit Member Type");
+    if (Array.isArray(data.required_documents)) {
+      documents = data.required_documents;
+    } else if (typeof data.required_documents === 'string' && data.required_documents.trim()) {
+      try {
+        const parsed = JSON.parse(data.required_documents);
+        documents = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        documents = [];
+      }
+    }
+
+    setNewMemberType({
+      coop_id: currentUser?.cooperative_id || data.coop_id || '',
+      name: data.name || '',
+      code: data.code || '',
+      description: data.description || '',
+      voting_rights: Boolean(Number(data.voting_rights)),
+      min_share_capital: String(data.min_share_capital ?? ''),
+      savings_requirement: String(data.savings_requirement ?? ''),
+      loan_eligibility: Boolean(Number(data.loan_eligibility)),
+      required_documents: documents,
+      active: Boolean(Number(data.active)),
+    });
+  };
+  const deleteMt = async (data) =>{
+    if(confirm(`Confirm Delete Member Type ${data.name}`)){
+      const res = await api.deleteMemberType(data.id);
+      showNotice('success', `Member type ${data.name} deleted successfully.`);
+      onRefresh()
+    }
+  }
   const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -2672,6 +2817,7 @@ function CustomFieldsConfig({
       showNotice('error', err.message);
     }
   };
+  const [cooperatives,setCooperatives] = useState([]);
 
   return (
     <div className="space-y-6">
@@ -2682,14 +2828,28 @@ function CustomFieldsConfig({
             Define cooperative-specific member attributes and membership classifications dynamically (Req #13, #14, Test #8).
           </p>
         </div>
+        <div className="flex flex-wrap gap-3">
         <button
           id="btn-add-custom-field"
           onClick={() => setIsAddingField(true)}
           className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Add Custom Field</span>
+          <span> Add Custom Field</span>
         </button>
+        <button
+          id="btn-add-custom-field"
+          onClick={() => {
+            setNewMemberTypeEditData([]);
+            setMtMethod('create')
+            setIsAddingMemberType(true);
+          setMtFormTitle('Add Member Type')}}
+          className="flex items-center space-x-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white  py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span> Add Member Type</span>
+        </button>
+        </div>
       </div>
 
       {isAddingField && (
@@ -2774,6 +2934,308 @@ function CustomFieldsConfig({
           </div>
         </form>
       )}
+      {/* Add Member Type Form */}
+      {isAddingMemberType && (
+        <form
+          onSubmit={handleCreateMemberType}
+          className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4"
+        >
+          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+            <h3 className="text-sm font-bold text-emerald-400">
+              {mtFormTitle}
+            </h3>
+
+            <button
+              type="button"
+              onClick={() => setIsAddingMemberType(false)}
+              className="text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* Member Type Name */}
+            <div>
+              <label className="text-xs text-slate-300 font-medium">
+                Member Type Name
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Regular Agricultural Member"
+                value={newMemberType.name}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    name: e.target.value,
+                  })
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+
+            {/* Code */}
+            <div>
+              <label className="text-xs text-slate-300 font-medium">
+                Member Type Code
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={20}
+                placeholder="e.g. REGULAR"
+                value={newMemberType.code}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    code: e.target.value.toUpperCase().replace(/\s+/g, '_'),
+                  })
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+
+            {/* Cooperative */}
+            
+
+            {/* Description */}
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs text-slate-300 font-medium">
+                Description
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Describe this membership type..."
+                value={newMemberType.description}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    description: e.target.value,
+                  })
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white resize-y"
+              />
+            </div>
+
+            {/* Minimum Share Capital */}
+            <div>
+              <label className="text-xs text-slate-300 font-medium">
+                Minimum Share Capital (₱)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                value={newMemberType.min_share_capital}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    min_share_capital: e.target.value,
+                  })
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+
+            {/* Savings Requirement */}
+            <div>
+              <label className="text-xs text-slate-300 font-medium">
+                Savings Requirement (₱)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                value={newMemberType.savings_requirement}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    savings_requirement: e.target.value,
+                  })
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+              />
+            </div>
+
+            {/* Required Documents */}
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs text-slate-300 font-medium">
+                Required Documents
+              </label>
+
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="text"
+                  placeholder="e.g. Valid ID, Proof of Address"
+                  value={requiredDocumentInput}
+                  onChange={e => setRequiredDocumentInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+
+                      const documentName = requiredDocumentInput.trim();
+
+                      if (
+                        documentName &&
+                        !newMemberType.required_documents.includes(documentName)
+                      ) {
+                        setNewMemberType({
+                          ...newMemberType,
+                          required_documents: [
+                            ...newMemberType.required_documents,
+                            documentName,
+                          ],
+                        });
+
+                        setRequiredDocumentInput('');
+                      }
+                    }
+                  }}
+                  className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const documentName = requiredDocumentInput.trim();
+
+                    if (
+                      documentName &&
+                      !newMemberType.required_documents.includes(documentName)
+                    ) {
+                      setNewMemberType({
+                        ...newMemberType,
+                        required_documents: [
+                          ...newMemberType.required_documents,
+                          documentName,
+                        ],
+                      });
+
+                      setRequiredDocumentInput('');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs cursor-pointer"
+                >
+                  Add
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mt-2">
+                {newMemberType.required_documents.map((document, index) => (
+                  <span
+                    key={`${document}-${index}`}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
+                  >
+                    {document}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewMemberType({
+                          ...newMemberType,
+                          required_documents:
+                            newMemberType.required_documents.filter(
+                              (_, i) => i !== index
+                            ),
+                        })
+                      }
+                      className="text-slate-400 hover:text-red-400 cursor-pointer"
+                      aria-label={`Remove ${document}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Voting Rights */}
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="member-type-voting-rights"
+                checked={newMemberType.voting_rights}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    voting_rights: e.target.checked,
+                  })
+                }
+                className="rounded border-slate-700 text-emerald-600 focus:ring-0"
+              />
+              <label
+                htmlFor="member-type-voting-rights"
+                className="text-xs text-slate-300 font-medium cursor-pointer"
+              >
+                Has Voting Rights
+              </label>
+            </div>
+
+            {/* Loan Eligibility */}
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="member-type-loan-eligibility"
+                checked={newMemberType.loan_eligibility}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    loan_eligibility: e.target.checked,
+                  })
+                }
+                className="rounded border-slate-700 text-emerald-600 focus:ring-0"
+              />
+              <label
+                htmlFor="member-type-loan-eligibility"
+                className="text-xs text-slate-300 font-medium cursor-pointer"
+              >
+                Eligible for Loans
+              </label>
+            </div>
+
+            {/* Active */}
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="member-type-active"
+                checked={newMemberType.active}
+                onChange={e =>
+                  setNewMemberType({
+                    ...newMemberType,
+                    active: e.target.checked,
+                  })
+                }
+                className="rounded border-slate-700 text-emerald-600 focus:ring-0"
+              />
+              <label
+                htmlFor="member-type-active"
+                className="text-xs text-slate-300 font-medium cursor-pointer"
+              >
+                Active Member Type
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => setIsAddingMemberType(false)}
+              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded text-xs cursor-pointer"
+            >
+              Save Member Type
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Field List */}
       <div>
@@ -2828,6 +3290,38 @@ function CustomFieldsConfig({
                   </span>
                 </div>
               </div>
+              {/* add card footer */} 
+                <div className="mt-5 p-1 bg-slate-950/20 border-t border-slate-800/80 flex items-end justify-end text-xs">
+                  <div className="flex items-center space-x-1">
+                
+                    <button
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition cursor-pointer"
+                      title="Transfer from this depository"
+                    >
+                     
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAddingMemberType(true);
+                        setNewMemberTypeEditData(mt);
+                        setMtMethod("update")
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                      title="Edit Account Details"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
+                      title="Delete Account"
+                    >
+                      <Trash2 
+                      onClick={() => deleteMt(mt)}
+                      className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
             </div>
           ))}
         </div>
