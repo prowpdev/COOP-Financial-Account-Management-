@@ -22,6 +22,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   selectedBranchId,
   onSelectBranch
 }) => {
+ 
   const [accounts, setAccounts] = useState<ShareCapitalAccount[]>([]);
   const [scSettings, setScSettings] = useState<ShareCapitalSetting[]>([]);
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
@@ -42,7 +43,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
 
   const [newAccount, setNewAccount] = useState({
     member_id: '',
-    cash_account_id:'cash_01',
+    cash_account_id:'',
     account_number: '',
     branch_id: '',
     par_value: 100,
@@ -126,11 +127,13 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   const filteredAccounts = selectedBranch === 'all'
     ? safeAccounts
     : safeAccounts.filter(a => a && (a as any).branch_id === selectedBranch);
-
+  
+  
   const availableCashAccounts = selectedBranch === 'all'
     ? safeCashAccounts
     : safeCashAccounts.filter(c => c && c.branch_id === selectedBranch);
-
+  
+  
   useEffect(() => {
     if (availableCashAccounts.length > 0 && !availableCashAccounts.some(c => c.id === cashAccountId)) {
       setCashAccountId(availableCashAccounts[0].id);
@@ -781,6 +784,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                   onChange={e => setNewAccount({ ...newAccount, cash_account_id: e.target.value })}
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
                 >
+                  <option value="">Select Account</option>
                   {(availableCashAccounts.length > 0 ? availableCashAccounts : cashAccounts).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -1071,8 +1075,9 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
                   onChange={e => setCashAccountId(e.target.value)}
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
                 >
+                  <option  value="">Select Cash Account</option>
                   {(availableCashAccounts.length > 0 ? availableCashAccounts : cashAccounts).map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                   <option key={c.id} value={c.id}>{c.name}</option> 
                   ))}
                 </select>
               </div>
