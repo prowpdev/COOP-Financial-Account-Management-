@@ -40,8 +40,13 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const safeAccounts = Array.isArray(accounts) ? accounts : [];
+  const [hasScs,setHasScs] = useState(false);
+  const checkIfhasScs = async () => {
+    if(settingsList.length > 0){
+      setHasScs(true)
+    }
+  }
 
   const accountSelectOptions: SearchableOption[] = React.useMemo(() => {
     return safeAccounts.map(acc => ({
@@ -71,6 +76,7 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
   }
   useEffect(()=>{
     scs();
+    checkIfhasScs();
   },[])
   const fetchSettings = async () => {
     setIsLoading(true);
@@ -176,13 +182,13 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
       setFormError('Maximum share holding percentage must be between 1% and 100% (CDA standard is 10%).');
       return;
     }
-
+    
     setIsSubmitting(true);
     try {
       if (isCreatingNew) {
         await api.createShareCapitalSetting({
           ...formData,
-          cooperative_id: 'coop_01',
+          cooperative_id: currentUser.cooperative_id,
           changed_by: currentUser.name,
           reason: formData.reason || 'Created new share capital policy version'
         });
@@ -229,7 +235,18 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
         </div>
 
         <div className="flex items-center space-x-2">
-          <button
+         
+          {!hasScs ?(
+            <button
+            id="btn-create-cbu-setting"
+            onClick={handleOpenCreate}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ New Policy Version</span>
+          </button>
+          ):(
+ <button
             id="btn-edit-cbu-setting"
             onClick={() => handleOpenEdit(activeSetting)}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
@@ -237,14 +254,8 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
             <Edit3 className="w-3.5 h-3.5" />
             <span>Edit Policy Settings</span>
           </button>
-          <button
-            id="btn-create-cbu-setting"
-            onClick={handleOpenCreate}
-            className="noted hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ New Policy Version</span>
-          </button>
+          )}
+        
         </div>
       </div>
 

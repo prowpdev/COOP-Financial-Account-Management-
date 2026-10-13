@@ -33,7 +33,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
   const [selectedAccountForLedger, setSelectedAccountForLedger] = useState<ShareCapitalAccount | null>(null);
   const [editingAccount, setEditingAccount] = useState<ShareCapitalAccount | null>(null);
   const [payAmount, setPayAmount] = useState(1000);
-  const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id || 'cash_01');
+  const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id);
   const [notice, setNotice] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -313,7 +313,7 @@ export const ShareCapitalModule: React.FC<ShareCapitalModuleProps> = ({
       await api.createShareCapitalAccount({
         member_id: newAccount.member_id,
         account_number: newAccount.account_number ? newAccount.account_number.trim() : undefined,
-        cash_account_id: newAccount.cash_account_id || 'cash_01',
+        cash_account_id: newAccount.cash_account_id,
         branch_id: branchToSave, // Save member branch directly to database
         par_value: par,
         subscribed_shares: subShares,
