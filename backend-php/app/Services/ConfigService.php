@@ -183,6 +183,11 @@ class ConfigService
         return $stmt->execute([$enabled ? 1 : 0, $featureKey]);
     }
 
+    public function getAuditTrails() : array 
+    {
+        return $this->fetchAll('configuration_audit_trails'); 
+    }
+
 
 
     public function deleteLoanProduct(string $id): bool

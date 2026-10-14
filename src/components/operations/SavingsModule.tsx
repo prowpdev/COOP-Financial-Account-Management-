@@ -140,7 +140,8 @@ export const SavingsModule: React.FC<SavingsModuleProps> = ({
         amount,
         cash_account_id: cashAccountId,
         performed_by: currentUser.name,
-        notes: `${txType} processed by ${currentUser.name}`
+        notes: `${txType} processed by ${currentUser.name}`,
+        created_by: currentUser.id
       });
       setActiveAccount(null);
       setNotice(`${txType} of ₱${amount.toLocaleString()} successful! Ref #${res.data.transaction_no}.`);

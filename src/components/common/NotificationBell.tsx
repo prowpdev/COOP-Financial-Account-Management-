@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { TabKey } from '../Sidebar';
+import { clearAuthSession } from '@/src/services/authSession';
 
 export interface NotificationItem {
   id: string;
@@ -65,6 +66,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
       }
     } catch (err) {
       console.warn('Failed to load notifications:', err);
+    
+      
     } finally {
       if (!quiet) setIsLoading(false);
     }

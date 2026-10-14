@@ -657,9 +657,6 @@ class ReportService
         return [
             'total_members'           => $totalMembers,
             'active_loans_count'      => $loansActive,
-        return [
-            'total_members'           => $totalMembers,
-            'active_loans_count'      => $loansActive,
             'outstanding_portfolio'   => round($loanPortfolio, 2),
             'total_savings_deposits'  => round($savingsTotal, 2),
             'total_share_capital'     => round($shareCapitalTotal, 2),

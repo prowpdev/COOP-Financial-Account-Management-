@@ -7,13 +7,16 @@ namespace App\Services;
 use PDO;
 use App\Core\AuditLogger;
 use App\Core\BranchScope;
+use App\Services\AccountingService;
 
 class ShareCapitalService
 {   
     private AuditLogger $audit;
+    private AccountingService $accounting;
     public function __construct(private PDO $db)
     {
         $this->audit = new AuditLogger($this->db);
+        $this->accounting = new AccountingService($this->db);
     }
 
     /**
@@ -87,6 +90,8 @@ class ShareCapitalService
      */
     public function createAccount(array $data): array
     {
+           print_r($data);
+           die();
         $id = $data['id']
             ?? ('sc_' . bin2hex(random_bytes(6)));
 
@@ -656,7 +661,8 @@ class ShareCapitalService
                         'Y_m',
                         strtotime($paymentDate)
                     );
-
+           
+                $periodId = $this->accounting->getAccountingPeriodId($paymentDate);
                 $journalStmt = $this->db->prepare("
                     INSERT INTO journal_entries (
                         id,
@@ -952,901 +958,903 @@ class ShareCapitalService
      *
      * Everything is committed in ONE database transaction.
      */
-   public function recordPayment(array $data): array
-{
-    $accountId = $data['account_id'] ?? null;
+    public function recordPayment(array $data): array
+    {
+        $accountId = $data['account_id'] ?? null;
 
-    $amount = (float) ($data['amount'] ?? 0);
+        $amount = (float) ($data['amount'] ?? 0);
 
-    $parValue = (float) ($data['par_value'] ?? 100);
+        $parValue = (float) ($data['par_value'] ?? 100);
 
-    $shares = isset($data['shares'])
-        ? (int) $data['shares']
-        : (int) floor($amount / $parValue);
+        $shares = isset($data['shares'])
+            ? (int) $data['shares']
+            : (int) floor($amount / $parValue);
 
-    $date = $data['payment_date'] ?? date('Y-m-d');
+        $date = $data['payment_date'] ?? date('Y-m-d');
 
-    $ref = $data['reference_number']
-        ?? (
-            'SC-OR-' .
-            date('Ymd') .
-            '-' .
-            mt_rand(1000, 9999)
-        );
+        $ref = $data['reference_number']
+            ?? (
+                'SC-OR-' .
+                date('Ymd') .
+                '-' .
+                mt_rand(1000, 9999)
+            );
 
-    /*
-     * IMPORTANT:
-     *
-     * This is the ID from cash_accounts.
-     *
-     * Example:
-     *
-     * cash_01
-     */
-    $cashAccountId = $data['cash_account_id'] ?? null;
+        /*
+        * IMPORTANT:
+        *
+        * This is the ID from cash_accounts.
+        *
+        * Example:
+        *
+        * cash_01
+        */
+        $cashAccountId = $data['cash_account_id'] ?? null;
 
-    $createdBy =
-        $data['performed_by']
-        ?? $data['created_by']
-        ?? 'System';
+        $createdBy =
+            $data['performed_by']
+            ?? $data['created_by']
+            ?? 'System';
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Basic Validation
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$accountId) {
-        throw new \InvalidArgumentException(
-            'account_id is required.'
-        );
-    }
-
-    if (!$cashAccountId) {
-        throw new \InvalidArgumentException(
-            'cash_account_id is required for share capital payment.'
-        );
-    }
-
-    if ($amount <= 0) {
-        throw new \InvalidArgumentException(
-            'Payment amount must be greater than zero.'
-        );
-    }
-
-    if ($shares <= 0) {
-        throw new \InvalidArgumentException(
-            'Number of shares must be greater than zero.'
-        );
-    }
-
-    if ($parValue <= 0) {
-        throw new \InvalidArgumentException(
-            'Par value must be greater than zero.'
-        );
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Start ONE Database Transaction
-    |--------------------------------------------------------------------------
-    */
-
-    $this->db->beginTransaction();
-
-    try {
 
         /*
         |--------------------------------------------------------------------------
-        | 1. Get Share Capital Account
+        | Basic Validation
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $this->db->prepare("
-            SELECT *
-            FROM share_capital_accounts
-            WHERE id = ?
-            LIMIT 1
-            FOR UPDATE
-        ");
+        if (!$accountId) {
+            throw new \InvalidArgumentException(
+                'account_id is required.'
+            );
+        }
 
-        $stmt->execute([
-            $accountId
-        ]);
+        if (!$cashAccountId) {
+            throw new \InvalidArgumentException(
+                'cash_account_id is required for share capital payment.'
+            );
+        }
 
-        $acc = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException(
+                'Payment amount must be greater than zero.'
+            );
+        }
 
-        if (!$acc) {
-            throw new \RuntimeException(
-                "Share capital account '{$accountId}' was not found."
+        if ($shares <= 0) {
+            throw new \InvalidArgumentException(
+                'Number of shares must be greater than zero.'
+            );
+        }
+
+        if ($parValue <= 0) {
+            throw new \InvalidArgumentException(
+                'Par value must be greater than zero.'
             );
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Get Member and Branch
+        | Start ONE Database Transaction
         |--------------------------------------------------------------------------
         */
 
-        $memberId = $acc['member_id'] ?? null;
-        $branchId = $acc['branch_id'] ?? null;
-
-        if (!$memberId) {
-            throw new \RuntimeException(
-                'Share capital account has no member_id.'
-            );
-        }
-
-        if (!$branchId) {
-            throw new \RuntimeException(
-                'Share capital account has no branch_id.'
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 3. Validate Payment Against Subscription
-        |--------------------------------------------------------------------------
-        */
-
-        $subscribedShares =
-            (int) ($acc['subscribed_shares'] ?? 0);
-
-        $paidUpShares =
-            (int) ($acc['paid_up_shares'] ?? 0);
-
-        $remainingShares =
-            $subscribedShares - $paidUpShares;
-
-        if ($remainingShares < 0) {
-            throw new \RuntimeException(
-                "Share capital account has invalid balances. " .
-                "Paid-up shares ({$paidUpShares}) exceed " .
-                "subscribed shares ({$subscribedShares})."
-            );
-        }
-
-        if ($shares > $remainingShares) {
-            throw new \RuntimeException(
-                "Payment exceeds remaining subscribed shares. " .
-                "Remaining shares: {$remainingShares}, " .
-                "attempted: {$shares}."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 4. Calculate New Paid-Up Balance
-        |--------------------------------------------------------------------------
-        */
-
-        $oldPaidShares =
-            (int) ($acc['paid_up_shares'] ?? 0);
-
-        $oldPaidAmount =
-            (float) ($acc['paid_up_amount'] ?? 0);
-
-        $newPaidShares =
-            $oldPaidShares + $shares;
-
-        $newPaidAmount =
-            $oldPaidAmount + $amount;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 5. Update Share Capital Account
-        |--------------------------------------------------------------------------
-        */
-
-        $updStmt = $this->db->prepare("
-            UPDATE share_capital_accounts
-            SET
-                paid_up_shares = ?,
-                paid_up_amount = ?
-            WHERE id = ?
-        ");
-
-        $updStmt->execute([
-            $newPaidShares,
-            $newPaidAmount,
-            $accountId
-        ]);
-
-        if ($updStmt->rowCount() !== 1) {
-            throw new \RuntimeException(
-                "Unable to update share capital account '{$accountId}'."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 6. Get Cash Account + Its GL Account
-        |--------------------------------------------------------------------------
-        |
-        | cash_accounts.id
-        |     = cash_01
-        |
-        | cash_accounts.gl_account_id
-        |     = acc_1110
-        |
-        | journal_lines.account_id
-        |     MUST = acc_1110
-        |
-        */
-
-        $cashStmt = $this->db->prepare("
-            SELECT
-                ca.id AS cash_account_id,
-                ca.gl_account_id,
-                ca.opening_balance,
-                ca.current_balance,
-                ca.currency,
-                ca.branch_id AS cash_branch_id,
-
-                coa.id AS coa_id,
-                coa.account_code,
-                coa.name,
-                coa.category,
-                coa.normal_balance,
-                coa.is_active
-
-            FROM cash_accounts ca
-
-            INNER JOIN chart_of_accounts coa
-                ON coa.id = ca.gl_account_id
-
-            WHERE ca.id = ?
-              AND coa.is_active = 1
-
-            LIMIT 1
-
-            FOR UPDATE
-        ");
-
-        $cashStmt->execute([
-            $cashAccountId
-        ]);
-
-        $cashAccount =
-            $cashStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$cashAccount) {
-            throw new \RuntimeException(
-                "Cash account '{$cashAccountId}' was not found " .
-                "or its GL account is inactive."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 7. Get Cash GL Account ID
-        |--------------------------------------------------------------------------
-        */
-
-        $cashGLAccountId =
-            $cashAccount['coa_id'] ?? null;
-
-        if (!$cashGLAccountId) {
-            throw new \RuntimeException(
-                "Cash account '{$cashAccountId}' " .
-                "does not have a valid GL account."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 8. Get Current Cash Balance
-        |--------------------------------------------------------------------------
-        */
-
-        $oldCashBalance =
-            (float) ($cashAccount['current_balance'] ?? 0);
-
-        $newCashBalance =
-            $oldCashBalance + $amount;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 9. Validate Cash GL Account
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            isset($cashAccount['category']) &&
-            strcasecmp(
-                $cashAccount['category'],
-                'Asset'
-            ) !== 0
-        ) {
-            throw new \RuntimeException(
-                "Cash GL account '{$cashGLAccountId}' " .
-                "is not categorized as an Asset."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 10. Update Cash Account Current Balance
-        |--------------------------------------------------------------------------
-        */
-
-        $cashBalanceStmt = $this->db->prepare("
-            UPDATE cash_accounts
-            SET
-                current_balance =
-                    COALESCE(current_balance, 0) + ?
-            WHERE id = ?
-        ");
-
-        $cashBalanceStmt->execute([
-            $amount,
-            $cashAccountId
-        ]);
-
-        if ($cashBalanceStmt->rowCount() !== 1) {
-            throw new \RuntimeException(
-                "Unable to update cash account balance " .
-                "for '{$cashAccountId}'."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 11. Get Share Capital GL Account From Settings
-        |--------------------------------------------------------------------------
-        */
-
-        $settingsStmt = $this->db->query("
-            SELECT
-                id,
-                accounting_account_id,
-                par_value_per_share
-            FROM share_capital_settings
-            ORDER BY id ASC
-            LIMIT 1
-        ");
-
-        $settings =
-            $settingsStmt->fetch(PDO::FETCH_ASSOC);
-
-        $shareCapitalAccountId =
-            $data['gl_share_capital_account_id']
-            ?? ($settings['accounting_account_id'] ?? null);
-
-        if (!$shareCapitalAccountId) {
-            throw new \RuntimeException(
-                'Share capital GL account is not configured.'
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 12. Validate Share Capital GL Account
-        |--------------------------------------------------------------------------
-        */
-
-        $shareStmt = $this->db->prepare("
-            SELECT
-                id,
-                account_code,
-                name,
-                category,
-                normal_balance,
-                is_active
-            FROM chart_of_accounts
-            WHERE id = ?
-              AND is_active = 1
-            LIMIT 1
-        ");
-
-        $shareStmt->execute([
-            $shareCapitalAccountId
-        ]);
-
-        $shareGLAccount =
-            $shareStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$shareGLAccount) {
-            throw new \RuntimeException(
-                "Members' Share Capital GL account " .
-                "not found or inactive: {$shareCapitalAccountId}"
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 13. Validate Share Capital GL Category
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            isset($shareGLAccount['category']) &&
-            strcasecmp(
-                $shareGLAccount['category'],
-                'Equity'
-            ) !== 0
-        ) {
-            throw new \RuntimeException(
-                "Share Capital GL account " .
-                "'{$shareCapitalAccountId}' " .
-                "is not categorized as Equity."
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 14. Create Share Capital Transaction
-        |--------------------------------------------------------------------------
-        |
-        | cash_account_id remains:
-        |
-        |     cash_01
-        |
-        | because this column references cash_accounts.
-        |
-        */
-
-        $txId =
-            'sctx_' . bin2hex(random_bytes(6));
-
-        $txStmt = $this->db->prepare("
-            INSERT INTO share_capital_transactions (
-                id,
-                receipt_no,
-                share_account_id,
-                member_id,
-                type,
-                shares,
-                amount,
-                transaction_date,
-                cash_account_id
-            ) VALUES (
-                ?, ?, ?, ?, 'PAYMENT', ?, ?, ?, ?
-            )
-        ");
-
-        $txStmt->execute([
-            $txId,
-            $ref,
-            $accountId,
-            $memberId,
-            $shares,
-            $amount,
-            $date,
-            $cashAccountId
-        ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 15. Create Journal Entry
-        |--------------------------------------------------------------------------
-        |
-        | Accounting:
-        |
-        |     Dr Cash / Bank
-        |     Cr Members' Share Capital
-        |
-        */
-
-        $journalId =
-            'je_' . bin2hex(random_bytes(6));
-
-        $voucherNo =
-            'JV-SC-' .
-            date('Ymd') .
-            '-' .
-            strtoupper(
-                bin2hex(random_bytes(3))
-            );
-
-        $periodId =
-            'period_' .
-            date('Y_m', strtotime($date));
-
-        $accountNumber =
-            $acc['account_number']
-            ?? $accountId;
-
-        $description =
-            'Share capital payment - ' .
-            $accountNumber .
-            ' - Receipt ' .
-            $ref;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 16. Insert Journal Entry
-        |--------------------------------------------------------------------------
-        */
-
-        $journalStmt = $this->db->prepare("
-            INSERT INTO journal_entries (
-                id,
-                voucher_number,
-                branch_id,
-                posting_date,
-                reference_type,
-                description,
-                total_debit,
-                total_credit,
-                period_id,
-                status,
-                created_by
-            ) VALUES (
-                :id,
-                :voucher_number,
-                :branch_id,
-                :posting_date,
-                :reference_type,
-                :description,
-                :total_debit,
-                :total_credit,
-                :period_id,
-                'Posted',
-                :created_by
-            )
-        ");
-
-        $journalStmt->execute([
-            'id' =>
-                $journalId,
-
-            'voucher_number' =>
-                $voucherNo,
-
-            'branch_id' =>
-                $branchId,
-
-            'posting_date' =>
-                $date,
-
-            'reference_type' =>
-                'Share Capital Payment',
-
-            'description' =>
-                $description,
-
-            'total_debit' =>
-                $amount,
-
-            'total_credit' =>
-                $amount,
-
-            'period_id' =>
-                $periodId,
-
-            'created_by' =>
-                $createdBy
-        ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 17. Create Journal Lines
-        |--------------------------------------------------------------------------
-        */
-
-        $lineStmt = $this->db->prepare("
-            INSERT INTO journal_lines (
-                id,
-                journal_entry_id,
-                account_id,
-                debit,
-                credit,
-                subsidiary_type,
-                subsidiary_id
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?
-            )
-        ");
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 17A. DEBIT - Cash / Bank
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | Do NOT use:
-        |
-        |     $cashAccountId
-        |
-        | because that is:
-        |
-        |     cash_01
-        |
-        | Use:
-        |
-        |     $cashGLAccountId
-        |
-        | Example:
-        |
-        |     cash_01
-        |         ↓
-        |     acc_1110
-        |
-        */
-
-        $cashLineId =
-            'jl_' . bin2hex(random_bytes(6));
-
-        $lineStmt->execute([
-            $cashLineId,
-            $journalId,
-
-            // chart_of_accounts.id
-            $cashGLAccountId,
-
-            $amount,
-            0,
-
-            'Member',
-            $memberId
-        ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 17B. CREDIT - Members' Share Capital
-        |--------------------------------------------------------------------------
-        */
-
-        $shareLineId =
-            'jl_' . bin2hex(random_bytes(6));
-
-        $lineStmt->execute([
-            $shareLineId,
-            $journalId,
-
-            // chart_of_accounts.id
-            $shareCapitalAccountId,
-
-            0,
-            $amount,
-
-            'Member',
-            $memberId
-        ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 18. Record Audit Trail
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | This happens BEFORE commit().
-        |
-        | Therefore the audit record is part of the
-        | same database transaction.
-        |
-        */
-
-        $auditId =
-            $this->audit->recordAuditTrail(
-                'Share Capital Payment',
-                [
-                    'transaction_id' =>
-                        null,
-
-                    'member_id' =>
-                        $memberId,
-
-                    'share_account_id' =>
-                        $accountId,
-
-                    'paid_up_shares' =>
-                        $oldPaidShares,
-
-                    'paid_up_amount' =>
-                        $oldPaidAmount,
-
-                    'cash_account_id' =>
-                        $cashAccountId,
-
-                    'cash_balance' =>
-                        $oldCashBalance
-                ],
-
-                /*
-                |--------------------------------------------------------------------------
-                | NEW VALUE
-                |--------------------------------------------------------------------------
-                */
-
-                [
-                    'transaction_id' =>
-                        $txId,
-
-                    'member_id' =>
-                        $memberId,
-
-                    'share_account_id' =>
-                        $accountId,
-
-                    'paid_up_shares' =>
-                        $newPaidShares,
-
-                    'paid_up_amount' =>
-                        $newPaidAmount,
-
-                    'cash_account_id' =>
-                        $cashAccountId,
-
-                    'cash_balance' =>
-                        $newCashBalance,
-
-                    'journal_entry_id' =>
-                        $journalId,
-
-                    'voucher_number' =>
-                        $voucherNo,
-
-                    'receipt_number' =>
-                        $ref
-                ],
-
-                /*
-                |--------------------------------------------------------------------------
-                | Changed By
-                |--------------------------------------------------------------------------
-                */
-
-                $createdBy,
-
-                /*
-                |--------------------------------------------------------------------------
-                | Reason
-                |--------------------------------------------------------------------------
-                */
-
-                sprintf(
-                    'Automated share capital payment. ' .
-                    'Member: %s; Shares: %d; Amount: ₱%.2f; ' .
-                    'Cash Account: %s; Cash GL: %s; ' .
-                    'Share Capital GL: %s; Receipt: %s; Voucher: %s.',
-                    $memberId,
-                    $shares,
-                    $amount,
-                    $cashAccountId,
-                    $cashGLAccountId,
-                    $shareCapitalAccountId,
-                    $ref,
-                    $voucherNo
-                )
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 19. Commit Everything
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->commit();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 20. Return Result
-        |--------------------------------------------------------------------------
-        */
-
-        return [
-
-            'success' =>
-                true,
-
-            'transaction_id' =>
-                $txId,
-
-            'audit_id' =>
-                $auditId,
-
-            'account_id' =>
-                $accountId,
-
-            'account_number' =>
-                $accountNumber,
-
-            'member_id' =>
-                $memberId,
-
-            'branch_id' =>
-                $branchId,
-
-            'shares_added' =>
-                $shares,
-
-            'amount_paid' =>
-                $amount,
-
-            'old_paid_up_shares' =>
-                $oldPaidShares,
-
-            'new_paid_up_shares' =>
+        $this->db->beginTransaction();
+
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Get Share Capital Account
+            |--------------------------------------------------------------------------
+            */
+
+            $stmt = $this->db->prepare("
+                SELECT *
+                FROM share_capital_accounts
+                WHERE id = ?
+                LIMIT 1
+                FOR UPDATE
+            ");
+
+            $stmt->execute([
+                $accountId
+            ]);
+
+            $acc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$acc) {
+                throw new \RuntimeException(
+                    "Share capital account '{$accountId}' was not found."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Get Member and Branch
+            |--------------------------------------------------------------------------
+            */
+
+            $memberId = $acc['member_id'] ?? null;
+            $branchId = $acc['branch_id'] ?? null;
+
+            if (!$memberId) {
+                throw new \RuntimeException(
+                    'Share capital account has no member_id.'
+                );
+            }
+
+            if (!$branchId) {
+                throw new \RuntimeException(
+                    'Share capital account has no branch_id.'
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Validate Payment Against Subscription
+            |--------------------------------------------------------------------------
+            */
+
+            $subscribedShares =
+                (int) ($acc['subscribed_shares'] ?? 0);
+
+            $paidUpShares =
+                (int) ($acc['paid_up_shares'] ?? 0);
+
+            $remainingShares =
+                $subscribedShares - $paidUpShares;
+
+            if ($remainingShares < 0) {
+                throw new \RuntimeException(
+                    "Share capital account has invalid balances. " .
+                    "Paid-up shares ({$paidUpShares}) exceed " .
+                    "subscribed shares ({$subscribedShares})."
+                );
+            }
+
+            if ($shares > $remainingShares) {
+                throw new \RuntimeException(
+                    "Payment exceeds remaining subscribed shares. " .
+                    "Remaining shares: {$remainingShares}, " .
+                    "attempted: {$shares}."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Calculate New Paid-Up Balance
+            |--------------------------------------------------------------------------
+            */
+
+            $oldPaidShares =
+                (int) ($acc['paid_up_shares'] ?? 0);
+
+            $oldPaidAmount =
+                (float) ($acc['paid_up_amount'] ?? 0);
+
+            $newPaidShares =
+                $oldPaidShares + $shares;
+
+            $newPaidAmount =
+                $oldPaidAmount + $amount;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Update Share Capital Account
+            |--------------------------------------------------------------------------
+            */
+
+            $updStmt = $this->db->prepare("
+                UPDATE share_capital_accounts
+                SET
+                    paid_up_shares = ?,
+                    paid_up_amount = ?
+                WHERE id = ?
+            ");
+
+            $updStmt->execute([
                 $newPaidShares,
-
-            'old_paid_up_amount' =>
-                $oldPaidAmount,
-
-            'total_paid_up' =>
                 $newPaidAmount,
+                $accountId
+            ]);
 
-            'reference_no' =>
+            if ($updStmt->rowCount() !== 1) {
+                throw new \RuntimeException(
+                    "Unable to update share capital account '{$accountId}'."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Get Cash Account + Its GL Account
+            |--------------------------------------------------------------------------
+            |
+            | cash_accounts.id
+            |     = cash_01
+            |
+            | cash_accounts.gl_account_id
+            |     = acc_1110
+            |
+            | journal_lines.account_id
+            |     MUST = acc_1110
+            |
+            */
+
+            $cashStmt = $this->db->prepare("
+                SELECT
+                    ca.id AS cash_account_id,
+                    ca.gl_account_id,
+                    ca.opening_balance,
+                    ca.current_balance,
+                    ca.currency,
+                    ca.branch_id AS cash_branch_id,
+
+                    coa.id AS coa_id,
+                    coa.account_code,
+                    coa.name,
+                    coa.category,
+                    coa.normal_balance,
+                    coa.is_active
+
+                FROM cash_accounts ca
+
+                INNER JOIN chart_of_accounts coa
+                    ON coa.id = ca.gl_account_id
+
+                WHERE ca.id = ?
+                AND coa.is_active = 1
+
+                LIMIT 1
+
+                FOR UPDATE
+            ");
+
+            $cashStmt->execute([
+                $cashAccountId
+            ]);
+
+            $cashAccount =
+                $cashStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cashAccount) {
+                throw new \RuntimeException(
+                    "Cash account '{$cashAccountId}' was not found " .
+                    "or its GL account is inactive."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 7. Get Cash GL Account ID
+            |--------------------------------------------------------------------------
+            */
+
+            $cashGLAccountId =
+                $cashAccount['coa_id'] ?? null;
+
+            if (!$cashGLAccountId) {
+                throw new \RuntimeException(
+                    "Cash account '{$cashAccountId}' " .
+                    "does not have a valid GL account."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 8. Get Current Cash Balance
+            |--------------------------------------------------------------------------
+            */
+
+            $oldCashBalance =
+                (float) ($cashAccount['current_balance'] ?? 0);
+
+            $newCashBalance =
+                $oldCashBalance + $amount;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 9. Validate Cash GL Account
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                isset($cashAccount['category']) &&
+                strcasecmp(
+                    $cashAccount['category'],
+                    'Asset'
+                ) !== 0
+            ) {
+                throw new \RuntimeException(
+                    "Cash GL account '{$cashGLAccountId}' " .
+                    "is not categorized as an Asset."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 10. Update Cash Account Current Balance
+            |--------------------------------------------------------------------------
+            */
+
+            $cashBalanceStmt = $this->db->prepare("
+                UPDATE cash_accounts
+                SET
+                    current_balance =
+                        COALESCE(current_balance, 0) + ?
+                WHERE id = ?
+            ");
+
+            $cashBalanceStmt->execute([
+                $amount,
+                $cashAccountId
+            ]);
+
+            if ($cashBalanceStmt->rowCount() !== 1) {
+                throw new \RuntimeException(
+                    "Unable to update cash account balance " .
+                    "for '{$cashAccountId}'."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 11. Get Share Capital GL Account From Settings
+            |--------------------------------------------------------------------------
+            */
+
+            $settingsStmt = $this->db->query("
+                SELECT
+                    id,
+                    accounting_account_id,
+                    par_value_per_share
+                FROM share_capital_settings
+                ORDER BY id ASC
+                LIMIT 1
+            ");
+
+            $settings =
+                $settingsStmt->fetch(PDO::FETCH_ASSOC);
+
+            $shareCapitalAccountId =
+                $data['gl_share_capital_account_id']
+                ?? ($settings['accounting_account_id'] ?? null);
+
+            if (!$shareCapitalAccountId) {
+                throw new \RuntimeException(
+                    'Share capital GL account is not configured.'
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 12. Validate Share Capital GL Account
+            |--------------------------------------------------------------------------
+            */
+
+            $shareStmt = $this->db->prepare("
+                SELECT
+                    id,
+                    account_code,
+                    name,
+                    category,
+                    normal_balance,
+                    is_active
+                FROM chart_of_accounts
+                WHERE id = ?
+                AND is_active = 1
+                LIMIT 1
+            ");
+
+            $shareStmt->execute([
+                $shareCapitalAccountId
+            ]);
+
+            $shareGLAccount =
+                $shareStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$shareGLAccount) {
+                throw new \RuntimeException(
+                    "Members' Share Capital GL account " .
+                    "not found or inactive: {$shareCapitalAccountId}"
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 13. Validate Share Capital GL Category
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                isset($shareGLAccount['category']) &&
+                strcasecmp(
+                    $shareGLAccount['category'],
+                    'Equity'
+                ) !== 0
+            ) {
+                throw new \RuntimeException(
+                    "Share Capital GL account " .
+                    "'{$shareCapitalAccountId}' " .
+                    "is not categorized as Equity."
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 14. Create Share Capital Transaction
+            |--------------------------------------------------------------------------
+            |
+            | cash_account_id remains:
+            |
+            |     cash_01
+            |
+            | because this column references cash_accounts.
+            |
+            */
+
+            $txId =
+                'sctx_' . bin2hex(random_bytes(6));
+
+            $txStmt = $this->db->prepare("
+                INSERT INTO share_capital_transactions (
+                    id,
+                    receipt_no,
+                    share_account_id,
+                    member_id,
+                    type,
+                    shares,
+                    amount,
+                    transaction_date,
+                    cash_account_id
+                ) VALUES (
+                    ?, ?, ?, ?, 'PAYMENT', ?, ?, ?, ?
+                )
+            ");
+
+            $txStmt->execute([
+                $txId,
                 $ref,
+                $accountId,
+                $memberId,
+                $shares,
+                $amount,
+                $date,
+                $cashAccountId
+            ]);
+            
 
-            'journal_entry_id' =>
+            /*
+            |--------------------------------------------------------------------------
+            | 15. Create Journal Entry
+            |--------------------------------------------------------------------------
+            |
+            | Accounting:
+            |
+            |     Dr Cash / Bank
+            |     Cr Members' Share Capital
+            |
+            */
+
+            $journalId =
+                'je_' . bin2hex(random_bytes(6));
+
+            $voucherNo =
+                'JV-SC-' .
+                date('Ymd') .
+                '-' .
+                strtoupper(
+                    bin2hex(random_bytes(3))
+                );
+
+            $periodId =
+                'period_' .
+                date('Y_m', strtotime($date));
+
+            $accountNumber =
+                $acc['account_number']
+                ?? $accountId;
+
+            $description =
+                'Share capital payment - ' .
+                $accountNumber .
+                ' - Receipt ' .
+                $ref;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 16. Insert Journal Entry
+            |--------------------------------------------------------------------------
+            */
+
+            $journalStmt = $this->db->prepare("
+                INSERT INTO journal_entries (
+                    id,
+                    voucher_number,
+                    branch_id,
+                    posting_date,
+                    reference_type,
+                    reference_id,
+                    description,
+                    total_debit,
+                    total_credit,
+                    period_id,
+                    status,
+                    created_by
+                ) VALUES (
+                    :id,
+                    :voucher_number,
+                    :branch_id,
+                    :posting_date,
+                    :reference_type,
+                    :reference_id,
+                    :description,
+                    :total_debit,
+                    :total_credit,
+                    :period_id,
+                    'Posted',
+                    :created_by
+                )
+            ");
+
+            $journalStmt->execute([
+                'id' =>
+                    $journalId,
+
+                'voucher_number' =>
+                    $voucherNo,
+
+                'branch_id' =>
+                    $branchId,
+
+                'posting_date' =>
+                    $date,
+
+                'reference_type' =>
+                    'Share Capital Payment',
+                'reference_id' => '',
+                'description' =>
+                    $description,
+
+                'total_debit' =>
+                    $amount,
+
+                'total_credit' =>
+                    $amount,
+
+                'period_id' =>
+                    $periodId,
+
+                'created_by' =>
+                    $createdBy
+            ]);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 17. Create Journal Lines
+            |--------------------------------------------------------------------------
+            */
+
+            $lineStmt = $this->db->prepare("
+                INSERT INTO journal_lines (
+                    id,
+                    journal_entry_id,
+                    account_id,
+                    debit,
+                    credit,
+                    subsidiary_type,
+                    subsidiary_id
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?
+                )
+            ");
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 17A. DEBIT - Cash / Bank
+            |--------------------------------------------------------------------------
+            |
+            | IMPORTANT:
+            |
+            | Do NOT use:
+            |
+            |     $cashAccountId
+            |
+            | because that is:
+            |
+            |     cash_01
+            |
+            | Use:
+            |
+            |     $cashGLAccountId
+            |
+            | Example:
+            |
+            |     cash_01
+            |         ↓
+            |     acc_1110
+            |
+            */
+
+            $cashLineId =
+                'jl_' . bin2hex(random_bytes(6));
+
+            $lineStmt->execute([
+                $cashLineId,
                 $journalId,
 
-            'voucher_number' =>
-                $voucherNo,
-
-            /*
-             * Operational cash account.
-             */
-            'cash_account_id' =>
-                $cashAccountId,
-
-            /*
-             * GL account used by journal_lines.
-             */
-            'cash_gl_account_id' =>
+                // chart_of_accounts.id
                 $cashGLAccountId,
 
-            'cash_account_name' =>
-                $cashAccount['name'],
+                $amount,
+                0,
 
-            'old_cash_balance' =>
-                $oldCashBalance,
+                'Member',
+                $memberId
+            ]);
 
-            'new_cash_balance' =>
-                $newCashBalance,
 
-            'share_capital_gl_account_id' =>
+            /*
+            |--------------------------------------------------------------------------
+            | 17B. CREDIT - Members' Share Capital
+            |--------------------------------------------------------------------------
+            */
+
+            $shareLineId =
+                'jl_' . bin2hex(random_bytes(6));
+
+            $lineStmt->execute([
+                $shareLineId,
+                $journalId,
+
+                // chart_of_accounts.id
                 $shareCapitalAccountId,
 
-            'share_capital_gl_account_name' =>
-                $shareGLAccount['name'],
+                0,
+                $amount,
 
-            'gl_posted' =>
-                true
-        ];
+                'Member',
+                $memberId
+            ]);
 
-    } catch (\Throwable $e) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Rollback EVERYTHING
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | 18. Record Audit Trail
+            |--------------------------------------------------------------------------
+            |
+            | IMPORTANT:
+            |
+            | This happens BEFORE commit().
+            |
+            | Therefore the audit record is part of the
+            | same database transaction.
+            |
+            */
 
-        if ($this->db->inTransaction()) {
-            $this->db->rollBack();
+            $auditId =
+                $this->audit->recordAuditTrail(
+                    'Share Capital Payment',
+                    [
+                        'transaction_id' =>
+                            null,
+
+                        'member_id' =>
+                            $memberId,
+
+                        'share_account_id' =>
+                            $accountId,
+
+                        'paid_up_shares' =>
+                            $oldPaidShares,
+
+                        'paid_up_amount' =>
+                            $oldPaidAmount,
+
+                        'cash_account_id' =>
+                            $cashAccountId,
+
+                        'cash_balance' =>
+                            $oldCashBalance
+                    ],
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | NEW VALUE
+                    |--------------------------------------------------------------------------
+                    */
+
+                    [
+                        'transaction_id' =>
+                            $txId,
+
+                        'member_id' =>
+                            $memberId,
+
+                        'share_account_id' =>
+                            $accountId,
+
+                        'paid_up_shares' =>
+                            $newPaidShares,
+
+                        'paid_up_amount' =>
+                            $newPaidAmount,
+
+                        'cash_account_id' =>
+                            $cashAccountId,
+
+                        'cash_balance' =>
+                            $newCashBalance,
+
+                        'journal_entry_id' =>
+                            $journalId,
+
+                        'voucher_number' =>
+                            $voucherNo,
+
+                        'receipt_number' =>
+                            $ref
+                    ],
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Changed By
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $createdBy,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Reason
+                    |--------------------------------------------------------------------------
+                    */
+
+                    sprintf(
+                        'Automated share capital payment. ' .
+                        'Member: %s; Shares: %d; Amount: ₱%.2f; ' .
+                        'Cash Account: %s; Cash GL: %s; ' .
+                        'Share Capital GL: %s; Receipt: %s; Voucher: %s.',
+                        $memberId,
+                        $shares,
+                        $amount,
+                        $cashAccountId,
+                        $cashGLAccountId,
+                        $shareCapitalAccountId,
+                        $ref,
+                        $voucherNo
+                    )
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 19. Commit Everything
+            |--------------------------------------------------------------------------
+            */
+
+            $this->db->commit();
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 20. Return Result
+            |--------------------------------------------------------------------------
+            */
+
+            return [
+
+                'success' =>
+                    true,
+
+                'transaction_id' =>
+                    $txId,
+
+                'audit_id' =>
+                    $auditId,
+
+                'account_id' =>
+                    $accountId,
+
+                'account_number' =>
+                    $accountNumber,
+
+                'member_id' =>
+                    $memberId,
+
+                'branch_id' =>
+                    $branchId,
+
+                'shares_added' =>
+                    $shares,
+
+                'amount_paid' =>
+                    $amount,
+
+                'old_paid_up_shares' =>
+                    $oldPaidShares,
+
+                'new_paid_up_shares' =>
+                    $newPaidShares,
+
+                'old_paid_up_amount' =>
+                    $oldPaidAmount,
+
+                'total_paid_up' =>
+                    $newPaidAmount,
+
+                'reference_no' =>
+                    $ref,
+
+                'journal_entry_id' =>
+                    $journalId,
+
+                'voucher_number' =>
+                    $voucherNo,
+
+                /*
+                * Operational cash account.
+                */
+                'cash_account_id' =>
+                    $cashAccountId,
+
+                /*
+                * GL account used by journal_lines.
+                */
+                'cash_gl_account_id' =>
+                    $cashGLAccountId,
+
+                'cash_account_name' =>
+                    $cashAccount['name'],
+
+                'old_cash_balance' =>
+                    $oldCashBalance,
+
+                'new_cash_balance' =>
+                    $newCashBalance,
+
+                'share_capital_gl_account_id' =>
+                    $shareCapitalAccountId,
+
+                'share_capital_gl_account_name' =>
+                    $shareGLAccount['name'],
+
+                'gl_posted' =>
+                    true
+            ];
+
+        } catch (\Throwable $e) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Rollback EVERYTHING
+            |--------------------------------------------------------------------------
+            */
+
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            throw $e;
         }
-
-        throw $e;
     }
-}
         /**
      * Get transactions for account
      */

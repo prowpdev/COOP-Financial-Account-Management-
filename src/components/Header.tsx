@@ -229,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="btn-populate-sample-data"
               disabled={isSeeding || isResetting}
               onClick={() => handleSeedDatabase()}
-              className="hidden xl:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50"
+              className="noted hide hidden xl:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50"
             >
               <Server className={`w-3.5 h-3.5 text-emerald-400 ${isSeeding ? 'animate-spin' : ''}`} />
               <span className="font-mono text-[11px] text-emerald-300 truncate max-w-[120px]">
@@ -240,7 +240,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="btn-reset-database"
               disabled={isSeeding || isResetting}
               onClick={() => handleResetSeedDatabase()}
-              className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="noted hide hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Server className={`w-3.5 h-3.5 text-rose-400 ${isResetting ? 'animate-spin' : ''}`} />
               <span className="font-mono text-[11px] text-rose-300 truncate max-w-[130px]">
@@ -463,7 +463,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={handleResetSeedDatabase}
                     disabled={isSeeding || isResetting}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs text-rose-300 hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                    className="hidden w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs text-rose-300 hover:bg-slate-800 cursor-pointer disabled:opacity-50"
                   >
                     <Server className="w-4 h-4 text-rose-400" />
                     <span>Reset Database to Baseline</span>

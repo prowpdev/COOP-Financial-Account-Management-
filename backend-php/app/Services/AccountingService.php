@@ -448,7 +448,7 @@ class AccountingService
     * @return string Existing accounting period ID.
     * @throws \RuntimeException If no accounting period matches the date.
     */
-    private function getAccountingPeriodId(string $postingDate): string
+    public function getAccountingPeriodId(string $postingDate): string
     {
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $postingDate);
 
