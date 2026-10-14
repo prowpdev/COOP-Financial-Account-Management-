@@ -1,126 +1,229 @@
-# Unified Reports & Ledger Workbench Module Architecture Plan
+# Cooperative Subsidiary Ledger Report & Printable Audit Statements
 
-A dedicated, Excel-like reporting workbench allowing users to filter General Ledger and Member transactions across CDA accounting periods, toggle specific GL accounts via interactive checkboxes, filter by member, and export to CSV and PDF.
+A comprehensive, audit-grade Subsidiary Ledger (SL) reporting module integrated into the existing Reports & General Ledger Workbench. It provides detailed chronological movement tracking—including principal disbursements, repayments, interest, penalties, and running balances—for Member Loans, Savings Deposits, and Share Capital (CBU), complete with a CDA-compliant printable statement and downloadable PDF.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following user preferences were confirmed during the interactive clarification phase:
+> The following product requirements and architectural choices were confirmed during Phase 1 clarification:
 
-- **Dual Sheets in Excel Grid**: General Ledger transactions and Member transactions will be rendered in a tabbed dual-sheet workbench layout within the same display module.
-- **Member Filtering Scope**: Member transactions can be filtered by individual member, member account, or across all active members within the selected period alongside the GL account selection.
-- **Navigation Placement**: Accessible via a dedicated "Reports & Ledger Workbench" item in the primary sidebar navigation.
+- **Account Coverage (Confirmed)**: Full multi-account subsidiary ledger tracking covering **Loans** (principal, amortization repayments, interest collected, penalties, and outstanding balance), **Savings Accounts** (deposits, withdrawals, interest credits, and running balance), and **Share Capital / CBU** (share purchases, subscriptions, refunds, and cumulative equity).
+- **Module Placement (Confirmed)**: Embedded directly inside the existing **Reports & General Ledger Workbench** (`ReportsModule.tsx`) as a dedicated interactive Sheet / Workspace tab, preserving consistent accounting period, branch, and member filters.
+- **Output Formats (Confirmed)**: High-density interactive tabular workbench, exportable CSV for audit spreadsheet analysis, and an official CDA-standard printable report with direct browser printing and downloadable PDF.
+- **Balance Carryover Strategy (Recommended Default)**: Automatic calculation of pre-period opening balance (inception to cutoff start date) so that transaction movement tables show an accurate opening balance row followed by period entries and the ending running balance.
 
 ---
 
 ## 1. Overview & Core Concept
 
 ### What It Does
-The **Reports Module** provides finance officers, internal auditors, and branch managers with an interactive Excel-grade reporting workbench. Users select an accounting period (e.g., October 1 – October 31 from the `accounting_periods` table), select which General Ledger accounts to include via multi-select checkboxes, and optionally filter by member. The system populates a dual-sheet spreadsheet with real-time totals, formula sums, and instant export to CSV and audit-ready printable PDF.
+In cooperative accounting under Cooperative Development Authority (CDA) standards, the General Ledger maintains control accounts (e.g., *1210 Loans Receivable*, *2110 Savings Deposits*, *3110 Paid-up Share Capital*), while the **Subsidiary Ledger** maintains the individual account balances and granular transaction history for each cooperative member.
+
+This feature adds a full-featured **Subsidiary Ledger Report & Statement Generator** that:
+1. Allows auditors, accountants, and credit officers to select any member and inspect their individual loan, savings, or share capital accounts.
+2. Tracks every movement chronologically: transaction dates, reference / Official Receipt (OR) numbers, voucher numbers, principal debit/credit movements, interest income portions, penalties/fines, and real-time running balances.
+3. Renders an official, printable **Member Subsidiary Ledger Statement** formatted for cooperative regulatory audits, credit committee reviews, and member distribution, complete with cooperative letterhead, CDA registration details, and certification signature lines.
 
 ### Target Audience & Persona
-- **Accountants & Bookkeepers**: Reconciling journal entries against chart-of-accounts balances for closing periods.
-- **Internal Auditors & Regulators (CDA)**: Auditing member passbooks, savings, share capital (CBU), and credit schedules against underlying general ledger postings.
-- **Branch Managers**: Reviewing monthly operational disbursements, receipts, and member activity.
+- **Cooperative Accountants & Bookkeepers**: Reconciling General Ledger control accounts against individual member ledger totals.
+- **Credit Committee & Loan Officers**: Reviewing historical borrower repayment consistency, interest contributions, and outstanding exposures before approving renewals.
+- **External & Internal Audit Teams**: Verifying audit trails, receipt numbers, interest calculations, and transaction dates.
+- **Cooperative Members**: Receiving certified statements of their loan status, paid equity, and accumulated savings.
 
 ### Key Value
-Eliminates manual multi-step reconciliation between the General Ledger and member subsidiary records by uniting them in an Excel workbench with synchronized period cutoffs and one-click regulatory export.
+Eliminates manual ledger book reconciliation by providing instant, automated subsidiary ledger statements linked to the core general ledger and transaction tables, with zero discrepancy between control accounts and sub-ledgers.
 
 ---
 
 ## 2. User Experience & Visual Design
 
 ### Key User Flows
-1. **Period Selection**: The user opens the Reports Module and selects an accounting period from a dropdown populated from the `accounting_periods` database table (displaying period name, date range, and open/closed status).
-2. **GL Account Toggling**: A collapsible GL Account Filter panel displays all accounts grouped by class (Assets, Liabilities, Equity, Revenue, Expense) with "Select All", "Clear All", and quick search. The user checks/unchecks specific GL accounts.
-3. **Member Filter**: An optional searchable member selector allows narrowing down to specific member transactions or viewing all members active in that period.
-4. **Excel Grid Exploration**: 
-   - **Sheet 1 (General Ledger Transactions)**: Lists date, voucher number, GL code, account title, reference/description, debit, credit, net balance, and branch.
-   - **Sheet 2 (Member Subsidiary Ledger)**: Lists date, member number, member name, product type (Savings, CBU, Loan), receipt/reference, debit/credit amounts, and linked GL account.
-5. **Statistics & Summary Bar**: Bottom status bar calculates total rows, total debit, total credit, and variance in tabular figures.
-6. **Export**: 
-   - **CSV Export**: Downloads a structured CSV file for the active sheet or consolidated data.
-   - **PDF Export / Print Preview**: Opens a high-density, print-formatted view with official cooperative letterhead, period metadata, applied filter criteria, balanced summary totals, and signatures block for submission to the Board or CDA.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           REPORTS & GL WORKBENCH                                │
+├────────────────────────┬──────────────────────────┬─────────────────────────────┤
+│ Sheet 1: General Ledger│ Sheet 2: Member GL Lines │ Sheet 3: Subsidiary Ledger  │
+│      Transactions      │      Consolidated        │ (Loans, Savings & Capital)  │
+└────────────────────────┴──────────────────────────┴─────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ FILTERS & ACCOUNT SELECTOR STRIP                                                │
+│ ┌──────────────────────┐ ┌───────────────┐ ┌──────────────┐ ┌─────────────────┐ │
+│ │ Ledger: [Loans   ▼]  │ │ Member: [All] │ │ Period: 2026 │ │ Branch: Main    │ │
+│ └──────────────────────┘ └───────────────┘ └──────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ FINANCIAL SUMMARY CARDS (Monospace Tabular Figures)                             │
+│ ┌──────────────────┐ ┌──────────────────┐ ┌────────────────┐ ┌────────────────┐ │
+│ │ Opening Balance  │ │ Principal Repaid │ │ Interest Paid  │ │ Ending Balance │ │
+│ │ ₱150,000.00      │ │ ₱45,000.00       │ │ ₱6,750.00      │ │ ₱105,000.00    │ │
+│ └──────────────────┘ └──────────────────┘ └────────────────┘ └────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ SUBSIDIARY LEDGER INTERACTIVE DATA GRID                                         │
+│ Date       | Ref / OR # | Particulars        | Debit | Credit | Int. | Balance  │
+│ 2026-01-15 | LN-2026-01 | Loan Disbursement  | 150k  | -      | -    | 150k     │
+│ 2026-02-15 | OR-98412   | Monthly Amortization| -    | 15,000 | 2,250| 135k     │
+│ 2026-03-15 | OR-98765   | Monthly Amortization| -    | 15,000 | 2,250| 120k     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+                       [ Print Official Statement / PDF ]
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PRINTABLE / PDF MODAL (Clean Paper Layout, Zero Dark-Mode Bleed)                │
+│ • Cooperative Header, CDA Reg. #, Tax Identification Number (TIN)               │
+│ • Member ID, Full Name, Contact, Address, Branch Location                       │
+│ • Account Specification (Loan Product, Interest Rate %, Term, Maturity Date)   │
+│ • Chronological Movements Table with Running Balances                           │
+│ • Sign-off blocks: Prepared By, Verified By, Member Conforme                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ### Visual Identity & Theme
-- **Aesthetic Direction**: High-density enterprise SaaS workbench adhering to the Universal Frontend Design Constitution. Deep slate canvas (`#0F172A`), crisp hairline dividers (`#334155`), and emerald accents (`#10B981`) for positive equilibrium.
-- **Typography**: `Plus Jakarta Sans` for clean UI controls, paired with `font-mono tabular-nums` for all amounts, vouchers, dates, and balances to guarantee vertical decimal alignment.
-- **Zero-Pill Discipline**: Statuses and metadata use clean, unboxed text separated by subtle middots (`·`). Interactive tabs for sheets (GL Ledger / Member Ledger) use clean segmented control styling.
-- **No Mechanical Clutter**: No code comments in headers, no decorative pulsing dots, and no artificial status tickers.
+- **Aesthetic Direction**: Utilitarian, dense financial dashboard following the `SaaS & Dashboards` domain guidelines with high-contrast legibility, subtle hairline borders, and zero decorative fluff.
+- **Color Palette & Discipline**:
+  - Dominant Neutral Canvas (60%): Clean dark slate (`#0B1120` / `#0F172A`) on web, transitioning seamlessly to pure crisp white (`#FFFFFF`) in print view.
+  - Structural Surfaces (30%): Hairline borders (`border-slate-800` / `border-neutral-200`) and subtle slate row alternations.
+  - Accent Budget (10%): High-intent Emerald (`#059669` / `#10B981`) for active tabs, positive repayments, and primary PDF actions; Rose (`#E11D48`) for overdue interest or penalties.
+- **Typography & Tabular Discipline**:
+  - Display & Headings: `Plus Jakarta Sans` for clean titles and tab labels.
+  - Body: `DM Sans` / `Public Sans` for readable descriptions and account particulars.
+  - Financial Figures & Numerals: Strict tabular monospace (`font-mono tabular-nums`) across all currency fields, voucher numbers, and dates to ensure vertical decimal alignment.
+- **Interactive Feedback & States**:
+  - Loading skeleton matching table rows.
+  - Empty state with guidance when no member or account transactions exist in the selected period.
+  - Responsive print styling (`@media print`) stripping sidebar, navigation, and dark styling to produce professional A4/Letter cooperative statements.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-### Decision 1: Dual-Sheet vs. Combined Single Sheet
-- **Chosen Approach**: Dual-sheet tabbed structure ("GL Ledger" and "Member Transactions") within the same workbench screen.
-- **Why**: General Ledger transactions are double-entry journal lines (debit/credit balancing to zero), whereas Member transactions are subsidiary records (individual passbook deposits, loan amortizations, share capital contributions). Combining them into one flat table creates awkward empty cells and distorted totals. Dual sheets preserve accounting integrity while sharing identical period and account filters.
+### Decision 1: Integrated Sheet vs. Isolated New Navigation Module
+- **Chosen Approach**: Integrate Subsidiary Ledger as **Sheet 3** in the primary `ReportsModule.tsx` alongside General Ledger and Member Transactions, with an option to link directly to it from Member details and Loan details.
+- **Why**: Keeps all financial reporting, accounting period cutoffs, branch consolidation, and GL account filters unified in a single workflow. Users do not have to reselect the accounting period or branch when moving between general and subsidiary ledgers.
+- **Alternatives Considered**: Creating a completely disconnected standalone module would duplicate the period selection logic, branch filters, and GL lookup tables.
 
-### Decision 2: Accounting Period Source & Custom Override
-- **Chosen Approach**: Pull dropdown options directly from `accounting_periods` table, displaying fiscal year and start/end dates, with an optional custom date range toggle for non-standard audit queries.
-- **Why**: Follows CDA accounting standards where books close on formal periods, preventing date-entry errors.
+### Decision 2: Multi-Type Ledger Architecture (Loans, Savings, Share Capital)
+- **Chosen Approach**: Unified subsidiary ledger schema that normalizes loan repayments (principal + interest + penalty), savings deposits/withdrawals, and share capital contributions into a coherent ledger movement structure with domain-specific column adapters.
+- **Why**: Gives the user one standardized interface while preserving the specialized fields required for loans (interest rate, amortization breakdown, remaining balance) vs. deposits (interest credited, balance).
+- **Alternatives Considered**: Restricting to loans only would leave cooperatives without a way to audit savings passbooks or share capital ledgers against member accounts.
 
-### Decision 3: Client-Side + Server-Side Hybrid Filtering
-- **Chosen Approach**: Fetch journal entries and member transactions for the selected accounting period via optimized backend endpoints, then execute immediate client-side GL checkbox toggling and member search for instant 0ms latency responses without refetching.
-- **Why**: Allows instant checkbox responsiveness as the user toggles accounts without loading spinners on every click.
+### Decision 3: PDF Generation via Print-Optimized CSS & Browser Engine
+- **Chosen Approach**: Implement a dedicated `PrintableSubsidiaryLedgerModal` using high-fidelity CSS print media queries (`@media print`), enabling immediate high-resolution "Save as PDF" and direct physical printing without heavy third-party canvas or WASM PDF dependencies that bloat bundle size or fail font rendering.
+- **Why**: Zero external bundle overhead, native vector typography, crisp multi-page table formatting with `page-break-inside: avoid` on signature blocks, and guaranteed cross-platform compatibility.
+- **Alternatives Considered**: Pure client-side rasterizing libraries (like `html2canvas`) generate blurry text and struggle with multi-page pagination.
 
 ---
 
 ## 4. Technical Architecture & Data Strategy
 
+### System Architecture Diagram
+
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Sidebar Navigation                              │
-│             [Reports & Ledger Workbench] (Tab: 'reports_module')       │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        ReportsModule (Workbench)                       │
-├────────────────────────────────────────────────────────────────────────┤
-│ Controls Bar:                                                          │
-│  ├── [Period Dropdown] (from accounting_periods: Oct 1 - Oct 31, 2026) │
-│  ├── [Branch Selector] (Consolidated or specific branch)               │
-│  ├── [Member Filter] (Searchable Select: All or specific member)       │
-│  └── [Actions] -> [Export CSV] [Export PDF / Print] [Refresh]          │
-├────────────────────────────────────────────────────────────────────────┤
-│ GL Account Checkbox Bar / Drawer:                                      │
-│  ├── Quick Buttons: [Select All] [Deselect All] [Assets] [Liab] etc.   │
-│  └── Checkbox Badges for each GL Account (Code + Title)                │
-├────────────────────────────────────────────────────────────────────────┤
-│ Dual-Sheet Tab Switcher:                                               │
-│  ├── Sheet 1: General Ledger Transactions (Journal lines)              │
-│  └── Sheet 2: Member Transactions (Savings, CBU, Loans subsidiary)     │
-├────────────────────────────────────────────────────────────────────────┤
-│ ExcelGridTable Engine:                                                 │
-│  ├── High-density tabular grid with column sorting & search filters    │
-│  └── Monospace tabular-nums currency rendering                         │
-├────────────────────────────────────────────────────────────────────────┤
-│ Bottom Accounting Summary Bar:                                         │
-│  └── Total Transactions | Total Debit (₱) | Total Credit (₱) | Net (₱) │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                 ┌──────────────────┴──────────────────┐
-                 ▼                                     ▼
-┌─────────────────────────────────┐   ┌──────────────────────────────────┐
-│  Node / Express Backend API     │   │  PHP Backend Compatibility       │
-│  GET /api/reports/journal-      │   │  GET /api/reports/journal-       │
-│      entries?period_id=...      │   │      entries?period_id=...       │
-│  GET /api/reports/member-       │   │  GET /api/reports/financial-     │
-│      transactions?period_id=... │   │      statements                  │
-└─────────────────────────────────┘   └──────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             REACT FRONTEND                                  │
+│                                                                             │
+│   src/components/reports/ReportsModule.tsx                                  │
+│   ├── Sheet 1: General Ledger Transactions                                  │
+│   ├── Sheet 2: Member GL Transactions                                       │
+│   └── Sheet 3: Subsidiary Ledger Explorer [NEW]                             │
+│         ├── Sub-Ledger Type Filter (Loans | Savings | Share Capital | All)  │
+│         ├── Member & Account Dropdown Selectors                             │
+│         ├── Account Financial Metric Summary Bar                            │
+│         ├── High-Density ExcelGridTable / Movements Grid                    │
+│         └── PrintableSubsidiaryLedgerModal.tsx [NEW]                        │
+│               └── Official Print / PDF Template                             │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ HTTP GET
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           API & SERVER LAYER                                │
+│                                                                             │
+│   backend-php/app/Controllers/ReportController.php                          │
+│   ├── subsidiaryLedger(?string $periodId = null): never                     │
+│                                                                             │
+│   backend-php/app/Services/ReportService.php                                │
+│   ├── getSubsidiaryLedgerReport($type, $periodId, $memberId, ...)           │
+│         ├── Queries `loans`, `loan_payments`, `loan_payment_allocations`    │
+│         ├── Queries `savings_accounts`, `savings_transactions`              │
+│         ├── Queries `share_capital_accounts`, `share_capital_transactions`  │
+│         └── Computes running principal, interest, and ending balances       │
+│                                                                             │
+│   server/routes/api.ts (Node proxy/fallback parity)                         │
+│   └── router.get('/api/reports/subsidiary-ledger', ...)                     │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ PDO / SQL
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             DATABASE LAYER                                  │
+│   • loans, loan_products, loan_payments, loan_payment_allocations           │
+│   • savings_accounts, savings_transactions                                  │
+│   • share_capital_accounts, share_capital_transactions                      │
+│   • members, branches, accounting_periods, chart_of_accounts                │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Components to Build & Update
-1. **`src/components/reports/ReportsModule.tsx`**:
-   - Primary container housing the period selector, GL checkbox toggle panel, member search filter, dual-sheet switcher, ExcelGridTable integration, and export handlers.
-2. **`src/components/reports/PrintableReportModal.tsx`**:
-   - Clean, professional print/PDF layout supporting official cooperative headers, period dates, applied GL accounts list, and signature lines.
-3. **`src/components/Sidebar.tsx`**:
-   - Register `'reports_module'` with `FileSpreadsheet` icon in `navItems`.
-4. **`src/types/index.ts`**:
-   - Add `'reports_module'` to `TabKey` type definition.
-5. **`src/App.tsx`**:
-   - Add route branch for `activeTab === 'reports_module'` rendering `<ReportsModule />`.
-6. **`src/services/api.ts` & `server/routes/api.ts`**:
-   - Implement `getJournalEntriesByPeriod(periodId, branchId)` and `getMemberTransactionsByPeriod(periodId, branchId, memberId)` in both frontend API service and server routes.
+### Data Model & Ledger Structure
+
+Each subsidiary ledger movement record will return:
+
+```typescript
+interface SubsidiaryLedgerEntry {
+  id: string;
+  date: string;
+  ref_no: string;              // Receipt #, Voucher #, or Disbursement Ref
+  type: string;                // DISBURSEMENT, PAYMENT, DEPOSIT, WITHDRAWAL, INTEREST
+  product_type: 'loan' | 'savings' | 'share_capital';
+  account_id: string;
+  account_number: string;
+  member_id: string;
+  member_no: string;
+  member_name: string;
+  description: string;
+  
+  // Financial Movements
+  debit: number;               // Principal Disbursed / Withdrawal
+  credit: number;              // Principal Paid / Deposit
+  interest_amount?: number;    // Interest collected/applied
+  penalty_amount?: number;     // Fines/Penalties collected
+  fee_amount?: number;         // Processing / admin fees
+  running_balance: number;     // Current balance after this movement
+  
+  // Audit & Context
+  gl_code?: string;
+  branch_id: string;
+  branch_name: string;
+  posted_by?: string;
+}
+```
+
+### Key Implementation Steps
+1. **Backend Service & Controller (`backend-php`)**:
+   - Add `getSubsidiaryLedgerReport(...)` in `backend-php/app/Services/ReportService.php`.
+   - Add `subsidiaryLedger()` route handler in `backend-php/app/Controllers/ReportController.php`.
+   - Register route `/api/reports/subsidiary-ledger` in `backend-php/routes/api.php`.
+2. **Server Parity (`server/routes/api.ts`)**:
+   - Mirror `/api/reports/subsidiary-ledger` and `/reports/subsidiary-ledger` in the Node development server for full-stack consistency.
+3. **Frontend API Client (`src/services/api.ts`)**:
+   - Add `getReportSubsidiaryLedger(params)` helper with full query filtering.
+4. **Printable Modal (`src/components/reports/PrintableSubsidiaryLedgerModal.tsx`)**:
+   - Design official statement header with cooperative crest/logo, registration, contact details.
+   - Account metadata block (Interest rate, original loan amount, loan term, savings balance).
+   - Clean tabular statement with debit, credit, interest, penalty, and running balance.
+   - Certification and signatory section (Prepared by, Checked by, Approved by, Member Conforme).
+5. **Reports Module Integration (`src/components/reports/ReportsModule.tsx`)**:
+   - Add **Sheet 3: Subsidiary Ledger** tab with badge counter.
+   - Add sub-ledger type segmented controls (Loans, Savings, Share Capital, All).
+   - Add Member and Account specific selectors.
+   - Add summary KPI cards (Opening Balance, Total Debits, Total Credits, Total Interest, Ending Balance).
+   - Hook up CSV Export and Printable PDF Modal launcher.
+6. **Build Verification**:
+   - Run compilation and TypeScript validation to ensure clean builds.

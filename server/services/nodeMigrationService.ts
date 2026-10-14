@@ -64,7 +64,7 @@ export class NodeMigrationService {
       const schemas = this.loadSchemaDefinitions();
       report.tables_checked = Object.keys(schemas).length;
 
-      const data = this.db.load() as Record<string, any[]>;
+      const data = this.db.load() as unknown as Record<string, any[]>;
       let dataModified = false;
 
       // 1. Table Creations and Column Additions

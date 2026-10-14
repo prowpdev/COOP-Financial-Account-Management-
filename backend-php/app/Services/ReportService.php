@@ -1150,4 +1150,559 @@ class ReportService
             'transactions' => $finalResults
         ];
     }
+
+    /**
+     * Cooperative Subsidiary Ledger (SL)
+     * Tracks detailed movements for Loans, Savings, and Share Capital (CBU).
+     *
+     * @param array $filters
+     * @return array
+     */
+    public function getSubsidiaryLedger(array $filters = []): array
+    {
+        $periodId = $filters['period_id'] ?? null;
+        $branchId = $filters['branch_id'] ?? null;
+        $memberId = $filters['member_id'] ?? null;
+        $ledgerType = strtolower($filters['ledger_type'] ?? 'all');
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
+        $status = $filters['status'] ?? null;
+        $loanId = $filters['loan_id'] ?? null;
+
+        $period = null;
+        if (!empty($periodId) && $periodId !== 'all') {
+            $stmt = $this->db->prepare("SELECT * FROM accounting_periods WHERE id = :id LIMIT 1");
+            $stmt->execute(['id' => $periodId]);
+            $period = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+
+        $effectiveStart = $startDate ?: ($period['start_date'] ?? null);
+        $effectiveEnd = $endDate ?: ($period['end_date'] ?? null);
+
+        $accounts = [];
+        $allEntries = [];
+
+        $kpis = [
+            'total_loans_disbursed' => 0.0,
+            'total_principal_collected' => 0.0,
+            'total_interest_collected' => 0.0,
+            'total_penalty_collected' => 0.0,
+            'total_outstanding_loans' => 0.0,
+            'total_savings_balance' => 0.0,
+            'total_savings_deposits' => 0.0,
+            'total_savings_withdrawals' => 0.0,
+            'total_share_capital_balance' => 0.0,
+            'total_shares_count' => 0,
+            'accounts_count' => 0,
+            'entries_count' => 0,
+        ];
+
+        // ---------------------------------------------------------
+        // 1. LOAN SUBSIDIARY LEDGER
+        // ---------------------------------------------------------
+        if (in_array($ledgerType, ['all', 'loans', 'loan'])) {
+            $sqlLoans = "
+                SELECT 
+                    l.*,
+                    m.member_no,
+                    m.first_name,
+                    m.last_name,
+                    m.address,
+                    m.contact_no,
+                    lp.name AS product_name,
+                    lp.code AS product_code,
+                    COALESCE(b.name, 'Main Branch') AS branch_name
+                FROM loans l
+                INNER JOIN members m ON m.id = l.member_id
+                LEFT JOIN loan_products lp ON lp.id = l.loan_product_id
+                LEFT JOIN branches b ON b.id = l.branch_id
+                WHERE 1 = 1
+            ";
+            $params = [];
+            if (!empty($branchId) && $branchId !== 'all') {
+                $sqlLoans .= " AND l.branch_id = :branch_id";
+                $params['branch_id'] = $branchId;
+            }
+            if (!empty($memberId) && $memberId !== 'all') {
+                $sqlLoans .= " AND l.member_id = :member_id";
+                $params['member_id'] = $memberId;
+            }
+            if (!empty($status) && $status !== 'all') {
+                $sqlLoans .= " AND l.status = :status";
+                $params['status'] = $status;
+            }
+            if (!empty($loanId) && $loanId !== 'all') {
+                $sqlLoans .= " AND l.id = :loan_id";
+                $params['loan_id'] = $loanId;
+            }
+            $sqlLoans .= " ORDER BY l.disbursement_date ASC, l.created_at ASC";
+
+            $stmtLoans = $this->db->prepare($sqlLoans);
+            $stmtLoans->execute($params);
+            $loanList = $stmtLoans->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($loanList as $ln) {
+                $principal = (float)($ln['principal_amount'] ?? 0);
+                $disbDate = substr((string)$ln['disbursement_date'], 0, 10);
+                $memberName = trim(($ln['first_name'] ?? '') . ' ' . ($ln['last_name'] ?? '')) ?: 'Unknown Member';
+
+                // Fetch payments and allocations for this loan
+                $sqlP = "
+                    SELECT 
+                        lp.id,
+                        lp.receipt_no,
+                        lp.payment_date,
+                        lp.total_amount,
+                        lp.received_by,
+                        COALESCE(lpa.principal_amount, 0) AS principal_amount,
+                        COALESCE(lpa.interest_amount, 0) AS interest_amount,
+                        COALESCE(lpa.penalty_amount, 0) AS penalty_amount,
+                        COALESCE(lpa.fee_amount, 0) AS fee_amount
+                    FROM loan_payments lp
+                    LEFT JOIN loan_payment_allocations lpa ON lpa.payment_id = lp.id
+                    WHERE lp.loan_id = :loan_id
+                    ORDER BY lp.payment_date ASC, lp.created_at ASC
+                ";
+                $stmtP = $this->db->prepare($sqlP);
+                $stmtP->execute(['loan_id' => $ln['id']]);
+                $payments = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+
+                $entries = [];
+                $runningBal = $principal;
+
+                // Disbursement entry
+                $disbInRange = true;
+                if ($effectiveStart && $disbDate < $effectiveStart) {
+                    $disbInRange = false;
+                }
+                if ($effectiveEnd && $disbDate > $effectiveEnd) {
+                    $disbInRange = false;
+                }
+
+                $disbEntry = [
+                    'id' => "disb_{$ln['id']}",
+                    'account_id' => $ln['id'],
+                    'account_number' => $ln['loan_account_no'] ?: $ln['id'],
+                    'ledger_type' => 'loan',
+                    'member_id' => $ln['member_id'],
+                    'member_name' => $memberName,
+                    'member_no' => $ln['member_no'] ?: 'MEM-N/A',
+                    'date' => $disbDate,
+                    'ref_no' => "DISB-{$ln['loan_account_no']}",
+                    'description' => "Loan Release / Disbursement (" . ($ln['product_name'] ?: 'Regular Loan') . ")",
+                    'type' => 'DISBURSEMENT',
+                    'debit' => round($principal, 2),
+                    'credit' => 0.0,
+                    'principal_paid' => 0.0,
+                    'interest_paid' => 0.0,
+                    'penalty_paid' => 0.0,
+                    'fee_paid' => 0.0,
+                    'running_balance' => round($runningBal, 2),
+                ];
+
+                if ($disbInRange) {
+                    $entries[] = $disbEntry;
+                }
+
+                $loanPrincipalPaid = 0.0;
+                $loanInterestPaid = 0.0;
+                $loanPenaltyPaid = 0.0;
+                $loanFeesPaid = 0.0;
+
+                foreach ($payments as $p) {
+                    $pDate = substr((string)$p['payment_date'], 0, 10);
+                    $pPrincipal = (float)($p['principal_amount'] ?? 0);
+                    $pInterest = (float)($p['interest_amount'] ?? 0);
+                    $pPenalty = (float)($p['penalty_amount'] ?? 0);
+                    $pFee = (float)($p['fee_amount'] ?? 0);
+                    $pTotal = (float)($p['total_amount'] ?? ($pPrincipal + $pInterest + $pPenalty + $pFee));
+
+                    $runningBal -= $pPrincipal;
+                    if ($runningBal < 0) {
+                        $runningBal = 0.0;
+                    }
+
+                    $loanPrincipalPaid += $pPrincipal;
+                    $loanInterestPaid += $pInterest;
+                    $loanPenaltyPaid += $pPenalty;
+                    $loanFeesPaid += $pFee;
+
+                    $pInRange = true;
+                    if ($effectiveStart && $pDate < $effectiveStart) {
+                        $pInRange = false;
+                    }
+                    if ($effectiveEnd && $pDate > $effectiveEnd) {
+                        $pInRange = false;
+                    }
+
+                    if ($pInRange) {
+                        $entries[] = [
+                            'id' => $p['id'],
+                            'account_id' => $ln['id'],
+                            'account_number' => $ln['loan_account_no'] ?: $ln['id'],
+                            'ledger_type' => 'loan',
+                            'member_id' => $ln['member_id'],
+                            'member_name' => $memberName,
+                            'member_no' => $ln['member_no'] ?: 'MEM-N/A',
+                            'date' => $pDate,
+                            'ref_no' => $p['receipt_no'] ?: $p['id'],
+                            'description' => "Amortization Payment - OR #" . ($p['receipt_no'] ?: $p['id']),
+                            'type' => 'PAYMENT',
+                            'debit' => 0.0,
+                            'credit' => round($pPrincipal, 2),
+                            'principal_paid' => round($pPrincipal, 2),
+                            'interest_paid' => round($pInterest, 2),
+                            'penalty_paid' => round($pPenalty, 2),
+                            'fee_paid' => round($pFee, 2),
+                            'running_balance' => round($runningBal, 2),
+                        ];
+                    }
+                }
+
+                $currentBal = isset($ln['current_balance']) ? (float)$ln['current_balance'] : $runningBal;
+
+                $kpis['total_loans_disbursed'] += $principal;
+                $kpis['total_principal_collected'] += $loanPrincipalPaid;
+                $kpis['total_interest_collected'] += $loanInterestPaid;
+                $kpis['total_penalty_collected'] += $loanPenaltyPaid;
+                $kpis['total_outstanding_loans'] += $currentBal;
+
+                $accountObj = [
+                    'id' => $ln['id'],
+                    'account_number' => $ln['loan_account_no'] ?: $ln['id'],
+                    'ledger_type' => 'loan',
+                    'member_id' => $ln['member_id'],
+                    'member_no' => $ln['member_no'] ?: 'MEM-N/A',
+                    'member_name' => $memberName,
+                    'member_address' => $ln['address'] ?? '',
+                    'member_contact' => $ln['contact_no'] ?? '',
+                    'branch_id' => $ln['branch_id'],
+                    'branch_name' => $ln['branch_name'] ?? 'Main Branch',
+                    'product_name' => $ln['product_name'] ?: 'Regular Loan',
+                    'product_code' => $ln['product_code'] ?: 'LOAN',
+                    'interest_rate' => (float)($ln['annual_interest_rate'] ?? 0),
+                    'terms_months' => (int)($ln['term_months'] ?? 0),
+                    'disbursement_date' => $disbDate,
+                    'maturity_date' => substr((string)($ln['maturity_date'] ?? ''), 0, 10),
+                    'status' => $ln['status'] ?? 'Active',
+                    'original_principal' => round($principal, 2),
+                    'current_balance' => round($currentBal, 2),
+                    'total_principal_paid' => round($loanPrincipalPaid, 2),
+                    'total_interest_paid' => round($loanInterestPaid, 2),
+                    'total_penalty_paid' => round($loanPenaltyPaid, 2),
+                    'total_fees_paid' => round($loanFeesPaid, 2),
+                    'entries_count' => count($entries),
+                    'entries' => $entries,
+                ];
+
+                $accounts[] = $accountObj;
+                foreach ($entries as $e) {
+                    $allEntries[] = $e;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 2. SAVINGS SUBSIDIARY LEDGER
+        // ---------------------------------------------------------
+        if (in_array($ledgerType, ['all', 'savings', 'deposit'])) {
+            $sqlSavings = "
+                SELECT 
+                    sa.*,
+                    m.member_no,
+                    m.first_name,
+                    m.last_name,
+                    m.address,
+                    m.contact_no,
+                    sp.name AS product_name,
+                    sp.code AS product_code,
+                    COALESCE(b.name, 'Main Branch') AS branch_name
+                FROM savings_accounts sa
+                INNER JOIN members m ON m.id = sa.member_id
+                LEFT JOIN savings_products sp ON sp.id = sa.savings_product_id
+                LEFT JOIN branches b ON b.id = sa.branch_id
+                WHERE 1 = 1
+            ";
+            $params = [];
+            if (!empty($branchId) && $branchId !== 'all') {
+                $sqlSavings .= " AND sa.branch_id = :branch_id";
+                $params['branch_id'] = $branchId;
+            }
+            if (!empty($memberId) && $memberId !== 'all') {
+                $sqlSavings .= " AND sa.member_id = :member_id";
+                $params['member_id'] = $memberId;
+            }
+            if (!empty($status) && $status !== 'all') {
+                $sqlSavings .= " AND sa.status = :status";
+                $params['status'] = $status;
+            }
+            $sqlSavings .= " ORDER BY sa.created_at ASC";
+
+            $stmtSavings = $this->db->prepare($sqlSavings);
+            $stmtSavings->execute($params);
+            $savingsList = $stmtSavings->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($savingsList as $sa) {
+                $memberName = trim(($sa['first_name'] ?? '') . ' ' . ($sa['last_name'] ?? '')) ?: 'Unknown Member';
+                
+                // Fetch savings transactions
+                $sqlStx = "
+                    SELECT * FROM savings_transactions 
+                    WHERE savings_account_id = :acc_id 
+                    ORDER BY transaction_date ASC, created_at ASC
+                ";
+                $stmtStx = $this->db->prepare($sqlStx);
+                $stmtStx->execute(['acc_id' => $sa['id']]);
+                $stxRows = $stmtStx->fetchAll(PDO::FETCH_ASSOC);
+
+                $entries = [];
+                $runningBal = 0.0;
+                $totDep = 0.0;
+                $totWdl = 0.0;
+
+                foreach ($stxRows as $tx) {
+                    $tDate = substr((string)$tx['transaction_date'], 0, 10);
+                    $amt = (float)($tx['amount'] ?? 0);
+                    $type = strtoupper((string)($tx['type'] ?? 'DEPOSIT'));
+                    $isDeposit = in_array($type, ['DEPOSIT', 'INTEREST_POSTING']);
+
+                    if ($isDeposit) {
+                        $runningBal += $amt;
+                        $totDep += $amt;
+                    } else {
+                        $runningBal -= $amt;
+                        $totWdl += $amt;
+                    }
+
+                    $inRange = true;
+                    if ($effectiveStart && $tDate < $effectiveStart) {
+                        $inRange = false;
+                    }
+                    if ($effectiveEnd && $tDate > $effectiveEnd) {
+                        $inRange = false;
+                    }
+
+                    if ($inRange) {
+                        $entries[] = [
+                            'id' => $tx['id'],
+                            'account_id' => $sa['id'],
+                            'account_number' => $sa['account_number'] ?? $sa['id'],
+                            'ledger_type' => 'savings',
+                            'member_id' => $sa['member_id'],
+                            'member_name' => $memberName,
+                            'member_no' => $sa['member_no'] ?: 'MEM-N/A',
+                            'date' => $tDate,
+                            'ref_no' => $tx['transaction_no'] ?: $tx['id'],
+                            'description' => $tx['notes'] ?: "Savings {$type}",
+                            'type' => $type,
+                            'debit' => !$isDeposit ? round($amt, 2) : 0.0,
+                            'credit' => $isDeposit ? round($amt, 2) : 0.0,
+                            'principal_paid' => 0.0,
+                            'interest_paid' => $type === 'INTEREST_POSTING' ? round($amt, 2) : 0.0,
+                            'penalty_paid' => 0.0,
+                            'fee_paid' => $type === 'FEE_DEDUCTION' ? round($amt, 2) : 0.0,
+                            'running_balance' => round($runningBal, 2),
+                        ];
+                    }
+                }
+
+                $currentBal = isset($sa['balance']) ? (float)$sa['balance'] : $runningBal;
+                $kpis['total_savings_balance'] += $currentBal;
+                $kpis['total_savings_deposits'] += $totDep;
+                $kpis['total_savings_withdrawals'] += $totWdl;
+
+                $accountObj = [
+                    'id' => $sa['id'],
+                    'account_number' => $sa['account_number'] ?? $sa['id'],
+                    'ledger_type' => 'savings',
+                    'member_id' => $sa['member_id'],
+                    'member_no' => $sa['member_no'] ?: 'MEM-N/A',
+                    'member_name' => $memberName,
+                    'member_address' => $sa['address'] ?? '',
+                    'member_contact' => $sa['contact_no'] ?? '',
+                    'branch_id' => $sa['branch_id'] ?? 'branch_tar',
+                    'branch_name' => $sa['branch_name'] ?? 'Main Branch',
+                    'product_name' => $sa['product_name'] ?: 'Regular Savings',
+                    'product_code' => $sa['product_code'] ?: 'SAV',
+                    'interest_rate' => (float)($sa['interest_rate'] ?? 0),
+                    'status' => $sa['status'] ?? 'Active',
+                    'current_balance' => round($currentBal, 2),
+                    'total_deposits' => round($totDep, 2),
+                    'total_withdrawals' => round($totWdl, 2),
+                    'entries_count' => count($entries),
+                    'entries' => $entries,
+                ];
+
+                $accounts[] = $accountObj;
+                foreach ($entries as $e) {
+                    $allEntries[] = $e;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 3. SHARE CAPITAL (CBU) SUBSIDIARY LEDGER
+        // ---------------------------------------------------------
+        if (in_array($ledgerType, ['all', 'share_capital', 'cbu'])) {
+            $sqlCbu = "
+                SELECT 
+                    sca.*,
+                    m.member_no,
+                    m.first_name,
+                    m.last_name,
+                    m.address,
+                    m.contact_no,
+                    COALESCE(b.name, 'Main Branch') AS branch_name
+                FROM share_capital_accounts sca
+                INNER JOIN members m ON m.id = sca.member_id
+                LEFT JOIN branches b ON b.id = m.branch_id
+                WHERE 1 = 1
+            ";
+            $params = [];
+            if (!empty($branchId) && $branchId !== 'all') {
+                $sqlCbu .= " AND m.branch_id = :branch_id";
+                $params['branch_id'] = $branchId;
+            }
+            if (!empty($memberId) && $memberId !== 'all') {
+                $sqlCbu .= " AND sca.member_id = :member_id";
+                $params['member_id'] = $memberId;
+            }
+            if (!empty($status) && $status !== 'all') {
+                $sqlCbu .= " AND sca.status = :status";
+                $params['status'] = $status;
+            }
+            $sqlCbu .= " ORDER BY sca.created_at ASC";
+
+            $stmtCbu = $this->db->prepare($sqlCbu);
+            $stmtCbu->execute($params);
+            $cbuList = $stmtCbu->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($cbuList as $sca) {
+                $memberName = trim(($sca['first_name'] ?? '') . ' ' . ($sca['last_name'] ?? '')) ?: 'Unknown Member';
+
+                // Fetch share capital transactions
+                $sqlCtx = "
+                    SELECT * FROM share_capital_transactions 
+                    WHERE share_account_id = :acc_id 
+                    ORDER BY transaction_date ASC, created_at ASC
+                ";
+                $stmtCtx = $this->db->prepare($sqlCtx);
+                $stmtCtx->execute(['acc_id' => $sca['id']]);
+                $ctxRows = $stmtCtx->fetchAll(PDO::FETCH_ASSOC);
+
+                $entries = [];
+                $runningBal = 0.0;
+                $runningShares = 0;
+
+                foreach ($ctxRows as $tx) {
+                    $tDate = substr((string)$tx['transaction_date'], 0, 10);
+                    $amt = (float)($tx['amount'] ?? 0);
+                    $shs = (int)($tx['shares'] ?? 0);
+                    $type = strtoupper((string)($tx['type'] ?? 'PAYMENT'));
+                    $isCredit = in_array($type, ['PAYMENT', 'SUBSCRIPTION', 'DIVIDEND_PATRONAGE']);
+
+                    if ($isCredit) {
+                        $runningBal += $amt;
+                        $runningShares += $shs;
+                    } else {
+                        $runningBal -= $amt;
+                        $runningShares -= $shs;
+                    }
+
+                    $inRange = true;
+                    if ($effectiveStart && $tDate < $effectiveStart) {
+                        $inRange = false;
+                    }
+                    if ($effectiveEnd && $tDate > $effectiveEnd) {
+                        $inRange = false;
+                    }
+
+                    if ($inRange) {
+                        $entries[] = [
+                            'id' => $tx['id'],
+                            'account_id' => $sca['id'],
+                            'account_number' => $sca['account_number'] ?? $sca['id'],
+                            'ledger_type' => 'share_capital',
+                            'member_id' => $sca['member_id'],
+                            'member_name' => $memberName,
+                            'member_no' => $sca['member_no'] ?: 'MEM-N/A',
+                            'date' => $tDate,
+                            'ref_no' => $tx['receipt_no'] ?: $tx['id'],
+                            'description' => "CBU {$type} ({$shs} shares)",
+                            'type' => $type,
+                            'shares' => $shs,
+                            'debit' => !$isCredit ? round($amt, 2) : 0.0,
+                            'credit' => $isCredit ? round($amt, 2) : 0.0,
+                            'running_balance' => round($runningBal, 2),
+                            'running_shares' => $runningShares,
+                        ];
+                    }
+                }
+
+                $paidAmount = isset($sca['paid_amount']) ? (float)$sca['paid_amount'] : $runningBal;
+                $kpis['total_share_capital_balance'] += $paidAmount;
+                $kpis['total_shares_count'] += (int)($sca['subscribed_shares'] ?? $runningShares);
+
+                $accountObj = [
+                    'id' => $sca['id'],
+                    'account_number' => $sca['account_number'] ?? $sca['id'],
+                    'ledger_type' => 'share_capital',
+                    'member_id' => $sca['member_id'],
+                    'member_no' => $sca['member_no'] ?: 'MEM-N/A',
+                    'member_name' => $memberName,
+                    'member_address' => $sca['address'] ?? '',
+                    'member_contact' => $sca['contact_no'] ?? '',
+                    'branch_id' => $sca['branch_id'] ?? 'branch_tar',
+                    'branch_name' => $sca['branch_name'] ?? 'Main Branch',
+                    'product_name' => 'Common Share Capital (CBU)',
+                    'product_code' => 'CBU',
+                    'status' => $sca['status'] ?? 'Active',
+                    'subscribed_shares' => (int)($sca['subscribed_shares'] ?? 0),
+                    'subscribed_amount' => (float)($sca['subscribed_amount'] ?? 0),
+                    'current_balance' => round($paidAmount, 2),
+                    'entries_count' => count($entries),
+                    'entries' => $entries,
+                ];
+
+                $accounts[] = $accountObj;
+                foreach ($entries as $e) {
+                    $allEntries[] = $e;
+                }
+            }
+        }
+
+        // Sort all entries chronologically
+        usort($allEntries, function ($a, $b) {
+            return strcmp((string)$a['date'], (string)$b['date']);
+        });
+
+        $kpis['accounts_count'] = count($accounts);
+        $kpis['entries_count'] = count($allEntries);
+
+        // Round all KPI values
+        foreach ($kpis as $k => $v) {
+            if (is_float($v)) {
+                $kpis[$k] = round($v, 2);
+            }
+        }
+
+        return [
+            'period' => $period ?: ($effectiveStart ? [
+                'name' => "{$effectiveStart} to {$effectiveEnd}",
+                'start_date' => $effectiveStart,
+                'end_date' => $effectiveEnd
+            ] : null),
+            'filters' => [
+                'ledger_type' => $ledgerType,
+                'branch_id' => $branchId,
+                'member_id' => $memberId,
+                'start_date' => $effectiveStart,
+                'end_date' => $effectiveEnd,
+                'status' => $status,
+            ],
+            'summary' => $kpis,
+            'accounts' => $accounts,
+            'all_entries' => $allEntries,
+        ];
+    }
 }

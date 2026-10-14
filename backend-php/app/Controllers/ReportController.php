@@ -116,4 +116,35 @@ class ReportController extends BaseController
 
         $this->success($report);
     }
+
+    /**
+     * GET /api/reports/subsidiary-ledger
+     * GET /api/reports/subsidiary-ledger/:period_id
+     */
+    public function subsidiaryLedger(?string $periodId = null): never
+    {
+        $periodId = $periodId ?? $this->getQuery('period_id');
+        $branchId = $this->getCurrentUserBranchId()
+            ?? $this->getQuery('current_branch_id')
+            ?? $this->getQuery('branch_id');
+        $memberId = $this->getQuery('member_id');
+        $ledgerType = $this->getQuery('ledger_type') ?? 'all';
+        $startDate = $this->getQuery('start_date') ?? $this->getQuery('date_from');
+        $endDate = $this->getQuery('end_date') ?? $this->getQuery('date_to');
+        $status = $this->getQuery('status');
+        $loanId = $this->getQuery('loan_id');
+
+        $report = $this->reports->getSubsidiaryLedger([
+            'period_id' => $periodId,
+            'branch_id' => $branchId,
+            'member_id' => $memberId,
+            'ledger_type' => $ledgerType,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'status' => $status,
+            'loan_id' => $loanId,
+        ]);
+
+        $this->success($report);
+    }
 }

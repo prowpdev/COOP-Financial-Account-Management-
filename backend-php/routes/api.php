@@ -323,6 +323,11 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/api/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
     $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
     $router->get('/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
+    // Subsidiary Ledger reports
+    $router->get('/api/reports/subsidiary-ledger', [ReportController::class, 'subsidiaryLedger']);
+    $router->get('/api/reports/subsidiary-ledger/:period_id', [ReportController::class, 'subsidiaryLedger']);
+    $router->get('/reports/subsidiary-ledger', [ReportController::class, 'subsidiaryLedger']);
+    $router->get('/reports/subsidiary-ledger/:period_id', [ReportController::class, 'subsidiaryLedger']);
     // Notifications
     $router->get('/notifications', [ConfigController::class, 'notifications']);
 

@@ -17,10 +17,12 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Info
+  Info,
+  CreditCard
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { PrintableReportModal } from './PrintableReportModal';
+import { SubsidiaryLedgerReport } from './SubsidiaryLedgerReport';
 import { api } from '../../services/api';
 import { Account, Branch, Member, User, CoopProfile } from '../../types';
 
@@ -71,8 +73,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const [glSearchQuery, setGlSearchQuery] = useState('');
   const [isGlPanelExpanded, setIsGlPanelExpanded] = useState(true);
 
-  // Sheet tab state: 'gl' or 'member'
-  const [activeSheet, setActiveSheet] = useState<'gl' | 'member'>('gl');
+  // Sheet tab state: 'gl' | 'member' | 'subsidiary_ledger'
+  const [activeSheet, setActiveSheet] = useState<'gl' | 'member' | 'subsidiary_ledger'>('subsidiary_ledger');
 
   // Data state
   const [glLines, setGlLines] = useState<any[]>([]);
@@ -742,123 +744,24 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         </div>
       )}
 
-      {/* GL Accounts Checkboxes Selection Drawer */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-          <div className="flex items-center space-x-2.5">
-            <Layers className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-bold text-white">General Ledger Accounts Filter</h2>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              {selectedGlCodes.size} of {accounts.length} Accounts Included
+      {/* 3-Sheet Tab Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+          <button
+            onClick={() => setActiveSheet('subsidiary_ledger')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+              activeSheet === 'subsidiary_ledger'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Sheet 1: Subsidiary Ledger (Loans, Savings, CBU)</span>
+            <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold uppercase">
+              Official Statements
             </span>
-          </div>
+          </button>
 
-          {/* Search & Quick Filter Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-              <input
-                type="text"
-                placeholder="Search GL code or title..."
-                value={glSearchQuery}
-                onChange={(e) => setGlSearchQuery(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-48 sm:w-56"
-              />
-            </div>
-
-            <button
-              onClick={handleSelectAllGl}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
-            >
-              Select All
-            </button>
-            <button
-              onClick={handleClearAllGl}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
-            >
-              Deselect All
-            </button>
-
-            {/* Quick Category Buttons */}
-            <button
-              onClick={() => handleSelectCategory('Asset')}
-              className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-            >
-              + Assets
-            </button>
-            <button
-              onClick={() => handleSelectCategory('Liability')}
-              className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-            >
-              + Liab
-            </button>
-            <button
-              onClick={() => handleSelectCategory('Equity')}
-              className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-            >
-              + Equity
-            </button>
-            <button
-              onClick={() => handleSelectCategory('Revenue')}
-              className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-            >
-              + Revenue
-            </button>
-            <button
-              onClick={() => handleSelectCategory('Expense')}
-              className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-            >
-              + Expense
-            </button>
-
-            <button
-              onClick={() => setIsGlPanelExpanded(!isGlPanelExpanded)}
-              className="p-1 text-slate-400 hover:text-white rounded transition cursor-pointer"
-              title={isGlPanelExpanded ? 'Collapse GL Panel' : 'Expand GL Panel'}
-            >
-              {isGlPanelExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Checkbox Grid */}
-        {isGlPanelExpanded && (
-          <div className="pt-3 max-h-52 overflow-y-auto pr-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {displayedGlAccounts.map((acc) => {
-                const code = String(acc.account_code || acc.code || acc.id);
-                const isChecked = selectedGlCodes.has(code) || selectedGlCodes.has(acc.id);
-
-                return (
-                  <label
-                    key={acc.id}
-                    className={`flex items-center space-x-2 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${
-                      isChecked
-                        ? 'bg-slate-800/90 border-emerald-500/40 text-white'
-                        : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-900'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => handleToggleGlCode(code)}
-                      className="rounded border-slate-700 text-emerald-600 focus:ring-0 shrink-0"
-                    />
-                    <div className="truncate">
-                      <span className="font-mono font-semibold text-emerald-400 mr-1.5">{code}</span>
-                      <span className="text-xs truncate">{acc.name}</span>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Dual Sheet Tab Switcher */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <div className="flex items-center space-x-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
           <button
             onClick={() => setActiveSheet('gl')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
@@ -868,7 +771,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Sheet 1: General Ledger Transactions</span>
+            <span>Sheet 2: General Ledger Postings</span>
             <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-slate-950/60 font-mono">
               {filteredGlLines.length}
             </span>
@@ -883,15 +786,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Sheet 2: Member Subsidiary Ledger</span>
+            <span>Sheet 3: Member Transactions Audit</span>
             <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-slate-950/60 font-mono">
               {filteredMemberTransactions.length}
             </span>
           </button>
         </div>
 
-        {/* Status Equilibrium Badge */}
-        <div className="hidden sm:flex items-center space-x-2 text-xs">
+        {/* Status Equilibrium / Scope Badge */}
+        <div className="hidden lg:flex items-center space-x-2 text-xs">
           {activeSheet === 'gl' ? (
             <div className="flex items-center space-x-1.5 text-slate-300">
               <span className="text-slate-500">Equilibrium:</span>
@@ -908,95 +811,232 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                 </span>
               )}
             </div>
-          ) : (
+          ) : activeSheet === 'member' ? (
             <div className="flex items-center space-x-2 text-slate-300">
               <span className="text-slate-500">Active Member Count:</span>
               <span className="font-mono font-semibold text-emerald-400">
                 {new Set(filteredMemberTransactions.map(t => t.member_id)).size} Members
               </span>
             </div>
+          ) : (
+            <div className="flex items-center space-x-2 text-slate-300">
+              <span className="text-slate-500">Regulatory Framework:</span>
+              <span className="font-mono font-semibold text-emerald-400">
+                CDA Philippine Standards · SL to GL Reconciled
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Main Excel Grid Container */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-        {activeSheet === 'gl' ? (
-          <ExcelGridTable
-            data={filteredGlLines}
-            columns={glColumns}
-            title={`General Ledger Entries · ${activePeriod?.name || 'Current Period'}`}
-            subtitle={`Showing ${filteredGlLines.length} journal postings filtered by ${selectedGlCodes.size} GL accounts.`}
-            exportFileName={`gl_entries_${activePeriod?.id || 'export'}`}
-            defaultSortKey="posting_date"
-            defaultSortDir="asc"
-            isLoading={isLoading}
-            emptyMessage={
-              selectedGlCodes.size === 0
-                ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
-                : 'No journal lines found matching the selected accounting period, branch, and GL accounts.'
-            }
-          />
-        ) : (
-          <ExcelGridTable
-            data={filteredMemberTransactions}
-            columns={memberColumns}
-            title={`Member Subsidiary Transactions · ${activePeriod?.name || 'Current Period'}`}
-            subtitle={`Showing ${filteredMemberTransactions.length} member transactions across Savings, Share Capital, and Loans.`}
-            exportFileName={`member_tx_${activePeriod?.id || 'export'}`}
-            defaultSortKey="date"
-            defaultSortDir="asc"
-            isLoading={isLoading}
-            emptyMessage={
-              selectedGlCodes.size === 0
-                ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
-                : 'No member transactions found matching the selected accounting period and filters.'
-            }
-          />
-        )}
-      </div>
+      {activeSheet === 'subsidiary_ledger' ? (
+        <SubsidiaryLedgerReport
+          branchId={selectedBranch}
+          branches={branches}
+          members={membersList}
+          currentUser={currentUser}
+          coopProfile={coopProfile}
+          periodId={!isCustomDateRange ? selectedPeriodId : undefined}
+          startDate={isCustomDateRange ? customStartDate : activePeriod?.start_date}
+          endDate={isCustomDateRange ? customEndDate : activePeriod?.end_date}
+          periodName={activePeriod?.name || 'Selected Period'}
+        />
+      ) : (
+        <>
+          {/* GL Accounts Checkboxes Selection Drawer */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2.5">
+                <Layers className="w-4 h-4 text-emerald-400" />
+                <h2 className="text-sm font-bold text-white">General Ledger Accounts Filter</h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {selectedGlCodes.size} of {accounts.length} Accounts Included
+                </span>
+              </div>
 
-      {/* Summary Footer Strip */}
-      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center space-x-4">
-          <div>
-            <span className="text-slate-500 text-[10px] uppercase block">Total Records</span>
-            <span className="font-mono font-bold text-white text-sm">{activeTotals.rowCount} Lines</span>
-          </div>
-          <div className="h-6 w-px bg-slate-800" />
-          <div>
-            <span className="text-slate-500 text-[10px] uppercase block">Sum Debit (Dr)</span>
-            <span className="font-mono font-bold text-emerald-400 text-sm">{formatMoney(activeTotals.totalDebit)}</span>
-          </div>
-          <div className="h-6 w-px bg-slate-800" />
-          <div>
-            <span className="text-slate-500 text-[10px] uppercase block">Sum Credit (Cr)</span>
-            <span className="font-mono font-bold text-blue-400 text-sm">{formatMoney(activeTotals.totalCredit)}</span>
-          </div>
-          <div className="h-6 w-px bg-slate-800" />
-          <div>
-            <span className="text-slate-500 text-[10px] uppercase block">Net Balance</span>
-            <span className="font-mono font-bold text-white text-sm">{formatMoney(activeTotals.netBalance || 0)}</span>
-          </div>
-        </div>
+              {/* Search & Quick Filter Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                  <input
+                    type="text"
+                    placeholder="Search GL code or title..."
+                    value={glSearchQuery}
+                    onChange={(e) => setGlSearchQuery(e.target.value)}
+                    className="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-48 sm:w-56"
+                  />
+                </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Download CSV</span>
-          </button>
-          <button
-            onClick={() => setIsPrintModalOpen(true)}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print Report</span>
-          </button>
-        </div>
-      </div>
+                <button
+                  onClick={handleSelectAllGl}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={handleClearAllGl}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
+                >
+                  Deselect All
+                </button>
+
+                {/* Quick Category Buttons */}
+                <button
+                  onClick={() => handleSelectCategory('Asset')}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
+                >
+                  + Assets
+                </button>
+                <button
+                  onClick={() => handleSelectCategory('Liability')}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
+                >
+                  + Liab
+                </button>
+                <button
+                  onClick={() => handleSelectCategory('Equity')}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
+                >
+                  + Equity
+                </button>
+                <button
+                  onClick={() => handleSelectCategory('Revenue')}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
+                >
+                  + Revenue
+                </button>
+                <button
+                  onClick={() => handleSelectCategory('Expense')}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
+                >
+                  + Expense
+                </button>
+
+                <button
+                  onClick={() => setIsGlPanelExpanded(!isGlPanelExpanded)}
+                  className="p-1 text-slate-400 hover:text-white rounded transition cursor-pointer"
+                  title={isGlPanelExpanded ? 'Collapse GL Panel' : 'Expand GL Panel'}
+                >
+                  {isGlPanelExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Checkbox Grid */}
+            {isGlPanelExpanded && (
+              <div className="pt-3 max-h-52 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {displayedGlAccounts.map((acc) => {
+                    const code = String(acc.account_code || acc.code || acc.id);
+                    const isChecked = selectedGlCodes.has(code) || selectedGlCodes.has(acc.id);
+
+                    return (
+                      <label
+                        key={acc.id}
+                        className={`flex items-center space-x-2 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${
+                          isChecked
+                            ? 'bg-slate-800/90 border-emerald-500/40 text-white'
+                            : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-900'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleGlCode(code)}
+                          className="rounded border-slate-700 text-emerald-600 focus:ring-0 shrink-0"
+                        />
+                        <div className="truncate">
+                          <span className="font-mono font-semibold text-emerald-400 mr-1.5">{code}</span>
+                          <span className="text-xs truncate">{acc.name}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Excel Grid Container */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            {activeSheet === 'gl' ? (
+              <ExcelGridTable
+                data={filteredGlLines}
+                columns={glColumns}
+                title={`General Ledger Entries · ${activePeriod?.name || 'Current Period'}`}
+                subtitle={`Showing ${filteredGlLines.length} journal postings filtered by ${selectedGlCodes.size} GL accounts.`}
+                exportFileName={`gl_entries_${activePeriod?.id || 'export'}`}
+                defaultSortKey="posting_date"
+                defaultSortDir="asc"
+                isLoading={isLoading}
+                emptyMessage={
+                  selectedGlCodes.size === 0
+                    ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
+                    : 'No journal lines found matching the selected accounting period, branch, and GL accounts.'
+                }
+              />
+            ) : (
+              <ExcelGridTable
+                data={filteredMemberTransactions}
+                columns={memberColumns}
+                title={`Member Subsidiary Transactions · ${activePeriod?.name || 'Current Period'}`}
+                subtitle={`Showing ${filteredMemberTransactions.length} member transactions across Savings, Share Capital, and Loans.`}
+                exportFileName={`member_tx_${activePeriod?.id || 'export'}`}
+                defaultSortKey="date"
+                defaultSortDir="asc"
+                isLoading={isLoading}
+                emptyMessage={
+                  selectedGlCodes.size === 0
+                    ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
+                    : 'No member transactions found matching the selected accounting period and filters.'
+                }
+              />
+            )}
+          </div>
+
+          {/* Summary Footer Strip */}
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex items-center space-x-4">
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Total Records</span>
+                <span className="font-mono font-bold text-white text-sm">{activeTotals.rowCount} Lines</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800" />
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Sum Debit (Dr)</span>
+                <span className="font-mono font-bold text-emerald-400 text-sm">{formatMoney(activeTotals.totalDebit)}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800" />
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Sum Credit (Cr)</span>
+                <span className="font-mono font-bold text-blue-400 text-sm">{formatMoney(activeTotals.totalCredit)}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800" />
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Net Balance</span>
+                <span className="font-mono font-bold text-white text-sm">{formatMoney(activeTotals.netBalance || 0)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Download CSV</span>
+              </button>
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Report</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Printable Report Modal */}
       <PrintableReportModal
@@ -1008,7 +1048,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         startDate={activePeriod?.start_date || customStartDate}
         endDate={activePeriod?.end_date || customEndDate}
         branchName={activeBranchName}
-        activeSheet={activeSheet}
+        activeSheet={activeSheet === 'subsidiary_ledger' ? 'member' : activeSheet}
         selectedGlAccountsCount={selectedGlCodes.size}
         totalGlAccountsCount={accounts.length}
         selectedMemberName={selectedMemberName}

@@ -1333,5 +1333,49 @@ deleteMemberType : async (id) =>{
         transactions: any[];
       };
     }>(`/reports/member-transactions${qs}`);
+  },
+  getSubsidiaryLedgerReport: async (params?: {
+    period_id?: string;
+    branch_id?: string;
+    member_id?: string;
+    ledger_type?: string;
+    start_date?: string;
+    end_date?: string;
+    status?: string;
+    loan_id?: string;
+  }) => {
+    const queryParts: string[] = [];
+    if (params?.period_id) queryParts.push(`period_id=${encodeURIComponent(params.period_id)}`);
+    if (params?.branch_id && params.branch_id !== 'all') queryParts.push(`branch_id=${encodeURIComponent(params.branch_id)}`);
+    if (params?.member_id && params.member_id !== 'all') queryParts.push(`member_id=${encodeURIComponent(params.member_id)}`);
+    if (params?.ledger_type && params.ledger_type !== 'all') queryParts.push(`ledger_type=${encodeURIComponent(params.ledger_type)}`);
+    if (params?.start_date) queryParts.push(`start_date=${encodeURIComponent(params.start_date)}`);
+    if (params?.end_date) queryParts.push(`end_date=${encodeURIComponent(params.end_date)}`);
+    if (params?.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
+    if (params?.loan_id && params.loan_id !== 'all') queryParts.push(`loan_id=${encodeURIComponent(params.loan_id)}`);
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    return fetchApi<{
+      success: boolean;
+      data: {
+        period: any;
+        filters: any;
+        summary: {
+          total_loans_disbursed: number;
+          total_principal_collected: number;
+          total_interest_collected: number;
+          total_penalty_collected: number;
+          total_outstanding_loans: number;
+          total_savings_balance: number;
+          total_savings_deposits: number;
+          total_savings_withdrawals: number;
+          total_share_capital_balance: number;
+          total_shares_count: number;
+          accounts_count: number;
+          entries_count: number;
+        };
+        accounts: any[];
+        all_entries: any[];
+      };
+    }>(`/reports/subsidiary-ledger${qs}`);
   }
 };

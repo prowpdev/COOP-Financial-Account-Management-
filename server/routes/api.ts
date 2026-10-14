@@ -4709,6 +4709,405 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
   });
 });
 
+// 4. Subsidiary Ledger (SL) Report covering Loans, Savings, and Share Capital (CBU)
+router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (req: Request, res: Response) => {
+  const period_id = req.query.period_id as string;
+  const branch_id = (req.query.branch_id as string) || getEffectiveBranchId(req);
+  const member_id = req.query.member_id as string;
+  const ledger_type = String(req.query.ledger_type || 'all').toLowerCase();
+  const start_date = (req.query.start_date || req.query.date_from) as string;
+  const end_date = (req.query.end_date || req.query.date_to) as string;
+  const status = req.query.status as string;
+  const loan_id = req.query.loan_id as string;
+
+  const periods = db.getTable('accounting_periods') || [];
+  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+  const effectiveStart = start_date || selectedPeriod?.start_date;
+  const effectiveEnd = end_date || selectedPeriod?.end_date;
+
+  const inDateRange = (dateStr?: string) => {
+    if (!effectiveStart || !effectiveEnd) return true;
+    if (!dateStr) return false;
+    const d = dateStr.slice(0, 10);
+    return d >= effectiveStart && d <= effectiveEnd;
+  };
+
+  const members = db.getTable('members') || [];
+  const branches = db.getTable('branches') || [];
+  const loans = db.getTable('loans') || [];
+  const loanProducts = db.getTable('loan_products') || [];
+  const loanPayments = db.getTable('loan_payments') || [];
+  const allocations = db.getTable('loan_payment_allocations') || [];
+  const savingsAccounts = db.getTable('savings_accounts') || [];
+  const savingsTx = db.getTable('savings_transactions') || [];
+  const savingsProducts = db.getTable('savings_products') || [];
+  const shareAccounts = db.getTable('share_capital_accounts') || [];
+  const cbuTx = db.getTable('share_capital_transactions') || [];
+
+  const memberMap = new Map(members.map(m => [m.id, m]));
+  const branchMap = new Map(branches.map(b => [b.id, b]));
+  const loanProductMap = new Map(loanProducts.map(p => [p.id, p]));
+  const savingsProductMap = new Map(savingsProducts.map(p => [p.id, p]));
+
+  const accounts: any[] = [];
+  const allEntries: any[] = [];
+
+  const kpis = {
+    total_loans_disbursed: 0,
+    total_principal_collected: 0,
+    total_interest_collected: 0,
+    total_penalty_collected: 0,
+    total_outstanding_loans: 0,
+    total_savings_balance: 0,
+    total_savings_deposits: 0,
+    total_savings_withdrawals: 0,
+    total_share_capital_balance: 0,
+    total_shares_count: 0,
+    accounts_count: 0,
+    entries_count: 0
+  };
+
+  // 1. LOANS
+  if (['all', 'loans', 'loan'].includes(ledger_type)) {
+    loans.forEach(loan => {
+      if (branch_id && branch_id !== 'all' && loan.branch_id !== branch_id) return;
+      if (member_id && member_id !== 'all' && loan.member_id !== member_id) return;
+      if (status && status !== 'all' && loan.status !== status) return;
+      if (loan_id && loan_id !== 'all' && loan.id !== loan_id) return;
+
+      const mem = memberMap.get(loan.member_id);
+      const branch = branchMap.get(loan.branch_id);
+      const prod = loanProductMap.get(loan.loan_product_id);
+
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member';
+      const principal = Number(loan.principal_amount || 0);
+      const disbDate = (loan.disbursement_date || loan.created_at || '').slice(0, 10);
+
+      const pmtList = loanPayments.filter(p => p.loan_id === loan.id)
+        .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || ''));
+
+      let runningBal = principal;
+      const entries: any[] = [];
+
+      // Disbursement entry
+      if (inDateRange(disbDate)) {
+        entries.push({
+          id: `disb_${loan.id}`,
+          account_id: loan.id,
+          account_number: loan.loan_account_no || loan.id,
+          ledger_type: 'loan',
+          member_id: loan.member_id,
+          member_name: memName,
+          member_no: mem?.member_no || 'MEM-N/A',
+          date: disbDate,
+          ref_no: `DISB-${loan.loan_account_no || loan.id}`,
+          description: `Loan Release / Disbursement (${prod?.name || 'Regular Loan'})`,
+          type: 'DISBURSEMENT',
+          debit: principal,
+          credit: 0,
+          principal_paid: 0,
+          interest_paid: 0,
+          penalty_paid: 0,
+          fee_paid: 0,
+          running_balance: runningBal
+        });
+      }
+
+      let loanPrincipalPaid = 0;
+      let loanInterestPaid = 0;
+      let loanPenaltyPaid = 0;
+      let loanFeesPaid = 0;
+
+      pmtList.forEach(pmt => {
+        const alloc = allocations.find(a => a.payment_id === pmt.id);
+        const pPrincipal = alloc ? Number(alloc.principal_amount || 0) : Number(pmt.amount || 0);
+        const pInterest = alloc ? Number(alloc.interest_amount || 0) : 0;
+        const pPenalty = alloc ? Number(alloc.penalty_amount || 0) : 0;
+        const pFee = alloc ? Number(alloc.fee_amount || 0) : 0;
+
+        runningBal = Math.max(0, Number((runningBal - pPrincipal).toFixed(2)));
+        loanPrincipalPaid += pPrincipal;
+        loanInterestPaid += pInterest;
+        loanPenaltyPaid += pPenalty;
+        loanFeesPaid += pFee;
+
+        const pDate = (pmt.payment_date || pmt.created_at || '').slice(0, 10);
+        if (inDateRange(pDate)) {
+          entries.push({
+            id: pmt.id,
+            account_id: loan.id,
+            account_number: loan.loan_account_no || loan.id,
+            ledger_type: 'loan',
+            member_id: loan.member_id,
+            member_name: memName,
+            member_no: mem?.member_no || 'MEM-N/A',
+            date: pDate,
+            ref_no: pmt.receipt_no || pmt.receipt_number || pmt.id,
+            description: `Amortization Payment - OR #${pmt.receipt_no || pmt.receipt_number || pmt.id}`,
+            type: 'PAYMENT',
+            debit: 0,
+            credit: pPrincipal,
+            principal_paid: pPrincipal,
+            interest_paid: pInterest,
+            penalty_paid: pPenalty,
+            fee_paid: pFee,
+            running_balance: runningBal
+          });
+        }
+      });
+
+      const currentBal = loan.current_balance !== undefined ? Number(loan.current_balance) : runningBal;
+      kpis.total_loans_disbursed += principal;
+      kpis.total_principal_collected += loanPrincipalPaid;
+      kpis.total_interest_collected += loanInterestPaid;
+      kpis.total_penalty_collected += loanPenaltyPaid;
+      kpis.total_outstanding_loans += currentBal;
+
+      const accountObj = {
+        id: loan.id,
+        account_number: loan.loan_account_no || loan.id,
+        ledger_type: 'loan',
+        member_id: loan.member_id,
+        member_no: mem?.member_no || 'MEM-N/A',
+        member_name: memName,
+        member_address: mem?.address || '',
+        member_contact: mem?.contact_no || '',
+        branch_id: loan.branch_id,
+        branch_name: branch?.name || 'Main Branch',
+        product_name: prod?.name || 'Regular Loan',
+        product_code: prod?.code || 'LOAN',
+        interest_rate: Number(loan.annual_interest_rate || 0),
+        terms_months: Number(loan.term_months || 0),
+        disbursement_date: disbDate,
+        maturity_date: (loan.maturity_date || '').slice(0, 10),
+        status: loan.status || 'Active',
+        original_principal: principal,
+        current_balance: currentBal,
+        total_principal_paid: Number(loanPrincipalPaid.toFixed(2)),
+        total_interest_paid: Number(loanInterestPaid.toFixed(2)),
+        total_penalty_paid: Number(loanPenaltyPaid.toFixed(2)),
+        total_fees_paid: Number(loanFeesPaid.toFixed(2)),
+        entries_count: entries.length,
+        entries
+      };
+
+      accounts.push(accountObj);
+      entries.forEach(e => allEntries.push(e));
+    });
+  }
+
+  // 2. SAVINGS
+  if (['all', 'savings', 'deposit'].includes(ledger_type)) {
+    savingsAccounts.forEach(sa => {
+      if (branch_id && branch_id !== 'all' && sa.branch_id !== branch_id) return;
+      if (member_id && member_id !== 'all' && sa.member_id !== member_id) return;
+      if (status && status !== 'all' && sa.status !== status) return;
+
+      const mem = memberMap.get(sa.member_id);
+      const branch = branchMap.get(sa.branch_id);
+      const prod = savingsProductMap.get(sa.savings_product_id);
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member';
+
+      const txList = savingsTx.filter(t => t.savings_account_id === sa.id)
+        .sort((a, b) => (a.transaction_date || '').localeCompare(b.transaction_date || ''));
+
+      let runningBal = 0;
+      let totDep = 0;
+      let totWdl = 0;
+      const entries: any[] = [];
+
+      txList.forEach(tx => {
+        const amt = Number(tx.amount || 0);
+        const type = String(tx.type || 'DEPOSIT').toUpperCase();
+        const isDep = ['DEPOSIT', 'INTEREST_POSTING'].includes(type);
+
+        if (isDep) {
+          runningBal += amt;
+          totDep += amt;
+        } else {
+          runningBal -= amt;
+          totWdl += amt;
+        }
+
+        const tDate = (tx.transaction_date || tx.created_at || '').slice(0, 10);
+        if (inDateRange(tDate)) {
+          entries.push({
+            id: tx.id,
+            account_id: sa.id,
+            account_number: sa.account_number || sa.id,
+            ledger_type: 'savings',
+            member_id: sa.member_id,
+            member_name: memName,
+            member_no: mem?.member_no || 'MEM-N/A',
+            date: tDate,
+            ref_no: tx.transaction_no || tx.id,
+            description: tx.notes || `Savings ${type}`,
+            type,
+            debit: !isDep ? amt : 0,
+            credit: isDep ? amt : 0,
+            principal_paid: 0,
+            interest_paid: type === 'INTEREST_POSTING' ? amt : 0,
+            penalty_paid: 0,
+            fee_paid: type === 'FEE_DEDUCTION' ? amt : 0,
+            running_balance: Number(runningBal.toFixed(2))
+          });
+        }
+      });
+
+      const currentBal = sa.balance !== undefined ? Number(sa.balance) : runningBal;
+      kpis.total_savings_balance += currentBal;
+      kpis.total_savings_deposits += totDep;
+      kpis.total_savings_withdrawals += totWdl;
+
+      const accountObj = {
+        id: sa.id,
+        account_number: sa.account_number || sa.id,
+        ledger_type: 'savings',
+        member_id: sa.member_id,
+        member_no: mem?.member_no || 'MEM-N/A',
+        member_name: memName,
+        member_address: mem?.address || '',
+        member_contact: mem?.contact_no || '',
+        branch_id: sa.branch_id || 'branch_tar',
+        branch_name: branch?.name || 'Main Branch',
+        product_name: prod?.name || 'Regular Savings',
+        product_code: prod?.code || 'SAV',
+        interest_rate: Number(sa.interest_rate || 0),
+        status: sa.status || 'Active',
+        current_balance: currentBal,
+        total_deposits: Number(totDep.toFixed(2)),
+        total_withdrawals: Number(totWdl.toFixed(2)),
+        entries_count: entries.length,
+        entries
+      };
+
+      accounts.push(accountObj);
+      entries.forEach(e => allEntries.push(e));
+    });
+  }
+
+  // 3. SHARE CAPITAL (CBU)
+  if (['all', 'share_capital', 'cbu'].includes(ledger_type)) {
+    shareAccounts.forEach(sca => {
+      if (branch_id && branch_id !== 'all' && sca.branch_id !== branch_id) return;
+      if (member_id && member_id !== 'all' && sca.member_id !== member_id) return;
+      if (status && status !== 'all' && sca.status !== status) return;
+
+      const mem = memberMap.get(sca.member_id);
+      const branch = branchMap.get(sca.branch_id);
+      const memName = mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member';
+
+      const txList = cbuTx.filter(t => t.share_account_id === sca.id)
+        .sort((a, b) => (a.transaction_date || '').localeCompare(b.transaction_date || ''));
+
+      let runningBal = 0;
+      let runningShares = 0;
+      const entries: any[] = [];
+
+      txList.forEach(tx => {
+        const amt = Number(tx.amount || 0);
+        const shs = Number(tx.shares || 0);
+        const type = String(tx.type || 'PAYMENT').toUpperCase();
+        const isCredit = ['PAYMENT', 'SUBSCRIPTION', 'DIVIDEND_PATRONAGE'].includes(type);
+
+        if (isCredit) {
+          runningBal += amt;
+          runningShares += shs;
+        } else {
+          runningBal -= amt;
+          runningShares -= shs;
+        }
+
+        const tDate = (tx.transaction_date || tx.created_at || '').slice(0, 10);
+        if (inDateRange(tDate)) {
+          entries.push({
+            id: tx.id,
+            account_id: sca.id,
+            account_number: sca.account_number || sca.id,
+            ledger_type: 'share_capital',
+            member_id: sca.member_id,
+            member_name: memName,
+            member_no: mem?.member_no || 'MEM-N/A',
+            date: tDate,
+            ref_no: tx.receipt_no || tx.id,
+            description: `CBU ${type} (${shs} shares)`,
+            type,
+            shares: shs,
+            debit: !isCredit ? amt : 0,
+            credit: isCredit ? amt : 0,
+            running_balance: Number(runningBal.toFixed(2)),
+            running_shares: runningShares
+          });
+        }
+      });
+
+      const currentBal = sca.paid_amount !== undefined ? Number(sca.paid_amount) : runningBal;
+      kpis.total_share_capital_balance += currentBal;
+      kpis.total_shares_count += Number(sca.subscribed_shares || runningShares);
+
+      const accountObj = {
+        id: sca.id,
+        account_number: sca.account_number || sca.id,
+        ledger_type: 'share_capital',
+        member_id: sca.member_id,
+        member_no: mem?.member_no || 'MEM-N/A',
+        member_name: memName,
+        member_address: mem?.address || '',
+        member_contact: mem?.contact_no || '',
+        branch_id: sca.branch_id || 'branch_tar',
+        branch_name: branch?.name || 'Main Branch',
+        product_name: 'Common Share Capital (CBU)',
+        product_code: 'CBU',
+        status: sca.status || 'Active',
+        subscribed_shares: Number(sca.subscribed_shares || 0),
+        subscribed_amount: Number(sca.subscribed_amount || 0),
+        current_balance: currentBal,
+        entries_count: entries.length,
+        entries
+      };
+
+      accounts.push(accountObj);
+      entries.forEach(e => allEntries.push(e));
+    });
+  }
+
+  allEntries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  kpis.accounts_count = accounts.length;
+  kpis.entries_count = allEntries.length;
+
+  res.json({
+    success: true,
+    data: {
+      period: selectedPeriod || (effectiveStart ? { name: `${effectiveStart} to ${effectiveEnd}`, start_date: effectiveStart, end_date: effectiveEnd } : null),
+      filters: {
+        ledger_type,
+        branch_id,
+        member_id,
+        start_date: effectiveStart,
+        end_date: effectiveEnd,
+        status
+      },
+      summary: {
+        total_loans_disbursed: Number(kpis.total_loans_disbursed.toFixed(2)),
+        total_principal_collected: Number(kpis.total_principal_collected.toFixed(2)),
+        total_interest_collected: Number(kpis.total_interest_collected.toFixed(2)),
+        total_penalty_collected: Number(kpis.total_penalty_collected.toFixed(2)),
+        total_outstanding_loans: Number(kpis.total_outstanding_loans.toFixed(2)),
+        total_savings_balance: Number(kpis.total_savings_balance.toFixed(2)),
+        total_savings_deposits: Number(kpis.total_savings_deposits.toFixed(2)),
+        total_savings_withdrawals: Number(kpis.total_savings_withdrawals.toFixed(2)),
+        total_share_capital_balance: Number(kpis.total_share_capital_balance.toFixed(2)),
+        total_shares_count: kpis.total_shares_count,
+        accounts_count: kpis.accounts_count,
+        entries_count: kpis.entries_count
+      },
+      accounts,
+      all_entries: allEntries
+    }
+  });
+});
+
 // ==========================================
 // 20. REAL-TIME DATA-DRIVEN DASHBOARD (Req 39)
 // ==========================================
