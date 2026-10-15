@@ -22,11 +22,13 @@ import {
   TrendingUp,
   SlidersHorizontal,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { CoopProfile, User as UserType, Branch, Member } from '../../types';
 import { PrintableSubsidiaryLedgerModal, SubsidiaryLedgerAccount, SubsidiaryLedgerEntry } from './PrintableSubsidiaryLedgerModal';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 
 interface SubsidiaryLedgerReportProps {
   branchId?: string;
@@ -55,8 +57,23 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
   const [ledgerType, setLedgerType] = useState<string>('all');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateScope, setDateScope] = useState<'all' | 'period'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+
+  // Searchable member options
+  const memberOptions: SearchableOption[] = useMemo(() => {
+    return [
+      { value: 'all', label: `All Members (${members.length})`, badge: 'All' },
+      ...members.map(m => ({
+        value: m.id,
+        label: `${m.first_name} ${m.last_name}`,
+        code: m.member_no || 'MEM',
+        description: m.address ? `${m.address} · ${m.contact_no || ''}` : (m.contact_no || ''),
+        searchTerms: `${m.member_no || ''} ${m.first_name || ''} ${m.last_name || ''} ${m.contact_no || ''} ${m.tin || ''}`
+      }))
+    ];
+  }, [members]);
 
   // Expanded cards set
   const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(new Set());
@@ -92,13 +109,14 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
     setErrorMessage('');
     try {
       const res = await api.getSubsidiaryLedgerReport({
-        period_id: periodId,
+        period_id: dateScope === 'period' ? periodId : undefined,
         branch_id: branchId !== 'all' ? branchId : undefined,
         member_id: selectedMemberId !== 'all' ? selectedMemberId : undefined,
         ledger_type: ledgerType,
-        start_date: startDate,
-        end_date: endDate,
-        status: statusFilter !== 'all' ? statusFilter : undefined
+        start_date: dateScope === 'period' ? startDate : undefined,
+        end_date: dateScope === 'period' ? endDate : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        date_scope: dateScope
       });
 
       if (res && res.data) {
@@ -114,7 +132,7 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [branchId, selectedMemberId, ledgerType, startDate, endDate, periodId, statusFilter]);
+  }, [branchId, selectedMemberId, ledgerType, startDate, endDate, periodId, statusFilter, dateScope]);
 
   useEffect(() => {
     fetchData();
@@ -417,23 +435,45 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
         </div>
 
         {/* Secondary Filters Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-slate-800/80">
           {/* Member Search / Selector */}
           <div>
-            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
-              Filter by Member
+            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <User className="w-3 h-3 text-emerald-400" />
+                <span>Filter by Member</span>
+              </span>
+              {selectedMemberId !== 'all' && (
+                <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded font-normal">
+                  Active Filter
+                </span>
+              )}
+            </label>
+            <SearchableSelect
+              options={memberOptions}
+              value={selectedMemberId}
+              onChange={setSelectedMemberId}
+              placeholder="Search member name or ID..."
+              searchPlaceholder="Type member name, ID, or phone..."
+              alwaysShowSearch={true}
+              icon={<User className="w-3.5 h-3.5 text-emerald-400" />}
+              buttonClassName="py-1.5 text-xs bg-slate-950"
+            />
+          </div>
+
+          {/* Date Scope Filter */}
+          <div>
+            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center space-x-1">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              <span>Ledger Movement Scope</span>
             </label>
             <select
-              value={selectedMemberId}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
+              value={dateScope}
+              onChange={(e) => setDateScope(e.target.value as any)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
-              <option value="all">All Members ({members.length})</option>
-              {members.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.member_no} - {m.first_name} {m.last_name}
-                </option>
-              ))}
+              <option value="all">Complete History (All Movements)</option>
+              <option value="period">Current Cutoff ({periodName})</option>
             </select>
           </div>
 
@@ -457,15 +497,15 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
           </div>
 
           {/* Search Input */}
-          <div className="sm:col-span-2">
+          <div>
             <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
-              Search Accounts or Transactions
+              Search Accounts or Vouchers
             </label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search account #, member name, reference OR #..."
+                placeholder="Search account #, OR #, notes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -678,21 +718,22 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                             <th className="py-2.5 px-3 font-semibold">Date</th>
                             <th className="py-2.5 px-3 font-semibold">Ref / OR #</th>
                             <th className="py-2.5 px-3 font-semibold">Particulars</th>
-                            <th className="py-2.5 px-3 font-semibold text-right">Debit (₱)</th>
-                            <th className="py-2.5 px-3 font-semibold text-right">Credit (₱)</th>
+                            <th className="py-2.5 px-3 font-semibold text-right">Debit / Release (₱)</th>
+                            <th className="py-2.5 px-3 font-semibold text-right">Credit / Payment (₱)</th>
                             {isLoan && (
                               <>
-                                <th className="py-2.5 px-3 font-semibold text-right">Principal Paid</th>
-                                <th className="py-2.5 px-3 font-semibold text-right">Interest Paid</th>
+                                <th className="py-2.5 px-3 font-semibold text-right text-emerald-400">Principal Paid (₱)</th>
+                                <th className="py-2.5 px-3 font-semibold text-right text-amber-400">Interest Paid (₱)</th>
+                                <th className="py-2.5 px-3 font-semibold text-right text-slate-400">Penalty & Fees (₱)</th>
                               </>
                             )}
-                            <th className="py-2.5 px-3 font-semibold text-right">Running Balance (₱)</th>
+                            <th className="py-2.5 px-3 font-semibold text-right">Outstanding Balance (₱)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60 font-mono">
                           {account.entries.length === 0 ? (
                             <tr>
-                              <td colSpan={isLoan ? 8 : 6} className="py-6 text-center text-slate-500 italic">
+                              <td colSpan={isLoan ? 9 : 6} className="py-6 text-center text-slate-500 italic">
                                 No movements recorded in this statement.
                               </td>
                             </tr>
@@ -712,11 +753,14 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                                 </td>
                                 {isLoan && (
                                   <>
-                                    <td className="py-2 px-3 text-right text-emerald-400 whitespace-nowrap">
+                                    <td className="py-2 px-3 text-right text-emerald-400 font-bold whitespace-nowrap">
                                       {entry.principal_paid && entry.principal_paid > 0 ? entry.principal_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                     </td>
-                                    <td className="py-2 px-3 text-right text-amber-400 whitespace-nowrap">
+                                    <td className="py-2 px-3 text-right text-amber-400 font-bold whitespace-nowrap">
                                       {entry.interest_paid && entry.interest_paid > 0 ? entry.interest_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="py-2 px-3 text-right text-slate-400 whitespace-nowrap">
+                                      {((entry.penalty_paid || 0) + (entry.fee_paid || 0)) > 0 ? ((entry.penalty_paid || 0) + (entry.fee_paid || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                     </td>
                                   </>
                                 )}
@@ -745,6 +789,9 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                                 </td>
                                 <td className="py-2 px-3 text-right text-amber-400 font-mono">
                                   {(account.total_interest_paid || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-400 font-mono">
+                                  {((account.total_penalty_paid || 0) + (account.total_fees_paid || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </td>
                               </>
                             )}
@@ -781,8 +828,9 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                   <th className="py-3 px-3">Description</th>
                   <th className="py-3 px-3 text-right">Debit (₱)</th>
                   <th className="py-3 px-3 text-right">Credit (₱)</th>
-                  <th className="py-3 px-3 text-right">Principal Paid</th>
-                  <th className="py-3 px-3 text-right">Interest Paid</th>
+                  <th className="py-3 px-3 text-right text-emerald-400">Principal Paid</th>
+                  <th className="py-3 px-3 text-right text-amber-400">Interest Paid</th>
+                  <th className="py-3 px-3 text-right text-slate-400">Penalty & Fees</th>
                   <th className="py-3 px-3 text-right">Balance (₱)</th>
                 </tr>
               </thead>
@@ -811,11 +859,14 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                     <td className="py-2 px-3 text-right text-slate-300 whitespace-nowrap">
                       {e.credit > 0 ? e.credit.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                     </td>
-                    <td className="py-2 px-3 text-right text-emerald-400 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right text-emerald-400 font-bold whitespace-nowrap">
                       {e.principal_paid && e.principal_paid > 0 ? e.principal_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                     </td>
-                    <td className="py-2 px-3 text-right text-amber-400 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right text-amber-400 font-bold whitespace-nowrap">
                       {e.interest_paid && e.interest_paid > 0 ? e.interest_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-400 whitespace-nowrap">
+                      {((e.penalty_paid || 0) + (e.fee_paid || 0)) > 0 ? ((e.penalty_paid || 0) + (e.fee_paid || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                     </td>
                     <td className="py-2 px-3 text-right font-black text-white whitespace-nowrap">
                       {e.running_balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}

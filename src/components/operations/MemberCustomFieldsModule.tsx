@@ -28,6 +28,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { CustomField, Member, Branch, User } from '../../types';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
 import { CustomFileUploadField } from '../common/CustomFileUploadField';
 
@@ -72,6 +73,16 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
   const [memberNotesInput, setMemberNotesInput] = useState<string>('');
   const [memberCustomInputs, setMemberCustomInputs] = useState<Record<string, any>>({});
   const [isSavingMember, setIsSavingMember] = useState(false);
+
+  const memberOptions: SearchableOption[] = React.useMemo(() => {
+    return members.map(m => ({
+      value: m.id,
+      label: `${m.first_name} ${m.last_name}`,
+      code: m.member_no || 'MEM',
+      description: m.branch_name || 'Member',
+      searchTerms: `${m.member_no || ''} ${m.first_name || ''} ${m.last_name || ''} ${m.branch_name || ''}`
+    }));
+  }, [members]);
 
   const showNotice = (type: 'success' | 'error', message: string) => {
     setNotice({ type, message });
@@ -577,19 +588,15 @@ export const MemberCustomFieldsModule: React.FC<MemberCustomFieldsModuleProps> =
             {/* Member Selector Dropdown */}
             <div>
               <label className="text-xs font-semibold text-slate-300 block mb-1">Select Member Record</label>
-              <div className="relative">
-                <select
-                  value={selectedMemberId}
-                  onChange={e => setSelectedMemberId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.member_no} — {m.first_name} {m.last_name} ({m.branch_name || 'Member'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SearchableSelect
+                options={memberOptions}
+                value={selectedMemberId}
+                onChange={setSelectedMemberId}
+                placeholder="Search member name, ID, or branch..."
+                searchPlaceholder="Type member name, ID, or branch to search..."
+                icon={<Users className="w-3.5 h-3.5 text-emerald-400" />}
+                alwaysShowSearch={true}
+              />
             </div>
 
             {/* Member Profile Summary Badge */}

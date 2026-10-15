@@ -1343,6 +1343,7 @@ deleteMemberType : async (id) =>{
     end_date?: string;
     status?: string;
     loan_id?: string;
+    date_scope?: 'all' | 'period' | string;
   }) => {
     const queryParts: string[] = [];
     if (params?.period_id) queryParts.push(`period_id=${encodeURIComponent(params.period_id)}`);
@@ -1353,6 +1354,7 @@ deleteMemberType : async (id) =>{
     if (params?.end_date) queryParts.push(`end_date=${encodeURIComponent(params.end_date)}`);
     if (params?.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
     if (params?.loan_id && params.loan_id !== 'all') queryParts.push(`loan_id=${encodeURIComponent(params.loan_id)}`);
+    if (params?.date_scope) queryParts.push(`date_scope=${encodeURIComponent(params.date_scope)}`);
     const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
     return fetchApi<{
       success: boolean;

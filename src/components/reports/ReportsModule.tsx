@@ -23,6 +23,7 @@ import {
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { PrintableReportModal } from './PrintableReportModal';
 import { SubsidiaryLedgerReport } from './SubsidiaryLedgerReport';
+import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
 import { Account, Branch, Member, User, CoopProfile } from '../../types';
 
@@ -70,6 +71,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
   // GL Accounts checkboxes state
   const [selectedGlCodes, setSelectedGlCodes] = useState<Set<string>>(new Set());
+  const [selectedQuickGl, setSelectedQuickGl] = useState<string>('all');
   const [glSearchQuery, setGlSearchQuery] = useState('');
   const [isGlPanelExpanded, setIsGlPanelExpanded] = useState(true);
 
@@ -315,6 +317,47 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     return m ? `${m.member_no || ''} - ${m.first_name} ${m.last_name}` : undefined;
   }, [selectedMemberId, membersList]);
 
+  // Searchable member options
+  const memberOptions: SearchableOption[] = useMemo(() => {
+    return [
+      { value: 'all', label: `All Members (Consolidated - ${membersList.length})`, badge: 'All' },
+      ...membersList.map(m => ({
+        value: m.id,
+        label: `${m.first_name} ${m.last_name}`,
+        code: m.member_no || 'MEM',
+        description: m.address ? `${m.address} · ${m.contact_no || ''}` : (m.contact_no || ''),
+        searchTerms: `${m.member_no || ''} ${m.first_name || ''} ${m.last_name || ''} ${m.contact_no || ''} ${m.tin || ''}`
+      }))
+    ];
+  }, [membersList]);
+
+  // Searchable GL account options
+  const glAccountOptions: SearchableOption[] = useMemo(() => {
+    return [
+      { value: 'all', label: `All GL Accounts (${accounts.length} Total)`, badge: 'All' },
+      ...accounts.map(a => {
+        const code = String(a.account_code || a.code || a.id);
+        return {
+          value: code,
+          label: a.name,
+          code: code,
+          type: a.type || a.category,
+          searchTerms: `${code} ${a.name} ${a.type || a.category || ''} ${a.normal_balance || ''}`
+        };
+      })
+    ];
+  }, [accounts]);
+
+  const handleQuickGlChange = (val: string) => {
+    setSelectedQuickGl(val);
+    if (!val || val === 'all') {
+      const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
+      setSelectedGlCodes(allCodes);
+    } else {
+      setSelectedGlCodes(new Set([val]));
+    }
+  };
+
   // Excel Grid Columns for GL Lines
   const glColumns: ExcelColumn<any>[] = useMemo(() => [
     {
@@ -517,6 +560,38 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       )
     },
     {
+      key: 'principal_amount',
+      header: 'Principal (₱)',
+      width: '130px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v, row) => {
+        const val = Number(v || row.principal_paid || row.principal || 0);
+        return (
+          <span className="font-mono text-xs tabular-nums text-emerald-400 font-semibold">
+            {val > 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'interest_amount',
+      header: 'Interest (₱)',
+      width: '130px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v, row) => {
+        const val = Number(v || row.interest_paid || row.interest || 0);
+        return (
+          <span className="font-mono text-xs tabular-nums text-amber-400 font-semibold">
+            {val > 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+          </span>
+        );
+      }
+    },
+    {
       key: 'branch_name',
       header: 'Branch',
       width: '140px',
@@ -631,7 +706,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         </div>
 
         {/* Global Filter Bar */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Accounting Period Dropdown */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
@@ -700,36 +775,65 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             </select>
           </div>
 
-          {/* Member Filter */}
+          {/* Searchable Member Filter */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
-              <Users className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Member Filter</span>
+            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Member Filter</span>
+              </span>
+              {selectedMemberId !== 'all' && (
+                <span className="text-[10px] text-emerald-400 font-normal">Filtered</span>
+              )}
             </label>
-            <select
+            <SearchableSelect
+              options={memberOptions}
               value={selectedMemberId}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="all">All Members (Consolidated)</option>
-              {membersList.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.member_no || 'MEM'} - {m.first_name} {m.last_name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedMemberId}
+              placeholder="Search member name or ID..."
+              searchPlaceholder="Type member name, ID, or phone..."
+              alwaysShowSearch={true}
+              icon={<Users className="w-3.5 h-3.5 text-emerald-400" />}
+              buttonClassName="py-2 text-xs bg-slate-950"
+            />
+          </div>
+
+          {/* Searchable GL Account Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                <span>GL Account Filter</span>
+              </span>
+              {selectedGlCodes.size !== accounts.length && (
+                <span className="text-[10px] text-emerald-400 font-normal">
+                  {selectedGlCodes.size} Selected
+                </span>
+              )}
+            </label>
+            <SearchableSelect
+              options={glAccountOptions}
+              value={selectedQuickGl}
+              onChange={handleQuickGlChange}
+              placeholder="Search GL account code or title..."
+              searchPlaceholder="Type GL code, title (Asset, Expense, etc.)..."
+              showGLTypeBadge={true}
+              alwaysShowSearch={true}
+              icon={<Layers className="w-3.5 h-3.5 text-emerald-400" />}
+              buttonClassName="py-2 text-xs bg-slate-950"
+            />
           </div>
 
           {/* Active Period Stat Preview */}
           <div className="bg-slate-950/60 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
             <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Period Cutoff</span>
-            <div className="text-xs font-bold text-white mt-0.5 flex items-center space-x-2">
-              <span>{activePeriod ? activePeriod.name : 'Custom Selection'}</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${activePeriod?.status === 'Open' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}>
+            <div className="text-xs font-bold text-white mt-0.5 flex items-center space-x-2 truncate">
+              <span className="truncate">{activePeriod ? activePeriod.name : 'Custom Selection'}</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold shrink-0 ${activePeriod?.status === 'Open' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}>
                 {activePeriod?.status || 'Active'}
               </span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400 mt-0.5">
+            <span className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">
               {activePeriod ? `${activePeriod.start_date} → ${activePeriod.end_date}` : `${customStartDate} → ${customEndDate}`}
             </span>
           </div>

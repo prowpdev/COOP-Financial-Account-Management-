@@ -4725,7 +4725,10 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
   const effectiveStart = start_date || selectedPeriod?.start_date;
   const effectiveEnd = end_date || selectedPeriod?.end_date;
 
+  const date_scope = String(req.query.date_scope || req.query.scope || 'all').toLowerCase();
+
   const inDateRange = (dateStr?: string) => {
+    if (date_scope === 'all') return true;
     if (!effectiveStart || !effectiveEnd) return true;
     if (!dateStr) return false;
     const d = dateStr.slice(0, 10);
@@ -4738,6 +4741,7 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
   const loanProducts = db.getTable('loan_products') || [];
   const loanPayments = db.getTable('loan_payments') || [];
   const allocations = db.getTable('loan_payment_allocations') || [];
+  const loanSchedules = db.getTable('loan_amortization_schedules') || [];
   const savingsAccounts = db.getTable('savings_accounts') || [];
   const savingsTx = db.getTable('savings_transactions') || [];
   const savingsProducts = db.getTable('savings_products') || [];
@@ -4783,14 +4787,99 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
       const principal = Number(loan.principal_amount || 0);
       const disbDate = (loan.disbursement_date || loan.created_at || '').slice(0, 10);
 
-      const pmtList = loanPayments.filter(p => p.loan_id === loan.id)
-        .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || ''));
+      // Collect all payments matching this loan by id, loan_account_no, or account_no
+      const pmtList = loanPayments.filter(p => 
+        p.loan_id === loan.id || 
+        p.loan_id === loan.loan_account_no ||
+        (p.account_no && p.account_no === loan.loan_account_no)
+      ).map(p => ({ ...p }));
+
+      // Also incorporate any paid installments from loan_amortization_schedules not yet in loanPayments
+      const schedules = loanSchedules.filter(s => s.loan_id === loan.id);
+      schedules.forEach(s => {
+        const isPaidSched = s.status === 'Paid' || Number(s.paid_principal || 0) > 0 || Number(s.paid_interest || 0) > 0;
+        if (isPaidSched) {
+          const sDate = (s.paid_date || s.due_date || '').slice(0, 10);
+          const sPrin = Number(s.paid_principal || s.principal || 0);
+          const sInt = Number(s.paid_interest || s.interest || 0);
+          const sPen = Number(s.paid_penalty || 0);
+          const sTotal = Number((sPrin + sInt + sPen).toFixed(2));
+
+          const alreadyInList = pmtList.some(p => 
+            p.installment_no === s.installment_no || 
+            ((p.payment_date || '').slice(0, 10) === sDate && Math.abs(Number(p.total_amount || p.amount || 0) - sTotal) < 0.05)
+          );
+
+          if (!alreadyInList && (sPrin > 0 || sInt > 0)) {
+            pmtList.push({
+              id: `sched_pmt_${s.id}`,
+              receipt_no: `OR-SCHED-${s.installment_no}`,
+              loan_id: loan.id,
+              member_id: loan.member_id,
+              payment_date: sDate,
+              total_amount: sTotal,
+              principal_amount: sPrin,
+              interest_amount: sInt,
+              penalty_amount: sPen,
+              fee_amount: 0,
+              notes: `Amortization Installment #${s.installment_no} Payment`
+            });
+          }
+        }
+      });
+
+      pmtList.sort((a, b) => (a.payment_date || a.created_at || '').localeCompare(b.payment_date || b.created_at || ''));
 
       let runningBal = principal;
       const entries: any[] = [];
 
-      // Disbursement entry
-      if (inDateRange(disbDate)) {
+      // If filtering by strict date range and disbDate is before start, show beginning balance entry
+      if (date_scope !== 'all' && effectiveStart && disbDate < effectiveStart) {
+        // Compute movements prior to effectiveStart
+        let priorPrincipalPaid = 0;
+        pmtList.forEach(pmt => {
+          const pDate = (pmt.payment_date || pmt.created_at || '').slice(0, 10);
+          if (pDate < effectiveStart) {
+            const allocs = allocations.filter(a => a.payment_id === pmt.id || a.loan_payment_id === pmt.id);
+            let pPrin = 0;
+            if (allocs.length > 0) {
+              allocs.forEach(a => {
+                if (a.principal_amount !== undefined && Number(a.principal_amount) > 0) pPrin += Number(a.principal_amount);
+                else if (String(a.fee_type || a.type || '').toLowerCase() === 'principal') pPrin += Number(a.allocated_amount || a.amount || 0);
+              });
+            }
+            if (pPrin === 0) {
+              pPrin = Number(pmt.principal_amount || pmt.principal_paid || pmt.total_amount || pmt.amount || 0);
+            }
+            priorPrincipalPaid += pPrin;
+          }
+        });
+
+        const begBalance = Math.max(0, Number((principal - priorPrincipalPaid).toFixed(2)));
+        runningBal = begBalance;
+
+        entries.push({
+          id: `beg_${loan.id}`,
+          account_id: loan.id,
+          account_number: loan.loan_account_no || loan.id,
+          ledger_type: 'loan',
+          member_id: loan.member_id,
+          member_name: memName,
+          member_no: mem?.member_no || 'MEM-N/A',
+          date: effectiveStart,
+          ref_no: 'BEG-BAL',
+          description: `Beginning Principal Balance as of ${effectiveStart}`,
+          type: 'BEGINNING_BALANCE',
+          debit: 0,
+          credit: 0,
+          principal_paid: 0,
+          interest_paid: 0,
+          penalty_paid: 0,
+          fee_paid: 0,
+          running_balance: begBalance
+        });
+      } else if (inDateRange(disbDate)) {
+        // Disbursement entry
         entries.push({
           id: `disb_${loan.id}`,
           account_id: loan.id,
@@ -4819,11 +4908,75 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
       let loanFeesPaid = 0;
 
       pmtList.forEach(pmt => {
-        const alloc = allocations.find(a => a.payment_id === pmt.id);
-        const pPrincipal = alloc ? Number(alloc.principal_amount || 0) : Number(pmt.amount || 0);
-        const pInterest = alloc ? Number(alloc.interest_amount || 0) : 0;
-        const pPenalty = alloc ? Number(alloc.penalty_amount || 0) : 0;
-        const pFee = alloc ? Number(alloc.fee_amount || 0) : 0;
+        // 1. Resolve payment allocation details across all possible allocation schemas
+        const pmtAllocations = allocations.filter(a => 
+          a.payment_id === pmt.id || a.loan_payment_id === pmt.id || a.id === pmt.id
+        );
+
+        let pPrincipal = 0;
+        let pInterest = 0;
+        let pPenalty = 0;
+        let pFee = 0;
+
+        if (pmtAllocations.length > 0) {
+          pmtAllocations.forEach(a => {
+            const feeType = String(a.fee_type || a.type || '').toLowerCase();
+            const allocAmt = Number(a.allocated_amount || a.amount || 0);
+
+            // Principal
+            if (a.principal_amount !== undefined && a.principal_amount !== null && Number(a.principal_amount) > 0) {
+              pPrincipal += Number(a.principal_amount);
+            } else if (feeType === 'principal') {
+              pPrincipal += allocAmt;
+            }
+
+            // Interest
+            if (a.interest_amount !== undefined && a.interest_amount !== null && Number(a.interest_amount) > 0) {
+              pInterest += Number(a.interest_amount);
+            } else if (feeType === 'interest') {
+              pInterest += allocAmt;
+            }
+
+            // Penalty
+            if (a.penalty_amount !== undefined && a.penalty_amount !== null && Number(a.penalty_amount) > 0) {
+              pPenalty += Number(a.penalty_amount);
+            } else if (feeType === 'penalty') {
+              pPenalty += allocAmt;
+            }
+
+            // Fee
+            if (a.fee_amount !== undefined && a.fee_amount !== null && Number(a.fee_amount) > 0) {
+              pFee += Number(a.fee_amount);
+            } else if (feeType === 'fee') {
+              pFee += allocAmt;
+            }
+          });
+        }
+
+        // Fallbacks directly from pmt object
+        if (pPrincipal === 0 && pInterest === 0 && pPenalty === 0 && pFee === 0) {
+          pPrincipal = Number(pmt.principal_amount || pmt.principal_paid || 0);
+          pInterest = Number(pmt.interest_amount || pmt.interest_paid || 0);
+          pPenalty = Number(pmt.penalty_amount || pmt.penalty_paid || 0);
+          pFee = Number(pmt.fee_amount || pmt.fee_paid || 0);
+
+          const totAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || 0);
+          if (pPrincipal === 0 && totAmt > 0) {
+            if (pInterest > 0) {
+              pPrincipal = Math.max(0, Number((totAmt - pInterest - pPenalty - pFee).toFixed(2)));
+            } else {
+              pPrincipal = totAmt;
+            }
+          }
+        }
+
+        // Final sanity check: if payment total exists but principal was 0 and interest was 0
+        const totalRecordAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || (pPrincipal + pInterest + pPenalty + pFee));
+        if (pPrincipal === 0 && pInterest === 0 && totalRecordAmt > 0) {
+          pPrincipal = totalRecordAmt;
+        }
+
+        const pTotalPayment = Number((pPrincipal + pInterest + pPenalty + pFee).toFixed(2));
 
         runningBal = Math.max(0, Number((runningBal - pPrincipal).toFixed(2)));
         loanPrincipalPaid += pPrincipal;
@@ -4843,14 +4996,14 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
             member_no: mem?.member_no || 'MEM-N/A',
             date: pDate,
             ref_no: pmt.receipt_no || pmt.receipt_number || pmt.id,
-            description: `Amortization Payment - OR #${pmt.receipt_no || pmt.receipt_number || pmt.id}`,
+            description: pmt.notes || `Amortization Payment - OR #${pmt.receipt_no || pmt.receipt_number || pmt.id}`,
             type: 'PAYMENT',
             debit: 0,
-            credit: pPrincipal,
-            principal_paid: pPrincipal,
-            interest_paid: pInterest,
-            penalty_paid: pPenalty,
-            fee_paid: pFee,
+            credit: pTotalPayment,
+            principal_paid: Number(pPrincipal.toFixed(2)),
+            interest_paid: Number(pInterest.toFixed(2)),
+            penalty_paid: Number(pPenalty.toFixed(2)),
+            fee_paid: Number(pFee.toFixed(2)),
             running_balance: runningBal
           });
         }

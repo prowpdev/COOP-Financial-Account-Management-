@@ -404,8 +404,9 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                         <th className="py-2 px-3 font-semibold text-right w-24">Credit (₱)</th>
                         {acc.ledger_type === 'loan' && (
                           <>
-                            <th className="py-2 px-3 font-semibold text-right w-24">Principal (₱)</th>
-                            <th className="py-2 px-3 font-semibold text-right w-24">Interest (₱)</th>
+                            <th className="py-2 px-3 font-semibold text-right w-24">Principal Paid</th>
+                            <th className="py-2 px-3 font-semibold text-right w-24">Interest Paid</th>
+                            <th className="py-2 px-3 font-semibold text-right w-20">Penalty/Fees</th>
                           </>
                         )}
                         <th className="py-2 px-3 font-semibold text-right w-28">Balance (₱)</th>
@@ -414,7 +415,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                     <tbody className="divide-y divide-slate-800 print:divide-slate-200">
                       {acc.entries.length === 0 ? (
                         <tr>
-                          <td colSpan={acc.ledger_type === 'loan' ? 8 : 6} className="py-4 text-center text-slate-400 print:text-slate-500 italic">
+                          <td colSpan={acc.ledger_type === 'loan' ? 9 : 6} className="py-4 text-center text-slate-400 print:text-slate-500 italic">
                             No ledger movements recorded in this period.
                           </td>
                         </tr>
@@ -438,11 +439,14 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                             </td>
                             {acc.ledger_type === 'loan' && (
                               <>
-                                <td className="py-1.5 px-3 font-mono text-right text-emerald-400 print:text-black whitespace-nowrap">
+                                <td className="py-1.5 px-3 font-mono font-bold text-right text-emerald-400 print:text-black whitespace-nowrap">
                                   {entry.principal_paid && entry.principal_paid > 0 ? entry.principal_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                 </td>
-                                <td className="py-1.5 px-3 font-mono text-right text-amber-400 print:text-black whitespace-nowrap">
+                                <td className="py-1.5 px-3 font-mono font-bold text-right text-amber-400 print:text-black whitespace-nowrap">
                                   {entry.interest_paid && entry.interest_paid > 0 ? entry.interest_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+                                </td>
+                                <td className="py-1.5 px-3 font-mono text-right text-slate-400 print:text-black whitespace-nowrap">
+                                  {((entry.penalty_paid || 0) + (entry.fee_paid || 0)) > 0 ? ((entry.penalty_paid || 0) + (entry.fee_paid || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                 </td>
                               </>
                             )}
@@ -471,6 +475,9 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                             </td>
                             <td className="py-2 px-3 font-mono text-right text-amber-400 print:text-black">
                               {(acc.total_interest_paid || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-right text-slate-400 print:text-black">
+                              {((acc.total_penalty_paid || 0) + (acc.total_fees_paid || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
                           </>
                         )}
