@@ -2095,7 +2095,7 @@ router.put('/members/:id', (req: Request, res: Response) => {
 // ==========================================
 
 // Calculate dynamic schedule
-router.post('/loans/calculate-schedule', (req: Request, res: Response) => {
+router.post(['/loans/calculate-schedule', '/loan/calculate-schedule'], (req: Request, res: Response) => {
   const {
     principal,
     annual_rate,
@@ -2103,17 +2103,49 @@ router.post('/loans/calculate-schedule', (req: Request, res: Response) => {
     frequency,
     method,
     start_date,
-    grace_period_days
+    grace_period_days,
+    service_fee,
+    service_fee_fixed,
+    other_fee,
+    other_fees,
+    processing_fee,
+    processing_fee_percentage,
+    loan_product_id,
+    amortize_fees
   } = req.body;
 
+  let product: any = null;
+  if (loan_product_id) {
+    const products = db.getTable('loan_products') || [];
+    product = products.find(p => p.id === loan_product_id || p.code === loan_product_id);
+  }
+
+  const p = Number(principal) || 10000;
+  const procRate = processing_fee_percentage !== undefined
+    ? Number(processing_fee_percentage)
+    : Number(product?.processing_fee_percentage || 0);
+  const procFee = processing_fee !== undefined
+    ? Number(processing_fee)
+    : Number(((p * procRate) / 100).toFixed(2));
+  const servFee = service_fee !== undefined
+    ? Number(service_fee)
+    : (service_fee_fixed !== undefined ? Number(service_fee_fixed) : Number(product?.service_fee_fixed || 0));
+  const othFee = other_fee !== undefined
+    ? Number(other_fee)
+    : (other_fees !== undefined ? Number(other_fees) : Number(product?.other_fee || product?.other_fees || 0));
+
   const result = InterestCalculationService.calculateSchedule({
-    principal: Number(principal),
-    annual_rate: Number(annual_rate),
-    term_months: Number(term_months),
-    frequency: frequency || 'Monthly',
-    method: method || 'Diminishing Balance',
+    principal: p,
+    annual_rate: Number(annual_rate ?? product?.annual_interest_rate ?? 10.0),
+    term_months: Number(term_months ?? product?.default_term_months ?? 12),
+    frequency: frequency || product?.payment_frequency || 'Monthly',
+    method: method || product?.interest_calculation_method || 'Diminishing Balance',
     start_date: start_date || new Date().toISOString().split('T')[0],
-    grace_period_days: Number(grace_period_days) || 0
+    grace_period_days: Number(grace_period_days ?? product?.grace_period_days ?? 0),
+    processing_fee: procFee,
+    service_fee: servFee,
+    other_fee: othFee,
+    amortize_fees: Boolean(amortize_fees)
   });
 
   res.json({ success: true, data: result });
@@ -2224,6 +2256,20 @@ const handleCreateLoanApplication = (req: Request, res: Response) => {
   const appNo = NumberingService.getNextNumber('APP', branch ? branch.code : 'TAR');
   const appId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
+  // Safe and exact fee calculations
+  const procRate = Number(product.processing_fee_percentage || 0);
+  const procFee = req.body.processing_fee !== undefined
+    ? Number(req.body.processing_fee)
+    : Number(((principal * procRate) / 100).toFixed(2));
+  const servFee = req.body.service_fee !== undefined
+    ? Number(req.body.service_fee)
+    : (req.body.service_fee_fixed !== undefined ? Number(req.body.service_fee_fixed) : Number(product.service_fee_fixed || 0));
+  const otherFee = req.body.other_fee !== undefined
+    ? Number(req.body.other_fee)
+    : (req.body.other_fees !== undefined ? Number(req.body.other_fees) : Number(product.other_fee || product.other_fees || 0));
+  const totalFees = Number((procFee + servFee + otherFee).toFixed(2));
+  const netDisbursed = Math.max(0, Number((principal - totalFees).toFixed(2)));
+
   const newApp = {
     id: appId,
     application_no: appNo,
@@ -2233,6 +2279,11 @@ const handleCreateLoanApplication = (req: Request, res: Response) => {
     applied_amount: principal,
     term_months: term,
     purpose: purpose || 'Cooperative Credit Facility Application',
+    processing_fee: procFee,
+    service_fee: servFee,
+    other_fee: otherFee,
+    total_fees: totalFees,
+    net_disbursed: netDisbursed,
     status: 'Pending',
     submitted_date: today,
     reviewed_by: null,
@@ -2247,7 +2298,7 @@ const handleCreateLoanApplication = (req: Request, res: Response) => {
   db.recordAudit(
     `Loan Application Submitted: ${appNo}`,
     'None',
-    `₱${principal.toLocaleString()} (${product.name})`,
+    `₱${principal.toLocaleString()} (${product.name}) [Proc: ₱${procFee}, Srv: ₱${servFee}, Oth: ₱${otherFee}, Net: ₱${netDisbursed}]`,
     performed_by || `${member.first_name} ${member.last_name}`,
     purpose || 'New loan application submitted for credit review'
   );
@@ -2269,8 +2320,7 @@ const handleCreateLoanApplication = (req: Request, res: Response) => {
   });
 };
 
-router.post('/loans/apply', handleCreateLoanApplication);
-router.post('/loans/applications', handleCreateLoanApplication);
+router.post(['/loans/apply', '/loan/apply', '/loans/applications', '/loan/applications'], handleCreateLoanApplication);
 
 // Approve Loan Application
 const handleApproveLoanApplication = (req: Request, res: Response) => {
@@ -2515,11 +2565,23 @@ const handleLoanOriginate = (req: Request, res: Response) => {
   const method = product.interest_calculation_method || 'Diminishing Balance';
   const freq = product.payment_frequency || 'Monthly';
 
-  // 7. Calculate fees dynamically from product configuration
-  const procFee = Number(((principal * (product.processing_fee_percentage || 0)) / 100).toFixed(2));
-  const servFee = Number(product.service_fee_fixed || 0);
-  const totalFees = procFee + servFee;
-  const netDisbursed = Number((principal - totalFees).toFixed(2));
+  // 7. Calculate fees dynamically from product configuration and inputs
+  const procRate = Number(product.processing_fee_percentage || 0);
+  const procFee = req.body.processing_fee !== undefined
+    ? Number(req.body.processing_fee)
+    : (loanApp?.processing_fee !== undefined ? Number(loanApp.processing_fee) : Number(((principal * procRate) / 100).toFixed(2)));
+  const servFee = req.body.service_fee !== undefined
+    ? Number(req.body.service_fee)
+    : (req.body.service_fee_fixed !== undefined
+        ? Number(req.body.service_fee_fixed)
+        : (loanApp?.service_fee !== undefined ? Number(loanApp.service_fee) : Number(product.service_fee_fixed || 0)));
+  const otherFee = req.body.other_fee !== undefined
+    ? Number(req.body.other_fee)
+    : (req.body.other_fees !== undefined
+        ? Number(req.body.other_fees)
+        : (loanApp?.other_fee !== undefined ? Number(loanApp.other_fee) : Number(product.other_fee || product.other_fees || 0)));
+  const totalFees = Number((procFee + servFee + otherFee).toFixed(2));
+  const netDisbursed = Math.max(0, Number((principal - totalFees).toFixed(2)));
 
   // 8. Dynamic schedule calculation
   const today = disbursement_date || new Date().toISOString().split('T')[0];
@@ -2530,7 +2592,10 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     frequency: freq,
     method,
     start_date: today,
-    grace_period_days: product.grace_period_days
+    grace_period_days: product.grace_period_days,
+    processing_fee: procFee,
+    service_fee: servFee,
+    other_fee: otherFee
   });
 
   const loanNo = NumberingService.getNextNumber('LN', branch ? branch.code : 'TAR');
@@ -2593,6 +2658,7 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     maturity_date: schedResult.schedule[schedResult.schedule.length - 1]?.due_date || today,
     processing_fee: procFee,
     service_fee: servFee,
+    other_fee: otherFee,
     net_disbursed: netDisbursed,
     disbursed_from_cash_account_id: selectedCashId,
     status: 'Active',
@@ -2667,8 +2733,7 @@ const handleLoanOriginate = (req: Request, res: Response) => {
   });
 };
 
-router.post('/loans/originate', handleLoanOriginate);
-router.post('/loans', handleLoanOriginate);
+router.post(['/loans/originate', '/loan/originate', '/loans', '/loan'], handleLoanOriginate);
 
 // Get single loan by ID with schedule and member details
 router.get('/loans/:id', (req: Request, res: Response) => {
@@ -6154,6 +6219,12 @@ router.get(['/user-documents', '/users/documents'], (req: Request, res: Response
       url: docData.url || docData.dataUrl || docData.data_url || '',
       path: docData.path || '',
       notes: docData.notes || '',
+      resolution_no: docData.resolution_no || '',
+      resolution_date: docData.resolution_date || '',
+      meeting_type: docData.meeting_type || '',
+      signatories: docData.signatories || '',
+      status: docData.status || 'Active',
+      tags: docData.tags || [],
       uploaded_at: docData.uploaded_at || docData.uploadedAt || new Date().toISOString(),
       uploaded_by: docData.uploaded_by || userDetails.name,
       // Standard practice: Include user details in each returned document
@@ -6167,7 +6238,11 @@ router.get(['/user-documents', '/users/documents'], (req: Request, res: Response
   });
 
   if (category && category !== 'All') {
-    enriched = enriched.filter(d => d.category === category);
+    const catLow = String(category).toLowerCase();
+    enriched = enriched.filter(d => 
+      String(d.category).toLowerCase() === catLow ||
+      (catLow === 'board resolutions' && (String(d.category).toLowerCase().includes('board') || String(d.category).toLowerCase().includes('resolution') || d.doc_key?.startsWith('br_') || Boolean(d.resolution_no)))
+    );
   }
 
   if (field_type && field_type !== 'All') {
@@ -6580,6 +6655,431 @@ router.delete(['/user-documents/:docId', '/users/:userId/documents/:docId'], (re
   res.json({
     success: true,
     message: `Document deleted successfully from user_documents table.`
+  });
+});
+
+// ==========================================
+// 20.58 BOARD RESOLUTIONS MANAGEMENT API
+// Backed directly by user_documents table
+// ==========================================
+
+// Helper to seed initial board resolutions into user_documents if not present
+function ensureBoardResolutionsSeeded() {
+  const userDocs = db.getTable('user_documents');
+  const hasResolutions = userDocs.some((d: any) => 
+    d.doc_key?.startsWith('br_') || 
+    d.document_data?.category === 'Board Resolutions' || 
+    Boolean(d.document_data?.resolution_no)
+  );
+
+  if (!hasResolutions) {
+    const adminUser = (db.getTable('users') || []).find((u: any) => u.role_id === 'admin' || u.role_id === 'Role_Admin') || { id: 'usr_admin', full_name: 'Corporate Secretary' };
+    
+    // Sample 1: PDF resolution for Loan fees & Credit Policy
+    const res1 = {
+      user_id: adminUser.id,
+      doc_key: 'br_2026_001',
+      document_data: {
+        id: `udoc_${adminUser.id}_br_2026_001`,
+        doc_key: 'br_2026_001',
+        resolution_no: 'BR-2026-001',
+        title: 'Board Resolution No. 2026-001: Approval of Revised Loan Services Fee, Processing Fee, and Credit Matrix',
+        category: 'Board Resolutions',
+        sub_category: 'Credit & Lending Policy',
+        meeting_type: 'Regular Board Meeting',
+        resolution_date: '2026-01-15',
+        signatories: 'Atty. Renato P. Manalo (BOD Chairman), Maria Corazon Santos (Corporate Secretary)',
+        status: 'Approved',
+        file_name: 'BR_2026_001_Loan_Services_Fee_Schedule.pdf',
+        file_type: 'application/pdf',
+        field_type: 'PDF',
+        size: 348200,
+        file_size: 348200,
+        notes: 'Establishes standard 2.0% processing fee, ₱250 fixed loan service fee, and ₱150 regulatory documentation buffer for agricultural and multi-purpose credit lines.',
+        dataUrl: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDQgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNzEgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgpGMSAxMiBUZgoxMDAgNzAwIFREIAooQm9hcmQgUmVzb2x1dGlvbiBOby4gMjAyNi0wMDE6IExvYW4gU2VydmljZXMgRmVlcyBBcHByb3ZhbCkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA2MCAwMDAwMCBuIAowMDAwMDAwMTE3IDAwMDAwIG4gCjAwMDAwMDAyMDkgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA1IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgoyODAKJSVFT0YK',
+        data_url: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDQgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNzEgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgpGMSAxMiBUZgoxMDAgNzAwIFREIAooQm9hcmQgUmVzb2x1dGlvbiBOby4gMjAyNi0wMDE6IExvYW4gU2VydmljZXMgRmVlcyBBcHByb3ZhbCkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA2MCAwMDAwMCBuIAowMDAwMDAwMTE3IDAwMDAwIG4gCjAwMDAwMDAyMDkgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA1IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgoyODAKJSVFT0YK',
+        uploaded_at: '2026-01-15T09:30:00.000Z',
+        uploaded_by: 'Maria Corazon Santos (Corporate Secretary)',
+        tags: ['Credit Policy', 'Service Fees', 'Lending Matrix']
+      }
+    };
+
+    // Sample 2: Word / Docs resolution for Net Surplus & Dividends
+    const res2 = {
+      user_id: adminUser.id,
+      doc_key: 'br_2026_004',
+      document_data: {
+        id: `udoc_${adminUser.id}_br_2026_004`,
+        doc_key: 'br_2026_004',
+        resolution_no: 'BR-2026-004',
+        title: 'Board Resolution No. 2026-004: Allocation of Net Surplus, Statutory Reserves & Dividend Distribution',
+        category: 'Board Resolutions',
+        sub_category: 'Capital Build-Up & Dividends',
+        meeting_type: 'Annual General Assembly',
+        resolution_date: '2026-02-18',
+        signatories: 'Atty. Renato P. Manalo (Chairman), Pedro L. Reyes (Treasurer)',
+        status: 'Adopted',
+        file_name: 'BR_2026_004_Net_Surplus_Dividend_Distribution.docx',
+        file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        field_type: 'Document',
+        size: 512400,
+        file_size: 512400,
+        notes: 'Authorizes 10% Reserve Fund, 5% Education & Training Fund, 5% Optional Fund, and allocates remaining statutory surplus to share capital dividend and patronage refund.',
+        dataUrl: 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,UEsDBBQABgAIAAAAIQA=',
+        data_url: 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,UEsDBBQABgAIAAAAIQA=',
+        uploaded_at: '2026-02-18T14:15:00.000Z',
+        uploaded_by: 'Maria Corazon Santos (Corporate Secretary)',
+        tags: ['Surplus Allocation', 'Dividends', 'CBU']
+      }
+    };
+
+    // Sample 3: Scanned Image resolution of Signatories & Vault Authority
+    const res3 = {
+      user_id: adminUser.id,
+      doc_key: 'br_2026_008',
+      document_data: {
+        id: `udoc_${adminUser.id}_br_2026_008`,
+        doc_key: 'br_2026_008',
+        resolution_no: 'BR-2026-008',
+        title: 'Board Resolution No. 2026-008: Authorization of Branch Vault Custodians & Dual Counter Signatories',
+        category: 'Board Resolutions',
+        sub_category: 'Governance & Appointments',
+        meeting_type: 'Special Board Meeting',
+        resolution_date: '2026-03-02',
+        signatories: 'Full Board of Directors, Internal Auditor',
+        status: 'Approved',
+        file_name: 'BR_2026_008_Scanned_Signatories_Authorization.jpg',
+        file_type: 'image/jpeg',
+        field_type: 'Image',
+        size: 892000,
+        file_size: 892000,
+        notes: 'Signed and notarized official copy granting authority for loan disbursement releases and check issuances across all 4 operational branches.',
+        dataUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><rect width="800" height="1000" fill="#f8fafc"/><rect x="40" y="40" width="720" height="920" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="400" y="100" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#0f172a">TARLAC MULTIPURPOSE COOPERATIVE</text><text x="400" y="130" font-family="sans-serif" font-size="14" fill="#64748b" text-anchor="middle">OFFICE OF THE BOARD OF DIRECTORS</text><line x1="80" y1="160" x2="720" y2="160" stroke="#059669" stroke-width="3"/><text x="400" y="210" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#1e293b">BOARD RESOLUTION NO. 2026-008</text><text x="400" y="240" font-family="sans-serif" font-size="12" fill="#475569" text-anchor="middle">AUTHORIZATION OF BRANCH VAULT CUSTODIANS & SIGNATORIES</text><rect x="80" y="280" width="640" height="500" fill="#f1f5f9" rx="8"/><text x="110" y="320" font-family="sans-serif" font-size="13" fill="#334155">WHEREAS, the cooperative operates branches in Tarlac, Capas, Concepcion, Paniqui;</text><text x="110" y="350" font-family="sans-serif" font-size="13" fill="#334155">RESOLVED, that designated branch managers and vault custodians are authorized;</text><text x="110" y="650" font-family="sans-serif" font-size="13" font-weight="bold" fill="#0f172a">APPROVED UNANIMOUSLY this 2nd day of March 2026.</text><circle cx="600" cy="840" r="50" fill="#059669" fill-opacity="0.15" stroke="#059669" stroke-width="2"/><text x="600" y="845" font-family="sans-serif" font-size="11" font-weight="bold" fill="#047857" text-anchor="middle">OFFICIAL SEAL</text></svg>',
+        data_url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><rect width="800" height="1000" fill="#f8fafc"/><rect x="40" y="40" width="720" height="920" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="400" y="100" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#0f172a">TARLAC MULTIPURPOSE COOPERATIVE</text><text x="400" y="130" font-family="sans-serif" font-size="14" fill="#64748b" text-anchor="middle">OFFICE OF THE BOARD OF DIRECTORS</text><line x1="80" y1="160" x2="720" y2="160" stroke="#059669" stroke-width="3"/><text x="400" y="210" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#1e293b">BOARD RESOLUTION NO. 2026-008</text><text x="400" y="240" font-family="sans-serif" font-size="12" fill="#475569" text-anchor="middle">AUTHORIZATION OF BRANCH VAULT CUSTODIANS & SIGNATORIES</text><rect x="80" y="280" width="640" height="500" fill="#f1f5f9" rx="8"/><text x="110" y="320" font-family="sans-serif" font-size="13" fill="#334155">WHEREAS, the cooperative operates branches in Tarlac, Capas, Concepcion, Paniqui;</text><text x="110" y="350" font-family="sans-serif" font-size="13" fill="#334155">RESOLVED, that designated branch managers and vault custodians are authorized;</text><text x="110" y="650" font-family="sans-serif" font-size="13" font-weight="bold" fill="#0f172a">APPROVED UNANIMOUSLY this 2nd day of March 2026.</text><circle cx="600" cy="840" r="50" fill="#059669" fill-opacity="0.15" stroke="#059669" stroke-width="2"/><text x="600" y="845" font-family="sans-serif" font-size="11" font-weight="bold" fill="#047857" text-anchor="middle">OFFICIAL SEAL</text></svg>',
+        uploaded_at: '2026-03-02T16:00:00.000Z',
+        uploaded_by: 'Maria Corazon Santos (Corporate Secretary)',
+        tags: ['Signatories', 'Vault Custody', 'Governance']
+      }
+    };
+
+    // Sample 4: PDF resolution for CDA Compliance
+    const res4 = {
+      user_id: adminUser.id,
+      doc_key: 'br_2026_012',
+      document_data: {
+        id: `udoc_${adminUser.id}_br_2026_012`,
+        doc_key: 'br_2026_012',
+        resolution_no: 'BR-2026-012',
+        title: 'Board Resolution No. 2026-012: Adoption of CDA Standard Financial Performance & Risk-Based Lending Guidelines',
+        category: 'Board Resolutions',
+        sub_category: 'CDA Statutory Compliance',
+        meeting_type: 'Regular Board Meeting',
+        resolution_date: '2026-03-20',
+        signatories: 'Atty. Renato P. Manalo, Corporate Secretary, Compliance Officer',
+        status: 'Approved',
+        file_name: 'BR_2026_012_CDA_Risk_Management_Policy.pdf',
+        file_type: 'application/pdf',
+        field_type: 'PDF',
+        size: 420500,
+        file_size: 420500,
+        notes: 'Adopts CDA regulatory guidelines for loan loss provisioning, capital adequacy ratio, and quarterly reporting standards.',
+        dataUrl: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDQgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNzEgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgpGMSAxMiBUZgoxMDAgNzAwIFREIAooQm9hcmQgUmVzb2x1dGlvbiBOby4gMjAyNi0wMTI6IENEQSBDb21wbGlhbmNlIFBvbGljeSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA2MCAwMDAwMCBuIAowMDAwMDAwMTE3IDAwMDAwIG4gCjAwMDAwMDAyMDkgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA1IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgoyODAKJSVFT0YK',
+        data_url: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDQgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNzEgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgpGMSAxMiBUZgoxMDAgNzAwIFREIAooQm9hcmQgUmVzb2x1dGlvbiBOby4gMjAyNi0wMTI6IENEQSBDb21wbGlhbmNlIFBvbGljeSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA2MCAwMDAwMCBuIAowMDAwMDAwMTE3IDAwMDAwIG4gCjAwMDAwMDAyMDkgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA1IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgoyODAKJSVFT0YK',
+        uploaded_at: '2026-03-20T11:00:00.000Z',
+        uploaded_by: 'Maria Corazon Santos (Corporate Secretary)',
+        tags: ['CDA Compliance', 'Governance', 'Risk Management']
+      }
+    };
+
+    userDocs.push(res1, res2, res3, res4);
+    db.save();
+  }
+}
+
+// 1. Get Board Resolutions (reads from user_documents table)
+router.get(['/board-resolutions', '/governance/board-resolutions'], (req: Request, res: Response) => {
+  ensureBoardResolutionsSeeded();
+
+  const { category, sub_category, status, search, year, field_type } = req.query;
+  const userDocs = db.getTable('user_documents') || [];
+
+  // Filter items in user_documents that are board resolutions
+  const rawResolutions = userDocs.filter((d: any) => {
+    const data = typeof d.document_data === 'string' ? JSON.parse(d.document_data) : (d.document_data || {});
+    const isBr = d.doc_key?.startsWith('br_') || 
+                 data.category === 'Board Resolutions' || 
+                 d.category === 'Board Resolutions' ||
+                 Boolean(data.resolution_no) ||
+                 (data.title && data.title.toLowerCase().includes('board resolution'));
+    return isBr;
+  });
+
+  let enriched = rawResolutions.map((item: any) => {
+    const data = typeof item.document_data === 'string' ? JSON.parse(item.document_data) : (item.document_data || {});
+    const fileName = data.file_name || data.name || 'resolution_document';
+    const detectedType = data.field_type || detectDocumentType(fileName, data.file_type || data.type);
+    const title = data.title || data.field_label || item.doc_key;
+    const resNo = data.resolution_no || (item.doc_key?.startsWith('br_') ? item.doc_key.replace(/^br_/, 'BR-').toUpperCase() : 'BR-2026');
+
+    return {
+      id: data.id || `udoc_${item.user_id}_${item.doc_key}`,
+      user_id: item.user_id,
+      doc_key: item.doc_key,
+      resolution_no: resNo,
+      title: title,
+      category: data.category || 'Board Resolutions',
+      sub_category: data.sub_category || data.category || 'Credit & Lending Policy',
+      meeting_type: data.meeting_type || 'Regular Board Meeting',
+      resolution_date: data.resolution_date || (data.uploaded_at ? data.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+      signatories: data.signatories || 'Board of Directors',
+      status: data.status || 'Approved',
+      notes: data.notes || '',
+      file_name: fileName,
+      file_type: data.file_type || data.type || 'application/pdf',
+      field_type: detectedType,
+      size: Number(data.size || data.file_size || 0),
+      file_size: Number(data.file_size || data.size || 0),
+      data_url: data.data_url || data.dataUrl || data.url || '',
+      dataUrl: data.dataUrl || data.data_url || data.url || '',
+      url: data.url || data.data_url || data.dataUrl || '',
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      uploaded_at: data.uploaded_at || new Date().toISOString(),
+      uploaded_by: data.uploaded_by || 'Corporate Secretary'
+    };
+  });
+
+  // Filter by category or sub_category
+  if (category && category !== 'All') {
+    const catLow = String(category).toLowerCase();
+    enriched = enriched.filter(r => 
+      r.sub_category.toLowerCase() === catLow || 
+      r.category.toLowerCase() === catLow
+    );
+  }
+
+  // Filter by status
+  if (status && status !== 'All') {
+    enriched = enriched.filter(r => r.status.toLowerCase() === String(status).toLowerCase());
+  }
+
+  // Filter by year
+  if (year && year !== 'All') {
+    enriched = enriched.filter(r => r.resolution_date.startsWith(String(year)));
+  }
+
+  // Filter by field_type (PDF, Document, Image)
+  if (field_type && field_type !== 'All') {
+    enriched = enriched.filter(r => String(r.field_type).toUpperCase() === String(field_type).toUpperCase());
+  }
+
+  // Filter by search query
+  if (search) {
+    const term = String(search).toLowerCase();
+    enriched = enriched.filter(r =>
+      r.resolution_no.toLowerCase().includes(term) ||
+      r.title.toLowerCase().includes(term) ||
+      r.sub_category.toLowerCase().includes(term) ||
+      r.meeting_type.toLowerCase().includes(term) ||
+      r.signatories.toLowerCase().includes(term) ||
+      r.notes.toLowerCase().includes(term) ||
+      r.file_name.toLowerCase().includes(term)
+    );
+  }
+
+  // Sort descending by resolution date
+  enriched.sort((a, b) => new Date(b.resolution_date).getTime() - new Date(a.resolution_date).getTime());
+
+  // Available sub-categories for filtering
+  const availableCategories = Array.from(new Set(rawResolutions.map((r: any) => {
+    const d = typeof r.document_data === 'string' ? JSON.parse(r.document_data) : (r.document_data || {});
+    return d.sub_category || d.category || 'General Governance';
+  })));
+
+  res.json({
+    success: true,
+    count: enriched.length,
+    data: enriched,
+    categories: ['All', ...availableCategories.filter(c => c !== 'Board Resolutions')]
+  });
+});
+
+// 2. Upload / Create Board Resolution (stores to user_documents table)
+router.post(['/board-resolutions', '/governance/board-resolutions'], (req: Request, res: Response) => {
+  const {
+    resolution_no,
+    title,
+    category,
+    sub_category,
+    meeting_type,
+    resolution_date,
+    signatories,
+    status,
+    notes,
+    file_name,
+    name,
+    file_type,
+    type,
+    field_type,
+    size,
+    file_size,
+    data_url,
+    dataUrl,
+    tags,
+    user_id,
+    performed_by
+  } = req.body;
+
+  if (!title) {
+    return res.status(422).json({ success: false, message: 'Resolution title is required.' });
+  }
+
+  const users = db.getTable('users') || [];
+  const adminUser = users.find(u => u.id === user_id || u.role_id === 'admin' || u.role_id === 'Role_Admin') || users[0] || { id: 'usr_admin', full_name: 'Corporate Secretary' };
+  const targetUserId = user_id || adminUser.id;
+
+  const resNumber = (resolution_no || `BR-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`).trim();
+  const cleanKey = `br_${resNumber.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`;
+  const fileName = file_name || name || `${resNumber.replace(/[^a-zA-Z0-9_-]/g, '_')}_document.pdf`;
+  const resolvedDataUrl = dataUrl || data_url || '';
+  const resolvedFieldType = detectDocumentType(fileName, file_type || type, field_type);
+
+  const documentData = {
+    id: `udoc_${targetUserId}_${cleanKey}`,
+    doc_key: cleanKey,
+    resolution_no: resNumber,
+    title: title.trim(),
+    field_label: title.trim(),
+    name: fileName,
+    file_name: fileName,
+    category: 'Board Resolutions',
+    sub_category: sub_category || category || 'Credit & Lending Policy',
+    meeting_type: meeting_type || 'Regular Board Meeting',
+    resolution_date: resolution_date || new Date().toISOString().split('T')[0],
+    signatories: signatories || 'Board of Directors',
+    status: status || 'Approved',
+    notes: notes || '',
+    type: file_type || type || (resolvedFieldType === 'PDF' ? 'application/pdf' : 'application/octet-stream'),
+    file_type: file_type || type || (resolvedFieldType === 'PDF' ? 'application/pdf' : 'application/octet-stream'),
+    field_type: resolvedFieldType,
+    size: Number(size || file_size || 0),
+    file_size: Number(size || file_size || 0),
+    dataUrl: resolvedDataUrl,
+    data_url: resolvedDataUrl,
+    url: resolvedDataUrl,
+    tags: Array.isArray(tags) ? tags : (tags ? [String(tags)] : []),
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: performed_by || adminUser.full_name || adminUser.name || 'Corporate Secretary'
+  };
+
+  const userDocs = db.getTable('user_documents');
+  const record = {
+    user_id: targetUserId,
+    doc_key: cleanKey,
+    document_data: documentData
+  };
+
+  userDocs.push(record);
+  db.save();
+
+  db.recordAudit(
+    `Board Resolution Uploaded: ${resNumber}`,
+    'None',
+    `${title} (${fileName})`,
+    performed_by || 'Corporate Secretary',
+    `Stored into user_documents table under Category: Board Resolutions (${documentData.sub_category})`
+  );
+
+  res.status(201).json({
+    success: true,
+    data: {
+      ...documentData,
+      user_id: targetUserId
+    },
+    message: `Board Resolution ${resNumber} successfully uploaded and stored in user_documents table.`
+  });
+});
+
+// 3. Update Board Resolution metadata
+router.put(['/board-resolutions/:id', '/governance/board-resolutions/:id'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userDocs = db.getTable('user_documents');
+  const index = userDocs.findIndex((d: any) => {
+    const data = typeof d.document_data === 'string' ? JSON.parse(d.document_data) : (d.document_data || {});
+    return d.doc_key === id || data.id === id || data.resolution_no === id;
+  });
+
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Board resolution document not found in user_documents table.' });
+  }
+
+  const prev = typeof userDocs[index].document_data === 'string'
+    ? JSON.parse(userDocs[index].document_data)
+    : userDocs[index].document_data;
+
+  const updatedData = {
+    ...prev,
+    title: req.body.title !== undefined ? req.body.title : prev.title,
+    resolution_no: req.body.resolution_no !== undefined ? req.body.resolution_no : prev.resolution_no,
+    sub_category: req.body.sub_category !== undefined ? req.body.sub_category : (req.body.category || prev.sub_category),
+    meeting_type: req.body.meeting_type !== undefined ? req.body.meeting_type : prev.meeting_type,
+    resolution_date: req.body.resolution_date !== undefined ? req.body.resolution_date : prev.resolution_date,
+    signatories: req.body.signatories !== undefined ? req.body.signatories : prev.signatories,
+    status: req.body.status !== undefined ? req.body.status : prev.status,
+    notes: req.body.notes !== undefined ? req.body.notes : prev.notes,
+    tags: req.body.tags !== undefined ? req.body.tags : prev.tags,
+    updated_at: new Date().toISOString()
+  };
+
+  userDocs[index].document_data = updatedData;
+  db.save();
+
+  db.recordAudit(
+    `Board Resolution Updated: ${updatedData.resolution_no}`,
+    prev.status || 'Previous',
+    updatedData.status || 'Updated',
+    req.body.performed_by || 'Admin',
+    `Updated resolution metadata in user_documents table`
+  );
+
+  res.json({
+    success: true,
+    data: updatedData,
+    message: `Board Resolution ${updatedData.resolution_no} updated successfully.`
+  });
+});
+
+// 4. Delete Board Resolution
+router.delete(['/board-resolutions/:id', '/governance/board-resolutions/:id'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userDocs = db.getTable('user_documents');
+
+  const target = userDocs.find((d: any) => {
+    const data = typeof d.document_data === 'string' ? JSON.parse(d.document_data) : (d.document_data || {});
+    return d.doc_key === id || data.id === id || data.resolution_no === id;
+  });
+
+  if (!target) {
+    return res.status(404).json({ success: false, message: 'Board resolution document not found in user_documents table.' });
+  }
+
+  const resData = typeof target.document_data === 'string' ? JSON.parse(target.document_data) : target.document_data;
+
+  db.delete('user_documents', (d: any) => 
+    d.doc_key === target.doc_key || 
+    (d.document_data && (d.document_data.id === id || d.document_data.resolution_no === id))
+  );
+
+  db.recordAudit(
+    `Board Resolution Deleted`,
+    resData?.resolution_no || id,
+    'Deleted',
+    'Admin',
+    `Permanently removed board resolution from user_documents table`
+  );
+
+  res.json({
+    success: true,
+    message: `Board Resolution ${resData?.resolution_no || id} deleted successfully from user_documents table.`
   });
 });
 
@@ -7236,6 +7736,19 @@ router.post('/member-portal/:memberId/apply-loan', (req: Request, res: Response)
   const method = product.interest_calculation_method || 'Diminishing Balance';
   const today = new Date().toISOString().split('T')[0];
 
+  const procRate = Number(product.processing_fee_percentage || 2);
+  const procFee = req.body.processing_fee !== undefined
+    ? Number(req.body.processing_fee)
+    : Number(((principal * procRate) / 100).toFixed(2));
+  const servFee = req.body.service_fee !== undefined
+    ? Number(req.body.service_fee)
+    : (req.body.service_fee_fixed !== undefined ? Number(req.body.service_fee_fixed) : Number(product.service_fee_fixed || 200));
+  const otherFee = req.body.other_fee !== undefined
+    ? Number(req.body.other_fee)
+    : (req.body.other_fees !== undefined ? Number(req.body.other_fees) : Number(product.other_fee || product.other_fees || 0));
+  const totalFees = Number((procFee + servFee + otherFee).toFixed(2));
+  const netDisbursed = Math.max(0, Number((principal - totalFees).toFixed(2)));
+
   const schedResult = InterestCalculationService.calculateSchedule({
     principal,
     annual_rate: rate,
@@ -7243,16 +7756,15 @@ router.post('/member-portal/:memberId/apply-loan', (req: Request, res: Response)
     frequency: 'Monthly',
     method,
     start_date: today,
-    grace_period_days: product.grace_period_days || 0
+    grace_period_days: product.grace_period_days || 0,
+    processing_fee: procFee,
+    service_fee: servFee,
+    other_fee: otherFee
   });
 
   const branch = (db.getTable('branches') || []).find(b => b.id === member.branch_id);
   const loanNo = NumberingService.getNextNumber('LN', branch ? branch.code : 'TAR');
   const loanId = `loan_${Date.now()}`;
-
-  const procFee = Number((principal * ((product.processing_fee_percentage || 2) / 100)).toFixed(2));
-  const servFee = Number(product.service_fee_fixed || 200);
-  const totalFees = procFee + servFee;
 
   const newLoan = {
     id: loanId,
@@ -7275,7 +7787,8 @@ router.post('/member-portal/:memberId/apply-loan', (req: Request, res: Response)
     maturity_date: schedResult.schedule[schedResult.schedule.length - 1]?.due_date || today,
     processing_fee: procFee,
     service_fee: servFee,
-    net_disbursed: principal - totalFees,
+    other_fee: otherFee,
+    net_disbursed: netDisbursed,
     status: 'Active',
     current_balance: principal,
     total_principal_paid: 0,

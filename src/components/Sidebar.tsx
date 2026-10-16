@@ -18,7 +18,8 @@ import {
   UserCheck,
   X,
   FolderOpen,
-  ShieldAlert
+  ShieldAlert,
+  Scroll
 } from 'lucide-react';
 import { FeatureToggle, User } from '../types';
 
@@ -31,6 +32,7 @@ export type TabKey =
   | 'member_profile'
   | 'member_fields'
   | 'user_documents'
+  | 'board_resolutions'
   | 'user_profile'
   | 'loans'
   | 'savings'
@@ -130,6 +132,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'User Docs',
       icon: FolderOpen,
       badge: 'Docs',
+      alwaysShow: true
+    },
+    {
+      id: 'board_resolutions' as TabKey,
+      label: 'Board Resolutions',
+      shortLabel: 'Resolutions',
+      icon: Scroll,
+      badge: 'BOD',
       alwaysShow: true
     },
     {
