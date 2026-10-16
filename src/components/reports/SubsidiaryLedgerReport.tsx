@@ -551,9 +551,9 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
         <div className="space-y-4">
           {filteredAccounts.map((account) => {
             const isExpanded = expandedAccountIds.has(account.id);
-            const isLoan = account.ledger_type === 'loan';
-            const isSavings = account.ledger_type === 'savings';
-            const isCbu = account.ledger_type === 'share_capital';
+            const isLoan = account.ledger_type === 'loan' || account.ledger_type === 'loans';
+            const isSavings = account.ledger_type === 'savings' || account.ledger_type === 'saving';
+            const isCbu = account.ledger_type === 'share_capital' || account.ledger_type === 'cbu';
 
             return (
               <div
@@ -754,7 +754,7 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                                 {isLoan && (
                                   <>
                                     <td className="py-2 px-3 text-right text-emerald-400 font-bold whitespace-nowrap">
-                                      {entry.principal_paid && entry.principal_paid > 0 ? entry.principal_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+                                      {entry.principal_paid && entry.principal > 0 ? entry.principal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                                     </td>
                                     <td className="py-2 px-3 text-right text-amber-400 font-bold whitespace-nowrap">
                                       {entry.interest_paid && entry.interest_paid > 0 ? entry.interest_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}

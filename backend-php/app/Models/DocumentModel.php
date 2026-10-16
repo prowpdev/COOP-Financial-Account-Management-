@@ -37,6 +37,28 @@ class DocumentModel
 
         return $documents;
     }
+    public function forBranch(string $userBranch,?string $userId, ?string $search): array
+    {
+        $sql = '
+            SELECT d.doc_key, d.document_data, d.notes
+            FROM user_documents d
+            INNER JOIN users u ON u.id = d.user_id
+            WHERE d.user_id = :user_id
+        ';
+        $params = ['user_id' => $userId];
+        BranchScope::appendCondition($sql, $params, 'u.branch_id');
+        $stmt = $this->db->prepare($sql . ' ORDER BY d.doc_key');
+        $stmt->execute($params);
+
+        $documents = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $document = json_decode($row['document_data'], true, 512, JSON_THROW_ON_ERROR);
+            $document['notes'] = $row['notes'];
+            $documents[$row['doc_key']] = $document;
+        }
+
+        return $documents;
+    }
 
     public function save(string $userId, string $docKey, array $document, ?string $notes): void
     {

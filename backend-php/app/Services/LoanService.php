@@ -822,142 +822,326 @@ class LoanService
     }
 
 
-    /**
-     * Record loan repayment and allocate against unpaid schedule installments
-     */
-    public function recordPayment(array $data): array
-    {
-        $this->db->beginTransaction();
 
-        try {
-            $paymentId = $data['id'] ?? ('lp_' . bin2hex(random_bytes(6)));
-            $loanId    = $data['loan_id'];
-            $amount    = (float)$data['amount_paid'];
-            $payDate   = $data['payment_date'] ?? date('Y-m-d');
-            $refNo     = $data['or_number'] ?? $data['receipt_no'] ?? ('OR-' . date('Ymd') . '-' . mt_rand(1000, 9999));
+/**
+ * Record loan repayment and allocate against unpaid schedule installments.
+ *
+ * Each payment can cover multiple amortization schedules.
+ * Payment, allocation, schedule, and loan updates are atomic.
+ */
 
-            $loan = $this->find($loanId);
-            if (!$loan) {
-                throw new \InvalidArgumentException('Loan not found.');
+/**
+ * Record loan repayment and allocate against unpaid schedule installments.
+ */
+public function recordPayment(array $data): array
+{
+    $this->db->beginTransaction();
+
+    try {
+        $paymentId = $data['id'] ?? ('lp_' . bin2hex(random_bytes(6)));
+        $loanId    = $data['loan_id'];
+        $amount    = round((float) ($data['amount_paid'] ?? 0), 2);
+        $payDate   = $data['payment_date'] ?? date('Y-m-d');
+
+        $refNo = $data['or_number']
+            ?? $data['receipt_no']
+            ?? ('OR-' . date('Ymd') . '-' . mt_rand(1000, 9999));
+
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException(
+                'Payment amount must be greater than zero.'
+            );
+        }
+
+        // Lock the loan row.
+        $loanStmt = $this->db->prepare("
+            SELECT *
+            FROM loans
+            WHERE id = ?
+            FOR UPDATE
+        ");
+        $loanStmt->execute([$loanId]);
+        $loan = $loanStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$loan) {
+            throw new \InvalidArgumentException('Loan not found.');
+        }
+
+        $cashAccountId = $data['cash_account_id']
+            ?? $loan['disbursed_from_cash_account_id'];
+
+        $receivedBy = $data['received_by']
+            ?? $data['performed_by']
+            ?? 'system';
+
+        // Lock outstanding amortization schedules.
+        $schedStmt = $this->db->prepare("
+            SELECT *
+            FROM loan_amortization_schedules
+            WHERE loan_id = ?
+              AND status <> 'Paid'
+            ORDER BY installment_no ASC
+            FOR UPDATE
+        ");
+        $schedStmt->execute([$loanId]);
+        $unpaidSchedules = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $remainingCash = $amount;
+        $totalPrincipalPaid = 0.00;
+        $totalInterestPaid = 0.00;
+        $allocations = [];
+
+        /*
+         * Calculate allocation per installment.
+         * Existing priority: interest first, then principal.
+         */
+        foreach ($unpaidSchedules as $sched) {
+            if ($remainingCash <= 0) {
+                break;
             }
 
-            $cashAccountId = $data['cash_account_id'] ?? $loan['disbursed_from_cash_account_id'];
-            $receivedBy = $data['received_by'] ?? $data['performed_by'] ?? 'system';
+            $dueInterest = round(max(
+                0,
+                (float) $sched['interest']
+                    - (float) $sched['paid_interest']
+            ), 2);
 
-            // Fetch unpaid schedules
-            $schedStmt = $this->db->prepare("
-                SELECT * FROM loan_amortization_schedules
-                WHERE loan_id = ? AND status != 'Paid'
-                ORDER BY installment_no ASC
-            ");
-            $schedStmt->execute([$loanId]);
-            $unpaidSchedules = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+            $duePrincipal = round(max(
+                0,
+                (float) $sched['principal']
+                    - (float) $sched['paid_principal']
+            ), 2);
 
-            $remainingCash = $amount;
-            $totalPrincipalPaid = 0.0;
-            $totalInterestPaid  = 0.0;
+            $payInterest = round(
+                min($remainingCash, $dueInterest),
+                2
+            );
 
-            $updateSched = $this->db->prepare("
-                UPDATE loan_amortization_schedules
-                SET paid_principal = paid_principal + :p,
-                    paid_interest  = paid_interest + :i,
-                    status         = :status
-                WHERE id = :id
-            ");
+            $remainingCash = round(
+                $remainingCash - $payInterest,
+                2
+            );
 
-            foreach ($unpaidSchedules as $sched) {
-                if ($remainingCash <= 0) break;
+            $payPrincipal = round(
+                min($remainingCash, $duePrincipal),
+                2
+            );
 
-                $dueInterest  = (float)$sched['interest'] - (float)$sched['paid_interest'];
-                $duePrincipal = (float)$sched['principal'] - (float)$sched['paid_principal'];
+            $remainingCash = round(
+                $remainingCash - $payPrincipal,
+                2
+            );
 
-                $payInterest  = min($remainingCash, max(0, $dueInterest));
-                $remainingCash -= $payInterest;
-                $totalInterestPaid += $payInterest;
-
-                $payPrincipal = min($remainingCash, max(0, $duePrincipal));
-                $remainingCash -= $payPrincipal;
-                $totalPrincipalPaid += $payPrincipal;
-
-                $newPaidI = (float)$sched['paid_interest'] + $payInterest;
-                $newPaidP = (float)$sched['paid_principal'] + $payPrincipal;
-
-                $isPaid = ($newPaidI >= (float)$sched['interest'] - 0.01) && ($newPaidP >= (float)$sched['principal'] - 0.01);
-
-                $updateSched->execute([
-                    'p'      => $payPrincipal,
-                    'i'      => $payInterest,
-                    'status' => $isPaid ? 'Paid' : 'Partially Paid',
-                    'id'     => $sched['id']
-                ]);
+            if ($payInterest <= 0 && $payPrincipal <= 0) {
+                continue;
             }
 
-            $stmt = $this->db->prepare("
-                INSERT INTO loan_payments (
-                    id, receipt_no, loan_id, member_id, payment_date, total_amount,
-                    cash_account_id, received_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $paymentId,
-                $refNo,
-                $loanId,
-                $loan['member_id'],
-                $payDate,
-                $amount,
-                $cashAccountId,
-                $receivedBy
-            ]);
+            $newPaidInterest = round(
+                (float) $sched['paid_interest'] + $payInterest,
+                2
+            );
 
-            // Update loan current balance
-            $updLoan = $this->db->prepare("
-                UPDATE loans
-                SET current_balance = GREATEST(0, current_balance - ?),
-                    total_principal_paid = total_principal_paid + ?,
-                    total_interest_paid = total_interest_paid + ?,
-                    status = CASE WHEN (current_balance - ?) <= 0.01 THEN 'Fully Paid' ELSE status END
-                WHERE id = ?
-            ");
-            $updLoan->execute([
-                $totalPrincipalPaid,
-                $totalPrincipalPaid,
-                $totalInterestPaid,
-                $totalPrincipalPaid,
+            $newPaidPrincipal = round(
+                (float) $sched['paid_principal'] + $payPrincipal,
+                2
+            );
+
+            $isPaid =
+                $newPaidInterest >= (float) $sched['interest'] - 0.01
+                && $newPaidPrincipal >= (float) $sched['principal'] - 0.01;
+
+            $allocations[] = [
+                'schedule_id' => $sched['id'],
+                'principal_amount' => $payPrincipal,
+                'interest_amount' => $payInterest,
+                'penalty_amount' => 0.00,
+                'fee_amount' => 0.00,
+                'new_paid_principal' => $newPaidPrincipal,
+                'new_paid_interest' => $newPaidInterest,
+                'status' => $isPaid ? 'Paid' : 'Partially Paid',
+            ];
+
+            $totalPrincipalPaid = round(
+                $totalPrincipalPaid + $payPrincipal,
+                2
+            );
+
+            $totalInterestPaid = round(
+                $totalInterestPaid + $payInterest,
+                2
+            );
+        }
+
+        // Reject any amount that cannot be allocated.
+        if ($remainingCash > 0.009) {
+            throw new \InvalidArgumentException(
+                'Payment exceeds outstanding scheduled principal and interest by '
+                . number_format($remainingCash, 2)
+                . '. Handle advance payments, penalties, or fees separately.'
+            );
+        }
+
+        if (empty($allocations)) {
+            throw new \InvalidArgumentException(
+                'No outstanding installment amounts are available for payment.'
+            );
+        }
+
+        // 1. Create payment header.
+        $stmt = $this->db->prepare("
+            INSERT INTO loan_payments (
+                id,
+                receipt_no,
+                loan_id,
+                member_id,
+                payment_date,
+                total_amount,
+                principal_paid,
+                interest_paid,
+                cash_account_id,
+                received_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $paymentId,
+            $refNo,
+            $loanId,
+            $loan['member_id'],
+            $payDate,
+            $amount,
+            $totalPrincipalPaid,
+            $totalInterestPaid,
+            $cashAccountId,
+            $receivedBy
+        ]);
+
+        // 2. Prepare schedule update.
+        $updateSched = $this->db->prepare("
+            UPDATE loan_amortization_schedules
+            SET paid_principal = ?,
+                paid_interest = ?,
+                status = ?
+            WHERE id = ?
+              AND loan_id = ?
+        ");
+
+        // 3. Insert allocation records using your actual schema.
+        $allocationStmt = $this->db->prepare("
+            INSERT INTO loan_payment_allocations (
+                id,
+                payment_id,
+                loan_id,
+                penalty_amount,
+                interest_amount,
+                fee_amount,
+                principal_amount,
+                allocation_order_applied
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        foreach ($allocations as $allocation) {
+            $updateSched->execute([
+                $allocation['new_paid_principal'],
+                $allocation['new_paid_interest'],
+                $allocation['status'],
+                $allocation['schedule_id'],
                 $loanId
             ]);
 
-            $this->audit->recordAuditTrail(
-                'loan_payments',
-                ['loan_id' => $loanId, 'balance' => $loan['current_balance'] ?? null],
-                [
-                    'payment_id' => $paymentId,
-                    'receipt_no' => $refNo,
-                    'loan_id' => $loanId,
-                    'member_id' => $loan['member_id'],
-                    'amount' => $amount,
-                    'principal_paid' => $totalPrincipalPaid,
-                    'interest_paid' => $totalInterestPaid,
-                ],
-                (string)$receivedBy,
-                'Loan repayment recorded',
-                'TRANSACTION'
-            );
-
-            $this->db->commit();
-
-            return [
-                'payment_id'      => $paymentId,
-                'reference_no'    => $refNo,
-                'amount_paid'     => $amount,
-                'principal_paid'  => $totalPrincipalPaid,
-                'interest_paid'   => $totalInterestPaid,
-                'updated_loan'    => $this->find($loanId)
+            $allocationOrder = [
+                'schedule_id' => $allocation['schedule_id'],
+                'priority' => ['interest', 'principal'],
+                'interest_amount' => $allocation['interest_amount'],
+                'principal_amount' => $allocation['principal_amount'],
+                'penalty_amount' => 0.00,
+                'fee_amount' => 0.00,
             ];
-        } catch (\Exception $e) {
-            $this->db->rollBack();
-            throw $e;
+
+            $allocationStmt->execute([
+                'lpa_' . bin2hex(random_bytes(6)),
+                $paymentId,
+                $loanId,
+                $allocation['penalty_amount'],
+                $allocation['interest_amount'],
+                $allocation['fee_amount'],
+                $allocation['principal_amount'],
+                json_encode($allocationOrder, JSON_THROW_ON_ERROR)
+            ]);
         }
+
+        // 4. Update loan principal balance and payment totals.
+        $updLoan = $this->db->prepare("
+            UPDATE loans
+            SET current_balance = GREATEST(
+                    0,
+                    current_balance - ?
+                ),
+                total_principal_paid = total_principal_paid + ?,
+                total_interest_paid = total_interest_paid + ?,
+                status = CASE
+                    WHEN GREATEST(
+                        0,
+                        current_balance - ?
+                    ) <= 0.01
+                    THEN 'Fully Paid'
+                    ELSE status
+                END
+            WHERE id = ?
+        ");
+
+        $updLoan->execute([
+            $totalPrincipalPaid,
+            $totalPrincipalPaid,
+            $totalInterestPaid,
+            $totalPrincipalPaid,
+            $loanId
+        ]);
+
+        // 5. Record audit trail.
+        $this->audit->recordAuditTrail(
+            'loan_payments',
+            [
+                'loan_id' => $loanId,
+                'balance' => $loan['current_balance'] ?? null
+            ],
+            [
+                'payment_id' => $paymentId,
+                'receipt_no' => $refNo,
+                'loan_id' => $loanId,
+                'member_id' => $loan['member_id'],
+                'amount' => $amount,
+                'principal_paid' => $totalPrincipalPaid,
+                'interest_paid' => $totalInterestPaid,
+                'allocation_count' => count($allocations)
+            ],
+            (string) $receivedBy,
+            'Loan repayment recorded',
+            'TRANSACTION'
+        );
+
+        $this->db->commit();
+
+        return [
+            'payment_id' => $paymentId,
+            'reference_no' => $refNo,
+            'amount_paid' => $amount,
+            'principal_paid' => $totalPrincipalPaid,
+            'interest_paid' => $totalInterestPaid,
+            'allocation_count' => count($allocations),
+            'updated_loan' => $this->find($loanId)
+        ];
+
+    } catch (\Throwable $e) {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+
+        throw $e;
     }
+}
+
+
 
     /**
      * Delete loan and its schedules

@@ -133,6 +133,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     branch_id: selectedBranch !== 'all' ? selectedBranch : (branches[0]?.id || 'branch_tar'),
     description: '',
     member_id: '',
+    reference_id: '',
     voucher_type: 'JV' as 'JV' | 'OR' | 'CD',
     lines: [
       { account_id: 'acc_5110', debit: 1500, credit: 0, subsidiary_type: '' as any, subsidiary_id: '' as any },
@@ -179,8 +180,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const generalJournalCols: ExcelColumn<JournalEntry>[] = [
     {
       key: 'voucher_number',
-      header: 'Voucher / Ref No.',
-      width: '150px',
+      header: 'Voucher #',
+      width: '140px',
       type: 'badge',
       align: 'center',
       sortable: true,
@@ -190,6 +191,18 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         if (v.includes('-CD-') || v.startsWith('CD')) return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
         return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
       }
+    },
+    {
+      key: 'reference_id',
+      header: 'Reference ID / Source Doc #',
+      width: '160px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => (
+        <span className="font-mono text-xs font-semibold text-amber-400">
+          {(item as any).reference_id || val || item.voucher_number || '-'}
+        </span>
+      )
     },
     {
       key: 'branch_id',
@@ -276,6 +289,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         lines.push({
           id: `${j.id}_${l.id || idx}`,
           voucher_number: j.voucher_number,
+          reference_id: (j as any).reference_id || (l as any).reference_id || j.voucher_number || '-',
           posting_date: j.posting_date,
           reference_type: j.reference_type,
           voucher_desc: j.description,
@@ -294,8 +308,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const generalLedgerCols: ExcelColumn<any>[] = [
     {
       key: 'voucher_number',
-      header: 'Voucher / Ref No.',
-      width: '140px',
+      header: 'Voucher #',
+      width: '130px',
       type: 'badge',
       align: 'center',
       sortable: true,
@@ -305,6 +319,18 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         if (v.includes('-CD-') || v.startsWith('CD')) return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
         return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
       }
+    },
+    {
+      key: 'reference_id',
+      header: 'Reference ID / Source Ref',
+      width: '150px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => (
+        <span className="font-mono text-xs font-semibold text-amber-400">
+          {item.reference_id || val || '-'}
+        </span>
+      )
     },
     { key: 'posting_date', header: 'Posting Date', width: '115px', type: 'date', align: 'center', sortable: true },
     {
@@ -781,6 +807,19 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
                     alwaysShowSearch={true}
                     minOptionsForSearch={6}
                     clearable={true}
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="text-xs text-slate-300 font-medium">
+                    Reference ID / Source Document # <span className="text-slate-500 font-normal">(e.g. Official Receipt #, Check #, Bank Ref #, Invoice #)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. OR-2026-0089, CHK-99021, INV-2026-10"
+                    value={jvForm.reference_id}
+                    onChange={e => setJvForm({ ...jvForm, reference_id: e.target.value })}
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 font-mono"
                   />
                 </div>
 

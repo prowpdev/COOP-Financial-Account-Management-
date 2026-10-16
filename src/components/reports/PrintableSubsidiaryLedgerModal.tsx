@@ -378,7 +378,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                   </div>
 
                   <div className="flex items-center space-x-3 text-xs">
-                    {acc.ledger_type === 'loan' && (
+                    {['loan', 'loans'].includes(acc.ledger_type) && (
                       <span className="text-slate-300 print:text-slate-700">
                         Disbursed: <strong className="font-mono text-white print:text-black">{formatCurrency(acc.original_principal)}</strong>
                       </span>
@@ -402,7 +402,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                         <th className="py-2 px-3 font-semibold">Transaction Particulars</th>
                         <th className="py-2 px-3 font-semibold text-right w-24">Debit (₱)</th>
                         <th className="py-2 px-3 font-semibold text-right w-24">Credit (₱)</th>
-                        {acc.ledger_type === 'loan' && (
+                        {['loan', 'loans'].includes(acc.ledger_type) && (
                           <>
                             <th className="py-2 px-3 font-semibold text-right w-24">Principal Paid</th>
                             <th className="py-2 px-3 font-semibold text-right w-24">Interest Paid</th>
@@ -415,7 +415,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                     <tbody className="divide-y divide-slate-800 print:divide-slate-200">
                       {acc.entries.length === 0 ? (
                         <tr>
-                          <td colSpan={acc.ledger_type === 'loan' ? 9 : 6} className="py-4 text-center text-slate-400 print:text-slate-500 italic">
+                          <td colSpan={['loan', 'loans'].includes(acc.ledger_type) ? 9 : 6} className="py-4 text-center text-slate-400 print:text-slate-500 italic">
                             No ledger movements recorded in this period.
                           </td>
                         </tr>
@@ -437,7 +437,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                             <td className="py-1.5 px-3 font-mono text-right text-slate-300 print:text-black whitespace-nowrap">
                               {entry.credit > 0 ? entry.credit.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                             </td>
-                            {acc.ledger_type === 'loan' && (
+                            {['loan', 'loans'].includes(acc.ledger_type) && (
                               <>
                                 <td className="py-1.5 px-3 font-mono font-bold text-right text-emerald-400 print:text-black whitespace-nowrap">
                                   {entry.principal_paid && entry.principal_paid > 0 ? entry.principal_paid.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
@@ -468,7 +468,7 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                         <td className="py-2 px-3 font-mono text-right text-slate-300 print:text-black">
                           {acc.entries.reduce((s, e) => s + (e.credit || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
-                        {acc.ledger_type === 'loan' && (
+                        {['loan', 'loans'].includes(acc.ledger_type) && (
                           <>
                             <td className="py-2 px-3 font-mono text-right text-emerald-400 print:text-black">
                               {(acc.total_principal_paid || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}

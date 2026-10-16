@@ -491,10 +491,63 @@ export function runComprehensiveDatabaseSeeder() {
   loans.push(loan2);
   totalLoanPrincipalOutstanding += loan2.current_balance;
 
+  // Payments for Loan 2 (Maria Santos - 2 paid installments)
+  const l2MonthlyPrin = Number((l2Principal / 6).toFixed(2));
+  const l2MonthlyInt = Number(((l2Principal * 0.10) / 12).toFixed(2));
+  let l2TotalPrinPaid = 0;
+  let l2TotalIntPaid = 0;
+
+  for (let p = 1; p <= 2; p++) {
+    const payDate = new Date(2026, p + 1, 15).toISOString().split('T')[0];
+    const payTotal = Number((l2MonthlyPrin + l2MonthlyInt).toFixed(2));
+    const payId = `pay_ln2_${p}`;
+    payments.push({
+      id: payId,
+      receipt_no: `OR-LN-2026-000${p + 2}`,
+      loan_id: loan2.id,
+      loan_account_no: loan2.loan_account_no,
+      member_id: loan2.member_id,
+      payment_date: payDate,
+      total_amount: payTotal,
+      amount: payTotal,
+      principal_amount: l2MonthlyPrin,
+      interest_amount: l2MonthlyInt,
+      penalty_amount: 0,
+      fee_amount: 0,
+      cash_account_id: 'cash_01',
+      received_by: 'Elena Rostro',
+      notes: `Installment #${p} Payment`,
+      created_at: `${payDate} 10:30:00`
+    });
+    allocations.push({
+      id: `alloc_ln2_${p}_p`,
+      payment_id: payId,
+      loan_id: loan2.id,
+      fee_type: 'Principal',
+      principal_amount: l2MonthlyPrin,
+      allocated_amount: l2MonthlyPrin
+    });
+    allocations.push({
+      id: `alloc_ln2_${p}_i`,
+      payment_id: payId,
+      loan_id: loan2.id,
+      fee_type: 'Interest',
+      interest_amount: l2MonthlyInt,
+      allocated_amount: l2MonthlyInt
+    });
+    l2TotalPrinPaid += l2MonthlyPrin;
+    l2TotalIntPaid += l2MonthlyInt;
+  }
+
+  loan2.total_principal_paid = l2TotalPrinPaid;
+  loan2.total_interest_paid = l2TotalIntPaid;
+  loan2.current_balance = Number((l2Principal - l2TotalPrinPaid).toFixed(2));
+
   for (let i = 1; i <= 6; i++) {
     const dueDate = new Date(2026, i + 1, 15).toISOString().split('T')[0];
     const mPrin = Number((l2Principal / 6).toFixed(2));
     const mInt = Number(((l2Principal * 0.10) / 12).toFixed(2));
+    const isPaid = i <= 2;
     schedules.push({
       id: `las_ln2_${i}`,
       loan_id: loan2.id,
@@ -505,11 +558,11 @@ export function runComprehensiveDatabaseSeeder() {
       fee: 0,
       total_installment: Number((mPrin + mInt).toFixed(2)),
       principal_balance: Math.max(0, Number((l2Principal - mPrin * i).toFixed(2))),
-      paid_principal: 0,
-      paid_interest: 0,
+      paid_principal: isPaid ? mPrin : 0,
+      paid_interest: isPaid ? mInt : 0,
       paid_penalty: 0,
-      paid_date: null,
-      status: 'Unpaid'
+      paid_date: isPaid ? new Date(2026, i + 1, 15).toISOString().split('T')[0] : null,
+      status: isPaid ? 'Paid' : 'Unpaid'
     });
   }
 
@@ -549,12 +602,57 @@ export function runComprehensiveDatabaseSeeder() {
     created_at: '2026-03-01T10:00:00Z'
   };
   loans.push(loan3);
+
+  // Payment for Loan 3 (Pedro Reyes - 1 paid installment)
+  const l3MonthlyPrin = Number((l3Principal / 12).toFixed(2));
+  const l3MonthlyInt = Number(((l3Principal * 0.10) / 12).toFixed(2));
+  const l3PayTotal = Number((l3MonthlyPrin + l3MonthlyInt).toFixed(2));
+  const l3PayDate = '2026-04-01';
+  payments.push({
+    id: 'pay_ln3_1',
+    receipt_no: 'OR-LN-2026-0005',
+    loan_id: loan3.id,
+    loan_account_no: loan3.loan_account_no,
+    member_id: loan3.member_id,
+    payment_date: l3PayDate,
+    total_amount: l3PayTotal,
+    amount: l3PayTotal,
+    principal_amount: l3MonthlyPrin,
+    interest_amount: l3MonthlyInt,
+    penalty_amount: 0,
+    fee_amount: 0,
+    cash_account_id: 'cash_02',
+    received_by: 'Roberto Valenzuela',
+    notes: 'Installment #1 Payment',
+    created_at: `${l3PayDate} 11:15:00`
+  });
+  allocations.push({
+    id: 'alloc_ln3_1_p',
+    payment_id: 'pay_ln3_1',
+    loan_id: loan3.id,
+    fee_type: 'Principal',
+    principal_amount: l3MonthlyPrin,
+    allocated_amount: l3MonthlyPrin
+  });
+  allocations.push({
+    id: 'alloc_ln3_1_i',
+    payment_id: 'pay_ln3_1',
+    loan_id: loan3.id,
+    fee_type: 'Interest',
+    interest_amount: l3MonthlyInt,
+    allocated_amount: l3MonthlyInt
+  });
+
+  loan3.total_principal_paid = l3MonthlyPrin;
+  loan3.total_interest_paid = l3MonthlyInt;
+  loan3.current_balance = Number((l3Principal - l3MonthlyPrin).toFixed(2));
   totalLoanPrincipalOutstanding += loan3.current_balance;
 
   for (let i = 1; i <= 12; i++) {
     const dueDate = new Date(2026, i + 2, 1).toISOString().split('T')[0];
     const mPrin = Number((l3Principal / 12).toFixed(2));
     const mInt = Number(((l3Principal * 0.10) / 12).toFixed(2));
+    const isPaid = i === 1;
     schedules.push({
       id: `las_ln3_${i}`,
       loan_id: loan3.id,
@@ -565,11 +663,11 @@ export function runComprehensiveDatabaseSeeder() {
       fee: 0,
       total_installment: Number((mPrin + mInt).toFixed(2)),
       principal_balance: Math.max(0, Number((l3Principal - mPrin * i).toFixed(2))),
-      paid_principal: 0,
-      paid_interest: 0,
+      paid_principal: isPaid ? mPrin : 0,
+      paid_interest: isPaid ? mInt : 0,
       paid_penalty: 0,
-      paid_date: null,
-      status: 'Unpaid'
+      paid_date: isPaid ? l3PayDate : null,
+      status: isPaid ? 'Paid' : 'Unpaid'
     });
   }
 
@@ -699,7 +797,8 @@ export function runComprehensiveDatabaseSeeder() {
     branchId: string,
     date: string,
     desc: string,
-    lines: { account_id: string; debit: number; credit: number; subType?: string; subId?: string }[]
+    lines: { account_id: string; debit: number; credit: number; subType?: string; subId?: string }[],
+    refId?: string
   ) => {
     const totalDr = Number(lines.reduce((s, l) => s + (l.debit || 0), 0).toFixed(2));
     const totalCr = Number(lines.reduce((s, l) => s + (l.credit || 0), 0).toFixed(2));
@@ -711,7 +810,7 @@ export function runComprehensiveDatabaseSeeder() {
       branch_id: branchId,
       posting_date: date,
       reference_type: 'System Seed Voucher',
-      reference_id: null,
+      reference_id: refId || voucherNo,
       description: desc,
       total_debit: totalDr,
       total_credit: totalCr,
@@ -744,7 +843,7 @@ export function runComprehensiveDatabaseSeeder() {
     { account_id: 'acc_1110', debit: 200000, credit: 0, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_3110', debit: 0, credit: 1500000, subType: 'Equity', subId: 'coop_01' },
     { account_id: 'acc_3130', debit: 0, credit: 700000, subType: 'Reserve', subId: 'coop_01' }
-  ]);
+  ], 'CAP-2026-0001');
 
   // Voucher 2: Members Share Capital (CBU) Paid-Up
   // Dr Cash on Hand (acc_1110) totalShareCapitalPaid
@@ -752,7 +851,7 @@ export function runComprehensiveDatabaseSeeder() {
   addVoucher('JV-2026-0002', 'branch_tar', '2026-01-15', 'Members initial Capital Build-Up (CBU) share capital contributions', [
     { account_id: 'acc_1110', debit: totalShareCapitalPaid, credit: 0, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_3110', debit: 0, credit: totalShareCapitalPaid, subType: 'Member', subId: 'mem_000001' }
-  ]);
+  ], 'CBU-2026-0002');
 
   // Voucher 3: Members Regular Savings Deposits
   // Dr Cash on Hand (acc_1110) totalSavingsDeposits
@@ -760,7 +859,7 @@ export function runComprehensiveDatabaseSeeder() {
   addVoucher('JV-2026-0003', 'branch_tar', '2026-01-16', 'Members opening regular savings deposit collections', [
     { account_id: 'acc_1110', debit: totalSavingsDeposits, credit: 0, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_2110', debit: 0, credit: totalSavingsDeposits, subType: 'Savings', subId: 'sa_mem_000001' }
-  ]);
+  ], 'SAV-2026-0003');
 
   // Voucher 4: Loan Release - Juan Dela Cruz
   // Dr Loans Receivable (acc_1210) 25,000
@@ -770,7 +869,7 @@ export function runComprehensiveDatabaseSeeder() {
     { account_id: 'acc_1210', debit: 25000, credit: 0, subType: 'Loan', subId: 'ln_000001' },
     { account_id: 'acc_1110', debit: 0, credit: 24500, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_4120', debit: 0, credit: 500 }
-  ]);
+  ], 'DISB-LN-2026-0001');
 
   // Voucher 5: Loan Release - Maria Santos
   // Dr Loans Receivable (acc_1210) 15,000
@@ -780,7 +879,7 @@ export function runComprehensiveDatabaseSeeder() {
     { account_id: 'acc_1210', debit: 15000, credit: 0, subType: 'Loan', subId: 'ln_000002' },
     { account_id: 'acc_1110', debit: 0, credit: 14700, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_4120', debit: 0, credit: 300 }
-  ]);
+  ], 'DISB-LN-2026-0002');
 
   // Voucher 6: Loan Release - Pedro Reyes
   // Dr Loans Receivable (acc_1210) 50,000
@@ -790,7 +889,7 @@ export function runComprehensiveDatabaseSeeder() {
     { account_id: 'acc_1210', debit: 50000, credit: 0, subType: 'Loan', subId: 'ln_000003' },
     { account_id: 'acc_1110', debit: 0, credit: 49000, subType: 'Cash', subId: 'cash_02' },
     { account_id: 'acc_4120', debit: 0, credit: 1000 }
-  ]);
+  ], 'DISB-LN-2026-0003');
 
   // Voucher 7: Loan Payments Collected (Loan 1 - 2 installments)
   const l1TotalPaid = Number(((l1MonthlyPrin + l1MonthlyInt) * 2).toFixed(2));
@@ -800,7 +899,7 @@ export function runComprehensiveDatabaseSeeder() {
     { account_id: 'acc_1110', debit: l1TotalPaid, credit: 0, subType: 'Cash', subId: 'cash_01' },
     { account_id: 'acc_1210', debit: 0, credit: l1PrinPaid, subType: 'Loan', subId: 'ln_000001' },
     { account_id: 'acc_4110', debit: 0, credit: l1IntPaid, subType: 'Income', subId: 'acc_4110' }
-  ]);
+  ], 'OR-LN-2026-0001');
 
   (db as any).data.journal_entries = journalEntries;
   (db as any).data.journal_lines = journalLines;

@@ -922,9 +922,9 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
               {filteredRows.map((row: any, rowIndex: number) => {
                 const rowKey = `${row.id || row.transaction_id || row.reference || 'transaction'}-${rowIndex}`;
                 const isExpanded = expandedJVs.has(rowKey);
-                const isJV = row.is_jv || row.is_manual_jv || (row.lines && row.lines.length > 0);
-
-                let badgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
+                 const isJV = row.is_jv || row.is_manual_jv || (row.lines && row.lines.length > 0);
+               
+                 let badgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
                 if (row.type?.includes('Membership & Share Capital')) {
                   badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold';
                 } else if (row.type?.includes('Share Capital')) {

@@ -43,7 +43,7 @@ class DocumentController extends BaseController
             }
 
             $userBranch = $branchId ?: ($user['branch_id'] ?? null);
-            // $docsList = $this->documents->forBranch($userBranch, $targetUserId, $search);
+            $docsList = $this->documents->forBranch($userBranch, $targetUserId, $search);
             $docsKeyed = $this->documents->forUser($targetUserId);
 
             unset($user['password_hash']);
@@ -59,14 +59,14 @@ class DocumentController extends BaseController
                     'branch_id' => $user['branch_id'] ?? null,
                     'branch_name' => $user['branch_name'] ?? null,
                 ],
-                // 'data' => $docsList,
-                // 'documents' => $docsKeyed,
-                // 'count' => count($docsList),
+                'data' => $docsList,
+                'documents' => $docsKeyed,
+                'count' => count($docsList),
             ]);
         }
 
         // 2. Fetch all user documents for current_user branch
-        // $docsList = $this->documents->forBranch($branchId, null, $search);
+        $docsList = $this->documents->forBranch($branchId, null, $search);
 
         $currentUser = $this->getCurrentUser();
         $this->json([
@@ -81,9 +81,9 @@ class DocumentController extends BaseController
                 'branch_id' => $currentUser['branch_id'] ?? $branchId,
                 'branch_name' => $currentUser['branch_name'] ?? null,
             ] : null,
-            // 'data' => $docsList,
-            // 'documents' => $docsList,
-            // 'count' => count($docsList),
+            'data' => $docsList,
+            'documents' => $docsList,
+            'count' => count($docsList),
         ]);
     }
 

@@ -1208,7 +1208,6 @@ class ReportService
                     m.first_name,
                     m.last_name,
                     m.address,
-                    m.contact_no,
                     lp.name AS product_name,
                     lp.code AS product_code,
                     COALESCE(b.name, 'Main Branch') AS branch_name
@@ -1253,6 +1252,8 @@ class ReportService
                         lp.receipt_no,
                         lp.payment_date,
                         lp.total_amount,
+                        lp.principal_paid,
+                        lp.interest_paid,
                         lp.received_by,
                         COALESCE(lpa.principal_amount, 0) AS principal_amount,
                         COALESCE(lpa.interest_amount, 0) AS interest_amount,
@@ -1266,6 +1267,7 @@ class ReportService
                 $stmtP = $this->db->prepare($sqlP);
                 $stmtP->execute(['loan_id' => $ln['id']]);
                 $payments = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+               
 
                 $entries = [];
                 $runningBal = $principal;
@@ -1308,7 +1310,7 @@ class ReportService
                 $loanInterestPaid = 0.0;
                 $loanPenaltyPaid = 0.0;
                 $loanFeesPaid = 0.0;
-
+              
                 foreach ($payments as $p) {
                     $pDate = substr((string)$p['payment_date'], 0, 10);
                     $pPrincipal = (float)($p['principal_amount'] ?? 0);
@@ -1375,7 +1377,7 @@ class ReportService
                     'member_no' => $ln['member_no'] ?: 'MEM-N/A',
                     'member_name' => $memberName,
                     'member_address' => $ln['address'] ?? '',
-                    'member_contact' => $ln['contact_no'] ?? '',
+                   
                     'branch_id' => $ln['branch_id'],
                     'branch_name' => $ln['branch_name'] ?? 'Main Branch',
                     'product_name' => $ln['product_name'] ?: 'Regular Loan',
@@ -1413,7 +1415,6 @@ class ReportService
                     m.first_name,
                     m.last_name,
                     m.address,
-                    m.contact_no,
                     sp.name AS product_name,
                     sp.code AS product_code,
                     COALESCE(b.name, 'Main Branch') AS branch_name
@@ -1519,7 +1520,7 @@ class ReportService
                     'member_no' => $sa['member_no'] ?: 'MEM-N/A',
                     'member_name' => $memberName,
                     'member_address' => $sa['address'] ?? '',
-                    'member_contact' => $sa['contact_no'] ?? '',
+                 
                     'branch_id' => $sa['branch_id'] ?? 'branch_tar',
                     'branch_name' => $sa['branch_name'] ?? 'Main Branch',
                     'product_name' => $sa['product_name'] ?: 'Regular Savings',
@@ -1551,7 +1552,7 @@ class ReportService
                     m.first_name,
                     m.last_name,
                     m.address,
-                    m.contact_no,
+                   
                     COALESCE(b.name, 'Main Branch') AS branch_name
                 FROM share_capital_accounts sca
                 INNER JOIN members m ON m.id = sca.member_id
@@ -1651,7 +1652,7 @@ class ReportService
                     'member_no' => $sca['member_no'] ?: 'MEM-N/A',
                     'member_name' => $memberName,
                     'member_address' => $sca['address'] ?? '',
-                    'member_contact' => $sca['contact_no'] ?? '',
+                   
                     'branch_id' => $sca['branch_id'] ?? 'branch_tar',
                     'branch_name' => $sca['branch_name'] ?? 'Main Branch',
                     'product_name' => 'Common Share Capital (CBU)',

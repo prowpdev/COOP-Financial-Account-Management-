@@ -90,8 +90,6 @@ class ShareCapitalService
      */
     public function createAccount(array $data): array
     {
-           print_r($data);
-           die();
         $id = $data['id']
             ?? ('sc_' . bin2hex(random_bytes(6)));
 

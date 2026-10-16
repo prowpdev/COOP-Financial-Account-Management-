@@ -1487,8 +1487,9 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
   const loanIds = new Set(loans.map(item => item.id));
   const savingsIds = new Set(savingsAccounts.map(item => item.id));
   const shareIds = new Set(shareAccounts.map(item => item.id));
-  const payments = db.getTable('loan_payments').filter(item => loanIds.has(item.loan_id));
+  const payments = db.getTable('loan_payments').filter(item => loanIds.has(item.loan_id) || loans.some(l => l.loan_account_no === item.loan_id || l.loan_account_no === item.loan_account_no));
   const paymentIds = new Set(payments.map(item => item.id));
+  const allocations = db.getTable('loan_payment_allocations') || [];
   const savingsTransactions = db.getTable('savings_transactions').filter(item => savingsIds.has(item.savings_account_id));
   const shareTransactions = db.getTable('share_capital_transactions').filter(item => shareIds.has(item.share_account_id));
   const transactionIds = new Set([member.id, ...loanIds, ...paymentIds, ...savingsIds, ...shareIds, ...savingsTransactions.map(item => item.id), ...shareTransactions.map(item => item.id)]);
@@ -1496,48 +1497,105 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
   const transactions = [
     ...loans.map(item => ({
       id: `loan-${item.id}`,
+      loan_id: item.id,
       date: item.disbursement_date,
       type: 'Loan released',
       reference: item.loan_account_no,
+      reference_id: item.loan_account_no ? `DISB-${item.loan_account_no}` : item.id,
       description: `${products.find(p => p.id === item.loan_product_id)?.name || 'Loan'} approved/released`,
       amount: item.net_disbursed || item.principal_amount,
       debit: item.principal_amount || 0,
       credit: 0,
+      principal_amount: item.principal_amount || 0,
+      interest_amount: 0,
+      penalty_amount: 0,
       category: 'Loans'
     })),
-    ...payments.map(item => ({
-      id: `payment-${item.id}`,
-      date: item.payment_date || item.transaction_date,
-      type: 'Loan payment',
-      reference: item.receipt_no || item.id,
-      description: `Principal ${Number(item.principal_amount || 0).toFixed(2)}, interest ${Number(item.interest_amount || 0).toFixed(2)}`,
-      amount: item.amount || item.total_amount || 0,
-      debit: 0,
-      credit: item.amount || item.total_amount || 0,
-      category: 'Loans'
-    })),
-    ...savingsTransactions.map(item => ({
-      id: `saving-${item.id}`,
-      date: item.transaction_date,
-      type: `Savings ${String(item.type || 'transaction').toLowerCase()}`,
-      reference: item.transaction_no || item.id,
-      description: savingsAccounts.find(account => account.id === item.savings_account_id)?.account_number || 'Savings account',
-      amount: item.amount || 0,
-      debit: item.type === 'WITHDRAWAL' ? item.amount || 0 : 0,
-      credit: item.type === 'WITHDRAWAL' ? 0 : item.amount || 0,
-      category: 'Savings'
-    })),
-    ...shareTransactions.map(item => ({
-      id: `share-${item.id}`,
-      date: item.transaction_date,
-      type: 'Share capital payment',
-      reference: item.receipt_no || item.id,
-      description: shareAccounts.find(account => account.id === item.share_account_id)?.account_number || 'Share capital account',
-      amount: item.amount || 0,
-      debit: 0,
-      credit: item.amount || 0,
-      category: 'Share Capital'
-    }))
+    ...payments.map(item => {
+      // Find allocations for this payment
+      const pmtAllocs = allocations.filter(a => a.payment_id === item.id || a.loan_payment_id === item.id);
+      let pPrin = Number(item.principal_amount || 0);
+      let pInt = Number(item.interest_amount || 0);
+      let pPen = Number(item.penalty_amount || 0);
+
+      if (pmtAllocs.length > 0) {
+        pmtAllocs.forEach(a => {
+          const fType = String(a.fee_type || a.type || '').toLowerCase();
+          const amt = Number(a.allocated_amount || a.amount || 0);
+          if (a.principal_amount !== undefined && Number(a.principal_amount) > 0) pPrin += Number(a.principal_amount);
+          else if (fType === 'principal') pPrin += amt;
+
+          if (a.interest_amount !== undefined && Number(a.interest_amount) > 0) pInt += Number(a.interest_amount);
+          else if (fType === 'interest') pInt += amt;
+
+          if (a.penalty_amount !== undefined && Number(a.penalty_amount) > 0) pPen += Number(a.penalty_amount);
+          else if (fType === 'penalty') pPen += amt;
+        });
+      }
+
+      const totalAmt = Number(item.amount || item.total_amount || (pPrin + pInt + pPen) || 0);
+      if (pPrin === 0 && pInt === 0 && totalAmt > 0) {
+        pPrin = totalAmt;
+      }
+
+      const refNumber = item.receipt_no || item.reference_id || item.id;
+      return {
+        id: `payment-${item.id}`,
+        payment_id: item.id,
+        loan_id: item.loan_id,
+        date: item.payment_date || item.transaction_date,
+        type: 'Loan payment',
+        reference: refNumber,
+        reference_id: refNumber,
+        description: `Loan Repayment: Principal ₱${pPrin.toLocaleString(undefined, {minimumFractionDigits: 2})}, Interest ₱${pInt.toLocaleString(undefined, {minimumFractionDigits: 2})}`,
+        amount: totalAmt,
+        debit: 0,
+        credit: totalAmt,
+        principal_amount: pPrin,
+        interest_amount: pInt,
+        penalty_amount: pPen,
+        category: 'Loans'
+      };
+    }),
+    ...savingsTransactions.map(item => {
+      const isWithdrawal = String(item.type || '').toUpperCase() === 'WITHDRAWAL';
+      const refNumber = item.transaction_no || item.reference_id || item.id;
+      return {
+        id: `saving-${item.id}`,
+        date: item.transaction_date,
+        type: `Savings ${String(item.type || 'transaction').toLowerCase()}`,
+        reference: refNumber,
+        reference_id: refNumber,
+        description: savingsAccounts.find(account => account.id === item.savings_account_id)?.account_number || 'Savings account',
+        amount: item.amount || 0,
+        debit: isWithdrawal ? item.amount || 0 : 0,
+        credit: isWithdrawal ? 0 : item.amount || 0,
+        principal_amount: 0,
+        interest_amount: 0,
+        penalty_amount: 0,
+        category: 'Savings'
+      };
+    }),
+    ...shareTransactions.map(item => {
+      const refNumber = item.receipt_no || item.reference_id || item.id;
+      const sharesCount = item.shares || (item.amount ? Math.floor(item.amount / 100) : 0);
+      return {
+        id: `share-${item.id}`,
+        date: item.transaction_date,
+        type: 'Share capital payment',
+        reference: refNumber,
+        reference_id: refNumber,
+        description: `${shareAccounts.find(account => account.id === item.share_account_id)?.account_number || 'Share capital account'} (+${sharesCount} shares)`,
+        amount: item.amount || 0,
+        debit: 0,
+        credit: item.amount || 0,
+        shares: sharesCount,
+        principal_amount: 0,
+        interest_amount: 0,
+        penalty_amount: 0,
+        category: 'Share Capital'
+      };
+    })
   ];
 
   const journalEntries = db.getTable('journal_entries');
@@ -1663,6 +1721,9 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
         total_transactions: transactions.length + journalTransactions.length,
         jv_count: journalTransactions.length
       },
+      share_account: shareAccounts[0] || null,
+      share_accounts: shareAccounts,
+      share_transactions: shareTransactions,
       transactions: [...transactions, ...journalTransactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
     }
   });
@@ -2490,7 +2551,7 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     transaction_type: 'LOAN_RELEASE',
     posting_date: today,
     branch_id: branch ? branch.id : 'branch_tar',
-    reference_id: loanId,
+    reference_id: loanNo || `DISB-${loanId}`,
     description: `Loan disbursement ${loanNo} for ${member.first_name} ${member.last_name}, less processing fees`,
     performed_by: performed_by || 'System',
     custom_debit_account_id: product.debit_account_id,
@@ -2790,7 +2851,7 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
     transaction_type: 'LOAN_PAYMENT',
     posting_date: today,
     branch_id: branch.id,
-    reference_id: pmtId,
+    reference_id: receiptNo,
     description: `Loan payment ${receiptNo} for ${loan.loan_account_no}`,
     performed_by: performed_by || 'Cashier',
     cash_account_id: cash_account_id || 'cash_01',
@@ -2815,14 +2876,22 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
   const paymentRecord = {
     id: pmtId,
     receipt_no: receiptNo,
+    reference_id: receiptNo,
     loan_id: loan.id,
+    loan_account_no: loan.loan_account_no,
     member_id: loan.member_id,
+    branch_id: loan.branch_id,
     payment_date: today,
     total_amount: paymentAmount,
+    amount: paymentAmount,
+    principal_amount: allocation.principal_allocated,
+    interest_amount: allocation.interest_allocated,
+    penalty_amount: allocation.penalty_allocated,
+    fee_amount: allocation.fee_allocated,
     cash_account_id: cash_account_id || 'cash_01',
     received_by: performed_by || 'Cashier',
     journal_entry_id: postResult.journal_entry?.id || null,
-    notes: notes || ''
+    notes: notes || `Installment payment for ${loan.loan_account_no}`
   };
   db.insert('loan_payments', paymentRecord);
 
@@ -3653,10 +3722,12 @@ router.get('/accounting/journals', (req: Request, res: Response) => {
 
   const result = entries.map(e => ({
     ...e,
+    reference_id: e.reference_id || e.voucher_number || e.id,
     lines: lines.filter(l => l.journal_entry_id === e.id).map(l => {
       const acc = accounts.find(a => a.id === l.account_id);
       return {
         ...l,
+        reference_id: e.reference_id || e.voucher_number || e.id,
         account_code: acc?.code || '',
         account_name: acc?.name || 'Account'
       };
@@ -3676,7 +3747,9 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     performed_by,
     member_id,
     member_name,
-    reference_type
+    reference_type,
+    reference_id,
+    reference_no
   } = req.body;
 
   if (!lines || lines.length < 2) {
@@ -3743,6 +3816,8 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
   const defaultRefType = voucherPrefix === 'OR' ? 'CASH_RECEIPT' :
                          voucherPrefix === 'CD' ? 'CASH_DISBURSEMENT' : 'MANUAL_JOURNAL';
 
+  const finalRefId = reference_id || reference_no || req.body.ref_no || (resolvedMemberId ? `MEM-${resolvedMemberId}` : voucherNo) || jvId;
+
   const entry = {
     id: jvId,
     voucher_number: voucherNo,
@@ -3750,7 +3825,7 @@ router.post('/accounting/manual-journal', (req: Request, res: Response) => {
     branch_id: branch.id,
     posting_date: posting_date || new Date().toISOString().split('T')[0],
     reference_type: reference_type || defaultRefType,
-    reference_id: resolvedMemberId || jvId,
+    reference_id: finalRefId,
     member_id: resolvedMemberId,
     member_name: resolvedMemberName,
     description,
@@ -4507,7 +4582,7 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
       posting_date: entry?.posting_date || entry?.posted_at?.split('T')[0] || '',
       description: entry?.description || '',
       reference_type: entry?.reference_type || '',
-      reference_id: entry?.reference_id || '',
+      reference_id: entry?.reference_id || entry?.voucher_number || line.journal_entry_id,
       status: entry?.status || 'Posted',
       created_by: entry?.created_by || '',
       account_id: line.account_id,
@@ -4573,6 +4648,9 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
   const savingsTx = db.getTable('savings_transactions') || [];
   const cbuTx = db.getTable('share_capital_transactions') || [];
   const loanPayments = db.getTable('loan_payments') || [];
+  const loans = db.getTable('loans') || [];
+  const journalEntries = db.getTable('journal_entries') || [];
+  const journalLines = db.getTable('journal_lines') || [];
   const branches = db.getTable('branches') || [];
   const accounts = db.getTable('chart_of_accounts') || [];
 
@@ -4606,9 +4684,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       member_id: st.member_id,
       member_no: mem?.member_no || 'MEM-N/A',
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      category: 'Savings',
       product_type: 'Savings Deposit',
       account_number: st.savings_account_id,
-      reference_no: st.transaction_no || st.id,
+      reference_no: st.transaction_no || st.reference_no || st.id,
       description: st.notes || `Savings ${st.type}`,
       transaction_type: st.type,
       debit: !isDeposit ? amt : 0,
@@ -4638,9 +4717,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       member_id: ct.member_id,
       member_no: mem?.member_no || 'MEM-N/A',
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      category: 'Share Capital',
       product_type: 'Share Capital (CBU)',
       account_number: ct.share_account_id,
-      reference_no: ct.receipt_no || ct.id,
+      reference_no: ct.receipt_no || ct.reference_no || ct.id,
       description: `CBU ${ct.type} (${ct.shares || 0} shares)`,
       transaction_type: ct.type,
       debit: 0,
@@ -4653,8 +4733,41 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
     });
   });
 
-  // 3. Loan Payments (GL 1210 / 4110)
+  // 3. Loan Releases / Disbursements (GL 1210 Debit)
   const loanGl = accounts.find(a => (a.code === '1210' || a.account_code === '1210' || a.id === 'acc_1210')) || { account_code: '1210', name: 'Loans Receivable' };
+  loans.forEach(loan => {
+    if (branch_id && branch_id !== 'all' && loan.branch_id !== branch_id) return;
+    if (member_id && member_id !== 'all' && loan.member_id !== member_id) return;
+    const disbDate = (loan.disbursement_date || loan.created_at || '').slice(0, 10);
+    if (!inDateRange(disbDate)) return;
+
+    const mem = memberMap.get(loan.member_id);
+    const branch = branchMap.get(loan.branch_id);
+    const amt = Number(loan.principal_amount || 0);
+
+    results.push({
+      id: `disb_${loan.id}`,
+      date: disbDate,
+      member_id: loan.member_id,
+      member_no: mem?.member_no || 'MEM-N/A',
+      member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      category: 'Loans',
+      product_type: 'Loan Disbursement',
+      account_number: loan.loan_account_no || loan.id,
+      reference_no: `DISB-${loan.loan_account_no || loan.id}`,
+      description: `Loan Release / Disbursement (${loan.product_name || 'Regular Loan'})`,
+      transaction_type: 'Loan Release',
+      debit: amt,
+      credit: 0,
+      balance_after: amt,
+      gl_code: loanGl.account_code || loanGl.code || '1210',
+      gl_name: loanGl.name || 'Loans Receivable',
+      branch_id: loan.branch_id,
+      branch_name: branch?.name || 'Main Branch'
+    });
+  });
+
+  // 4. Loan Payments (GL 1210 / 4110 Credit)
   loanPayments.forEach(lp => {
     if (branch_id && branch_id !== 'all' && lp.branch_id !== branch_id) return;
     if (member_id && member_id !== 'all' && lp.member_id !== member_id) return;
@@ -4662,7 +4775,9 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
 
     const mem = memberMap.get(lp.member_id);
     const branch = branchMap.get(lp.branch_id);
-    const amt = Number(lp.total_amount || 0);
+    const amt = Number(lp.total_amount || lp.amount || 0);
+    const pPrin = Number(lp.principal_amount || 0);
+    const pInt = Number(lp.interest_amount || 0);
 
     results.push({
       id: lp.id,
@@ -4670,10 +4785,11 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       member_id: lp.member_id,
       member_no: mem?.member_no || 'MEM-N/A',
       member_name: mem ? `${mem.first_name} ${mem.last_name}` : 'Unknown Member',
+      category: 'Loans',
       product_type: 'Loan Amortization',
       account_number: lp.loan_id,
       reference_no: lp.receipt_no || lp.id,
-      description: `Amortization: Principal ₱${Number(lp.principal_amount || 0).toLocaleString()}, Interest ₱${Number(lp.interest_amount || 0).toLocaleString()}`,
+      description: pPrin > 0 || pInt > 0 ? `Amortization: Principal ₱${pPrin.toLocaleString()}, Interest ₱${pInt.toLocaleString()}` : (lp.notes || 'Amortization Payment'),
       transaction_type: 'Loan Payment',
       debit: 0,
       credit: amt,
@@ -4682,6 +4798,44 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       gl_name: loanGl.name || 'Loans Receivable',
       branch_id: lp.branch_id,
       branch_name: branch?.name || 'Main Branch'
+    });
+  });
+
+  // 5. Member-Linked Journal Vouchers
+  journalEntries.forEach(je => {
+    if (branch_id && branch_id !== 'all' && je.branch_id !== branch_id) return;
+    const jDate = (je.posting_date || je.posted_at || '').slice(0, 10);
+    if (!inDateRange(jDate)) return;
+
+    const mLines = journalLines.filter(jl => jl.journal_entry_id === je.id && jl.subsidiary_type === 'Member');
+    mLines.forEach(ml => {
+      if (member_id && member_id !== 'all' && ml.subsidiary_id !== member_id) return;
+      const mem = memberMap.get(ml.subsidiary_id);
+      const branch = branchMap.get(je.branch_id);
+      const acc = accounts.find(a => a.id === ml.account_id);
+      const dr = Number(ml.debit || 0);
+      const cr = Number(ml.credit || 0);
+
+      results.push({
+        id: ml.id,
+        date: jDate,
+        member_id: ml.subsidiary_id,
+        member_no: mem?.member_no || 'MEM-N/A',
+        member_name: mem ? `${mem.first_name} ${mem.last_name}` : (je.member_name || 'Member'),
+        category: 'Journal Entries',
+        product_type: 'Journal Voucher',
+        account_number: je.voucher_number || je.id,
+        reference_no: je.reference_id || je.voucher_number || je.id,
+        description: je.description || `JV ${je.voucher_number}`,
+        transaction_type: 'Journal Adjustment',
+        debit: dr,
+        credit: cr,
+        balance_after: 0,
+        gl_code: acc?.account_code || acc?.code || ml.account_id,
+        gl_name: acc?.name || 'General Ledger Account',
+        branch_id: je.branch_id,
+        branch_name: branch?.name || 'Main Branch'
+      });
     });
   });
 
@@ -4791,7 +4945,9 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
       const pmtList = loanPayments.filter(p => 
         p.loan_id === loan.id || 
         p.loan_id === loan.loan_account_no ||
-        (p.account_no && p.account_no === loan.loan_account_no)
+        (p.account_no && (p.account_no === loan.loan_account_no || p.account_no === loan.id)) ||
+        (p.loan_account_no && (p.loan_account_no === loan.loan_account_no || p.loan_account_no === loan.id)) ||
+        (p.member_id === loan.member_id && (p.notes || '').includes(loan.loan_account_no))
       ).map(p => ({ ...p }));
 
       // Also incorporate any paid installments from loan_amortization_schedules not yet in loanPayments
@@ -4815,6 +4971,7 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
               id: `sched_pmt_${s.id}`,
               receipt_no: `OR-SCHED-${s.installment_no}`,
               loan_id: loan.id,
+              loan_account_no: loan.loan_account_no,
               member_id: loan.member_id,
               payment_date: sDate,
               total_amount: sTotal,
@@ -4830,28 +4987,105 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
 
       pmtList.sort((a, b) => (a.payment_date || a.created_at || '').localeCompare(b.payment_date || b.created_at || ''));
 
+      // Process payment breakdowns across all schemas
+      const processedPayments = pmtList.map(pmt => {
+        const pmtAllocations = allocations.filter(a => 
+          a.payment_id === pmt.id || a.loan_payment_id === pmt.id || a.id === pmt.id
+        );
+
+        let pPrincipal = 0;
+        let pInterest = 0;
+        let pPenalty = 0;
+        let pFee = 0;
+
+        if (pmtAllocations.length > 0) {
+          pmtAllocations.forEach(a => {
+            const feeType = String(a.fee_type || a.type || '').toLowerCase();
+            const allocAmt = Number(a.allocated_amount || a.amount || 0);
+
+            if (a.principal_amount !== undefined && a.principal_amount !== null && Number(a.principal_amount) > 0) {
+              pPrincipal += Number(a.principal_amount);
+            } else if (feeType === 'principal') {
+              pPrincipal += allocAmt;
+            }
+
+            if (a.interest_amount !== undefined && a.interest_amount !== null && Number(a.interest_amount) > 0) {
+              pInterest += Number(a.interest_amount);
+            } else if (feeType === 'interest') {
+              pInterest += allocAmt;
+            }
+
+            if (a.penalty_amount !== undefined && a.penalty_amount !== null && Number(a.penalty_amount) > 0) {
+              pPenalty += Number(a.penalty_amount);
+            } else if (feeType === 'penalty') {
+              pPenalty += allocAmt;
+            }
+
+            if (a.fee_amount !== undefined && a.fee_amount !== null && Number(a.fee_amount) > 0) {
+              pFee += Number(a.fee_amount);
+            } else if (feeType === 'fee') {
+              pFee += allocAmt;
+            }
+          });
+        }
+
+        // Direct fallback from payment record
+        if (pPrincipal === 0 && pInterest === 0 && pPenalty === 0 && pFee === 0) {
+          pPrincipal = Number(pmt.principal_amount || pmt.principal_paid || 0);
+          pInterest = Number(pmt.interest_amount || pmt.interest_paid || 0);
+          pPenalty = Number(pmt.penalty_amount || pmt.penalty_paid || 0);
+          pFee = Number(pmt.fee_amount || pmt.fee_paid || 0);
+
+          const totAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || 0);
+          if (pPrincipal === 0 && totAmt > 0) {
+            if (pInterest > 0) {
+              pPrincipal = Math.max(0, Number((totAmt - pInterest - pPenalty - pFee).toFixed(2)));
+            } else {
+              pPrincipal = totAmt;
+            }
+          }
+        }
+
+        const totalRecordAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || (pPrincipal + pInterest + pPenalty + pFee));
+        if (pPrincipal === 0 && pInterest === 0 && totalRecordAmt > 0) {
+          pPrincipal = totalRecordAmt;
+        }
+
+        const pTotalPayment = Number((pPrincipal + pInterest + pPenalty + pFee).toFixed(2));
+        const pDate = (pmt.payment_date || pmt.created_at || '').slice(0, 10);
+
+        return {
+          ...pmt,
+          pPrincipal,
+          pInterest,
+          pPenalty,
+          pFee,
+          pTotalPayment,
+          pDate
+        };
+      });
+
+      let loanPrincipalPaid = 0;
+      let loanInterestPaid = 0;
+      let loanPenaltyPaid = 0;
+      let loanFeesPaid = 0;
+
+      processedPayments.forEach(p => {
+        loanPrincipalPaid += p.pPrincipal;
+        loanInterestPaid += p.pInterest;
+        loanPenaltyPaid += p.pPenalty;
+        loanFeesPaid += p.pFee;
+      });
+
       let runningBal = principal;
       const entries: any[] = [];
 
       // If filtering by strict date range and disbDate is before start, show beginning balance entry
       if (date_scope !== 'all' && effectiveStart && disbDate < effectiveStart) {
-        // Compute movements prior to effectiveStart
         let priorPrincipalPaid = 0;
-        pmtList.forEach(pmt => {
-          const pDate = (pmt.payment_date || pmt.created_at || '').slice(0, 10);
-          if (pDate < effectiveStart) {
-            const allocs = allocations.filter(a => a.payment_id === pmt.id || a.loan_payment_id === pmt.id);
-            let pPrin = 0;
-            if (allocs.length > 0) {
-              allocs.forEach(a => {
-                if (a.principal_amount !== undefined && Number(a.principal_amount) > 0) pPrin += Number(a.principal_amount);
-                else if (String(a.fee_type || a.type || '').toLowerCase() === 'principal') pPrin += Number(a.allocated_amount || a.amount || 0);
-              });
-            }
-            if (pPrin === 0) {
-              pPrin = Number(pmt.principal_amount || pmt.principal_paid || pmt.total_amount || pmt.amount || 0);
-            }
-            priorPrincipalPaid += pPrin;
+        processedPayments.forEach(p => {
+          if (p.pDate < effectiveStart) {
+            priorPrincipalPaid += p.pPrincipal;
           }
         });
 
@@ -4878,136 +5112,86 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
           fee_paid: 0,
           running_balance: begBalance
         });
-      } else if (inDateRange(disbDate)) {
-        // Disbursement entry
-        entries.push({
-          id: `disb_${loan.id}`,
-          account_id: loan.id,
-          account_number: loan.loan_account_no || loan.id,
-          ledger_type: 'loan',
-          member_id: loan.member_id,
-          member_name: memName,
-          member_no: mem?.member_no || 'MEM-N/A',
-          date: disbDate,
-          ref_no: `DISB-${loan.loan_account_no || loan.id}`,
-          description: `Loan Release / Disbursement (${prod?.name || 'Regular Loan'})`,
-          type: 'DISBURSEMENT',
-          debit: principal,
-          credit: 0,
-          principal_paid: 0,
-          interest_paid: 0,
-          penalty_paid: 0,
-          fee_paid: 0,
-          running_balance: runningBal
-        });
-      }
 
-      let loanPrincipalPaid = 0;
-      let loanInterestPaid = 0;
-      let loanPenaltyPaid = 0;
-      let loanFeesPaid = 0;
-
-      pmtList.forEach(pmt => {
-        // 1. Resolve payment allocation details across all possible allocation schemas
-        const pmtAllocations = allocations.filter(a => 
-          a.payment_id === pmt.id || a.loan_payment_id === pmt.id || a.id === pmt.id
-        );
-
-        let pPrincipal = 0;
-        let pInterest = 0;
-        let pPenalty = 0;
-        let pFee = 0;
-
-        if (pmtAllocations.length > 0) {
-          pmtAllocations.forEach(a => {
-            const feeType = String(a.fee_type || a.type || '').toLowerCase();
-            const allocAmt = Number(a.allocated_amount || a.amount || 0);
-
-            // Principal
-            if (a.principal_amount !== undefined && a.principal_amount !== null && Number(a.principal_amount) > 0) {
-              pPrincipal += Number(a.principal_amount);
-            } else if (feeType === 'principal') {
-              pPrincipal += allocAmt;
-            }
-
-            // Interest
-            if (a.interest_amount !== undefined && a.interest_amount !== null && Number(a.interest_amount) > 0) {
-              pInterest += Number(a.interest_amount);
-            } else if (feeType === 'interest') {
-              pInterest += allocAmt;
-            }
-
-            // Penalty
-            if (a.penalty_amount !== undefined && a.penalty_amount !== null && Number(a.penalty_amount) > 0) {
-              pPenalty += Number(a.penalty_amount);
-            } else if (feeType === 'penalty') {
-              pPenalty += allocAmt;
-            }
-
-            // Fee
-            if (a.fee_amount !== undefined && a.fee_amount !== null && Number(a.fee_amount) > 0) {
-              pFee += Number(a.fee_amount);
-            } else if (feeType === 'fee') {
-              pFee += allocAmt;
-            }
-          });
-        }
-
-        // Fallbacks directly from pmt object
-        if (pPrincipal === 0 && pInterest === 0 && pPenalty === 0 && pFee === 0) {
-          pPrincipal = Number(pmt.principal_amount || pmt.principal_paid || 0);
-          pInterest = Number(pmt.interest_amount || pmt.interest_paid || 0);
-          pPenalty = Number(pmt.penalty_amount || pmt.penalty_paid || 0);
-          pFee = Number(pmt.fee_amount || pmt.fee_paid || 0);
-
-          const totAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || 0);
-          if (pPrincipal === 0 && totAmt > 0) {
-            if (pInterest > 0) {
-              pPrincipal = Math.max(0, Number((totAmt - pInterest - pPenalty - pFee).toFixed(2)));
-            } else {
-              pPrincipal = totAmt;
+        // Add payments occurring on or after effectiveStart
+        processedPayments.forEach(p => {
+          if (p.pDate >= effectiveStart) {
+            runningBal = Math.max(0, Number((runningBal - p.pPrincipal).toFixed(2)));
+            if (inDateRange(p.pDate)) {
+              entries.push({
+                id: p.id,
+                account_id: loan.id,
+                account_number: loan.loan_account_no || loan.id,
+                ledger_type: 'loan',
+                member_id: loan.member_id,
+                member_name: memName,
+                member_no: mem?.member_no || 'MEM-N/A',
+                date: p.pDate,
+                ref_no: p.receipt_no || p.receipt_number || p.reference_id || p.id,
+                description: p.notes || `Amortization Payment - OR #${p.receipt_no || p.receipt_number || p.id}`,
+                type: 'PAYMENT',
+                debit: 0,
+                credit: p.pTotalPayment,
+                principal_paid: Number(p.pPrincipal.toFixed(2)),
+                interest_paid: Number(p.pInterest.toFixed(2)),
+                penalty_paid: Number(p.pPenalty.toFixed(2)),
+                fee_paid: Number(p.pFee.toFixed(2)),
+                running_balance: runningBal
+              });
             }
           }
-        }
-
-        // Final sanity check: if payment total exists but principal was 0 and interest was 0
-        const totalRecordAmt = Number(pmt.total_amount || pmt.amount || pmt.paid_amount || (pPrincipal + pInterest + pPenalty + pFee));
-        if (pPrincipal === 0 && pInterest === 0 && totalRecordAmt > 0) {
-          pPrincipal = totalRecordAmt;
-        }
-
-        const pTotalPayment = Number((pPrincipal + pInterest + pPenalty + pFee).toFixed(2));
-
-        runningBal = Math.max(0, Number((runningBal - pPrincipal).toFixed(2)));
-        loanPrincipalPaid += pPrincipal;
-        loanInterestPaid += pInterest;
-        loanPenaltyPaid += pPenalty;
-        loanFeesPaid += pFee;
-
-        const pDate = (pmt.payment_date || pmt.created_at || '').slice(0, 10);
-        if (inDateRange(pDate)) {
+        });
+      } else {
+        // Normal or complete history view
+        if (inDateRange(disbDate)) {
           entries.push({
-            id: pmt.id,
+            id: `disb_${loan.id}`,
             account_id: loan.id,
             account_number: loan.loan_account_no || loan.id,
             ledger_type: 'loan',
             member_id: loan.member_id,
             member_name: memName,
             member_no: mem?.member_no || 'MEM-N/A',
-            date: pDate,
-            ref_no: pmt.receipt_no || pmt.receipt_number || pmt.id,
-            description: pmt.notes || `Amortization Payment - OR #${pmt.receipt_no || pmt.receipt_number || pmt.id}`,
-            type: 'PAYMENT',
-            debit: 0,
-            credit: pTotalPayment,
-            principal_paid: Number(pPrincipal.toFixed(2)),
-            interest_paid: Number(pInterest.toFixed(2)),
-            penalty_paid: Number(pPenalty.toFixed(2)),
-            fee_paid: Number(pFee.toFixed(2)),
+            date: disbDate,
+            ref_no: `DISB-${loan.loan_account_no || loan.id}`,
+            description: `Loan Release / Disbursement (${prod?.name || 'Regular Loan'})`,
+            type: 'DISBURSEMENT',
+            debit: principal,
+            credit: 0,
+            principal_paid: 0,
+            interest_paid: 0,
+            penalty_paid: 0,
+            fee_paid: 0,
             running_balance: runningBal
           });
         }
-      });
+
+        processedPayments.forEach(p => {
+          runningBal = Math.max(0, Number((runningBal - p.pPrincipal).toFixed(2)));
+          if (inDateRange(p.pDate)) {
+            entries.push({
+              id: p.id,
+              account_id: loan.id,
+              account_number: loan.loan_account_no || loan.id,
+              ledger_type: 'loan',
+              member_id: loan.member_id,
+              member_name: memName,
+              member_no: mem?.member_no || 'MEM-N/A',
+              date: p.pDate,
+              ref_no: p.receipt_no || p.receipt_number || p.reference_id || p.id,
+              description: p.notes || `Amortization Payment - OR #${p.receipt_no || p.receipt_number || p.id}`,
+              type: 'PAYMENT',
+              debit: 0,
+              credit: p.pTotalPayment,
+              principal_paid: Number(p.pPrincipal.toFixed(2)),
+              interest_paid: Number(p.pInterest.toFixed(2)),
+              penalty_paid: Number(p.pPenalty.toFixed(2)),
+              fee_paid: Number(p.pFee.toFixed(2)),
+              running_balance: runningBal
+            });
+          }
+        });
+      }
 
       const currentBal = loan.current_balance !== undefined ? Number(loan.current_balance) : runningBal;
       kpis.total_loans_disbursed += principal;

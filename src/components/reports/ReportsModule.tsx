@@ -371,12 +371,24 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     {
       key: 'voucher_number',
       header: 'Voucher #',
-      width: '140px',
+      width: '130px',
       sortable: true,
       filterable: true,
       render: (v) => (
         <span className="font-mono text-xs font-semibold text-emerald-400">
           {v}
+        </span>
+      )
+    },
+    {
+      key: 'reference_id',
+      header: 'Reference ID / Source Ref',
+      width: '150px',
+      sortable: true,
+      filterable: true,
+      render: (v, row) => (
+        <span className="font-mono text-xs font-semibold text-amber-400">
+          {v || row.voucher_number || '-'}
         </span>
       )
     },
@@ -498,12 +510,31 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       render: (v) => <span className="font-medium text-xs text-white">{v}</span>
     },
     {
+      key: 'category',
+      header: 'Category',
+      width: '130px',
+      sortable: true,
+      filterable: true,
+      render: (v, row) => {
+        const cat = v || (row.product_type?.includes('Loan') ? 'Loans' : row.product_type?.includes('Share') ? 'Share Capital' : row.product_type?.includes('Savings') ? 'Savings' : 'General');
+        const color = cat === 'Loans' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                      cat === 'Savings' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                      cat === 'Share Capital' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${color}`}>
+            {cat}
+          </span>
+        );
+      }
+    },
+    {
       key: 'product_type',
       header: 'Classification',
       width: '160px',
       sortable: true,
       filterable: true,
-      render: (v) => <span className="text-xs text-slate-300">{v}</span>
+      render: (v) => <span className="text-xs text-slate-300 font-medium">{v}</span>
     },
     {
       key: 'reference_no',

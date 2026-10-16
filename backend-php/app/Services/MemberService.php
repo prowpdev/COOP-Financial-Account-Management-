@@ -245,8 +245,7 @@ class MemberService
         FROM loans l
         LEFT JOIN loan_products lp ON l.loan_product_id = lp.id
         WHERE l.member_id = ?
-        ORDER BY l.disbursement_date DESC
-    ");
+        ORDER BY l.disbursement_date DESC");
 
         $loanStmt->execute([$id]);
 
@@ -262,8 +261,7 @@ class MemberService
         FROM savings_accounts sa
         LEFT JOIN savings_products sp
             ON sa.savings_product_id = sp.id
-        WHERE sa.member_id = ?
-    ");
+        WHERE sa.member_id = ?");
 
         $savingsStmt->execute([$id]);
 
@@ -277,8 +275,7 @@ class MemberService
         $scStmt = $this->db->prepare("
         SELECT *
         FROM share_capital_accounts
-        WHERE member_id = ?
-    ");
+        WHERE member_id = ?");
 
         $scStmt->execute([$id]);
 
@@ -307,8 +304,7 @@ class MemberService
         WHERE je.reference_id = ?
            OR jl.subsidiary_id = ?
            OR je.description LIKE ?
-        ORDER BY je.posting_date DESC
-    ");
+        ORDER BY je.posting_date DESC");
 
         $memberName = '%' . ($member['first_name'] ?? '') . '%';
 
@@ -550,8 +546,7 @@ class MemberService
 
         ) AS member_transactions
 
-        ORDER BY transaction_date DESC, created_at DESC
-    ");
+        ORDER BY transaction_date DESC, created_at DESC");
 
         $transactionStmt->execute([
             'loan_member_id'        => $id,
@@ -583,7 +578,9 @@ class MemberService
         // =========================================================
         // Return Report
         // =========================================================
-
+        // print_r($shareCapital);
+        // print_r($journalVouchers);
+        // die();
         return [
             'member'           => $member,
             'summary'          => $summary,
