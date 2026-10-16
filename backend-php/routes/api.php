@@ -13,9 +13,12 @@ use App\Controllers\LoanController;
 use App\Controllers\SavingsController;
 use App\Controllers\ShareCapitalController;
 use App\Controllers\AccountingController;
+use App\Controllers\ApprovalRuleController;
+use App\Controllers\ApprovalWorkflowController;
 use App\Controllers\BranchController;
 use App\Controllers\ConfigController;
 use App\Controllers\CashController;
+use App\Controllers\CustomFieldController;
 use App\Controllers\ReportController;
 use App\Controllers\UserController;
 use App\Controllers\UserRoleController;
@@ -26,6 +29,8 @@ use App\Controllers\SeederController;
 use App\Controllers\LoanProductController;
 use App\Controllers\MemberDocumentController;
 use App\Controllers\MigrationController;
+use App\Controllers\NumberingFormatController;
+use App\Controllers\PaymentAllocationRuleController;
 use App\Middleware\JwtAuthMiddleware;
 
 /** @var Router $router */
@@ -286,24 +291,24 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->delete('/api/config/fees/:id', [FeeController::class, 'destroy']);
 
     // Approval Workflows & Rules
-    $router->get('/api/config/approval-workflows', [ConfigController::class, 'approvalWorkflows']);
-    $router->get('/api/config/approval-rules', [ConfigController::class, 'approvalRules']);
-    $router->post('/api/config/approval-rules', [ConfigController::class, 'storeApprovalRule']);
-    $router->put('/api/config/approval-rules/:id', [ConfigController::class, 'updateApprovalRule']);
-    $router->delete('/api/config/approval-rules/:id', [ConfigController::class, 'deleteApprovalRule']);
+    $router->get('/api/config/approval-workflows', [ApprovalWorkflowController::class, 'index']);
+    $router->get('/api/config/approval-rules', [ApprovalRuleController::class, 'approvalRules']);
+    $router->post('/api/config/approval-rules', [ApprovalRuleController::class, 'storeApprovalRule']);
+    $router->put('/api/config/approval-rules/:id', [ApprovalRuleController::class, 'updateApprovalRule']);
+    $router->delete('/api/config/approval-rules/:id', [ApprovalRuleController::class, 'deleteApprovalRule']);
 
     // Custom Fields
-    $router->get('/api/config/custom-fields', [ConfigController::class, 'customFields']);
-    $router->post('/api/config/custom-fields', [ConfigController::class, 'storeCustomField']);
-    $router->put('/api/config/custom-fields/:id', [ConfigController::class, 'updateCustomField']);
-    $router->delete('/api/config/custom-fields/:id', [ConfigController::class, 'deleteCustomField']);
+    $router->get('/api/config/custom-fields', [CustomFieldController::class, 'index']);
+    $router->post('/api/config/custom-fields', [CustomFieldController::class, 'store']);
+    $router->put('/api/config/custom-fields/:id', [CustomFieldController::class, 'update']);
+    $router->delete('/api/config/custom-fields/:id', [CustomFieldController::class, 'destroy']);
 
     // Numbering Formats & Payment Allocation
-    $router->post('/api/config/numbering-formats', [ConfigController::class, 'storeNumberingFormat']);
-    $router->put('/api/config/numbering-formats/:id', [ConfigController::class, 'updateNumberingFormat']);
-    $router->delete('/api/config/numbering-formats/:id', [ConfigController::class, 'deleteNumberingFormat']);
-    $router->get('/api/config/payment-allocation-rules/alloc_cda_std', [ConfigController::class, 'getAllocationRules']);
-    $router->put('/api/config/payment-allocation-rules/:id', [ConfigController::class, 'updatePaymentAllocationRule']);
+    $router->post('/api/config/numbering-formats', [NumberingFormatController::class, 'store']);
+    $router->put('/api/config/numbering-formats/:id', [NumberingFormatController::class, 'update']);
+    $router->delete('/api/config/numbering-formats/:id', [NumberingFormatController::class, 'destroy']);
+    $router->get('/api/config/payment-allocation-rules/alloc_cda_std', [PaymentAllocationRuleController::class, 'index']);
+    $router->put('/api/config/payment-allocation-rules/:id', [PaymentAllocationRuleController::class, 'update']);
 
     // =========================================================================
     // 12. Financial Reports & Executive Dashboard
