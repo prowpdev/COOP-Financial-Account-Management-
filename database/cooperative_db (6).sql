@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 12, 2026 at 04:06 PM
+-- Generation Time: Oct 16, 2026 at 11:27 AM
 -- Server version: 8.0.30
 -- PHP Version: 8.1.10
 
@@ -60,12 +60,7 @@ CREATE TABLE `accounting_periods` (
 --
 
 INSERT INTO `accounting_periods` (`id`, `name`, `fiscal_year`, `period_number`, `start_date`, `end_date`, `status`, `closed_at`, `closed_by`, `created_at`) VALUES
-('period_02e42ac9b864', 'March 2026', 2026, 6, '2026-03-01', '2026-03-31', 'Open', NULL, NULL, '2026-10-12 13:30:46'),
-('period_8242cf01847b', 'February 2026', 2026, 5, '2026-02-01', '2026-02-28', 'Open', NULL, NULL, '2026-10-12 13:30:28'),
-('period_c4b168f63be3', 'December 2026', 2026, 3, '2026-12-01', '2026-12-31', 'Open', NULL, NULL, '2026-10-11 15:12:45'),
-('period_f297ba844d3d', 'October 2026', 2026, 1, '2026-10-01', '2026-10-31', 'Open', NULL, NULL, '2026-10-11 15:11:54'),
-('period_f7b75d876199', 'January 2026', 2026, 4, '2026-01-01', '2026-01-31', 'Open', NULL, NULL, '2026-10-12 13:30:03'),
-('period_fdd12c153614', 'November 2026', 2026, 2, '2026-11-01', '2026-11-30', 'Open', NULL, NULL, '2026-10-11 15:12:20');
+('period_941f183616ab', 'October 2026', 2026, 1, '2026-10-01', '2026-10-31', 'Open', NULL, NULL, '2026-10-16 01:21:37');
 
 -- --------------------------------------------------------
 
@@ -124,7 +119,7 @@ CREATE TABLE `branches` (
 --
 
 INSERT INTO `branches` (`id`, `coop_id`, `code`, `name`, `address`, `contact_number`, `manager_name`, `is_main_branch`, `active`, `created_at`) VALUES
-('br_5665ba4d', 'coop_89936a99659a', 'MCAC-MAIN', 'MCAC Main Branch', 'Barangay Care ', NULL, 'Jhomel Ignacio', 0, 1, '2026-10-11 14:42:02');
+('br_e87d2b43', 'coop_9fd7380350aa', 'MCAC-TAR', 'TARLAC BRANCH', 'Barangay Care zone 5 Tarlac City', NULL, 'JHOMEL IGNACIO', 0, 1, '2026-10-16 01:06:37');
 
 -- --------------------------------------------------------
 
@@ -150,7 +145,7 @@ CREATE TABLE `cash_accounts` (
 --
 
 INSERT INTO `cash_accounts` (`id`, `name`, `account_number`, `bank_name`, `branch_id`, `gl_account_id`, `opening_balance`, `current_balance`, `currency`, `active`) VALUES
-('cash_28facd1bc7bf', 'Treasurer Account', 'COH-MCAC-MAIN-02', 'Cash on Hand', 'br_5665ba4d', 'coa_70fb910b28bc', 0.00, 0.00, 'PHP', 1);
+('cash_b1c0fd237363', 'Treasurer Cash on hand', 'COH-MCAC-TAR-02', 'Cash Drawer Float', 'br_e87d2b43', 'coa_d0999c38a6ca', 0.00, 1000.00, 'PHP', 1);
 
 -- --------------------------------------------------------
 
@@ -202,21 +197,20 @@ CREATE TABLE `chart_of_accounts` (
 --
 
 INSERT INTO `chart_of_accounts` (`id`, `branch_id`, `account_code`, `name`, `category`, `normal_balance`, `is_active`, `parent_account_id`, `report_group`, `description`, `created_at`) VALUES
-('coa_00c46f6e6173', 'br_5665ba4d', '40120', 'Service Fees', 'Revenue', 'Credit', 1, NULL, 'Operating Revenue', 'Fees earned for loan processing, servicing, and collection services.', '2026-10-11 15:05:28'),
-('coa_033fec3e04a4', 'br_5665ba4d', '21300', 'Accrued Expenses', 'Liability', 'Credit', 1, NULL, 'Deposit Liabilities', 'Expenses incurred but not yet paid at the end of the accounting period.', '2026-10-11 15:02:28'),
-('coa_04541587140a', 'br_5665ba4d', '30810', 'Reserve Fund', 'Equity', 'Credit', 1, NULL, 'Share Capital', 'Funds set aside from net surplus for purposes prescribed by cooperative law and regulations.', '2026-10-11 15:03:36'),
-('coa_40e0508a557d', 'br_5665ba4d', '11130', 'Cash in Bank', 'Asset', 'Debit', 1, NULL, 'Current Assets', 'Funds deposited in the cooperative\'s bank account and available for regular operating transactions.', '2026-10-11 14:58:30'),
-('coa_694dea901b72', 'br_5665ba4d', '21110', 'Saving Deposits', 'Liability', 'Debit', 1, NULL, 'Current Assets', 'Deposits made by members that they can withdraw at their option.', '2026-10-11 15:01:05'),
-('coa_70fb910b28bc', 'br_5665ba4d', '11110', 'Cash on Hand', 'Asset', 'Debit', 1, NULL, 'Current Assets', 'Cash funds physically held by the cooperative, including cash held by tellers or cashiers.', '2026-10-11 14:58:06'),
-('coa_853041886ad5', 'br_5665ba4d', '72140', 'Salaries and Wages', 'Expense', 'Debit', 1, NULL, 'Administrative Expenses', 'Compensation incurred for employee services, including applicable overtime pay.', '2026-10-11 15:06:40'),
-('coa_a504fa03eb41', 'br_5665ba4d', '40620', 'Membership Fee', 'Revenue', 'Credit', 1, NULL, 'Operating Revenue', 'Income from membership fees recognized under the applicable accounting policy.', '2026-10-11 15:05:54'),
-('coa_c544594f3794', 'br_5665ba4d', '21210', 'Accounts Payable–Trade', 'Liability', 'Credit', 1, NULL, 'Deposit Liabilities', 'Obligations to suppliers for goods and services intended for sale.', '2026-10-11 15:01:34'),
-('coa_c8ca5e62b9a6', 'br_5665ba4d', '73600', 'Bank Charges', 'Expense', 'Debit', 1, NULL, 'Administrative Expenses', 'Bank service fees and other bank-related charges.', '2026-10-11 15:07:02'),
-('coa_d48493e7a68b', 'br_5665ba4d', '11210', 'Loans Receivable – Current', 'Asset', 'Debit', 1, NULL, 'Current Assets', 'Outstanding principal amounts of loans granted to cooperative members that remain collectible.', '2026-10-11 14:58:50'),
-('coa_dae90c82d498', 'br_5665ba4d', '40110', 'Interest Income from Loans', 'Revenue', 'Credit', 1, NULL, 'Operating Revenue', 'Interest earned on loans granted to members.', '2026-10-11 15:04:49'),
-('coa_e3c4c94ab0cf', 'br_5665ba4d', '30130', 'Paid-up Share Capital – Common', 'Equity', 'Credit', 1, NULL, 'Share Capital', 'Collected subscribed common share capital from members.', '2026-10-11 15:03:04'),
-('coa_e86c3e622d71', 'br_5665ba4d', '71100', 'Interest Expense on Borrowings', 'Expense', 'Debit', 1, NULL, 'Administrative Expenses', 'Interest incurred on funds borrowed by the cooperative.', '2026-10-11 15:06:16'),
-('coa_f86008a44fce', 'br_5665ba4d', '30820', 'Cooperative Education and Training Fund', 'Equity', 'Credit', 1, NULL, 'Share Capital', 'Funds allocated for cooperative education, training, and development.', '2026-10-11 15:04:07');
+('coa_2fa18d4ae352', 'br_e87d2b43', '11210', 'Loans Receivable – Current', 'Asset', 'Debit', 1, NULL, 'Current Assets', NULL, '2026-10-16 01:10:57'),
+('coa_422b462bc7d8', 'br_e87d2b43', '30130', 'Paid-up Share Capital – Common', 'Equity', 'Credit', 1, NULL, 'Share Capital', NULL, '2026-10-16 01:12:02'),
+('coa_570488b21844', 'br_e87d2b43', '30810', 'Reserve Fund', 'Equity', 'Credit', 1, NULL, 'Reserve Fund', NULL, '2026-10-16 01:13:03'),
+('coa_624d789d9709', 'br_e87d2b43', '71100', 'Interest Expense on Borrowings', 'Expense', 'Debit', 1, NULL, 'Interest Expense on Borrowings', NULL, '2026-10-16 01:14:26'),
+('coa_6aaa1ea5d58a', 'br_e87d2b43', '21110', 'Saving Deposits', 'Liability', 'Credit', 1, NULL, 'Savings Deposits', NULL, '2026-10-16 01:11:13'),
+('coa_6e78a8ab1efb', 'br_e87d2b43', '72140', 'Salaries & Wages', 'Expense', 'Debit', 1, NULL, 'Salaries & Wages', NULL, '2026-10-16 01:14:38'),
+('coa_8ca652579878', 'br_e87d2b43', '21210', 'Accounts Payable–Trade', 'Liability', 'Credit', 1, NULL, 'Accounts Payable', NULL, '2026-10-16 01:11:29'),
+('coa_a4c9612f875f', 'br_e87d2b43', '73600', 'Bank Charges', 'Expense', 'Debit', 1, NULL, 'Bank Charges', NULL, '2026-10-16 01:14:52'),
+('coa_aa7aa0dbef41', 'br_e87d2b43', '40620', 'Membership Fee', 'Revenue', 'Credit', 1, NULL, 'Membership Fee', NULL, '2026-10-16 01:14:05'),
+('coa_b22c209539c4', 'br_e87d2b43', '11130', 'Cash in Bank', 'Asset', 'Debit', 1, NULL, 'Current Assets', '', '2026-10-16 01:10:36'),
+('coa_c6e060510df1', 'br_e87d2b43', '21300', 'Accrued Expenses', 'Liability', 'Credit', 1, NULL, 'Accrued Expenses', NULL, '2026-10-16 01:11:41'),
+('coa_d0999c38a6ca', 'br_e87d2b43', '11110', 'Cash On Hand', 'Asset', 'Debit', 1, NULL, 'Current Assets', NULL, '2026-10-16 01:08:48'),
+('coa_d30b923a2737', 'br_e87d2b43', '40120', 'Service Fees', 'Revenue', 'Credit', 1, NULL, 'Service Fees', NULL, '2026-10-16 01:13:47'),
+('coa_f7da65201479', 'br_e87d2b43', '40110', 'Interest Income from Loans', 'Revenue', 'Credit', 1, NULL, 'Interest Income from Loans', NULL, '2026-10-16 01:13:25');
 
 -- --------------------------------------------------------
 
@@ -241,21 +235,16 @@ CREATE TABLE `configuration_audit_trails` (
 --
 
 INSERT INTO `configuration_audit_trails` (`id`, `action`, `setting`, `old_value`, `new_value`, `changed_by`, `branch_id`, `reason`, `created_at`) VALUES
-('audit_01abb2375da3de99', 'TRANSACTION', 'loan_payments', '{\"loan_id\":\"ln_27fe92095360\",\"balance\":\"50000.00\"}', '{\"payment_id\":\"lp_c4333bd37574\",\"receipt_no\":\"OR-20261012-8483\",\"loan_id\":\"ln_27fe92095360\",\"member_id\":\"mem_2971e19a1b38\",\"amount\":4583.34,\"principal_paid\":4166.67,\"interest_paid\":416.67}', 'usr_7916daac48330641', 'br_5665ba4d', 'Loan repayment recorded', '2026-10-12 12:40:34'),
-('audit_0affb66358943cef', 'TRANSACTION', 'journal_entries', 'None', '{\"id\":\"je_f396f5ee5607\",\"voucher_number\":\"CD-20261012-7179\",\"branch_id\":\"br_5665ba4d\",\"total_debit\":10000,\"total_credit\":10000}', 'usr_7916daac48330641', 'br_5665ba4d', 'Journal entry posted', '2026-10-12 13:27:03'),
-('audit_0b6cbbd8403cd25f', 'UPDATE', 'Loan Application', '{\"id\":\"la_bf4d24d4570b\",\"application_no\":\"LA-2026-80408\",\"status\":\"Approved\",\"approved_amount\":\"10000.00\"}', '{\"id\":\"la_bf4d24d4570b\",\"application_no\":\"LA-2026-80408\",\"status\":\"Released\",\"approved_amount\":\"10000.00\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Marked loan application as released after disbursement', '2026-10-12 12:21:42'),
-('audit_46f01b360ed6972f', 'UPDATE', 'Loan Status', 'Pending', '{\"application_id\":\"la_d9129fff2073\",\"approved_amount\":50000,\"status\":\"Approved\",\"approved_by\":\"Jhomel Igacio\",\"remarks\":\"Approved by Credit Committee after collateral & capacity assessment.\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Approved loan application', '2026-10-12 12:38:36'),
-('audit_55d4c2430471ae5e', 'CREATE', 'Loan Application', 'None', '{\"id\":\"la_d9129fff2073\",\"application_no\":\"LA-2026-49298\",\"member_id\":\"mem_2971e19a1b38\",\"loan_product_id\":\"lp_a5e677d3\",\"branch_id\":\"br_5665ba4d\",\"applied_amount\":50000,\"term_months\":12,\"purpose\":null,\"status\":\"Pending\",\"submitted_date\":\"2026-10-12\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Created loan application', '2026-10-12 12:38:12'),
-('audit_5b72219551aae864', 'TRANSACTION', 'journal_entries', 'None', '{\"id\":\"je_2d0bb5b30865\",\"voucher_number\":\"CD-20261012-7142\",\"branch_id\":\"br_5665ba4d\",\"total_debit\":1,\"total_credit\":1}', 'usr_7916daac48330641', 'br_5665ba4d', 'Journal entry posted', '2026-10-12 13:32:24'),
-('audit_640bdc3c92d7b030', 'TRANSACTION', 'loan_payments', '{\"loan_id\":\"ln_dbe0d45b4e63\",\"balance\":\"10000.00\"}', '{\"payment_id\":\"lp_a2da3c5a2366\",\"receipt_no\":\"OR-20261012-9388\",\"loan_id\":\"ln_dbe0d45b4e63\",\"member_id\":\"mem_2971e19a1b38\",\"amount\":916.66,\"principal_paid\":833.3299999999999,\"interest_paid\":83.33}', 'usr_7916daac48330641', 'br_5665ba4d', 'Loan repayment recorded', '2026-10-12 12:22:35'),
-('audit_7af6fde2aacb1c72', 'UPDATE', 'Loan Application', '{\"id\":\"la_d9129fff2073\",\"application_no\":\"LA-2026-49298\",\"status\":\"Approved\",\"approved_amount\":\"50000.00\"}', '{\"id\":\"la_d9129fff2073\",\"application_no\":\"LA-2026-49298\",\"status\":\"Released\",\"approved_amount\":\"50000.00\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Marked loan application as released after disbursement', '2026-10-12 12:40:00'),
-('audit_91cb304e1c09b323', 'CREATE', 'members', 'None', '{\"id\":\"mem_2971e19a1b38\",\"member_no\":\"MEM-2026-33292\",\"branch_id\":\"br_5665ba4d\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Member created', '2026-10-12 12:19:09'),
-('audit_a9de43401a0845b7', 'CREATE', 'Loan', 'None', '{\"id\":\"ln_27fe92095360\",\"loan_account_no\":\"LN-2026-98509\",\"application_id\":\"la_d9129fff2073\",\"member_id\":\"mem_2971e19a1b38\",\"loan_product_id\":\"lp_a5e677d3\",\"branch_id\":\"br_5665ba4d\",\"principal_amount\":50000,\"annual_interest_rate\":10,\"interest_calculation_method\":\"Diminishing Balance\",\"term_months\":12,\"payment_frequency\":\"Monthly\",\"disbursement_date\":\"2026-10-12\",\"first_due_date\":\"2026-11-12\",\"maturity_date\":\"2027-10-12\",\"processing_fee\":0,\"service_fee\":0,\"net_disbursed\":50000,\"cash_account_id\":\"cash_28facd1bc7bf\",\"status\":\"Active\",\"current_balance\":50000}', 'usr_7916daac48330641', 'br_5665ba4d', 'Disbursed loan', '2026-10-12 12:40:00'),
-('audit_b570c2da8ed187bb', 'CREATE', 'cash_accounts', 'None', '{\"id\":\"cash_28facd1bc7bf\",\"branch_id\":\"br_5665ba4d\",\"account_number\":\"COH-MCAC-MAIN-02\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Cash account saved', '2026-10-11 15:11:15'),
-('audit_c361fd7f89eb15c5', 'UPDATE', 'Loan Status', 'Pending', '{\"application_id\":\"la_bf4d24d4570b\",\"approved_amount\":10000,\"status\":\"Approved\",\"approved_by\":\"Jhomel Igacio\",\"remarks\":\"Approved by Credit Committee after collateral & capacity assessment.\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Approved loan application', '2026-10-12 12:20:55'),
-('audit_c836c8c5c2963aa6', 'CREATE', 'users', 'None', '{\"id\":\"usr_7916daac48330641\",\"username\":\"admin\",\"branch_id\":\"br_5665ba4d\",\"cooperative_id\":null}', 'System', NULL, 'User account created', '2026-10-11 14:45:32'),
-('audit_e5c1225a517394e8', 'CREATE', 'Loan', 'None', '{\"id\":\"ln_dbe0d45b4e63\",\"loan_account_no\":\"LN-2026-35351\",\"application_id\":\"la_bf4d24d4570b\",\"member_id\":\"mem_2971e19a1b38\",\"loan_product_id\":\"lp_a5e677d3\",\"branch_id\":\"br_5665ba4d\",\"principal_amount\":10000,\"annual_interest_rate\":10,\"interest_calculation_method\":\"Diminishing Balance\",\"term_months\":12,\"payment_frequency\":\"Monthly\",\"disbursement_date\":\"2026-10-12\",\"first_due_date\":\"2026-11-12\",\"maturity_date\":\"2027-10-12\",\"processing_fee\":0,\"service_fee\":0,\"net_disbursed\":10000,\"cash_account_id\":\"cash_28facd1bc7bf\",\"status\":\"Active\",\"current_balance\":10000}', 'usr_7916daac48330641', 'br_5665ba4d', 'Disbursed loan', '2026-10-12 12:21:42'),
-('audit_fd8d95e08a9afdf7', 'CREATE', 'Loan Application', 'None', '{\"id\":\"la_bf4d24d4570b\",\"application_no\":\"LA-2026-80408\",\"member_id\":\"mem_2971e19a1b38\",\"loan_product_id\":\"lp_a5e677d3\",\"branch_id\":\"br_5665ba4d\",\"applied_amount\":10000,\"term_months\":12,\"purpose\":null,\"status\":\"Pending\",\"submitted_date\":\"2026-10-12\"}', 'usr_7916daac48330641', 'br_5665ba4d', 'Created loan application', '2026-10-12 12:20:16');
+('audit_016a9a9727d53e2e', 'TRANSACTION', 'loan_payments', '{\"loan_id\":\"ln_88b29d244064\",\"balance\":\"10000.00\"}', '{\"payment_id\":\"lp_91ad9b5e177c\",\"receipt_no\":\"OR-20261016-4968\",\"loan_id\":\"ln_88b29d244064\",\"member_id\":\"mem_ee232b0b50e1\",\"amount\":916.66,\"principal_paid\":833.33,\"interest_paid\":83.33,\"allocation_count\":1}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Loan repayment recorded', '2026-10-16 01:33:05'),
+('audit_043b0381f183d526', 'CREATE', 'users', 'None', '{\"id\":\"usr_fc1b85fb1cfee461\",\"username\":\"admin\",\"branch_id\":\"br_e87d2b43\",\"cooperative_id\":null}', 'System', NULL, 'User account created', '2026-10-16 01:07:14'),
+('audit_24c2a0e8711ab991', 'UPDATE', 'Loan Status', 'Pending', '{\"application_id\":\"la_ae2372741359\",\"approved_amount\":10000,\"status\":\"Approved\",\"approved_by\":\"admin`\",\"remarks\":\"Approved by Credit Committee after collateral & capacity assessment.\"}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Approved loan application', '2026-10-16 01:32:44'),
+('audit_321c3d18f2ea4616', 'TRANSACTION', 'loan_payments', '{\"loan_id\":\"ln_88b29d244064\",\"balance\":\"9166.67\"}', '{\"payment_id\":\"lp_e7d502dc5449\",\"receipt_no\":\"OR-20261016-2204\",\"loan_id\":\"ln_88b29d244064\",\"member_id\":\"mem_ee232b0b50e1\",\"amount\":916.66,\"principal_paid\":833.33,\"interest_paid\":83.33,\"allocation_count\":1}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Loan repayment recorded', '2026-10-16 01:33:33'),
+('audit_5417f428b86c3f15', 'CREATE', 'Loan', 'None', '{\"id\":\"ln_88b29d244064\",\"loan_account_no\":\"LN-2026-32343\",\"application_id\":\"la_ae2372741359\",\"member_id\":\"mem_ee232b0b50e1\",\"loan_product_id\":\"lp_88adac85\",\"branch_id\":\"br_e87d2b43\",\"principal_amount\":10000,\"annual_interest_rate\":10,\"interest_calculation_method\":\"Flat Rate\",\"term_months\":12,\"payment_frequency\":\"Monthly\",\"disbursement_date\":\"2026-10-16\",\"first_due_date\":\"2026-11-16\",\"maturity_date\":\"2027-10-16\",\"processing_fee\":0,\"service_fee\":0,\"net_disbursed\":10000,\"cash_account_id\":\"cash_b1c0fd237363\",\"status\":\"Active\",\"current_balance\":10000}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Disbursed loan', '2026-10-16 01:32:47'),
+('audit_6195b0ef6804e883', 'CREATE', 'Share Capital Account Created', 'None', '{\"account_id\":\"sc_51b338f4749c\",\"account_number\":\"CBU-2026-82473\",\"member_id\":\"mem_ee232b0b50e1\",\"branch_id\":\"br_e87d2b43\",\"subscribed_shares\":40,\"subscribed_amount\":4000,\"paid_up_shares\":10,\"paid_up_amount\":1000,\"cash_account_id\":\"cash_b1c0fd237363\",\"cash_gl_account_id\":\"coa_d0999c38a6ca\",\"share_capital_gl_account_id\":\"coa_422b462bc7d8\",\"transaction_id\":\"sctx_475ce696c783\",\"journal_entry_id\":\"je_5beae576cae0\",\"voucher_number\":\"OR-SC-20261016-113AAB\",\"old_cash_balance\":0,\"new_cash_balance\":1000}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'New Share Capital / CBU account created.', '2026-10-16 01:21:45'),
+('audit_8658ccca9ae724a6', 'CREATE', 'Loan Application', 'None', '{\"id\":\"la_ae2372741359\",\"application_no\":\"LA-2026-61487\",\"member_id\":\"mem_ee232b0b50e1\",\"loan_product_id\":\"lp_88adac85\",\"branch_id\":\"br_e87d2b43\",\"applied_amount\":10000,\"term_months\":12,\"purpose\":null,\"status\":\"Pending\",\"submitted_date\":\"2026-10-16\"}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Created loan application', '2026-10-16 01:32:40'),
+('audit_94d2918b3000ea0c', 'UPDATE', 'Loan Application', '{\"id\":\"la_ae2372741359\",\"application_no\":\"LA-2026-61487\",\"status\":\"Approved\",\"approved_amount\":\"10000.00\"}', '{\"id\":\"la_ae2372741359\",\"application_no\":\"LA-2026-61487\",\"status\":\"Released\",\"approved_amount\":\"10000.00\"}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Marked loan application as released after disbursement', '2026-10-16 01:32:47'),
+('audit_96383310f232bb41', 'CREATE', 'members', 'None', '{\"id\":\"mem_ee232b0b50e1\",\"member_no\":\"MEM-2026-91286\",\"branch_id\":\"br_e87d2b43\"}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Member created', '2026-10-16 01:20:42'),
+('audit_b47b50fedaeb8483', 'CREATE', 'cash_accounts', 'None', '{\"id\":\"cash_b1c0fd237363\",\"branch_id\":\"br_e87d2b43\",\"account_number\":\"COH-MCAC-TAR-02\"}', 'usr_fc1b85fb1cfee461', 'br_e87d2b43', 'Cash account saved', '2026-10-16 01:18:16');
 
 -- --------------------------------------------------------
 
@@ -284,7 +273,7 @@ CREATE TABLE `cooperatives` (
 --
 
 INSERT INTO `cooperatives` (`id`, `name`, `cda_registration_no`, `tax_identification_no`, `coop_type`, `address`, `contact_phone`, `contact_email`, `fiscal_year_start`, `base_currency`, `status`, `created_at`, `updated_at`) VALUES
-('coop_89936a99659a', 'Mayap Care Agriculture Cooperative', '', '', 'Agriculture', '', '', '', '01-01', 'PHP', 0, '2026-10-11 05:39:25', '2026-10-11 05:39:25');
+('coop_9fd7380350aa', 'Mayap Care Agriculture Cooperative', '', '', 'Agriculture', '', '', '', '01-01', 'PHP', 0, '2026-10-15 17:05:57', '2026-10-15 17:05:57');
 
 -- --------------------------------------------------------
 
@@ -357,7 +346,7 @@ CREATE TABLE `fees` (
 --
 
 INSERT INTO `fees` (`id`, `code`, `name`, `calculation_type`, `amount`, `applies_to`, `percentage`, `gl_account_id`, `active`) VALUES
-('fee_980e268e', 'FEE-REG-LN', 'Service Fee for Loan transactions', 'Fixed', 200.00, 'Loans', 0, 'coa_00c46f6e6173', 1);
+('fee_8d4841e8', 'LOAN-SERVICE-FEE', 'Service Fee', 'Fixed', 250.00, 'Loans', 0, 'coa_d30b923a2737', 1);
 
 -- --------------------------------------------------------
 
@@ -404,8 +393,7 @@ CREATE TABLE `journal_entries` (
 --
 
 INSERT INTO `journal_entries` (`id`, `voucher_number`, `branch_id`, `posting_date`, `reference_type`, `reference_id`, `description`, `total_debit`, `total_credit`, `period_id`, `status`, `created_by`, `posted_at`) VALUES
-('je_2d0bb5b30865', 'CD-20261012-7142', 'br_5665ba4d', '2026-01-01', 'CASH_DISBURSEMENT', NULL, 'Disbursement for branch operational supplies testing', 1.00, 1.00, 'period_f7b75d876199', 'Posted', 'Jhomel Igacio', '2026-10-12 13:32:24'),
-('je_f396f5ee5607', 'CD-20261012-7179', 'br_5665ba4d', '2026-10-12', 'CASH_DISBURSEMENT', NULL, 'Jhomel Ignacio transaction', 10000.00, 10000.00, 'period_f297ba844d3d', 'Posted', 'Jhomel Igacio', '2026-10-12 13:27:03');
+('je_5beae576cae0', 'OR-SC-20261016-113AAB', 'br_e87d2b43', '2026-10-16', 'Share Capital Payment', 'sctx_475ce696c783', 'Initial share capital payment - CBU-2026-82473 - Receipt SC-OR-20261016-8D45', 1000.00, 1000.00, 'period_941f183616ab', 'Posted', 'admin`', '2026-10-16 01:21:45');
 
 -- --------------------------------------------------------
 
@@ -428,10 +416,8 @@ CREATE TABLE `journal_lines` (
 --
 
 INSERT INTO `journal_lines` (`id`, `journal_entry_id`, `account_id`, `debit`, `credit`, `subsidiary_type`, `subsidiary_id`) VALUES
-('jl_6f1b57257ab4', 'je_2d0bb5b30865', 'coa_70fb910b28bc', 1.00, 0.00, '', ''),
-('jl_8119895badec', 'je_f396f5ee5607', 'coa_70fb910b28bc', 0.00, 10000.00, 'Cash', 'cash_01'),
-('jl_8f37304a625a', 'je_2d0bb5b30865', 'coa_a504fa03eb41', 0.00, 1.00, 'Cash', 'cash_01'),
-('jl_9bc28760d189', 'je_f396f5ee5607', 'coa_d48493e7a68b', 10000.00, 0.00, '', '');
+('jl_a4f715f0bec9', 'je_5beae576cae0', 'coa_422b462bc7d8', 0.00, 1000.00, 'Member', 'mem_ee232b0b50e1'),
+('jl_f6ebdf7d56b3', 'je_5beae576cae0', 'coa_d0999c38a6ca', 1000.00, 0.00, 'Member', 'mem_ee232b0b50e1');
 
 -- --------------------------------------------------------
 
@@ -475,8 +461,7 @@ CREATE TABLE `loans` (
 --
 
 INSERT INTO `loans` (`id`, `loan_account_no`, `application_id`, `member_id`, `loan_product_id`, `product_version`, `branch_id`, `principal_amount`, `annual_interest_rate`, `interest_calculation_method`, `term_months`, `payment_frequency`, `disbursement_date`, `first_due_date`, `maturity_date`, `processing_fee`, `service_fee`, `net_disbursed`, `disbursed_from_cash_account_id`, `status`, `current_balance`, `total_principal_paid`, `total_interest_paid`, `total_penalty_paid`, `total_fees_paid`, `approved_by`, `approved_date`, `created_at`) VALUES
-('ln_27fe92095360', 'LN-2026-98509', 'la_d9129fff2073', 'mem_2971e19a1b38', 'lp_a5e677d3', 1, 'br_5665ba4d', 50000.00, 10.00, 'Diminishing Balance', 12, 'Monthly', '2026-10-12', '2026-11-12', '2027-10-12', 0.00, 0.00, 50000.00, 'cash_28facd1bc7bf', 'Active', 45833.33, 4166.67, 416.67, 0.00, 0.00, NULL, '2026-10-12', '2026-10-12 12:40:00'),
-('ln_dbe0d45b4e63', 'LN-2026-35351', 'la_bf4d24d4570b', 'mem_2971e19a1b38', 'lp_a5e677d3', 1, 'br_5665ba4d', 10000.00, 10.00, 'Diminishing Balance', 12, 'Monthly', '2026-10-12', '2026-11-12', '2027-10-12', 0.00, 0.00, 10000.00, 'cash_28facd1bc7bf', 'Active', 9166.67, 833.33, 83.33, 0.00, 0.00, NULL, '2026-10-12', '2026-10-12 12:21:41');
+('ln_88b29d244064', 'LN-2026-32343', 'la_ae2372741359', 'mem_ee232b0b50e1', 'lp_88adac85', 1, 'br_e87d2b43', 10000.00, 10.00, 'Flat Rate', 12, 'Monthly', '2026-10-16', '2026-11-16', '2027-10-16', 0.00, 0.00, 10000.00, 'cash_b1c0fd237363', 'Active', 8333.34, 1666.66, 166.66, 0.00, 0.00, NULL, '2026-10-16', '2026-10-16 01:32:47');
 
 -- --------------------------------------------------------
 
@@ -506,30 +491,18 @@ CREATE TABLE `loan_amortization_schedules` (
 --
 
 INSERT INTO `loan_amortization_schedules` (`id`, `loan_id`, `installment_no`, `due_date`, `principal`, `interest`, `fee`, `total_installment`, `principal_balance`, `paid_principal`, `paid_interest`, `paid_penalty`, `paid_date`, `status`) VALUES
-('las_0227232d0e27', 'ln_27fe92095360', 12, '2027-10-12', 4166.67, 34.72, 0.00, 4201.39, 0.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_082331137643', 'ln_27fe92095360', 2, '2026-12-12', 4166.67, 381.94, 0.00, 4548.61, 41666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_0dbef943877d', 'ln_27fe92095360', 10, '2027-08-12', 4166.67, 104.17, 0.00, 4270.83, 8333.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_1b74c54a5db5', 'ln_27fe92095360', 5, '2027-03-12', 4166.67, 277.78, 0.00, 4444.44, 29166.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_24a54024b87c', 'ln_27fe92095360', 7, '2027-05-12', 4166.67, 208.33, 0.00, 4375.00, 20833.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_2626e2bce6d1', 'ln_27fe92095360', 9, '2027-07-12', 4166.67, 138.89, 0.00, 4305.56, 12500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_287ea34452dc', 'ln_dbe0d45b4e63', 7, '2027-05-12', 833.33, 41.67, 0.00, 875.00, 4166.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_2a0828812f54', 'ln_27fe92095360', 6, '2027-04-12', 4166.67, 243.06, 0.00, 4409.72, 25000.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_39d7710c4e89', 'ln_dbe0d45b4e63', 4, '2027-02-12', 833.33, 62.50, 0.00, 895.83, 6666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_506ed9c33c11', 'ln_dbe0d45b4e63', 10, '2027-08-12', 833.33, 20.83, 0.00, 854.17, 1666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_55bd2036afed', 'ln_dbe0d45b4e63', 9, '2027-07-12', 833.33, 27.78, 0.00, 861.11, 2500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_5e77a40b6b63', 'ln_dbe0d45b4e63', 12, '2027-10-12', 833.33, 6.94, 0.00, 840.28, 0.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_78cf1237f413', 'ln_dbe0d45b4e63', 11, '2027-09-12', 833.33, 13.89, 0.00, 847.22, 833.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_82d6e8a6fdea', 'ln_dbe0d45b4e63', 2, '2026-12-12', 833.33, 76.39, 0.00, 909.72, 8333.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_837c692db430', 'ln_dbe0d45b4e63', 3, '2027-01-12', 833.33, 69.44, 0.00, 902.78, 7500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_862150889bb0', 'ln_27fe92095360', 11, '2027-09-12', 4166.67, 69.44, 0.00, 4236.11, 4166.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_8df4bc37b4af', 'ln_27fe92095360', 1, '2026-11-12', 4166.67, 416.67, 0.00, 4583.33, 45833.33, 4166.67, 416.67, 0.00, NULL, 'Paid'),
-('las_90024615096b', 'ln_27fe92095360', 4, '2027-02-12', 4166.67, 312.50, 0.00, 4479.17, 33333.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_9d0494adcf48', 'ln_dbe0d45b4e63', 6, '2027-04-12', 833.33, 48.61, 0.00, 881.94, 5000.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_ac29cde13f6d', 'ln_27fe92095360', 3, '2027-01-12', 4166.67, 347.22, 0.00, 4513.89, 37500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_bf327dcb9244', 'ln_dbe0d45b4e63', 5, '2027-03-12', 833.33, 55.56, 0.00, 888.89, 5833.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_c15dd1cf0e8a', 'ln_27fe92095360', 8, '2027-06-12', 4166.67, 173.61, 0.00, 4340.28, 16666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
-('las_f64eda6f6d69', 'ln_dbe0d45b4e63', 1, '2026-11-12', 833.33, 83.33, 0.00, 916.67, 9166.67, 833.33, 83.33, 0.00, NULL, 'Paid'),
-('las_faf8b5622cbb', 'ln_dbe0d45b4e63', 8, '2027-06-12', 833.33, 34.72, 0.00, 868.06, 3333.33, 0.00, 0.00, 0.00, NULL, 'Unpaid');
+('las_20e3b653ce93', 'ln_88b29d244064', 1, '2026-11-16', 833.33, 83.33, 0.00, 916.67, 9166.67, 833.33, 83.33, 0.00, NULL, 'Paid'),
+('las_2ac06b58f612', 'ln_88b29d244064', 10, '2027-08-16', 833.33, 83.33, 0.00, 916.67, 1666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_300514e9677c', 'ln_88b29d244064', 5, '2027-03-16', 833.33, 83.33, 0.00, 916.67, 5833.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_42f0e599df85', 'ln_88b29d244064', 7, '2027-05-16', 833.33, 83.33, 0.00, 916.67, 4166.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_436d3767cdc8', 'ln_88b29d244064', 12, '2027-10-16', 833.33, 83.33, 0.00, 916.67, 0.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_499b53ceb1d9', 'ln_88b29d244064', 2, '2026-12-16', 833.33, 83.33, 0.00, 916.67, 8333.33, 833.33, 83.33, 0.00, NULL, 'Paid'),
+('las_5e328057c274', 'ln_88b29d244064', 3, '2027-01-16', 833.33, 83.33, 0.00, 916.67, 7500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_7f16ef179082', 'ln_88b29d244064', 8, '2027-06-16', 833.33, 83.33, 0.00, 916.67, 3333.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_96fb05dae730', 'ln_88b29d244064', 4, '2027-02-16', 833.33, 83.33, 0.00, 916.67, 6666.67, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_9cb89b94cdc9', 'ln_88b29d244064', 11, '2027-09-16', 833.33, 83.33, 0.00, 916.67, 833.33, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_b73c7381ae32', 'ln_88b29d244064', 9, '2027-07-16', 833.33, 83.33, 0.00, 916.67, 2500.00, 0.00, 0.00, 0.00, NULL, 'Unpaid'),
+('las_c6f5c7df2881', 'ln_88b29d244064', 6, '2027-04-16', 833.33, 83.33, 0.00, 916.67, 5000.00, 0.00, 0.00, 0.00, NULL, 'Unpaid');
 
 -- --------------------------------------------------------
 
@@ -561,8 +534,7 @@ CREATE TABLE `loan_applications` (
 --
 
 INSERT INTO `loan_applications` (`id`, `loan_id`, `application_no`, `member_id`, `loan_product_id`, `branch_id`, `applied_amount`, `term_months`, `purpose`, `status`, `submitted_date`, `reviewed_by`, `reviewed_date`, `approved_amount`, `remarks`, `created_at`) VALUES
-('la_bf4d24d4570b', NULL, 'LA-2026-80408', 'mem_2971e19a1b38', 'lp_a5e677d3', 'br_5665ba4d', 10000.00, 12, NULL, 'Released', '2026-10-12', 'Jhomel Igacio', '2026-10-12', 10000.00, 'Approved by Credit Committee after collateral & capacity assessment.', '2026-10-12 12:20:16'),
-('la_d9129fff2073', NULL, 'LA-2026-49298', 'mem_2971e19a1b38', 'lp_a5e677d3', 'br_5665ba4d', 50000.00, 12, NULL, 'Released', '2026-10-12', 'Jhomel Igacio', '2026-10-12', 50000.00, 'Approved by Credit Committee after collateral & capacity assessment.', '2026-10-12 12:38:12');
+('la_ae2372741359', NULL, 'LA-2026-61487', 'mem_ee232b0b50e1', 'lp_88adac85', 'br_e87d2b43', 10000.00, 12, NULL, 'Released', '2026-10-16', 'admin`', '2026-10-16', 10000.00, 'Approved by Credit Committee after collateral & capacity assessment.', '2026-10-16 01:32:40');
 
 -- --------------------------------------------------------
 
@@ -576,20 +548,24 @@ CREATE TABLE `loan_payments` (
   `loan_id` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `member_id` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `payment_date` date NOT NULL,
+  `principal_amount` decimal(15,2) DEFAULT '0.00',
   `total_amount` decimal(15,2) NOT NULL,
+  `principal_paid` decimal(15,2) DEFAULT '0.00',
+  `interest_paid` decimal(15,2) DEFAULT '0.00',
   `cash_account_id` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `received_by` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `journal_entry_id` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `loan_amortization_schedule_id` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `loan_payments`
 --
 
-INSERT INTO `loan_payments` (`id`, `receipt_no`, `loan_id`, `member_id`, `payment_date`, `total_amount`, `cash_account_id`, `received_by`, `journal_entry_id`, `created_at`) VALUES
-('lp_a2da3c5a2366', 'OR-20261012-9388', 'ln_dbe0d45b4e63', 'mem_2971e19a1b38', '2026-10-12', 916.66, 'cash_28facd1bc7bf', 'Jhomel Igacio', NULL, '2026-10-12 12:22:35'),
-('lp_c4333bd37574', 'OR-20261012-8483', 'ln_27fe92095360', 'mem_2971e19a1b38', '2026-10-12', 4583.34, 'cash_28facd1bc7bf', 'Jhomel Igacio', NULL, '2026-10-12 12:40:34');
+INSERT INTO `loan_payments` (`id`, `receipt_no`, `loan_id`, `member_id`, `payment_date`, `principal_amount`, `total_amount`, `principal_paid`, `interest_paid`, `cash_account_id`, `received_by`, `journal_entry_id`, `created_at`, `loan_amortization_schedule_id`) VALUES
+('lp_91ad9b5e177c', 'OR-20261016-4968', 'ln_88b29d244064', 'mem_ee232b0b50e1', '2026-10-16', 0.00, 916.66, 833.33, 83.33, 'cash_b1c0fd237363', 'admin`', NULL, '2026-10-16 01:33:05', NULL),
+('lp_e7d502dc5449', 'OR-20261016-2204', 'ln_88b29d244064', 'mem_ee232b0b50e1', '2026-10-16', 0.00, 916.66, 833.33, 83.33, 'cash_b1c0fd237363', 'admin`', NULL, '2026-10-16 01:33:33', NULL);
 
 -- --------------------------------------------------------
 
@@ -607,6 +583,14 @@ CREATE TABLE `loan_payment_allocations` (
   `principal_amount` decimal(15,2) DEFAULT '0.00',
   `allocation_order_applied` json DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `loan_payment_allocations`
+--
+
+INSERT INTO `loan_payment_allocations` (`id`, `payment_id`, `loan_id`, `penalty_amount`, `interest_amount`, `fee_amount`, `principal_amount`, `allocation_order_applied`) VALUES
+('lpa_0362f9d48ad9', 'lp_91ad9b5e177c', 'ln_88b29d244064', 0.00, 83.33, 0.00, 833.33, '{\"priority\": [\"interest\", \"principal\"], \"fee_amount\": 0, \"schedule_id\": \"las_20e3b653ce93\", \"penalty_amount\": 0, \"interest_amount\": 83.33, \"principal_amount\": 833.33}'),
+('lpa_c100794d33b7', 'lp_e7d502dc5449', 'ln_88b29d244064', 0.00, 83.33, 0.00, 833.33, '{\"priority\": [\"interest\", \"principal\"], \"fee_amount\": 0, \"schedule_id\": \"las_499b53ceb1d9\", \"penalty_amount\": 0, \"interest_amount\": 83.33, \"principal_amount\": 833.33}');
 
 -- --------------------------------------------------------
 
@@ -650,7 +634,7 @@ CREATE TABLE `loan_products` (
 --
 
 INSERT INTO `loan_products` (`id`, `code`, `name`, `description`, `version`, `min_amount`, `max_amount`, `min_term_months`, `max_term_months`, `annual_interest_rate`, `default_term_months`, `interest_calculation_method`, `payment_frequency`, `grace_period_days`, `processing_fee_percentage`, `service_fee_fixed`, `penalty_rule_id`, `collateral_required`, `guarantor_required`, `debit_account_id`, `required_documents`, `approval_workflow_id`, `effective_from`, `effective_until`, `penalty_rate_percentage`, `gl_receivable_account_id`, `gl_interest_income_account_id`, `active`) VALUES
-('lp_a5e677d3', 'LP-01', 'Agricultural Loan', '', 1, 10000.00, 250000.00, 1, 12, 10.00, 12, 'Diminishing Balance', 'Monthly', 5, 0.00, 0.00, NULL, 0, 0, 'coa_d48493e7a68b', '[]', NULL, NULL, NULL, 2.10, 'coa_d48493e7a68b', 'coa_dae90c82d498', 1);
+('lp_88adac85', 'LP-384', 'Regular Loan', '', 1, 10000.00, 250000.00, 1, 12, 10.00, 12, 'Flat Rate', 'Monthly', 5, 0.00, 0.00, NULL, 0, 0, 'acc_1210', '[]', NULL, NULL, NULL, 2.00, 'acc_1210', 'coa_f7da65201479', 1);
 
 -- --------------------------------------------------------
 
@@ -700,7 +684,7 @@ CREATE TABLE `members` (
 --
 
 INSERT INTO `members` (`id`, `member_no`, `branch_id`, `member_type_id`, `first_name`, `last_name`, `middle_name`, `gender`, `birthdate`, `email`, `phone`, `address`, `status`, `joined_date`, `custom_field_values`, `created_at`, `updated_at`) VALUES
-('mem_2971e19a1b38', 'MEM-2026-33292', 'br_5665ba4d', 'mt_regular', 'Jhomel', 'Ignacio', 'Luanzon', 'Male', '1992-05-15', 'jhomignacio08@gmail.com', '+6309352989795', 'Barangay Care Tarlac City, Tarlac', 'Active', '2026-10-12', '{\"notes\": \"\", \"tin_number\": \"\"}', '2026-10-12 12:19:09', '2026-10-12 12:19:09');
+('mem_ee232b0b50e1', 'MEM-2026-91286', 'br_e87d2b43', 'mt_01204d7aea4d', 'Jhomel', 'Ignacio', '', 'Female', '1992-05-15', 'jhomignacio08@gmail.com', '', 'zone 5', 'Active', '2026-10-16', '{\"notes\": \"\", \"tin_number\": \"\"}', '2026-10-16 01:20:42', '2026-10-16 01:20:42');
 
 -- --------------------------------------------------------
 
@@ -727,9 +711,8 @@ CREATE TABLE `member_types` (
 --
 
 INSERT INTO `member_types` (`id`, `coop_id`, `name`, `code`, `description`, `voting_rights`, `min_share_capital`, `savings_requirement`, `loan_eligibility`, `required_documents`, `active`) VALUES
-('mt_associate', 'coop_89936a99659a', 'Associate Member', 'ASSOCIATE', 'Non-voting member enjoying savings deposit and credit facilities', 0, 5000.00, 500.00, 1, '[\"Valid Gov ID\", \"2x2 ID Photo\", \"Proof of Billing\"]', 1),
-('mt_lab', 'coop_89936a99659a', 'Laboratory / Youth Member', 'LAB_YOUTH', 'Minor/Student savings depositor preparing for future cooperative participation', 0, 500.00, 200.00, 0, '[\"Birth Certificate\", \"Parents Consent Form\"]', 1),
-('mt_regular', 'coop_89936a99659a', 'Regular Members', 'REGULAR', 'Full-fledged member with voting rights and dividend participation', 1, 10000.00, 1000.00, 1, '[\"\"]', 1);
+('mt_01204d7aea4d', 'coop_9fd7380350aa', 'Regular Member', 'REG', 'Regular Member Famer', 1, 1000.00, 0.00, 1, '[\"Valid ID\", \"TIN\", \"Farm Lot Area\"]', 1),
+('mt_0692232a2b73', 'coop_9fd7380350aa', 'Associate Member', 'ASSOC', 'Associate Member', 0, 1000.00, 0.00, 0, '[\"Valid ID\"]', 1);
 
 -- --------------------------------------------------------
 
@@ -873,6 +856,13 @@ CREATE TABLE `share_capital_accounts` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `share_capital_accounts`
+--
+
+INSERT INTO `share_capital_accounts` (`id`, `account_number`, `member_id`, `branch_id`, `subscribed_shares`, `subscribed_amount`, `paid_up_shares`, `paid_up_amount`, `status`, `created_at`) VALUES
+('sc_51b338f4749c', 'CBU-2026-82473', 'mem_ee232b0b50e1', 'br_e87d2b43', 40, 4000.00, 10, 1000.00, 'Active', '2026-10-16 01:21:45');
+
 -- --------------------------------------------------------
 
 --
@@ -896,7 +886,7 @@ CREATE TABLE `share_capital_settings` (
 --
 
 INSERT INTO `share_capital_settings` (`id`, `cooperative_id`, `par_value_per_share`, `min_subscription_shares`, `min_paid_up_shares`, `max_share_holding_percentage`, `transfer_fee`, `withdrawal_rule`, `accounting_account_id`) VALUES
-('sc_setting_01', 'coop_89936a99659a', 100.00, 100, 25, 10.00, 100.00, 'Subject to Board approval and 30-day prior written notice', 'coa_e3c4c94ab0cf');
+('sc_setting_923ec3', 'coop_9fd7380350aa', 100.00, 100, 25, 10.00, 100.00, 'Subject to Board approval and 30-day prior written notice', 'coa_422b462bc7d8');
 
 -- --------------------------------------------------------
 
@@ -916,6 +906,13 @@ CREATE TABLE `share_capital_transactions` (
   `cash_account_id` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `share_capital_transactions`
+--
+
+INSERT INTO `share_capital_transactions` (`id`, `receipt_no`, `share_account_id`, `member_id`, `type`, `shares`, `amount`, `transaction_date`, `cash_account_id`, `created_at`) VALUES
+('sctx_475ce696c783', 'SC-OR-20261016-8D45', 'sc_51b338f4749c', 'mem_ee232b0b50e1', 'PAYMENT', 10, 1000.00, '2026-10-16', 'cash_b1c0fd237363', '2026-10-16 01:21:45');
 
 -- --------------------------------------------------------
 
@@ -975,7 +972,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password_hash`, `full_name`, `email`, `role_id`, `cooperative_id`, `branch_id`, `documents`, `active`, `last_login`, `created_at`) VALUES
-('usr_7916daac48330641', 'admin', '$2y$10$MGSS40txWQrCACh2jdpe0uZpQkz9JxbQvU83/FE25eGGqnJOZs5MG', 'Jhomel Igacio', 'admin@mail.com', 'role_admin', 'coop_89936a99659a', 'br_5665ba4d', NULL, 1, '2026-10-12 15:55:29', '2026-10-11 06:45:32');
+('usr_fc1b85fb1cfee461', 'admin', '$2y$10$dXibI5spumlWn5nEdcT0ROKI/dsqxOY/PfrOrUQ2ZKWNVazDqfpT.', 'admin`', 'admin@gmail.com', 'role_admin', 'coop_9fd7380350aa', 'br_e87d2b43', NULL, 1, '2026-10-16 08:01:59', '2026-10-15 17:07:14');
 
 -- --------------------------------------------------------
 
@@ -1202,7 +1199,8 @@ ALTER TABLE `loan_payments`
   ADD UNIQUE KEY `receipt_no` (`receipt_no`),
   ADD KEY `loan_id` (`loan_id`),
   ADD KEY `member_id` (`member_id`),
-  ADD KEY `cash_account_id` (`cash_account_id`);
+  ADD KEY `cash_account_id` (`cash_account_id`),
+  ADD KEY `fk_loan_payments_amortization_schedule` (`loan_amortization_schedule_id`);
 
 --
 -- Indexes for table `loan_payment_allocations`
@@ -1460,6 +1458,12 @@ ALTER TABLE `loan_applications`
   ADD CONSTRAINT `loan_applications_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
   ADD CONSTRAINT `loan_applications_ibfk_2` FOREIGN KEY (`loan_product_id`) REFERENCES `loan_products` (`id`),
   ADD CONSTRAINT `loan_applications_ibfk_3` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`);
+
+--
+-- Constraints for table `loan_payments`
+--
+ALTER TABLE `loan_payments`
+  ADD CONSTRAINT `fk_loan_payments_amortization_schedule` FOREIGN KEY (`loan_amortization_schedule_id`) REFERENCES `loan_amortization_schedules` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Constraints for table `member_types`

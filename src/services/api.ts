@@ -1018,7 +1018,7 @@ deleteMemberType : async (id) =>{
       method: 'POST',
       body: JSON.stringify(credentials)
     }),
-  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string }) =>
+  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string; coop_id:string}) =>
     fetchApi<{ success: boolean; message?: string; data: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData)

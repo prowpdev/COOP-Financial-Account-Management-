@@ -54,6 +54,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [staffRegPassword, setStaffRegPassword] = useState("");
   const [staffRegRoleId, setStaffRegRoleId] = useState("role_admin");
   const [staffRegBranchId , setStaffBranchId] = useState("");
+  const [staffRegCoopId , setStaffRegCoopId] = useState("");
   const [branchId,setBranchId] = useState("");
 
   // Member Login fields
@@ -101,6 +102,7 @@ useEffect(() => {
     try {
       const response = await LoadBranches();
       setBranches(response);
+      loadCooperatives()
     } catch (error) {
       console.error('Failed to load branches:', error);
     }
@@ -119,7 +121,18 @@ const [newCooperative, setNewCooperative] = useState({
   fiscal_year_start: "01-01",
   base_currency: "PHP",
 });
+const [filteredBranches,setFilteredBranches] = useState(branches);
 
+const handleCoopChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const coopId = e.target.value;
+  const availableBranches = branches.filter(
+    (branch: any) => branch.coop_id === coopId
+  );
+  setFilteredBranches(availableBranches);
+  setStaffRegCoopId(coopId)
+  console.log(coopId);
+  
+};
 const handleCreateCoop = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
 
@@ -185,7 +198,7 @@ try {
 
 };
   const [cooperatives,setCooperatives] = useState([]);
-  const loacCooperatives = async() =>{
+  const loadCooperatives = async() =>{
     const res = await api.getCooperatives();
     setCooperatives(res.data);
   }
@@ -291,6 +304,16 @@ const getErrorMessage = (error: unknown): string => {
     setIsLoading(true);
     setErrorMessage("");
     setSuccessMessage("");
+     if(staffRegCoopId == '' || staffRegCoopId == null){
+         setErrorMessage("Please select Cooperative");
+         setIsLoading(false);
+         return;
+    }
+     if(staffRegBranchId == '' || staffRegBranchId == null){
+         setErrorMessage("Please select Branch");
+         setIsLoading(false);
+         return;
+    }
 
     if (
       !staffFullName ||
@@ -302,7 +325,8 @@ const getErrorMessage = (error: unknown): string => {
       setIsLoading(false);
       return;
     }
-
+   
+    
     try {
       const res = await api.register({
         full_name: staffFullName,
@@ -311,6 +335,7 @@ const getErrorMessage = (error: unknown): string => {
         password: staffRegPassword,
         role_id: staffRegRoleId,
         branch_id: staffRegBranchId,
+        coop_id:staffRegCoopId
       });
 
       if (res.success && res.data) {
@@ -1040,7 +1065,7 @@ const getErrorMessage = (error: unknown): string => {
                       type="button"
                       onClick={() => {
                         setActivePortal("branch");
-                        loacCooperatives();
+                        loadCooperatives();
                       }}
                       className="text-emerald-400 hover:text-emerald-300 focus:outline-none"
                     >
@@ -1145,6 +1170,25 @@ const getErrorMessage = (error: unknown): string => {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Select Cooperative
+                      </label>
+                      <select
+                      name="branch_id"
+                      value={staffRegCoopId}
+                      onChange={handleCoopChange}
+                      className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">Select Branch</option>
+
+                      {cooperatives.map((coop) => (
+                        <option key={coop.id} value={coop.id}>
+                          {coop.name}
+                        </option>
+                      ))}
+                    </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Branch Assignment
                       </label>
                       <select
@@ -1157,7 +1201,7 @@ const getErrorMessage = (error: unknown): string => {
                     >
                       <option value="">Select Branch</option>
 
-                      {branches.map((branch) => (
+                      {filteredBranches.map((branch) => (
                         <option key={branch.id} value={branch.id}>
                           {branch.name}
                         </option>
