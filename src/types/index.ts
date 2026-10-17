@@ -187,6 +187,8 @@ export interface LoanProduct {
   processing_fee_percentage: number;
   penalty_rate_percentage?: number;
   service_fee_fixed: number;
+  other_fee?: number;
+  other_fees?: number;
   penalty_rule_id: string;
   collateral_required: boolean;
   guarantor_required: boolean;
@@ -215,6 +217,12 @@ export interface LoanApplication {
   applied_amount: number;
   term_months: number;
   purpose?: string | null;
+  processing_fee?: number;
+  service_fee?: number;
+  other_fee?: number;
+  other_fees?: number;
+  total_fees?: number;
+  net_disbursed?: number;
   status: 'Pending' | 'Draft' | 'Submitted' | 'Under Review' | 'Approved' | 'Rejected' | 'Released';
   submitted_date?: string | null;
   reviewed_by?: string | null;
@@ -245,6 +253,8 @@ export interface Loan {
   maturity_date: string;
   processing_fee: number;
   service_fee: number;
+  other_fee?: number;
+  other_fees?: number;
   net_disbursed: number;
   status: 'Draft' | 'Submitted' | 'Pending' | 'Under Review' | 'Approved' | 'Rejected' | 'Released' | 'Active' | 'Past Due' | 'Fully Paid';
   current_balance: number;
@@ -419,10 +429,12 @@ export interface UserDocument {
   id: string;
   entity: 'User';
   user_id: string;
+  doc_key?: string;
   field_name: string;
   field_key?: string;
   field_label: string;
   label?: string;
+  title?: string;
   field_type: 'PDF' | 'Excel' | 'Document' | 'Image' | 'File' | string;
   category: string;
   file_name: string;
@@ -435,6 +447,12 @@ export interface UserDocument {
   url?: string;
   path?: string;
   notes?: string;
+  resolution_no?: string;
+  resolution_date?: string;
+  meeting_type?: string;
+  signatories?: string;
+  status?: string;
+  tags?: string[];
   uploaded_at: string;
   uploaded_by?: string;
   active?: boolean;
@@ -442,6 +460,30 @@ export interface UserDocument {
   username?: string;
   user_email?: string;
   user_role?: string;
+}
+
+export interface BoardResolution {
+  id: string;
+  user_id: string;
+  doc_key: string;
+  resolution_no: string;
+  title: string;
+  resolution_date: string;
+  meeting_type: string;
+  category: string;
+  status: 'Approved' | 'Adopted' | 'Pending Signature' | 'Superseded';
+  signatories?: string;
+  file_name: string;
+  file_type?: string;
+  field_type: 'PDF' | 'Document' | 'Image' | 'File' | string;
+  file_size?: number;
+  size?: number;
+  data_url?: string;
+  url?: string;
+  notes?: string;
+  uploaded_at: string;
+  uploaded_by?: string;
+  tags?: string[];
 }
 
 export interface User {

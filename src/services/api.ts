@@ -1114,6 +1114,33 @@ deleteMemberType : async (id) =>{
     fetchApi<{ success: boolean; message: string }>(`/user-documents/${docId}`, {
       method: 'DELETE'
     }),
+
+  // Board Resolutions Management (Backed by user_documents table)
+  getBoardResolutions: (params?: { category?: string; sub_category?: string; status?: string; search?: string; year?: string; field_type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.category) q.set('category', params.category);
+    if (params?.sub_category) q.set('sub_category', params.sub_category);
+    if (params?.status) q.set('status', params.status);
+    if (params?.search) q.set('search', params.search);
+    if (params?.year) q.set('year', params.year);
+    if (params?.field_type) q.set('field_type', params.field_type);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetchApi<{ success: boolean; count: number; data: any[]; categories: string[] }>(`/board-resolutions${qs}`);
+  },
+  uploadBoardResolution: (payload: any) =>
+    fetchApi<{ success: boolean; data: any; message: string }>('/board-resolutions', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  updateBoardResolution: (id: string, payload: any) =>
+    fetchApi<{ success: boolean; data: any; message: string }>(`/board-resolutions/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+  deleteBoardResolution: (id: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/board-resolutions/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }),
   getUserCustomFields: () =>
     fetchApi<{ success: boolean; data: any[] }>('/config/custom-fields?entity=User'),
   createUserCustomField: (fieldData: any) =>
@@ -1135,7 +1162,7 @@ deleteMemberType : async (id) =>{
     }),
   getMemberPortalDashboard: (memberId: string) =>
     fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/dashboard`),
-  memberApplyLoan: (memberId: string, payload: { loan_product_id: string; principal_amount: number; term_months: number; notes?: string }) =>
+  memberApplyLoan: (memberId: string, payload: { loan_product_id: string; principal_amount: number; term_months: number; notes?: string; processing_fee?: number; service_fee?: number; other_fee?: number }) =>
     fetchApi<{ success: boolean; message?: string; data: any }>(`/member-portal/${encodeURIComponent(memberId)}/apply-loan`, {
       method: 'POST',
       body: JSON.stringify(payload)

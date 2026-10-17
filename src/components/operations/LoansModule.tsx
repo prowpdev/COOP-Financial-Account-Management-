@@ -110,7 +110,9 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
     principal_amount: 30000,
     term_months: 12,
     cash_account_id: '',
-    branch_id: ''
+    branch_id: '',
+    service_fee: 250,
+    other_fee: 150
   });
   const [previewSchedule, setPreviewSchedule] = useState<any>(null);
 
@@ -243,7 +245,9 @@ const handleRepayBtn = async (
         ...prev,
         loan_product_id: defaultProd.id,
         term_months: defaultProd.default_term_months || prev.term_months || 12,
-        principal_amount: defaultProd.min_amount || prev.principal_amount || 30000
+        principal_amount: defaultProd.min_amount || prev.principal_amount || 30000,
+        service_fee: defaultProd.service_fee_fixed ?? 250,
+        other_fee: (defaultProd as any).other_fee ?? (defaultProd as any).other_fees ?? 150
       }));
     }
   }, [loanProducts]);
@@ -282,6 +286,8 @@ const handleRepayBtn = async (
     const defaultCash = cashAccounts[0]?.id || 'cash_01';
     const defaultPrincipal = defaultProd?.min_amount || 30000;
     const defaultTerm = defaultProd?.default_term_months || 12;
+    const defaultServFee = defaultProd?.service_fee_fixed ?? 250;
+    const defaultOtherFee = (defaultProd as any)?.other_fee ?? (defaultProd as any)?.other_fees ?? 150;
 
     setOrigForm({
       member_id: defaultMember,
@@ -289,7 +295,9 @@ const handleRepayBtn = async (
       principal_amount: defaultPrincipal,
       term_months: defaultTerm,
       cash_account_id: defaultCash,
-      branch_id: defaultBranch?.id || 'branch_tar'
+      branch_id: defaultBranch?.id || 'branch_tar',
+      service_fee: defaultServFee,
+      other_fee: defaultOtherFee
     });
 
     if (defaultProd) {
@@ -299,7 +307,10 @@ const handleRepayBtn = async (
         term_months: defaultTerm,
         frequency: defaultProd.payment_frequency,
         method: defaultProd.interest_calculation_method,
-        start_date: new Date().toISOString().split('T')[0]
+        start_date: new Date().toISOString().split('T')[0],
+        service_fee: defaultServFee,
+        other_fee: defaultOtherFee,
+        loan_product_id: defaultProd.id
       }).then(res => {
         if (res && res.data) setPreviewSchedule(res.data);
       }).catch(console.error);
@@ -338,13 +349,16 @@ const handleRepayBtn = async (
       term_months: origForm.term_months || prod.default_term_months || 12,
       frequency: prod.payment_frequency,
       method: prod.interest_calculation_method,
-      start_date: new Date().toISOString().split('T')[0]
+      start_date: new Date().toISOString().split('T')[0],
+      service_fee: origForm.service_fee,
+      other_fee: origForm.other_fee,
+      loan_product_id: prod.id
     }).then(res => {
       if (res && res.data) {
         setPreviewSchedule(res.data);
       }
     }).catch(console.error);
-  }, [origForm.loan_product_id, origForm.principal_amount, origForm.term_months, loanProducts]);
+  }, [origForm.loan_product_id, origForm.principal_amount, origForm.term_months, origForm.service_fee, origForm.other_fee, loanProducts]);
 
   const handleOriginate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -547,11 +561,13 @@ const handleRepayBtn = async (
     searchTerms: `${member.member_no || ''} ${member.first_name || ''} ${member.last_name || ''} ${member.branch_name || ''}`.trim()
   }));
 
-  // Safe fee calculation
+  // Safe fee calculation with dynamic Loan Services Fee and Other Fee
   const procRate = Number(selectedProduct?.processing_fee_percentage || 0);
   const procFee = Number(((origForm.principal_amount * procRate) / 100).toFixed(2));
-  const servFee = Number(selectedProduct?.service_fee_fixed || 0);
-  const netDisbursed = Math.max(0, Number((origForm.principal_amount - procFee - servFee).toFixed(2)));
+  const servFee = Number(origForm.service_fee !== undefined ? origForm.service_fee : (selectedProduct?.service_fee_fixed || 0));
+  const otherFee = Number(origForm.other_fee !== undefined ? origForm.other_fee : ((selectedProduct as any)?.other_fee || 0));
+  const totalDeductions = Number((procFee + servFee + otherFee).toFixed(2));
+  const netDisbursed = Math.max(0, Number((origForm.principal_amount - totalDeductions).toFixed(2)));
 
   const loanCols: ExcelColumn<Loan>[] = [
     {

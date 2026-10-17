@@ -305,17 +305,22 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
     };
   }, [userFilteredDocs]);
 
-  // Available categories
-  const categories = [
-    'All',
-    'Identification & KYC',
-    'Employment & Contracts',
-    'Spreadsheets & Worksheets',
-    'Financials & Tax Records',
-    'Certifications & Trainings',
-    'Legal & Governance',
-    'General Attachments'
-  ];
+  // Available categories (includes Board Resolutions and dynamic categories from user_documents)
+  const categories = useMemo(() => {
+    const defaultCategories = [
+      'All',
+      'Board Resolutions',
+      'Identification & KYC',
+      'Employment & Contracts',
+      'Spreadsheets & Worksheets',
+      'Financials & Tax Records',
+      'Certifications & Trainings',
+      'Legal & Governance',
+      'General Attachments'
+    ];
+    const docCats = documents.map(d => d.category).filter(Boolean);
+    return Array.from(new Set([...defaultCategories, ...docCats]));
+  }, [documents]);
 
   // Helper to format file size
   const formatSize = (bytes?: number) => {

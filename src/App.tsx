@@ -8,6 +8,7 @@ import { MembersModule } from './components/operations/MembersModule';
 import { MemberProfileView } from './components/operations/MemberProfileView';
 import { MemberCustomFieldsModule } from './components/operations/MemberCustomFieldsModule';
 import { UserDocumentManagementModule } from './components/operations/UserDocumentManagementModule';
+import { BoardResolutionsModule } from './components/operations/BoardResolutionsModule';
 import { UserProfileView } from './components/operations/UserProfileView';
 import { LoansModule } from './components/operations/LoansModule';
 import { SavingsModule } from './components/operations/SavingsModule';
@@ -47,6 +48,7 @@ const VALID_TABS: TabKey[] = [
   'member_profile',
   'member_fields',
   'user_documents',
+  'board_resolutions',
   'user_profile',
   'loans',
   'savings',
@@ -104,6 +106,12 @@ const TAB_ALIASES: Record<string, TabKey> = {
   docs: 'user_documents',
   files: 'user_documents',
   document_management: 'user_documents',
+  board_resolutions: 'board_resolutions',
+  boardresolutions: 'board_resolutions',
+  resolutions: 'board_resolutions',
+  'board-resolutions': 'board_resolutions',
+  bod: 'board_resolutions',
+  resolutions_module: 'board_resolutions',
   user_profile: 'user_profile',
   userprofile: 'user_profile',
   my_profile: 'user_profile',
@@ -244,6 +252,7 @@ export default function App() {
         members: 'Member Registry',
         member_fields: 'Member Custom Fields & TIN',
         user_documents: 'User Document Management',
+        board_resolutions: 'Board Resolutions',
         user_profile: 'User Profile & Assignments',
         loans: 'Loans & Credit Facility',
         savings: 'Savings & Deposits',
@@ -618,6 +627,13 @@ export default function App() {
             <UserDocumentManagementModule
               currentUser={currentUser}
               branches={branches}
+              onRefresh={refreshGlobalState}
+            />
+          )}
+
+          {activeTab === 'board_resolutions' && (
+            <BoardResolutionsModule
+              currentUser={currentUser}
               onRefresh={refreshGlobalState}
             />
           )}

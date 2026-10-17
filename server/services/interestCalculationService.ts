@@ -16,6 +16,10 @@ export interface InterestCalculationParams {
   method: string; // 'Diminishing Balance' | 'Flat Rate' | 'Simple Interest' | 'Fixed Interest'
   start_date: string; // YYYY-MM-DD
   grace_period_days?: number;
+  processing_fee?: number;
+  service_fee?: number;
+  other_fee?: number;
+  amortize_fees?: boolean;
 }
 
 export class InterestCalculationService {
@@ -28,6 +32,11 @@ export class InterestCalculationService {
     total_interest: number;
     total_repayment: number;
     installment_amount: number;
+    processing_fee: number;
+    service_fee: number;
+    other_fee: number;
+    total_fees: number;
+    net_disbursed: number;
   } {
     const {
       principal,
@@ -35,7 +44,11 @@ export class InterestCalculationService {
       term_months,
       frequency,
       method,
-      start_date
+      start_date,
+      processing_fee = 0,
+      service_fee = 0,
+      other_fee = 0,
+      amortize_fees = false
     } = params;
 
     const rateDec = annual_rate / 100;
@@ -86,6 +99,10 @@ export class InterestCalculationService {
     const totalPeriods = Math.max(1, Math.round((term_months / 12) * paymentsPerYear));
     const periodicRate = rateDec / paymentsPerYear;
 
+    const total_fees = Number((Number(processing_fee) + Number(service_fee) + Number(other_fee)).toFixed(2));
+    const net_disbursed = Math.max(0, Number((principal - total_fees).toFixed(2)));
+    const periodicFee = amortize_fees ? Number((total_fees / totalPeriods).toFixed(2)) : 0;
+
     const schedule: AmortizationScheduleItem[] = [];
     let currentBalance = principal;
     const baseDate = new Date(start_date || new Date().toISOString().split('T')[0]);
@@ -95,7 +112,6 @@ export class InterestCalculationService {
       const totalInterest = principal * rateDec * (term_months / 12);
       const periodicInterest = totalInterest / totalPeriods;
       const periodicPrincipal = principal / totalPeriods;
-      const periodicInstallment = periodicPrincipal + periodicInterest;
 
       for (let i = 1; i <= totalPeriods; i++) {
         const dueDate = new Date(baseDate);
@@ -108,8 +124,8 @@ export class InterestCalculationService {
           due_date: dueDate.toISOString().split('T')[0],
           principal: Number(p.toFixed(2)),
           interest: Number(periodicInterest.toFixed(2)),
-          fee: 0,
-          total_installment: Number((p + periodicInterest).toFixed(2)),
+          fee: Number(periodicFee.toFixed(2)),
+          total_installment: Number((p + periodicInterest + periodicFee).toFixed(2)),
           principal_balance: Number(currentBalance.toFixed(2))
         });
       }
@@ -140,8 +156,8 @@ export class InterestCalculationService {
           due_date: dueDate.toISOString().split('T')[0],
           principal: Number(p.toFixed(2)),
           interest: Number(interest.toFixed(2)),
-          fee: 0,
-          total_installment: Number((p + interest).toFixed(2)),
+          fee: Number(periodicFee.toFixed(2)),
+          total_installment: Number((p + interest + periodicFee).toFixed(2)),
           principal_balance: Number(currentBalance.toFixed(2))
         });
       }
@@ -161,8 +177,8 @@ export class InterestCalculationService {
           due_date: dueDate.toISOString().split('T')[0],
           principal: Number(p.toFixed(2)),
           interest: Number(interest.toFixed(2)),
-          fee: 0,
-          total_installment: Number((p + interest).toFixed(2)),
+          fee: Number(periodicFee.toFixed(2)),
+          total_installment: Number((p + interest + periodicFee).toFixed(2)),
           principal_balance: Number(currentBalance.toFixed(2))
         });
       }
@@ -170,13 +186,19 @@ export class InterestCalculationService {
 
     const total_principal = schedule.reduce((sum, item) => sum + item.principal, 0);
     const total_interest = schedule.reduce((sum, item) => sum + item.interest, 0);
-    const total_repayment = total_principal + total_interest;
+    const total_installment_fees = schedule.reduce((sum, item) => sum + item.fee, 0);
+    const total_repayment = total_principal + total_interest + total_installment_fees;
     const installment_amount = schedule.length > 0 ? schedule[0].total_installment : 0;
 
     return {
       schedule,
       total_principal: Number(total_principal.toFixed(2)),
       total_interest: Number(total_interest.toFixed(2)),
+      total_fees,
+      processing_fee: Number(processing_fee.toFixed(2)),
+      service_fee: Number(service_fee.toFixed(2)),
+      other_fee: Number(other_fee.toFixed(2)),
+      net_disbursed,
       total_repayment: Number(total_repayment.toFixed(2)),
       installment_amount: Number(installment_amount.toFixed(2))
     };
