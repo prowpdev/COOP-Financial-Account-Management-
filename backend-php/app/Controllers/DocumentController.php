@@ -24,14 +24,15 @@ class DocumentController extends BaseController
      * GET /api/user-documents or /api/users/:id/documents
      * Retrieve user documents filtered by the current_user branch, enriched with user details.
      */
-    public function getUserdocuments(?string $userId = null): never
+    public function getUserdocuments(?string $userId = null,?string $category = null): never
     {
-        $targetUserId = $userId ?: ($this->getQuery('user_id') ?: $this->getQuery('userId'));
+        $targetUserId = $this->getCurrentUserId();
         $search = $this->getQuery('search');
         $branchId = $this->getCurrentUserBranchId();
 
         // 1. If a specific user ID is requested
-        if ($targetUserId) {
+        if ($targetUserId && $category == null) {
+           
             $user = $this->users->findById($targetUserId);
             if ($user === null) {
                 $this->error('User not found.', 404);
@@ -64,9 +65,16 @@ class DocumentController extends BaseController
                 'count' => count($docsList),
             ]);
         }
-
+        
+        if($category != null){
+            $docsList = $this->documents->forBodFiles($targetUserId,'bod_files');
+        }else{
+            $docsList = $this->documents->forBranch($branchId, null, $search); 
+        }
         // 2. Fetch all user documents for current_user branch
-        $docsList = $this->documents->forBranch($branchId, null, $search);
+       
+        // print_r($docsList);
+        // die();
 
         $currentUser = $this->getCurrentUser();
         $this->json([
@@ -85,6 +93,11 @@ class DocumentController extends BaseController
             'documents' => $docsList,
             'count' => count($docsList),
         ]);
+    }
+
+    public function bodIndex(?string $userId = null): never
+    {
+        $this->getUserdocuments($userId,'bod_files');
     }
 
     public function index(?string $userId = null): never
@@ -146,7 +159,7 @@ class DocumentController extends BaseController
                 'size' => (int)($input['size'] ?? $input['file_size'] ?? 0),
                 'uploaded_at' => $input['uploaded_at'] ?? date('c'),
             ];
-            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
+            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null, (string)$input['category']);
             $this->success($this->userWithDocuments($user), 'Document attached to user profile successfully.');
         }
 
@@ -210,7 +223,7 @@ class DocumentController extends BaseController
         ];
 
         try {
-            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null);
+            $this->documents->save($targetUserId, $docKey, $document, isset($input['notes']) ? (string)$input['notes'] : null, $input['category']);
         } catch (\Throwable $e) {
             if (is_file($filePath) && !unlink($filePath)) {
                 throw new \RuntimeException('Document was not saved and its temporary file could not be removed.', 0, $e);

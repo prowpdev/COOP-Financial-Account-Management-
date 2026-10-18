@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\MigrationService;
+use App\Core\MigrationRunner;
 use PDO;
 use Throwable;
 
@@ -15,8 +16,61 @@ class MigrationController extends BaseController
     public function __construct(PDO $db)
     {
         parent::__construct($db);
+
         $this->migrationService = new MigrationService($db);
+        
     }
+
+   
+public function migrate(): void
+{
+    try {
+        $path = BASE_PATH . '/database/migrations';
+
+        if (!is_dir($path)) {
+            throw new \RuntimeException(
+                "Migration directory does not exist: {$path}"
+            );
+        }
+
+        $files = glob($path . '/*.php');
+
+        if ($files === false || count($files) === 0) {
+            throw new \RuntimeException(
+                "No migration PHP files found in: {$path}"
+            );
+        }
+
+        $database = $this->db
+            ->query('SELECT DATABASE()')
+            ->fetchColumn();
+
+        $runner = new MigrationRunner(
+            $this->db,
+            $path
+        );
+
+        $runner->run();
+
+        $this->success([
+            'database' => $database,
+            'migration_path' => $path,
+            'migration_files' => array_map(
+                'basename',
+                $files
+            ),
+        ], 'Migrations completed successfully.', 200);
+
+    } catch (Throwable $e) {
+        $this->error(
+            'Migration failed: ' . $e->getMessage(),
+            500
+        );
+
+        return;
+    }
+}
+
 
     /**
      * POST|GET /api/db/migration/run

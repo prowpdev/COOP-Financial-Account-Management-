@@ -1252,8 +1252,6 @@ class ReportService
                         lp.receipt_no,
                         lp.payment_date,
                         lp.total_amount,
-                        lp.principal_paid,
-                        lp.interest_paid,
                         lp.received_by,
                         COALESCE(lpa.principal_amount, 0) AS principal_amount,
                         COALESCE(lpa.interest_amount, 0) AS interest_amount,

@@ -60,11 +60,11 @@ class DocumentModel
         return $documents;
     }
 
-    public function save(string $userId, string $docKey, array $document, ?string $notes): void
+    public function save(string $userId, string $docKey, array $document, ?string $notes, ?string $category): void
     {
         $stmt = $this->db->prepare('
-            INSERT INTO user_documents (user_id, doc_key, document_data, notes)
-            VALUES (:user_id, :doc_key, :document_data, :notes)
+            INSERT INTO user_documents (user_id, doc_key, category, document_data, notes)
+            VALUES (:user_id, :doc_key, :category, :document_data, :notes)
             ON DUPLICATE KEY UPDATE
                 document_data = VALUES(document_data),
                 notes = VALUES(notes)
@@ -72,6 +72,7 @@ class DocumentModel
         $stmt->execute([
             'user_id' => $userId,
             'doc_key' => $docKey,
+            'category' => $category,
             'document_data' => json_encode(
                 $document,
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
@@ -88,4 +89,5 @@ class DocumentModel
         $stmt->execute([$userId, $docKey]);
         return $stmt->rowCount() > 0;
     }
+ 
 }

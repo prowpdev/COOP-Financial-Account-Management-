@@ -12,7 +12,7 @@ class ConfigController extends BaseController
 {
     private ConfigService $config;
     public function __construct(PDO $db) { parent::__construct($db); $this->config = new ConfigService($db); }
-    public function notifications(): never { $this->success([], 'No notifications available.'); }
+    
     public function all(): never { $this->success($this->config->getAllConfig()); }
     public function auditLogs(): array{$this->success($this->config->getAuditTrails());}
 }

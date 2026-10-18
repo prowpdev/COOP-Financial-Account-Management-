@@ -110,6 +110,7 @@ class AuthController extends BaseController
         $password = $input['password'] ?? '';
         $roleId = $input['role_id'] ?? 'role_loan_officer';
         $branchId = $input['branch_id'] ?? 'branch_tar';
+        $coopId = $input['coop_id'] ?? NULL;
 
         if (empty($username) || empty($email) || empty($fullName) || empty($password)) {
             $this->error('Username, email, full name, and password are required.', 422);
@@ -134,6 +135,7 @@ class AuthController extends BaseController
                 'password'  => $password,
                 'role_id'   => $roleId,
                 'branch_id' => $branchId,
+                'cooperative_id' => $coopId,
                 'active'    => 1
             ]);
 
