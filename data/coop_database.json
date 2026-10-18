@@ -1180,7 +1180,7 @@
       "prefix": "MEM",
       "pattern": "MEM-{YEAR}-{NUMBER}",
       "length": 5,
-      "current_seq": 105,
+      "current_seq": 106,
       "cooperative_id": "coop_01",
       "branch_id": "branch_tar"
     }
@@ -1494,6 +1494,36 @@
       "active": true,
       "cooperative_id": "coop_01",
       "branch_id": "branch_tar"
+    },
+    {
+      "id": "cf_emergency_contact_person_1792301230373_4ehr",
+      "entity": "Member",
+      "field_name": "emergency_contact_person",
+      "field_key": "emergency_contact_person",
+      "field_label": "Emergency Contact Person",
+      "label": "Emergency Contact Person",
+      "field_type": "Text",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true,
+      "created_at": "2026-10-18T05:27:10.373Z"
+    },
+    {
+      "id": "cf_blood_type_1792301230376_xwkd",
+      "entity": "Member",
+      "field_name": "blood_type",
+      "field_key": "blood_type",
+      "field_label": "Blood Type",
+      "label": "Blood Type",
+      "field_type": "Text",
+      "options": [],
+      "required": false,
+      "is_required": false,
+      "default_value": "",
+      "active": true,
+      "created_at": "2026-10-18T05:27:10.376Z"
     }
   ],
   "member_types": [
@@ -1938,6 +1968,64 @@
       "membership_date": "2026-02-20",
       "cooperative_id": "coop_01",
       "created_by": "usr_superadmin"
+    },
+    {
+      "id": "mem_csv_1792301230380_0_kq1w",
+      "member_no": "MEM-2026-00106",
+      "branch_id": "branch_tar",
+      "branch_name": "Main Branch - Tarlac",
+      "member_type_id": "mt_regular",
+      "member_type_name": "Regular Member",
+      "first_name": "Carlos",
+      "last_name": "Mendoza",
+      "middle_name": "",
+      "gender": "Male",
+      "civil_status": "Single",
+      "birthdate": "1986-07-14",
+      "email": "",
+      "phone": "+63 917 999 1111",
+      "address": "",
+      "tin_number": "999-888-777-000",
+      "tin": "999-888-777-000",
+      "notes": "",
+      "status": "Active",
+      "joined_date": "2026-10-18",
+      "active": true,
+      "custom_field_values": {
+        "tin_number": "999-888-777-000",
+        "occupation": "Farmer",
+        "emergency_contact_person": "Leticia Mendoza (+63 918 222 3333)",
+        "blood_type": "B+"
+      }
+    },
+    {
+      "id": "mem_csv_1792301230380_0_kq1w",
+      "member_no": "MEM-2026-00106",
+      "branch_id": "branch_tar",
+      "branch_name": "Main Branch - Tarlac",
+      "member_type_id": "mt_regular",
+      "member_type_name": "Regular Member",
+      "first_name": "Carlos",
+      "last_name": "Mendoza",
+      "middle_name": "",
+      "gender": "Male",
+      "civil_status": "Single",
+      "birthdate": "1986-07-14",
+      "email": "",
+      "phone": "+63 917 999 1111",
+      "address": "",
+      "tin_number": "999-888-777-000",
+      "tin": "999-888-777-000",
+      "notes": "",
+      "status": "Active",
+      "joined_date": "2026-10-18",
+      "active": true,
+      "custom_field_values": {
+        "tin_number": "999-888-777-000",
+        "occupation": "Farmer",
+        "emergency_contact_person": "Leticia Mendoza (+63 918 222 3333)",
+        "blood_type": "B+"
+      }
     }
   ],
   "loan_products": [
@@ -3294,6 +3382,16 @@
       "opened_date": "2026-02-22",
       "cooperative_id": "coop_01",
       "created_by": "usr_superadmin"
+    },
+    {
+      "id": "sa_mem_csv_1792301230380_0_kq1w",
+      "account_number": "SA-2026-03810",
+      "member_id": "mem_csv_1792301230380_0_kq1w",
+      "savings_product_id": "sp_regular",
+      "branch_id": "branch_tar",
+      "balance": 0,
+      "opened_date": "2026-10-18",
+      "status": "Active"
     }
   ],
   "savings_transactions": [
@@ -3742,6 +3840,20 @@
       "status": "Active",
       "cooperative_id": "coop_01",
       "created_by": "usr_superadmin"
+    },
+    {
+      "id": "sca_mem_csv_1792301230380_0_kq1w",
+      "account_number": "CBU-2026-03820",
+      "member_id": "mem_csv_1792301230380_0_kq1w",
+      "member_name": "Carlos Mendoza",
+      "branch_id": "branch_tar",
+      "par_value": 100,
+      "subscribed_shares": 100,
+      "subscribed_amount": 10000,
+      "paid_up_shares": 0,
+      "paid_up_amount": 0,
+      "status": "Active",
+      "created_at": "2026-10-18T05:27:10.382Z"
     }
   ],
   "share_capital_transactions": [
@@ -5153,7 +5265,41 @@
     }
   ],
   "general_ledger": [],
-  "configuration_audit_trails": [],
+  "configuration_audit_trails": [
+    {
+      "id": "audit_1792301230374_xmtge3",
+      "setting": "Custom Field Created (from CSV Import): Emergency Contact Person",
+      "old_value": "null",
+      "new_value": "{\"id\":\"cf_emergency_contact_person_1792301230373_4ehr\",\"entity\":\"Member\",\"field_name\":\"emergency_contact_person\",\"field_key\":\"emergency_contact_person\",\"field_label\":\"Emergency Contact Person\",\"label\":\"Emergency Contact Person\",\"field_type\":\"Text\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true,\"created_at\":\"2026-10-18T05:27:10.373Z\"}",
+      "changed_by": "Test Suite",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-10-18T05:27:10.374Z",
+      "reason": "Auto-created custom field from CSV header \"emergency_contact_person\""
+    },
+    {
+      "id": "audit_1792301230377_yuocz9",
+      "setting": "Custom Field Created (from CSV Import): Blood Type",
+      "old_value": "null",
+      "new_value": "{\"id\":\"cf_blood_type_1792301230376_xwkd\",\"entity\":\"Member\",\"field_name\":\"blood_type\",\"field_key\":\"blood_type\",\"field_label\":\"Blood Type\",\"label\":\"Blood Type\",\"field_type\":\"Text\",\"options\":[],\"required\":false,\"is_required\":false,\"default_value\":\"\",\"active\":true,\"created_at\":\"2026-10-18T05:27:10.376Z\"}",
+      "changed_by": "Test Suite",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-10-18T05:27:10.377Z",
+      "reason": "Auto-created custom field from CSV header \"blood_type\""
+    },
+    {
+      "id": "audit_1792301230385_bhs3vk",
+      "setting": "Batch Member Import Completed: 1 members imported",
+      "old_value": "null",
+      "new_value": "{\"count\":1,\"new_custom_fields_count\":2}",
+      "changed_by": "Test Suite",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-10-18T05:27:10.385Z",
+      "reason": "Imported 1 members with 2 new custom fields registered."
+    }
+  ],
   "user_roles": [
     {
       "id": "role_superadmin",

@@ -596,6 +596,7 @@ export default function App() {
                 setSelectedProfileMemberId(id);
                 setActiveTab('member_profile');
               }}
+              onRefreshCustomFields={refreshGlobalState}
             />
           )}
 
