@@ -621,17 +621,7 @@ export const UserDocumentManagementModule: React.FC<UserDocumentManagementModule
               <UserIcon className="w-4 h-4 text-blue-400 shrink-0" />
               <div className="text-xs">
                 <span className="text-slate-400 text-[10px] block leading-tight">Account:</span>
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer pr-1"
-                >
-                  {userList.map(u => (
-                    <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                      {u.name || u.username} ({u.role_name || u.role_id})
-                    </option>
-                  ))}
-                </select>
+                  {currentUser.email}
               </div>
             </div>
 

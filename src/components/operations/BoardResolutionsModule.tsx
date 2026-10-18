@@ -575,23 +575,8 @@ export const BoardResolutionsModule: React.FC<BoardResolutionsModuleProps> = ({
         {/* Category Pills & File Type Filter (Fulfills Category Filter requirement) */}
         <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1 mr-1">
-              <Tag className="w-3 h-3 text-blue-400" />
-              <span>Category:</span>
-            </span>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap border transition cursor-pointer ${
-                  categoryFilter === cat
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+            
+           
           </div>
 
           {/* File Format Pills */}
@@ -749,7 +734,7 @@ export const BoardResolutionsModule: React.FC<BoardResolutionsModuleProps> = ({
 
                 <button
                   onClick={() => setEditingDoc(res)}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition cursor-pointer"
+                  className="hidden p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition cursor-pointer"
                   title="Edit Resolution Details"
                 >
                   <Edit2 className="w-4 h-4 text-amber-400" />

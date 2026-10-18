@@ -342,10 +342,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
               </div>
             ) : (
               filteredNotifications.map(item => {
-                const isLoan = item.category === 'loans';
+                const transaction_type = item.type;
                 const isSavingsInterest = item.sub_type === 'savings_interest';
-                const isLoanInterest = item.sub_type === 'loan_interest';
-
                 return (
                   <div
                     key={item.id}
@@ -355,24 +353,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
                   >
                     {/* Unread indicator dot */}
                     {!item.read && (
-                      <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     )}
 
                     {/* Icon */}
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                        isLoan
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : isSavingsInterest
-                          ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      }`}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border bg-emerald-500/10 text-emerald-400 border-emerald-500/20`}
                     >
-                      {isLoan ? (
+                      {transaction_type == 'loan_applications' ? (
                         <FileText className="w-4 h-4" />
-                      ) : isSavingsInterest ? (
-                        <Sparkles className="w-4 h-4" />
-                      ) : (
+                      ): (
                         <Coins className="w-4 h-4" />
                       )}
                     </div>
@@ -381,19 +371,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
-                            isLoan
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                              : isSavingsInterest
-                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          }`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border bg-emerald-500/20 text-emerald-300 border-emerald-500/30`}
                         >
-                          {isLoan
-                            ? item.status || 'Loan Application'
-                            : isSavingsInterest
-                            ? 'Savings Interest'
-                            : 'Loan Interest Payment'}
+                          {transaction_type}
                         </span>
                         <span className="text-[10px] text-slate-400 flex items-center space-x-1 shrink-0">
                           <Clock className="w-3 h-3" />
@@ -411,20 +391,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
 
                       {/* Action buttons */}
                       <div className="flex items-center space-x-2 mt-2 pt-1 border-t border-slate-800/60">
-                        {isLoan && onNavigateTab && (
+                        {transaction_type && onNavigateTab && (
                           <button
                             onClick={() => {
                               onNavigateTab('loans');
                               setIsOpen(false);
                             }}
-                            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center space-x-1 cursor-pointer transition"
+                            className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 cursor-pointer transition"
                           >
                             <span>Review in Loans Module</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         )}
 
-                        {!isLoan && onNavigateTab && (
+                        {!transaction_type && onNavigateTab && (
                           <button
                             onClick={() => {
                               onNavigateTab(isSavingsInterest ? 'savings' : 'accounting');
@@ -459,7 +439,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTa
               onClick={handlePostSavingsInterest}
               disabled={isPostingInterest}
               title="Calculate & credit CDA interest on all active savings accounts"
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-700/80 to-indigo-700/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-[11px] shadow-sm transition cursor-pointer disabled:opacity-50"
+              className="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-700/80 to-indigo-700/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-[11px] shadow-sm transition cursor-pointer disabled:opacity-50"
             >
               <Percent className={`w-3.5 h-3.5 text-purple-200 ${isPostingInterest ? 'animate-spin' : ''}`} />
               <span>{isPostingInterest ? 'Posting Interest...' : 'Post Savings Interest (Batch)'}</span>
