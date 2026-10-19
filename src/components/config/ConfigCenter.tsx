@@ -35,6 +35,7 @@ import { ExcelWorkbench } from './ExcelWorkbench';
 import { AccountingMappingsView } from './AccountingMappingsView';
 import { CashAccountsConfigView } from './CashAccountsConfigView';
 import { ShareCapitalSettingsView } from './ShareCapitalSettingsView';
+import { LoanProductModal } from './LoanProductModal';
 import {
   Account,
   AccountingMapping,
@@ -505,6 +506,10 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
                 <LoanProductsConfig
                   products={configData.loan_products}
                   accounts={configData.chart_of_accounts}
+                  branches={configData.branches}
+                  approvalWorkflows={configData.approval_workflows}
+                  penaltyRules={configData.penalty_rules}
+                  cashAccounts={configData.cash_accounts}
                   currentUser={currentUser}
                   onRefresh={handleRefresh}
                   showNotice={showNotice}
@@ -669,74 +674,34 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
 };
 
 // ==========================================
-// SUB-PANEL: LOAN PRODUCTS & VERSIONING
+// SUB-PANEL: LOAN PRODUCTS & VERSIONING (Full 30 Columns)
 // ==========================================
 function LoanProductsConfig({
   products,
   accounts,
+  branches = [],
+  approvalWorkflows = [],
+  penaltyRules = [],
+  cashAccounts = [],
   currentUser,
   onRefresh,
   showNotice
 }: {
   products: LoanProduct[];
   accounts: Account[];
+  branches?: Branch[];
+  approvalWorkflows?: ApprovalWorkflow[];
+  penaltyRules?: PenaltyRule[];
+  cashAccounts?: CashAccount[];
   currentUser: User;
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    description: '',
-    min_amount: 10000,
-    max_amount: 250000,
-    min_term_months: 1,
-    max_term_months: 12,
-    annual_interest_rate: 10.0,
-    interest_calculation_method: 'Diminishing Balance',
-    default_term_months: 12,
-    payment_frequency: 'Monthly',
-    grace_period_days: 5,
-    penalty_rate_percentage: 2.0,
-    gl_receivable_account_id: 'acc_1210',
-    gl_interest_income_account_id: 'acc_4110'
-  });
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.createLoanProduct({
-        ...formData,
-        changed_by: currentUser.name,
-        reason: 'New loan product created via Admin Config'
-      });
-      setIsCreating(false);
-      showNotice('success', `Created loan product "${formData.name}" successfully.`);
-      onRefresh();
-    } catch (err: any) {
-      showNotice('error', err.message);
-    }
-  };
-
-  const handleUpdate = async (id: string) => {
-    try {
-      await api.updateLoanProduct(id, {
-        ...formData,
-        changed_by: currentUser.name,
-        reason: `Updated interest rate/terms for ${formData.name}`
-      });
-      setEditingId(null);
-      showNotice('success', `Loan product updated with automatic version bump. Historical loans protected.`);
-      onRefresh();
-    } catch (err: any) {
-      showNotice('error', err.message);
-    }
-  };
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<LoanProduct | null>(null);
 
   const handleDelete = async (product: LoanProduct) => {
-    if (!window.confirm(`Delete loan product "${product.name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete loan product "${product.name}"?`)) return;
     try {
       await api.deleteLoanProduct(product.id, currentUser.name);
       showNotice('success', `Loan product "${product.name}" deleted.`);
@@ -748,337 +713,178 @@ function LoanProductsConfig({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Dynamic Loan Products</h2>
-          <p className="text-xs text-slate-400">
-            Create and edit loan products with automatic version snapshots (Req #5, #34, #35).
+          <div className="flex items-center space-x-2">
+            <h2 className="text-lg font-bold text-white">Dynamic Loan Products</h2>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+              30 Database Columns
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Configure credit facilities with full interest engines, multi-tiered terms, GL mappings, and automatic version snapshots.
           </p>
         </div>
         <button
           id="btn-new-loan-product"
           onClick={() => {
-            setFormData({
-              code: `LP-${Math.floor(100 + Math.random() * 900)}`,
-              name: '',
-              description: '',
-              min_amount: 10000,
-              max_amount: 250000,
-              min_term_months: 1,
-              max_term_months: 12,
-              annual_interest_rate: 10.0,
-              interest_calculation_method: 'Diminishing Balance',
-              default_term_months: 12,
-              payment_frequency: 'Monthly',
-              grace_period_days: 5,
-              penalty_rate_percentage: 2.0,
-              gl_receivable_account_id: 'acc_1210',
-              gl_interest_income_account_id: 'acc_4110'
-            });
-            setIsCreating(true);
-            setEditingId(null);
+            setProductToEdit(null);
+            setIsModalOpen(true);
           }}
-          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-lg shadow-emerald-900/20 transition self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>+ Create Loan Product</span>
         </button>
       </div>
 
-      {isCreating && (
-        <form onSubmit={handleCreate} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-            <h3 className="text-sm font-bold text-emerald-400">Create New Loan Product</h3>
-            <button type="button" onClick={() => setIsCreating(false)} className="text-slate-400 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Product Code</label>
-              <input
-                type="text"
-                required
-                value={formData.code}
-                onChange={e => setFormData({ ...formData, code: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Product Name</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Educational Loan"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Interest Calculation Method</label>
-              <select
-                value={formData.interest_calculation_method}
-                onChange={e => setFormData({ ...formData, interest_calculation_method: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-              >
-                <option value="Diminishing Balance">Diminishing Balance</option>
-                <option value="Flat Rate">Flat Rate</option>
-                <option value="Equal Amortization">Equal Amortization</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Annual Interest Rate (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                value={formData.annual_interest_rate}
-                onChange={e => setFormData({ ...formData, annual_interest_rate: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Payment Frequency</label>
-              <select
-                value={formData.payment_frequency}
-                onChange={e => setFormData({ ...formData, payment_frequency: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-              >
-                <option value="Weekly">Weekly</option>
-                <option value="Semi-monthly">Semi-monthly</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Lump Sum">Lump Sum</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Minimum Term (Months)</label>
-              <input
-                type="number"
-                required
-                value={formData.min_term_months}
-                onChange={e => setFormData({ ...formData, min_term_months: parseInt(e.target.value) || 1 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Maximum Term (Months)</label>
-              <input
-                type="number"
-                required
-                value={formData.max_term_months}
-                onChange={e => setFormData({ ...formData, max_term_months: parseInt(e.target.value) || 1 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Min Amount (₱)</label>
-              <input
-                type="number"
-                value={formData.min_amount}
-                onChange={e => setFormData({ ...formData, min_amount: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Max Amount (₱)</label>
-              <input
-                type="number"
-                value={formData.max_amount}
-                onChange={e => setFormData({ ...formData, max_amount: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Penalty Rate (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                value={formData.penalty_rate_percentage}
-                onChange={e => setFormData({ ...formData, penalty_rate_percentage: parseFloat(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">GL Receivable Account</label>
-              <select
-                value={formData.gl_receivable_account_id}
-                onChange={e => setFormData({ ...formData, gl_receivable_account_id: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-              >
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name} ({account.type})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-300 font-medium">GL Interest Income Account</label>
-              <select
-                value={formData.gl_interest_income_account_id}
-                onChange={e => setFormData({ ...formData, gl_interest_income_account_id: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer"
-              >
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.code || account.account_code} - {account.name} ({account.type})</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end space-x-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsCreating(false)}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs cursor-pointer"
-            >
-              Save Product
-            </button>
-          </div>
-        </form>
-      )}
-
       {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {products.map(p => {
-          const isEditing = editingId === p.id;
+          const branchName = p.branch_id
+            ? branches.find(b => b.id === p.branch_id)?.name || p.branch_id
+            : '🌐 All Branches (Coop-wide)';
+
           return (
-            <div key={p.id} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 flex flex-col justify-between">
+            <div
+              key={p.id}
+              className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/80 hover:border-slate-600 transition flex flex-col justify-between space-y-4"
+            >
               <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-white">{p.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold border border-blue-500/30">
-                      v{p.version || 1}
-                    </span>
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-bold text-white">{p.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30">
+                        v{p.version || 1}
+                      </span>
+                      {p.active ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 font-semibold">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                      {p.description || 'Configured cooperative credit facility.'}
+                    </p>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-slate-900 text-emerald-400 border border-slate-700 shrink-0">
                     {p.code}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">{p.description || 'Configurable credit facility'}</p>
 
-                {isEditing ? (
-                  <div className="mt-3 space-y-2 pt-3 border-t border-slate-700">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-slate-400">Annual Rate (%)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.annual_interest_rate}
-                          onChange={e => setFormData({ ...formData, annual_interest_rate: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-400">Method</label>
-                        <select
-                          value={formData.interest_calculation_method}
-                          onChange={e => setFormData({ ...formData, interest_calculation_method: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                        >
-                          <option value="Diminishing Balance">Diminishing Balance</option>
-                          <option value="Flat Rate">Flat Rate</option>
-                          <option value="Equal Amortization">Equal Amortization</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-400">Frequency</label>
-                        <select
-                          value={formData.payment_frequency}
-                          onChange={e => setFormData({ ...formData, payment_frequency: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                        >
-                          <option value="Weekly">Weekly</option>
-                          <option value="Semi-monthly">Semi-monthly</option>
-                          <option value="Monthly">Monthly</option>
-                          <option value="Lump Sum">Lump Sum</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-400">Term (Mo)</label>
-                        <input
-                          type="number"
-                          value={formData.default_term_months}
-                          onChange={e => setFormData({ ...formData, default_term_months: parseInt(e.target.value) || 12 })}
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-2 pt-2">
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="px-2 py-1 bg-slate-700 text-slate-300 text-[11px] rounded"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleUpdate(p.id)}
-                        className="px-3 py-1 bg-emerald-600 text-white font-semibold text-[11px] rounded"
-                      >
-                        Save & Bump Version
-                      </button>
-                    </div>
+                {/* 30-Column Specifications Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4 pt-3 border-t border-slate-700/60 text-xs">
+                  {/* Amount Range */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Principal Limits</span>
+                    <span className="font-semibold text-slate-200">
+                      ₱{p.min_amount?.toLocaleString()} - ₱{p.max_amount?.toLocaleString()}
+                    </span>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/60 text-xs">
-                    <div>
-                      <span className="text-slate-400">Interest Rate:</span>{' '}
-                      <span className="font-semibold text-emerald-400">{p.annual_interest_rate}% p.a.</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Method:</span>{' '}
-                      <span className="font-semibold text-slate-200">{p.interest_calculation_method}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Frequency:</span>{' '}
-                      <span className="font-semibold text-slate-200">{p.payment_frequency}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Term:</span>{' '}
-                      <span className="font-semibold text-slate-200">{p.default_term_months} Months</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Range:</span>{' '}
-                      <span className="text-[11px] font-semibold text-slate-300">
-                        ₱{p.min_amount?.toLocaleString()} - ₱{p.max_amount?.toLocaleString()}
+
+                  {/* Term Limits */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Term Range</span>
+                    <span className="font-semibold text-slate-200">
+                      {p.min_term_months || 1} - {p.max_term_months || p.default_term_months || 12} mos{' '}
+                      <span className="text-slate-400 font-normal">({p.default_term_months || 12} def)</span>
+                    </span>
+                  </div>
+
+                  {/* Interest & Method */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Interest Rate</span>
+                    <span className="font-semibold text-emerald-400">
+                      {p.annual_interest_rate}% p.a.{' '}
+                      <span className="text-slate-400 text-[10px] font-normal block">{p.interest_calculation_method}</span>
+                    </span>
+                  </div>
+
+                  {/* Payment Frequency & Grace */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Schedule & Grace</span>
+                    <span className="font-semibold text-slate-200">
+                      {p.payment_frequency}{' '}
+                      <span className="text-slate-400 font-normal">({p.grace_period_days || 0}d grace)</span>
+                    </span>
+                  </div>
+
+                  {/* Fees */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Fees (Proc / Svc / Oth)</span>
+                    <span className="font-semibold text-slate-200">
+                      {p.processing_fee_percentage}% / ₱{p.service_fee_fixed || 0} / ₱{p.other_fee || 0}
+                    </span>
+                  </div>
+
+                  {/* Penalty */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Late Penalty</span>
+                    <span className="font-semibold text-rose-400">
+                      {p.penalty_rate_percentage || 2.0}% / mo{' '}
+                      <span className="text-slate-400 text-[10px] font-normal block truncate">
+                        {p.penalty_rule_id || 'Standard'}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Requirements & Documents */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] text-slate-400 block">Requirements</span>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {p.collateral_required && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium">
+                          Collateral
+                        </span>
+                      )}
+                      {p.guarantor_required && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-medium">
+                          Guarantor
+                        </span>
+                      )}
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+                        {p.required_documents?.length || 0} Docs
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-400">Proc. Fee:</span>{' '}
-                      <span className="font-semibold text-slate-200">{p.processing_fee_percentage}%</span>
-                    </div>
                   </div>
-                )}
+
+                  {/* GL Accounts */}
+                  <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800 col-span-2">
+                    <span className="text-[10px] text-slate-400 block">Accounting GL Mappings</span>
+                    <span className="font-mono text-[11px] text-slate-300 block truncate">
+                      Recv: <span className="text-emerald-400">{p.gl_receivable_account_id}</span> • Inc:{' '}
+                      <span className="text-emerald-400">{p.gl_interest_income_account_id}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {!isEditing && (
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-700/60">
-                  <span className="text-[10px] text-slate-400">Effective: {p.effective_from || 'Active'}</span>
+              {/* Card Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-700/60 text-xs">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                    Scope: {branchName}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Effective: {p.effective_from || 'Always'}
+                    {p.effective_until ? ` to ${p.effective_until}` : ''}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
                   <button
                     id={`btn-edit-loan-prod-${p.id}`}
                     onClick={() => {
-                      setEditingId(p.id);
-                      setFormData({
-                        code: p.code,
-                        name: p.name,
-                        description: p.description,
-                        min_amount: p.min_amount,
-                        max_amount: p.max_amount,
-                        annual_interest_rate: p.annual_interest_rate,
-                        interest_calculation_method: p.interest_calculation_method,
-                        min_term_months: p.min_term_months || 1,
-                        max_term_months: p.max_term_months || p.default_term_months || 12,
-                        default_term_months: p.default_term_months || p.max_term_months || 12,
-                        payment_frequency: p.payment_frequency,
-                        grace_period_days: p.grace_period_days,
-                        penalty_rate_percentage: p.penalty_rate_percentage || 2,
-                        gl_receivable_account_id: p.gl_receivable_account_id || p.debit_account_id || 'acc_1210',
-                        gl_interest_income_account_id: p.gl_interest_income_account_id || 'acc_4110'
-                      });
+                      setProductToEdit(p);
+                      setIsModalOpen(true);
                     }}
-                    className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold cursor-pointer transition"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Edit Product</span>
@@ -1086,17 +892,42 @@ function LoanProductsConfig({
                   <button
                     type="button"
                     onClick={() => handleDelete(p)}
-                    className="flex items-center space-x-1 text-xs text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
+                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold cursor-pointer transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete</span>
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
       </div>
+
+      {/* Complete 30-Column Create/Edit Modal */}
+      <LoanProductModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setProductToEdit(null);
+        }}
+        productToEdit={productToEdit}
+        accounts={accounts}
+        branches={branches}
+        cashAccounts={cashAccounts}
+        approvalWorkflows={approvalWorkflows}
+        penaltyRules={penaltyRules}
+        currentUser={currentUser}
+        onSaved={savedProd => {
+          showNotice(
+            'success',
+            productToEdit
+              ? `Updated loan product "${savedProd.name}" to version ${savedProd.version}. Historical loans protected.`
+              : `Created loan product "${savedProd.name}" with full 30-column specification.`
+          );
+          onRefresh();
+        }}
+      />
     </div>
   );
 }

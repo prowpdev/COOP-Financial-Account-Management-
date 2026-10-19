@@ -302,81 +302,332 @@ router.post('/config/accounting-mappings/reset', (req: Request, res: Response) =
 // 4. DYNAMIC LOAN PRODUCTS & VERSIONING (Test 1, 2, 14)
 // ==========================================
 
-router.get('/config/loan-products', (req: Request, res: Response) => {
-  res.json({ success: true, data: db.getTable('loan_products') });
+// Helper to ensure all 30 columns of loan_products are consistently formatted and populated
+export function normalizeLoanProduct(p: any) {
+  if (!p) return null;
+  
+  let docs: string[] = ['Valid Government ID'];
+  if (Array.isArray(p.required_documents)) {
+    docs = p.required_documents.map((d: any) => String(d).trim()).filter(Boolean);
+  } else if (typeof p.required_documents === 'string' && p.required_documents.trim()) {
+    try {
+      const parsed = JSON.parse(p.required_documents);
+      docs = Array.isArray(parsed) ? parsed.map((d: any) => String(d).trim()).filter(Boolean) : [p.required_documents.trim()];
+    } catch {
+      docs = p.required_documents.split(',').map((d: string) => d.trim()).filter(Boolean);
+    }
+  }
+
+  const minAmt = Number(p.min_amount) || 0;
+  const maxAmt = Number(p.max_amount) || minAmt || 0;
+  const minTerm = p.min_term_months !== undefined && p.min_term_months !== null && p.min_term_months !== '' ? Number(p.min_term_months) : 1;
+  const maxTerm = p.max_term_months !== undefined && p.max_term_months !== null && p.max_term_months !== '' ? Number(p.max_term_months) : (Number(p.default_term_months) || 12);
+  const defTerm = p.default_term_months !== undefined && p.default_term_months !== null && p.default_term_months !== '' ? Number(p.default_term_months) : minTerm;
+
+  return {
+    // Basic Information (5)
+    id: String(p.id),
+    code: String(p.code || '').trim(),
+    name: String(p.name || '').trim(),
+    description: p.description !== undefined && p.description !== null ? String(p.description).trim() : null,
+    version: Number(p.version) || 1,
+
+    // Loan Amount and Terms (5)
+    min_amount: minAmt,
+    max_amount: maxAmt,
+    min_term_months: minTerm,
+    max_term_months: maxTerm,
+    default_term_months: defTerm,
+
+    // Interest and Payment (4)
+    annual_interest_rate: Number(p.annual_interest_rate) || 0,
+    interest_calculation_method: p.interest_calculation_method || 'Diminishing Balance',
+    payment_frequency: p.payment_frequency || 'Monthly',
+    grace_period_days: p.grace_period_days !== undefined && p.grace_period_days !== null ? Math.max(0, parseInt(String(p.grace_period_days), 10) || 0) : 0,
+
+    // Fees and Penalties (5)
+    processing_fee_percentage: p.processing_fee_percentage !== undefined && p.processing_fee_percentage !== null ? Math.max(0, Number(p.processing_fee_percentage) || 0) : 0,
+    service_fee_fixed: p.service_fee_fixed !== undefined && p.service_fee_fixed !== null ? Math.max(0, Number(p.service_fee_fixed) || 0) : 0,
+    other_fee: p.other_fee !== undefined && p.other_fee !== null ? Math.max(0, Number(p.other_fee) || 0) : (Number(p.other_fees) || 0),
+    penalty_rule_id: p.penalty_rule_id || 'pen_standard',
+    penalty_rate_percentage: p.penalty_rate_percentage !== undefined && p.penalty_rate_percentage !== null ? Math.max(0, Number(p.penalty_rate_percentage) || 0) : 2.0,
+
+    // Requirements and Approval (4)
+    collateral_required: Boolean(p.collateral_required),
+    guarantor_required: Boolean(p.guarantor_required),
+    required_documents: docs,
+    approval_workflow_id: p.approval_workflow_id || 'wf_loan_standard',
+
+    // Accounting and Funding (3)
+    debit_account_id: p.debit_account_id || p.gl_receivable_account_id || 'acc_1210',
+    gl_receivable_account_id: p.gl_receivable_account_id || p.debit_account_id || 'acc_1210',
+    gl_interest_income_account_id: p.gl_interest_income_account_id || 'acc_4110',
+
+    // Effective Dates and Status (4)
+    effective_from: p.effective_from ? String(p.effective_from).trim() : null,
+    effective_until: p.effective_until ? String(p.effective_until).trim() : null,
+    active: p.active !== undefined ? Boolean(p.active) : true,
+    branch_id: p.branch_id && p.branch_id !== 'all' ? String(p.branch_id).trim() : null
+  };
+}
+
+router.get(['/config/loan-products', '/loan-products'], (req: Request, res: Response) => {
+  const branchId = getEffectiveBranchId(req);
+  let products = db.getTable('loan_products') || [];
+  if (branchId) {
+    products = products.filter(p => !p.branch_id || p.branch_id === branchId || p.branch_id === 'all');
+  }
+  const normalized = products.map(normalizeLoanProduct);
+  res.json({ success: true, count: normalized.length, data: normalized });
 });
 
-router.get('/config/loan-products/:id', (req: Request, res: Response) => {
+router.get(['/config/loan-products/:id', '/loan-products/:id'], (req: Request, res: Response) => {
   const product = db.getTable('loan_products').find(p => p.id === req.params.id);
   if (!product) {
     return res.status(404).json({ success: false, error: 'Loan product not found' });
   }
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: normalizeLoanProduct(product) });
 });
 
-router.post('/config/loan-products', (req: Request, res: Response) => {
+// Dynamic penalty rules reference list
+router.get(['/config/penalty-rules', '/penalty-rules'], (req: Request, res: Response) => {
+  const rules = db.getTable('penalty_rules') || [];
+  res.json({ success: true, count: rules.length, data: rules });
+});
+
+// Dynamic approval workflows reference list
+router.get(['/config/approval-workflows', '/approval-workflows'], (req: Request, res: Response) => {
+  const workflows = db.getTable('approval_workflows') || [];
+  res.json({ success: true, count: workflows.length, data: workflows });
+});
+
+// Dynamic document requirements reference list
+router.get(['/config/document-requirements', '/document-requirements'], (req: Request, res: Response) => {
+  const docs = db.getTable('document_requirements') || [];
+  res.json({ success: true, count: docs.length, data: docs });
+});
+
+router.post(['/config/loan-products', '/loan-products'], (req: Request, res: Response) => {
   const {
+    id: customId,
     code,
     name,
     description,
+    version,
     min_amount,
     max_amount,
     min_term_months,
     max_term_months,
+    default_term_months,
     annual_interest_rate,
     interest_calculation_method,
-    default_term_months,
     payment_frequency,
     grace_period_days,
-    penalty_rate_percentage,
-    gl_receivable_account_id,
-    gl_interest_income_account_id,
     processing_fee_percentage,
     service_fee_fixed,
+    other_fee,
     penalty_rule_id,
+    penalty_rate_percentage,
     collateral_required,
     guarantor_required,
-    debit_account_id,
     required_documents,
     approval_workflow_id,
+    debit_account_id,
+    gl_receivable_account_id,
+    gl_interest_income_account_id,
+    effective_from,
+    effective_until,
+    active,
+    branch_id,
     changed_by,
     reason
   } = req.body;
 
+  // 1. Required text inputs
+  const cleanCode = (code || '').trim();
+  const cleanName = (name || '').trim();
+
+  if (!cleanCode) {
+    return res.status(400).json({ success: false, error: 'Product code is required' });
+  }
+  if (!cleanName) {
+    return res.status(400).json({ success: false, error: 'Product name is required' });
+  }
+
+  // Check unique code
+  const existingProducts = db.getTable('loan_products') || [];
+  if (existingProducts.some(p => p.code?.toLowerCase() === cleanCode.toLowerCase())) {
+    return res.status(400).json({ success: false, error: `Loan product with code "${cleanCode}" already exists` });
+  }
+
+  // 2. Numeric and range validations
+  const numMinAmount = Number(min_amount);
+  const numMaxAmount = Number(max_amount);
+  if (isNaN(numMinAmount) || numMinAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Minimum loan amount must be a positive number greater than 0' });
+  }
+  if (isNaN(numMaxAmount) || numMaxAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Maximum loan amount must be a positive number greater than 0' });
+  }
+  if (numMaxAmount < numMinAmount) {
+    return res.status(400).json({ success: false, error: 'Maximum amount cannot be less than minimum amount' });
+  }
+
+  const numMinTerm = min_term_months !== undefined && min_term_months !== null && min_term_months !== '' ? Number(min_term_months) : 1;
+  const numMaxTerm = max_term_months !== undefined && max_term_months !== null && max_term_months !== '' ? Number(max_term_months) : 12;
+  const numDefTerm = default_term_months !== undefined && default_term_months !== null && default_term_months !== '' ? Number(default_term_months) : numMinTerm;
+
+  if (numMinTerm <= 0 || numMaxTerm <= 0) {
+    return res.status(400).json({ success: false, error: 'Term months must be positive integers' });
+  }
+  if (numMaxTerm < numMinTerm) {
+    return res.status(400).json({ success: false, error: 'Maximum term cannot be less than minimum term' });
+  }
+  if (numDefTerm < numMinTerm || numDefTerm > numMaxTerm) {
+    return res.status(400).json({ success: false, error: `Default term (${numDefTerm} mos) must fall within minimum (${numMinTerm} mos) and maximum (${numMaxTerm} mos)` });
+  }
+
+  const numAnnualRate = Number(annual_interest_rate);
+  if (isNaN(numAnnualRate) || numAnnualRate < 0) {
+    return res.status(400).json({ success: false, error: 'Annual interest rate must be a non-negative percentage' });
+  }
+
+  const validMethods = ['Diminishing Balance', 'Flat Rate', 'Equal Amortization', 'Simple Interest'];
+  const calcMethod = interest_calculation_method || 'Diminishing Balance';
+  if (!validMethods.includes(calcMethod)) {
+    return res.status(400).json({ success: false, error: `Invalid interest calculation method. Must be one of: ${validMethods.join(', ')}` });
+  }
+
+  const validFrequencies = ['Monthly', 'Semi-monthly', 'Weekly', 'Lump Sum', 'Quarterly'];
+  const payFreq = payment_frequency || 'Monthly';
+  if (!validFrequencies.includes(payFreq)) {
+    return res.status(400).json({ success: false, error: `Invalid payment frequency. Must be one of: ${validFrequencies.join(', ')}` });
+  }
+
+  // 3. GL Accounts validation against Chart of Accounts
+  const coa = db.getTable('chart_of_accounts') || [];
+
+  if (!gl_receivable_account_id) {
+    return res.status(400).json({ success: false, error: 'GL Receivable Account is required' });
+  }
+  const recvAcc = coa.find(a => a.id === gl_receivable_account_id || a.code === gl_receivable_account_id || a.account_code === gl_receivable_account_id);
+  if (!recvAcc) {
+    return res.status(400).json({ success: false, error: `GL Receivable Account "${gl_receivable_account_id}" not found in Chart of Accounts` });
+  }
+
+  if (!gl_interest_income_account_id) {
+    return res.status(400).json({ success: false, error: 'GL Interest Income Account is required' });
+  }
+  const incAcc = coa.find(a => a.id === gl_interest_income_account_id || a.code === gl_interest_income_account_id || a.account_code === gl_interest_income_account_id);
+  if (!incAcc) {
+    return res.status(400).json({ success: false, error: `GL Interest Income Account "${gl_interest_income_account_id}" not found in Chart of Accounts` });
+  }
+
+  // 4. Branch access restrictions & validation
+  const branches = db.getTable('branches') || [];
+  const callerBranchId = getEffectiveBranchId(req);
+  let effectiveBranchId: string | null = null;
+  if (branch_id && branch_id !== 'all') {
+    const br = branches.find(b => b.id === branch_id || b.code === branch_id);
+    if (!br) {
+      return res.status(400).json({ success: false, error: `Branch "${branch_id}" does not exist in branch registry` });
+    }
+    // If caller has branch restriction and is trying to set a different branch
+    if (callerBranchId && callerBranchId !== br.id) {
+      return res.status(403).json({ success: false, error: `Unauthorized: You can only create loan products for your assigned branch (${callerBranchId})` });
+    }
+    effectiveBranchId = br.id;
+  } else if (callerBranchId) {
+    effectiveBranchId = callerBranchId;
+  }
+
+  // 5. Workflows and Penalty rules verification
+  const workflows = db.getTable('approval_workflows') || [];
+  let effectiveWfId = approval_workflow_id || 'wf_loan_standard';
+  if (approval_workflow_id && !workflows.some(w => w.id === approval_workflow_id)) {
+    if (workflows.length > 0) effectiveWfId = workflows[0].id;
+  }
+
+  const penaltyRules = db.getTable('penalty_rules') || [];
+  let effectivePenaltyRuleId = penalty_rule_id || 'pen_standard';
+  if (penalty_rule_id && !penaltyRules.some(r => r.id === penalty_rule_id)) {
+    if (penaltyRules.length > 0) effectivePenaltyRuleId = penaltyRules[0].id;
+  }
+
+  // 6. Dates range validation
+  const effFrom = effective_from ? String(effective_from).trim() : new Date().toISOString().split('T')[0];
+  const effUntil = effective_until && String(effective_until).trim() ? String(effective_until).trim() : null;
+  if (effFrom && effUntil && new Date(effFrom) > new Date(effUntil)) {
+    return res.status(400).json({ success: false, error: 'Effective From date cannot be later than Effective Until date' });
+  }
+
+  // 7. Parse required_documents as array (valid JSON)
+  let parsedDocs: string[] = [];
+  if (Array.isArray(required_documents)) {
+    parsedDocs = required_documents.map(d => String(d).trim()).filter(Boolean);
+  } else if (typeof required_documents === 'string' && required_documents.trim()) {
+    try {
+      const json = JSON.parse(required_documents);
+      parsedDocs = Array.isArray(json) ? json.map(d => String(d).trim()).filter(Boolean) : [required_documents.trim()];
+    } catch {
+      parsedDocs = required_documents.split(',').map(d => d.trim()).filter(Boolean);
+    }
+  }
+  if (parsedDocs.length === 0) {
+    parsedDocs = ['Valid Government ID'];
+  }
+
+  const prodId = customId || `lp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
   const newProduct = {
-    id: `lp_${Date.now()}`,
-    code: code || `LP-${Date.now().toString().slice(-4)}`,
-    name,
-    description: description || '',
-    version: 1,
-    min_amount: Number(min_amount) || 1000,
-    max_amount: Number(max_amount) || 500000,
-    min_term_months: Number(min_term_months ?? default_term_months) || 1,
-    max_term_months: Number(max_term_months ?? default_term_months) || 12,
-    annual_interest_rate: Number(annual_interest_rate) || 10.0,
-    interest_calculation_method: interest_calculation_method || 'Diminishing Balance',
-    default_term_months: Number(default_term_months ?? max_term_months) || 12,
-    payment_frequency: payment_frequency || 'Monthly',
-    grace_period_days: Number(grace_period_days) || 5,
-    processing_fee_percentage: Number(processing_fee_percentage) || 2.0,
-    penalty_rate_percentage: Number(penalty_rate_percentage) || 2.0,
-    service_fee_fixed: Number(service_fee_fixed) || 200,
-    penalty_rule_id: penalty_rule_id || 'pen_standard',
+    // 1-5: Basic Information
+    id: prodId,
+    code: cleanCode,
+    name: cleanName,
+    description: description !== undefined && description !== null && String(description).trim() ? String(description).trim() : null,
+    version: Number(version) || 1,
+
+    // 6-10: Loan Amount and Terms
+    min_amount: numMinAmount,
+    max_amount: numMaxAmount,
+    min_term_months: numMinTerm,
+    max_term_months: numMaxTerm,
+    default_term_months: numDefTerm,
+
+    // 11-14: Interest and Payment
+    annual_interest_rate: numAnnualRate,
+    interest_calculation_method: calcMethod,
+    payment_frequency: payFreq,
+    grace_period_days: Math.max(0, parseInt(String(grace_period_days || 0), 10) || 0),
+
+    // 15-19: Fees and Penalties (plus other_fee = 30)
+    processing_fee_percentage: Math.max(0, Number(processing_fee_percentage) || 0),
+    service_fee_fixed: Math.max(0, Number(service_fee_fixed) || 0),
+    other_fee: Math.max(0, Number(other_fee) || 0),
+    penalty_rule_id: effectivePenaltyRuleId,
+    penalty_rate_percentage: Math.max(0, Number(penalty_rate_percentage ?? 2.0)),
+
+    // 20-23: Requirements and Approval
     collateral_required: Boolean(collateral_required),
     guarantor_required: Boolean(guarantor_required),
-    debit_account_id: debit_account_id || 'acc_1210',
-    gl_receivable_account_id: gl_receivable_account_id || debit_account_id || 'acc_1210',
-    gl_interest_income_account_id: gl_interest_income_account_id || 'acc_4110',
-    required_documents: required_documents || ['Valid Government ID'],
-    approval_workflow_id: approval_workflow_id || 'wf_loan_standard',
-    active: true,
-    effective_from: new Date().toISOString().split('T')[0],
-    effective_until: null
+    required_documents: parsedDocs,
+    approval_workflow_id: effectiveWfId,
+
+    // 24-26: Accounting and Funding
+    debit_account_id: debit_account_id || gl_receivable_account_id,
+    gl_receivable_account_id,
+    gl_interest_income_account_id,
+
+    // 27-30: Effective Dates and Status
+    effective_from: effFrom,
+    effective_until: effUntil,
+    active: active !== undefined ? Boolean(active) : true,
+    branch_id: effectiveBranchId
   };
 
   db.insert('loan_products', newProduct);
 
-  // Record initial product version
+  // Record initial product version snapshot
   db.insert('loan_product_versions', {
     id: `ver_${newProduct.id}_1`,
     loan_product_id: newProduct.id,
@@ -388,14 +639,12 @@ router.post('/config/loan-products', (req: Request, res: Response) => {
     reason: reason || 'Initial product creation'
   });
 
-  db.recordAudit(`Loan Product Created: ${newProduct.name}`, 'None', newProduct, changed_by || 'Admin', reason || 'Created new loan product');
+  db.recordAudit(`Loan Product Created: ${newProduct.name}`, 'None', newProduct, changed_by || 'Admin', reason || 'Created new loan product with full 30-column specification');
 
-  res.json({ success: true, data: newProduct });
+  res.json({ success: true, message: `Loan product "${newProduct.name}" created successfully.`, data: normalizeLoanProduct(newProduct) });
 });
 
-// Update loan product (Req 34, 35, Test 2, Test 14)
-// Preserves versioning so existing loans retain their original rate and terms!
-router.put('/config/loan-products/:id', (req: Request, res: Response) => {
+router.put(['/config/loan-products/:id', '/loan-products/:id'], (req: Request, res: Response) => {
   const { id } = req.params;
   const products = db.getTable('loan_products');
   const product = products.find(p => p.id === id);
@@ -408,12 +657,187 @@ router.put('/config/loan-products/:id', (req: Request, res: Response) => {
   const oldMethod = product.interest_calculation_method;
   const oldSnapshot = { ...product };
 
+  const {
+    code,
+    name,
+    description,
+    min_amount,
+    max_amount,
+    min_term_months,
+    max_term_months,
+    default_term_months,
+    annual_interest_rate,
+    interest_calculation_method,
+    payment_frequency,
+    grace_period_days,
+    processing_fee_percentage,
+    service_fee_fixed,
+    other_fee,
+    penalty_rule_id,
+    penalty_rate_percentage,
+    collateral_required,
+    guarantor_required,
+    required_documents,
+    approval_workflow_id,
+    debit_account_id,
+    gl_receivable_account_id,
+    gl_interest_income_account_id,
+    effective_from,
+    effective_until,
+    active,
+    branch_id,
+    changed_by,
+    reason
+  } = req.body;
+
+  // Validation
+  const cleanCode = code !== undefined ? String(code).trim() : product.code;
+  const cleanName = name !== undefined ? String(name).trim() : product.name;
+  if (!cleanCode) return res.status(400).json({ success: false, error: 'Product code is required' });
+  if (!cleanName) return res.status(400).json({ success: false, error: 'Product name is required' });
+
+  // Code uniqueness check (ignoring current product)
+  if (cleanCode.toLowerCase() !== product.code?.toLowerCase()) {
+    if (products.some(p => p.id !== id && p.code?.toLowerCase() === cleanCode.toLowerCase())) {
+      return res.status(400).json({ success: false, error: `Loan product with code "${cleanCode}" already exists` });
+    }
+  }
+
+  const numMinAmount = min_amount !== undefined ? Number(min_amount) : product.min_amount;
+  const numMaxAmount = max_amount !== undefined ? Number(max_amount) : product.max_amount;
+  if (numMinAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Minimum loan amount must be greater than zero' });
+  }
+  if (numMaxAmount < numMinAmount) {
+    return res.status(400).json({ success: false, error: 'Maximum amount cannot be less than minimum amount' });
+  }
+
+  const numMinTerm = min_term_months !== undefined ? Number(min_term_months) : (product.min_term_months || 1);
+  const numMaxTerm = max_term_months !== undefined ? Number(max_term_months) : (product.max_term_months || 12);
+  const numDefTerm = default_term_months !== undefined ? Number(default_term_months) : (product.default_term_months || numMinTerm);
+  if (numMinTerm <= 0 || numMaxTerm <= 0) {
+    return res.status(400).json({ success: false, error: 'Term months must be positive integers' });
+  }
+  if (numMaxTerm < numMinTerm) {
+    return res.status(400).json({ success: false, error: 'Maximum term cannot be less than minimum term' });
+  }
+  if (numDefTerm < numMinTerm || numDefTerm > numMaxTerm) {
+    return res.status(400).json({ success: false, error: `Default term (${numDefTerm} mos) must fall within minimum (${numMinTerm} mos) and maximum (${numMaxTerm} mos)` });
+  }
+
+  const numAnnualRate = annual_interest_rate !== undefined ? Number(annual_interest_rate) : product.annual_interest_rate;
+  if (isNaN(numAnnualRate) || numAnnualRate < 0) {
+    return res.status(400).json({ success: false, error: 'Annual interest rate cannot be negative' });
+  }
+
+  const validMethods = ['Diminishing Balance', 'Flat Rate', 'Equal Amortization', 'Simple Interest'];
+  const calcMethod = interest_calculation_method || product.interest_calculation_method;
+  if (!validMethods.includes(calcMethod)) {
+    return res.status(400).json({ success: false, error: `Invalid interest calculation method: ${calcMethod}` });
+  }
+
+  const validFrequencies = ['Monthly', 'Semi-monthly', 'Weekly', 'Lump Sum', 'Quarterly'];
+  const payFreq = payment_frequency || product.payment_frequency;
+  if (!validFrequencies.includes(payFreq)) {
+    return res.status(400).json({ success: false, error: `Invalid payment frequency: ${payFreq}` });
+  }
+
+  // Validate GL Accounts
+  const coa = db.getTable('chart_of_accounts') || [];
+  const targetGlRecv = gl_receivable_account_id !== undefined ? gl_receivable_account_id : (product.gl_receivable_account_id || product.debit_account_id);
+  if (!targetGlRecv) {
+    return res.status(400).json({ success: false, error: 'GL Receivable Account is required' });
+  }
+  const recvAcc = coa.find(a => a.id === targetGlRecv || a.code === targetGlRecv || a.account_code === targetGlRecv);
+  if (!recvAcc) {
+    return res.status(400).json({ success: false, error: `GL Receivable Account "${targetGlRecv}" not found in Chart of Accounts` });
+  }
+
+  const targetGlInc = gl_interest_income_account_id !== undefined ? gl_interest_income_account_id : product.gl_interest_income_account_id;
+  if (!targetGlInc) {
+    return res.status(400).json({ success: false, error: 'GL Interest Income Account is required' });
+  }
+  const incAcc = coa.find(a => a.id === targetGlInc || a.code === targetGlInc || a.account_code === targetGlInc);
+  if (!incAcc) {
+    return res.status(400).json({ success: false, error: `GL Interest Income Account "${targetGlInc}" not found in Chart of Accounts` });
+  }
+
+  // Validate branch
+  const branches = db.getTable('branches') || [];
+  const callerBranchId = getEffectiveBranchId(req);
+  let effectiveBranchId = product.branch_id;
+  if (branch_id !== undefined) {
+    if (branch_id === 'all' || !branch_id) {
+      if (callerBranchId) {
+        effectiveBranchId = callerBranchId;
+      } else {
+        effectiveBranchId = null;
+      }
+    } else {
+      const br = branches.find(b => b.id === branch_id || b.code === branch_id);
+      if (!br) {
+        return res.status(400).json({ success: false, error: `Branch "${branch_id}" does not exist in branch registry` });
+      }
+      if (callerBranchId && callerBranchId !== br.id) {
+        return res.status(403).json({ success: false, error: `Unauthorized: You can only update loan products within your assigned branch (${callerBranchId})` });
+      }
+      effectiveBranchId = br.id;
+    }
+  }
+
+  let parsedDocs = product.required_documents || ['Valid Government ID'];
+  if (required_documents !== undefined) {
+    if (Array.isArray(required_documents)) {
+      parsedDocs = required_documents.map(d => String(d).trim()).filter(Boolean);
+    } else if (typeof required_documents === 'string') {
+      try {
+        const json = JSON.parse(required_documents);
+        parsedDocs = Array.isArray(json) ? json.map(d => String(d).trim()).filter(Boolean) : [required_documents.trim()];
+      } catch {
+        parsedDocs = required_documents.split(',').map(d => d.trim()).filter(Boolean);
+      }
+    }
+  }
+
+  const effFrom = effective_from !== undefined ? (effective_from && String(effective_from).trim() ? String(effective_from).trim() : null) : product.effective_from;
+  const effUntil = effective_until !== undefined ? (effective_until && String(effective_until).trim() ? String(effective_until).trim() : null) : product.effective_until;
+  if (effFrom && effUntil && new Date(effFrom) > new Date(effUntil)) {
+    return res.status(400).json({ success: false, error: 'Effective From date cannot be later than Effective Until date' });
+  }
+
   const newVersion = (product.version || 1) + 1;
   const updated = {
     ...product,
-    ...req.body,
-    id: product.id,
-    version: newVersion
+    code: cleanCode,
+    name: cleanName,
+    description: description !== undefined ? (description && String(description).trim() ? String(description).trim() : null) : product.description,
+    version: newVersion,
+    min_amount: numMinAmount,
+    max_amount: numMaxAmount,
+    min_term_months: numMinTerm,
+    max_term_months: numMaxTerm,
+    default_term_months: numDefTerm,
+    annual_interest_rate: numAnnualRate,
+    interest_calculation_method: calcMethod,
+    payment_frequency: payFreq,
+    grace_period_days: grace_period_days !== undefined ? Math.max(0, parseInt(String(grace_period_days), 10) || 0) : (product.grace_period_days || 0),
+    processing_fee_percentage: processing_fee_percentage !== undefined ? Math.max(0, Number(processing_fee_percentage) || 0) : (product.processing_fee_percentage || 0),
+    service_fee_fixed: service_fee_fixed !== undefined ? Math.max(0, Number(service_fee_fixed) || 0) : (product.service_fee_fixed || 0),
+    other_fee: other_fee !== undefined ? Math.max(0, Number(other_fee) || 0) : (product.other_fee || 0),
+    penalty_rate_percentage: penalty_rate_percentage !== undefined ? Math.max(0, Number(penalty_rate_percentage) || 0) : (product.penalty_rate_percentage || 2.0),
+    penalty_rule_id: penalty_rule_id || product.penalty_rule_id || 'pen_standard',
+    collateral_required: collateral_required !== undefined ? Boolean(collateral_required) : Boolean(product.collateral_required),
+    guarantor_required: guarantor_required !== undefined ? Boolean(guarantor_required) : Boolean(product.guarantor_required),
+    required_documents: parsedDocs,
+    approval_workflow_id: approval_workflow_id || product.approval_workflow_id || 'wf_loan_standard',
+    debit_account_id: debit_account_id || product.debit_account_id || targetGlRecv,
+    gl_receivable_account_id: targetGlRecv,
+    gl_interest_income_account_id: targetGlInc,
+    effective_from: effFrom,
+    effective_until: effUntil,
+    active: active !== undefined ? Boolean(active) : Boolean(product.active),
+    branch_id: effectiveBranchId,
+    id: product.id
   };
 
   db.update('loan_products', p => p.id === id, () => updated);
@@ -426,19 +850,19 @@ router.put('/config/loan-products/:id', (req: Request, res: Response) => {
     annual_interest_rate: updated.annual_interest_rate,
     interest_calculation_method: updated.interest_calculation_method,
     changed_at: new Date().toISOString(),
-    changed_by: req.body.changed_by || 'Chief Lending Officer',
-    reason: req.body.reason || `Updated interest rate from ${oldRate}% to ${updated.annual_interest_rate}%`
+    changed_by: changed_by || 'Loan Administrator',
+    reason: reason || `Updated product settings to version ${newVersion}`
   });
 
   db.recordAudit(
     `Loan Product Version ${newVersion}: ${product.name}`,
     `Interest Rate: ${oldRate}%, Method: ${oldMethod}`,
     `Interest Rate: ${updated.annual_interest_rate}%, Method: ${updated.interest_calculation_method}`,
-    req.body.changed_by || 'Lending Officer',
-    req.body.reason || 'Policy update'
+    changed_by || 'Lending Officer',
+    reason || `Policy update to version ${newVersion}`
   );
 
-  res.json({ success: true, data: updated, previous_version: oldSnapshot });
+  res.json({ success: true, message: `Loan product updated to version ${newVersion}. Historical loans protected.`, data: normalizeLoanProduct(updated), previous_version: oldSnapshot });
 });
 
 router.delete('/config/loan-products/:id', (req: Request, res: Response) => {

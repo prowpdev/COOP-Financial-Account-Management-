@@ -255,6 +255,12 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ changed_by })
     }),
+  getPenaltyRules: () =>
+    fetchApi<{ success: boolean; data: any[] }>('/config/penalty-rules'),
+  getApprovalWorkflows: () =>
+    fetchApi<{ success: boolean; data: any[] }>('/config/approval-workflows'),
+  getDocumentRequirements: () =>
+    fetchApi<{ success: boolean; data: any[] }>('/config/document-requirements'),
 
   // Fees & Penalties
   getFees: () =>

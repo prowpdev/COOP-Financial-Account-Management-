@@ -179,27 +179,28 @@ export interface LoanProduct {
   max_amount: number;
   min_term_months?: number;
   max_term_months?: number;
+  default_term_months: number;
   annual_interest_rate: number;
   interest_calculation_method: string;
-  default_term_months: number;
   payment_frequency: string;
   grace_period_days: number;
   processing_fee_percentage: number;
-  penalty_rate_percentage?: number;
   service_fee_fixed: number;
   other_fee?: number;
   other_fees?: number;
   penalty_rule_id: string;
+  penalty_rate_percentage?: number;
   collateral_required: boolean;
   guarantor_required: boolean;
+  required_documents: string[];
+  approval_workflow_id: string;
   debit_account_id: string;
   gl_receivable_account_id?: string;
   gl_interest_income_account_id?: string;
-  required_documents: string[];
-  approval_workflow_id: string;
-  active: boolean;
   effective_from: string;
   effective_until: string | null;
+  active: boolean;
+  branch_id?: string | null;
 }
 
 export interface LoanApplication {
