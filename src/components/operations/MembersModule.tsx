@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   Plus,
@@ -21,11 +21,13 @@ import {
   Edit2,
   Tag,
   Download,
+  Upload,
   UserCheck
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { MemberTransactionReport } from '../reports/MemberTransactionReport';
 import { MemberExportModal, formatMemberFullName } from './MemberExportModal';
+import { MemberImportModal } from './MemberImportModal';
 import { api } from '../../services/api';
 import { Branch, CustomField, Member, MemberType, User } from '../../types';
 
@@ -38,6 +40,7 @@ interface MembersModuleProps {
   onSelectBranch?: (id: string) => void;
   onNavigateToFields?: () => void;
   onNavigateToProfile?: (memberId: string) => void;
+  onRefreshCustomFields?: () => void;
 }
 
 export const MembersModule: React.FC<MembersModuleProps> = ({
@@ -48,7 +51,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   selectedBranchId,
   onSelectBranch,
   onNavigateToFields,
-  onNavigateToProfile
+  onNavigateToProfile,
+  onRefreshCustomFields
 }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,6 +60,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
   const [isRegistering, setIsRegistering] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -75,86 +80,80 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
     }
   };
 
-  const memberCols: ExcelColumn<Member>[] = [
-  
-    // {
-    //   key: 'member_no',
-    //   header: 'Member ID',
-    //   width: '130px',
-    //   type: 'badge',
-    //   align: 'center',
-    //   sortable: true,
-    //   badgeColor: () => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-    // },
-    {
-      key: 'first_name',
-      header: 'Full Name',
-      width: '240px',
-      type: 'text',
-      sortable: true,
-      accessor: (row: Member) => formatMemberFullName(row),
-      render: (_, row) => (
-        <span 
-          className="font-semibold text-white w-[400px] truncate cursor-pointer hover:text-emerald-400 transition" 
-          onClick={() => onNavigateToProfile ? onNavigateToProfile(row.id) : handleOpenEdit(row)}
-           >
-          {formatMemberFullName(row)}
-        </span>
-      )
-    },
-    {
-      key: 'tin_number',
-      header: 'TIN Number',
-      width: '160px',
-      type: 'text',
-      align: 'center',
-      sortable: true,
-      render: (_, row) => {
-        const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
-        return tin ? (
-          <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
-            {tin}
+  const memberCols: ExcelColumn<Member>[] = useMemo(() => {
+    const baseCols: ExcelColumn<Member>[] = [
+      {
+        key: 'first_name',
+        header: 'Full Name',
+        width: '240px',
+        type: 'text',
+        sortable: true,
+        accessor: (row: Member) => formatMemberFullName(row),
+        render: (_, row) => (
+          <span 
+            className="font-semibold text-white w-[400px] truncate cursor-pointer hover:text-emerald-400 transition" 
+            onClick={() => onNavigateToProfile ? onNavigateToProfile(row.id) : handleOpenEdit(row)}
+          >
+            {formatMemberFullName(row)}
           </span>
-        ) : (
-          <span className="text-slate-500 text-[11px] italic">Not Set</span>
-        );
-      }
-    },
-    // { key: 'branch_name', header: 'Branch Assigned', width: '180px', type: 'text', sortable: true },
-    {
-      key: 'member_type_name',
-      header: 'Membership Tier',
-      width: '140px',
-      type: 'badge',
-      sortable: true,
-      badgeColor: () => 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-    },
-    { key: 'phone', header: 'Contact Telephone', width: '150px', type: 'text' },
-    // { key: 'email', header: 'Email Address', width: '200px', type: 'text' },
-    // { key: 'address', header: 'Residence Address', width: '260px', type: 'text' },
-    // {
-    //   key: 'notes',
-    //   header: 'Notes / Remarks',
-    //   width: '240px',
-    //   type: 'text',
-    //   sortable: true,
-    //   render: (_, row) => {
-    //     const notes = row.notes || row.custom_field_values?.notes;
-    //     return notes ? (
-    //       <div className="flex items-center space-x-1.5 max-w-[230px]" title={notes}>
-    //         <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-    //         <span className="truncate text-slate-200 text-xs">
-    //           {notes}
-    //         </span>
-    //       </div>
-    //     ) : (
-    //       <span className="text-slate-500 text-[11px] italic">No notes</span>
-    //     );
-    //   }
-    // },
-    { key: 'joined_date', header: 'Date Enrolled', width: '120px', type: 'date', align: 'center', sortable: true },
-    // { key: 'active', header: 'Status', width: '90px', type: 'boolean', align: 'center', sortable: true },
-         {
+        )
+      },
+      {
+        key: 'tin_number',
+        header: 'TIN Number',
+        width: '160px',
+        type: 'text',
+        align: 'center',
+        sortable: true,
+        render: (_, row) => {
+          const tin = row.tin_number || row.tin || row.custom_field_values?.tin_number;
+          return tin ? (
+            <span className="font-mono text-amber-300 font-semibold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px]">
+              {tin}
+            </span>
+          ) : (
+            <span className="text-slate-500 text-[11px] italic">Not Set</span>
+          );
+        }
+      },
+      {
+        key: 'member_type_name',
+        header: 'Membership Tier',
+        width: '140px',
+        type: 'badge',
+        sortable: true,
+        badgeColor: () => 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+      },
+      { key: 'phone', header: 'Contact Telephone', width: '150px', type: 'text' },
+      { key: 'joined_date', header: 'Date Enrolled', width: '120px', type: 'date', align: 'center', sortable: true }
+    ];
+
+    // Dynamic custom columns based on configured and imported customFields
+    const dynamicCustomCols: ExcelColumn<Member>[] = (customFields || [])
+      .filter(f => (!f.entity || f.entity === 'Member') && f.active !== false && f.field_name !== 'tin_number' && f.field_name !== 'notes' && f.field_name !== 'id_photo')
+      .map(cf => {
+        const fieldKey = cf.field_name || cf.field_key || '';
+        return {
+          key: `cf_${fieldKey}` as any,
+          header: cf.field_label || cf.label || fieldKey,
+          width: '160px',
+          type: 'text',
+          sortable: true,
+          render: (_, row) => {
+            const val = row.custom_field_values?.[fieldKey] ?? (row as any)[fieldKey];
+            if (val === undefined || val === null || val === '') {
+              return <span className="text-slate-600 italic text-[11px]">-</span>;
+            }
+            return (
+              <span className="text-slate-200 text-xs font-mono">
+                {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+              </span>
+            );
+          }
+        };
+      });
+
+    const actionCol: ExcelColumn<Member> = {
       key: 'id',
       header: 'Actions',
       width: '160px',
@@ -179,11 +178,13 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
           </button>
         </div>
       )
-    },
-  ];
+    };
+
+    return [...baseCols, ...dynamicCustomCols, actionCol];
+  }, [customFields, onNavigateToProfile]);
 
   const [form, setForm] = useState({
-    branch_id: currentUser.branc_id,
+    branch_id: currentUser.branch_id || branches[0]?.id || 'branch_tar',
     member_type_id: memberTypes[0]?.id || 'mt_regular',
     first_name: '',
     last_name: '',
@@ -405,6 +406,17 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
               </button>
             )}
           </div>
+
+          {/* Import Members from CSV (with Custom Fields Auto-Detection) */}
+          <button
+            id="btn-open-member-import-modal"
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-slate-950 hover:bg-slate-900 text-emerald-400 border border-emerald-500/30 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow transition cursor-pointer"
+            title="Import Members from CSV with automatic custom fields detection, CBU accounts, and regular savings accounts"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Import CSV</span>
+          </button>
 
           {/* Export Members to CSV (Custom Columns) */}
           <button
@@ -1208,6 +1220,23 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         memberTypes={memberTypes}
         customFields={customFields}
         selectedBranchName={selectedBranch === 'all' ? 'All Branches' : branches.find(b => b.id === selectedBranch)?.name || 'Filtered Branch'}
+      />
+
+      {/* Member CSV Import Modal with Custom Fields Auto-Detection */}
+      <MemberImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        branches={branches}
+        memberTypes={memberTypes}
+        customFields={customFields}
+        currentUser={currentUser}
+        onNavigateToFields={onNavigateToFields}
+        onImportSuccess={({ importedCount, newCustomFields }) => {
+          loadMembers();
+          if (onRefreshCustomFields) onRefreshCustomFields();
+          setNotice(`Successfully imported ${importedCount} members. ${newCustomFields.length} new custom fields registered.`);
+          setTimeout(() => setNotice(null), 5000);
+        }}
       />
     </div>
   );

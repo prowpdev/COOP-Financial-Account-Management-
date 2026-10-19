@@ -2091,6 +2091,620 @@ router.put('/members/:id', (req: Request, res: Response) => {
 });
 
 // ==========================================
+// 14.5 BATCH MEMBER CSV IMPORT WITH DYNAMIC CUSTOM FIELDS
+// ==========================================
+
+const MEMBERS_TABLE_COLUMNS = new Set([
+  'id',
+  'member_no',
+  'branch_id',
+  'member_type_id',
+  'first_name',
+  'last_name',
+  'middle_name',
+  'gender',
+  'birthdate',
+  'email',
+  'phone',
+  'tin_number',
+  'tin',
+  'notes',
+  'address',
+  'status',
+  'joined_date',
+  'photo_url',
+  'id_photo_url',
+  'civil_status',
+  'active',
+  'custom_field_values'
+]);
+
+const STANDARD_COLUMN_ALIASES: Record<string, string> = {
+  member_id: 'member_no',
+  member_number: 'member_no',
+  member_no: 'member_no',
+  member_code: 'member_no',
+  branch: 'branch_name',
+  branch_code: 'branch_code',
+  branch_name: 'branch_name',
+  branch_id: 'branch_id',
+  member_type: 'member_type_name',
+  member_type_name: 'member_type_name',
+  membership_type: 'member_type_name',
+  member_type_id: 'member_type_id',
+  tier: 'member_type_name',
+  classification: 'member_type_name',
+  first_name: 'first_name',
+  firstname: 'first_name',
+  fname: 'first_name',
+  given_name: 'first_name',
+  last_name: 'last_name',
+  lastname: 'last_name',
+  lname: 'last_name',
+  surname: 'last_name',
+  family_name: 'last_name',
+  middle_name: 'middle_name',
+  middlename: 'middle_name',
+  mname: 'middle_name',
+  middle_initial: 'middle_name',
+  mi: 'middle_name',
+  full_name: 'full_name',
+  name: 'full_name',
+  member_name: 'full_name',
+  sex: 'gender',
+  gender: 'gender',
+  dob: 'birthdate',
+  date_of_birth: 'birthdate',
+  birth_date: 'birthdate',
+  birthdate: 'birthdate',
+  email_address: 'email',
+  email: 'email',
+  mobile: 'phone',
+  mobile_number: 'phone',
+  mobile_no: 'phone',
+  contact: 'phone',
+  contact_number: 'phone',
+  contact_no: 'phone',
+  telephone: 'phone',
+  tel_no: 'phone',
+  phone: 'phone',
+  street_address: 'address',
+  home_address: 'address',
+  residence: 'address',
+  address: 'address',
+  tin_number: 'tin_number',
+  tin_no: 'tin_number',
+  tin: 'tin_number',
+  tax_identification_number: 'tin_number',
+  tax_id: 'tin_number',
+  remarks: 'notes',
+  member_notes: 'notes',
+  notes: 'notes',
+  comments: 'notes',
+  date_joined: 'joined_date',
+  membership_date: 'joined_date',
+  joined_date: 'joined_date',
+  join_date: 'joined_date',
+  status: 'status',
+  civil_status: 'civil_status',
+  marital_status: 'civil_status',
+  initial_share_capital: 'initial_share_capital',
+  share_capital: 'initial_share_capital',
+  cbu: 'initial_share_capital',
+  paid_up_amount: 'initial_share_capital',
+  paid_up_shares: 'paid_up_shares',
+  initial_savings: 'initial_savings_deposit',
+  savings_deposit: 'initial_savings_deposit',
+  savings: 'initial_savings_deposit'
+};
+
+function normalizeHeaderKey(rawHeader: string): string {
+  return (rawHeader || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function inferCsvFieldType(values: any[], fieldKey: string): 'Text' | 'Number' | 'Date' | 'Currency' | 'Checkbox' | 'Phone' | 'Email' {
+  const keyLower = fieldKey.toLowerCase();
+  if (keyLower.includes('phone') || keyLower.includes('mobile') || keyLower.includes('tel')) return 'Phone';
+  if (keyLower.includes('email') || keyLower.includes('mail')) return 'Email';
+  if (keyLower.includes('amount') || keyLower.includes('income') || keyLower.includes('salary') || keyLower.includes('fee') || keyLower.includes('cost') || keyLower.includes('price')) return 'Currency';
+  if (keyLower.includes('date') || keyLower.includes('dob')) return 'Date';
+
+  const nonEmpties = values.filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+  if (nonEmpties.length === 0) return 'Text';
+
+  const isAllNumbers = nonEmpties.every(v => !isNaN(Number(String(v).replace(/,/g, ''))));
+  if (isAllNumbers) return 'Number';
+
+  const isAllDates = nonEmpties.every(v => {
+    const s = String(v).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) || (!isNaN(Date.parse(s)) && s.length >= 8);
+  });
+  if (isAllDates) return 'Date';
+
+  const isAllBool = nonEmpties.every(v => {
+    const s = String(v).trim().toLowerCase();
+    return ['true', 'false', 'yes', 'no', '1', '0', 'y', 'n'].includes(s);
+  });
+  if (isAllBool) return 'Checkbox';
+
+  return 'Text';
+}
+
+function formatLabelFromKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function parseCsvContent(csvText: string): { headers: string[]; rows: Record<string, string>[] } {
+  const lines: string[] = [];
+  let currentLine = '';
+  let insideQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentLine += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if ((char === '\r' && nextChar === '\n') && !insideQuotes) {
+      lines.push(currentLine);
+      currentLine = '';
+      i++;
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      lines.push(currentLine);
+      currentLine = '';
+    } else {
+      currentLine += char;
+    }
+  }
+  if (currentLine.trim()) {
+    lines.push(currentLine);
+  }
+
+  const validLines = lines.filter(l => l.trim().length > 0);
+  if (validLines.length === 0) return { headers: [], rows: [] };
+
+  const parseRowCells = (line: string): string[] => {
+    const cells: string[] = [];
+    let cell = '';
+    let inQuote = false;
+    let delimiter = ',';
+    if (!line.includes(',') && line.includes(';')) delimiter = ';';
+    else if (!line.includes(',') && line.includes('\t')) delimiter = '\t';
+
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      const next = line[i + 1];
+      if (c === '"') {
+        if (inQuote && next === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuote = !inQuote;
+        }
+      } else if (c === delimiter && !inQuote) {
+        cells.push(cell.trim());
+        cell = '';
+      } else {
+        cell += c;
+      }
+    }
+    cells.push(cell.trim());
+    return cells;
+  };
+
+  const headers = parseRowCells(validLines[0]).map(h => h.replace(/^"|"$/g, '').trim());
+  const rows: Record<string, string>[] = [];
+
+  for (let i = 1; i < validLines.length; i++) {
+    const values = parseRowCells(validLines[i]);
+    const rowObj: Record<string, string> = {};
+    headers.forEach((h, idx) => {
+      rowObj[h] = values[idx] !== undefined ? values[idx].replace(/^"|"$/g, '').trim() : '';
+    });
+    rows.push(rowObj);
+  }
+
+  return { headers, rows };
+}
+
+function parseFullName(fullName: string): { first: string; middle: string; last: string } {
+  const clean = (fullName || '').trim();
+  if (!clean) return { first: '', middle: '', last: '' };
+
+  if (clean.includes(',')) {
+    const parts = clean.split(',').map(p => p.trim());
+    const last = parts[0] || '';
+    const rest = (parts[1] || '').split(/\s+/);
+    const first = rest[0] || '';
+    const middle = rest.slice(1).join(' ') || '';
+    return { first, middle, last };
+  } else {
+    const parts = clean.split(/\s+/);
+    if (parts.length === 1) return { first: parts[0], middle: '', last: parts[0] };
+    if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] };
+    const first = parts[0];
+    const middle = parts.slice(1, -1).join(' ');
+    const last = parts[parts.length - 1];
+    return { first, middle, last };
+  }
+}
+
+router.post(['/members/import-csv', '/members/bulk-import'], (req: Request, res: Response) => {
+  try {
+    const {
+      csv_text,
+      members: rawMembersInput,
+      custom_field_definitions,
+      default_branch_id,
+      default_member_type_id,
+      performed_by
+    } = req.body;
+
+    let rows: Record<string, any>[] = [];
+    let detectedHeaders: string[] = [];
+
+    if (typeof csv_text === 'string' && csv_text.trim()) {
+      const parsed = parseCsvContent(csv_text);
+      detectedHeaders = parsed.headers;
+      rows = parsed.rows;
+    } else if (Array.isArray(rawMembersInput)) {
+      rows = rawMembersInput;
+      if (rows.length > 0) {
+        const headerSet = new Set<string>();
+        rows.forEach(r => Object.keys(r || {}).forEach(k => headerSet.add(k)));
+        detectedHeaders = Array.from(headerSet);
+      }
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No member records or CSV content provided for import.' });
+    }
+
+    const branches = db.getTable('branches') || [];
+    const memberTypes = db.getTable('member_types') || [];
+    const customFields = db.getTable('custom_fields') || [];
+    const existingMembers = db.getTable('members') || [];
+
+    // Map existing custom field keys (entity === 'Member')
+    const existingCustomFieldKeys = new Set(
+      customFields
+        .filter((f: any) => !f.entity || f.entity === 'Member')
+        .map((f: any) => (f.field_name || f.field_key || '').toLowerCase())
+    );
+
+    // Identify non-table columns that should be registered in custom_fields
+    const newlyCreatedCustomFields: any[] = [];
+    const customColumnsToRegister: { key: string; originalHeader: string; type: any; label: string }[] = [];
+
+    // Check custom_field_definitions passed explicitly from client mapping
+    if (Array.isArray(custom_field_definitions)) {
+      for (const def of custom_field_definitions) {
+        const normKey = normalizeHeaderKey(def.field_name || def.field_key || def.field_label);
+        if (normKey && !MEMBERS_TABLE_COLUMNS.has(normKey) && !existingCustomFieldKeys.has(normKey)) {
+          if (!customColumnsToRegister.some(c => c.key === normKey)) {
+            customColumnsToRegister.push({
+              key: normKey,
+              originalHeader: def.field_label || def.field_name || normKey,
+              type: def.field_type || 'Text',
+              label: def.field_label || formatLabelFromKey(normKey)
+            });
+          }
+        }
+      }
+    }
+
+    // Inspect all detected CSV headers
+    for (const rawCol of detectedHeaders) {
+      const normKey = normalizeHeaderKey(rawCol);
+      if (!normKey) continue;
+
+      // Check if this column maps to standard member columns
+      const aliasTarget = STANDARD_COLUMN_ALIASES[normKey];
+      const isStandardTableCol = MEMBERS_TABLE_COLUMNS.has(normKey) || (aliasTarget && MEMBERS_TABLE_COLUMNS.has(aliasTarget));
+
+      if (!isStandardTableCol) {
+        // This is a column that is NOT in the database table!
+        // As requested: "if csv contains database table column that is not in the table, add it on the custom_fields"
+        if (!existingCustomFieldKeys.has(normKey) && !customColumnsToRegister.some(c => c.key === normKey)) {
+          const sampleValues = rows.map(r => r[rawCol] ?? r[normKey]).filter(v => v !== undefined && v !== '');
+          const inferredType = inferCsvFieldType(sampleValues, normKey);
+          customColumnsToRegister.push({
+            key: normKey,
+            originalHeader: rawCol,
+            type: inferredType,
+            label: formatLabelFromKey(rawCol)
+          });
+        }
+      }
+    }
+
+    // Automatically register non-table columns into the 'custom_fields' database table
+    for (const col of customColumnsToRegister) {
+      const newCustomField = {
+        id: `cf_${col.key}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        entity: 'Member',
+        field_name: col.key,
+        field_key: col.key,
+        field_label: col.label,
+        label: col.label,
+        field_type: col.type || 'Text',
+        options: [],
+        required: false,
+        is_required: false,
+        default_value: '',
+        active: true,
+        created_at: new Date().toISOString()
+      };
+      db.insert('custom_fields', newCustomField);
+      existingCustomFieldKeys.add(col.key);
+      newlyCreatedCustomFields.push(newCustomField);
+
+      db.recordAudit(
+        `Custom Field Created (from CSV Import): ${newCustomField.field_label}`,
+        null,
+        newCustomField,
+        performed_by || 'CSV Importer',
+        `Auto-created custom field from CSV header "${col.originalHeader}"`
+      );
+    }
+
+    const importedMembers: any[] = [];
+    const warnings: string[] = [];
+    const currentYear = new Date().getFullYear();
+
+    for (let i = 0; i < rows.length; i++) {
+      const rawRow = rows[i];
+      const rowIndex = i + 1;
+
+      // Extract values with case-insensitive and alias mapping
+      const getVal = (...keys: string[]): string => {
+        for (const k of keys) {
+          if (rawRow[k] !== undefined && rawRow[k] !== null && String(rawRow[k]).trim() !== '') {
+            return String(rawRow[k]).trim();
+          }
+          const lower = k.toLowerCase();
+          for (const rowKey of Object.keys(rawRow)) {
+            if (rowKey.toLowerCase() === lower && rawRow[rowKey] !== undefined && rawRow[rowKey] !== null) {
+              const val = String(rawRow[rowKey]).trim();
+              if (val !== '') return val;
+            }
+          }
+        }
+        return '';
+      };
+
+      // Name resolution
+      let firstName = getVal('first_name', 'firstname', 'fname', 'given_name');
+      let lastName = getVal('last_name', 'lastname', 'lname', 'surname', 'family_name');
+      let middleName = getVal('middle_name', 'middlename', 'mname', 'middle_initial', 'mi');
+      const fullName = getVal('full_name', 'name', 'member_name');
+
+      if ((!firstName || !lastName) && fullName) {
+        const parsedName = parseFullName(fullName);
+        if (!firstName) firstName = parsedName.first;
+        if (!lastName) lastName = parsedName.last;
+        if (!middleName) middleName = parsedName.middle;
+      }
+
+      if (!firstName && !lastName) {
+        warnings.push(`Row ${rowIndex} skipped: Missing both first name and last name.`);
+        continue;
+      }
+      if (!firstName) firstName = 'Member';
+      if (!lastName) lastName = `Row ${rowIndex}`;
+
+      // Branch resolution
+      const rawBranch = getVal('branch_id', 'branch_name', 'branch_code', 'branch');
+      let matchedBranch = branches.find((b: any) =>
+        b.id === rawBranch ||
+        b.code?.toLowerCase() === rawBranch.toLowerCase() ||
+        b.name?.toLowerCase() === rawBranch.toLowerCase()
+      );
+      if (!matchedBranch && default_branch_id) {
+        matchedBranch = branches.find((b: any) => b.id === default_branch_id);
+      }
+      if (!matchedBranch) {
+        matchedBranch = branches[0];
+      }
+
+      // Member Type resolution
+      const rawType = getVal('member_type_id', 'member_type_name', 'membership_type', 'member_type', 'tier');
+      let matchedType = memberTypes.find((t: any) =>
+        t.id === rawType ||
+        t.code?.toLowerCase() === rawType.toLowerCase() ||
+        t.name?.toLowerCase() === rawType.toLowerCase()
+      );
+      if (!matchedType && default_member_type_id) {
+        matchedType = memberTypes.find((t: any) => t.id === default_member_type_id);
+      }
+      if (!matchedType) {
+        matchedType = memberTypes[0] || { id: 'mt_regular', name: 'Regular Member' };
+      }
+
+      // Member No resolution
+      let memberNo = getVal('member_no', 'member_id', 'member_number', 'member_code');
+      const existingMemberNo = existingMembers.some((m: any) => m.member_no === memberNo);
+      if (!memberNo || existingMemberNo) {
+        memberNo = NumberingService.getNextNumber('MEM', matchedBranch?.code || 'MAIN');
+      }
+
+      const gender = getVal('gender', 'sex') || 'Female';
+      const birthdate = getVal('birthdate', 'dob', 'date_of_birth', 'birth_date') || '1990-01-01';
+      const email = getVal('email', 'email_address') || '';
+      const phone = getVal('phone', 'mobile', 'mobile_no', 'contact_number', 'telephone') || '';
+      const address = getVal('address', 'street_address', 'home_address', 'residence') || '';
+      const tinNumber = getVal('tin_number', 'tin', 'tin_no', 'tax_id') || '';
+      const notes = getVal('notes', 'remarks', 'member_notes', 'comments') || '';
+      const joinedDate = getVal('joined_date', 'date_joined', 'membership_date') || new Date().toISOString().split('T')[0];
+      const status = getVal('status') || 'Active';
+      const civilStatus = getVal('civil_status', 'marital_status') || 'Single';
+
+      // Assemble custom field values:
+      // Include any non-table columns from the CSV and explicit custom_field_values
+      const memberCustomValues: Record<string, any> = {
+        ...(typeof rawRow.custom_field_values === 'object' ? rawRow.custom_field_values : {})
+      };
+
+      if (tinNumber) memberCustomValues.tin_number = tinNumber;
+      if (notes) memberCustomValues.notes = notes;
+
+      for (const [colKey, colVal] of Object.entries(rawRow)) {
+        if (colKey === 'custom_field_values') continue;
+        const normKey = normalizeHeaderKey(colKey);
+        const aliasTarget = STANDARD_COLUMN_ALIASES[normKey];
+        const isStandard = MEMBERS_TABLE_COLUMNS.has(normKey) || (aliasTarget && MEMBERS_TABLE_COLUMNS.has(aliasTarget));
+
+        if (!isStandard && colVal !== undefined && colVal !== null && String(colVal).trim() !== '') {
+          memberCustomValues[normKey] = String(colVal).trim();
+        }
+      }
+
+      const newMember = {
+        id: `mem_csv_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+        member_no: memberNo,
+        branch_id: matchedBranch?.id || 'branch_tar',
+        branch_name: matchedBranch?.name || 'Main Branch',
+        member_type_id: matchedType?.id || 'mt_regular',
+        member_type_name: matchedType?.name || 'Regular Member',
+        first_name: firstName,
+        last_name: lastName,
+        middle_name: middleName,
+        gender,
+        civil_status: civilStatus,
+        birthdate,
+        email,
+        phone,
+        address,
+        tin_number: tinNumber,
+        tin: tinNumber,
+        notes,
+        status,
+        joined_date: joinedDate,
+        active: status.toLowerCase() === 'active',
+        custom_field_values: memberCustomValues
+      };
+
+      db.insert('members', newMember);
+      existingMembers.push(newMember);
+
+      // Auto-open regular savings account
+      const saSuffix = `${Date.now().toString().slice(-4)}${i}`;
+      const saNo = `SA-${currentYear}-${saSuffix}`;
+      const initialSavings = Number(getVal('initial_savings', 'initial_savings_deposit', 'savings_deposit', 'savings') || 0);
+
+      db.insert('savings_accounts', {
+        id: `sa_${newMember.id}`,
+        account_number: saNo,
+        member_id: newMember.id,
+        savings_product_id: 'sp_regular',
+        branch_id: newMember.branch_id,
+        balance: initialSavings,
+        opened_date: newMember.joined_date,
+        status: 'Active'
+      });
+
+      // Auto-open share capital account
+      const scaSuffix = `${Date.now().toString().slice(-4)}${i}`;
+      const scaNo = `CBU-${currentYear}-${scaSuffix}`;
+      const initShareCapital = Number(getVal('initial_share_capital', 'share_capital', 'cbu', 'paid_up_amount') || 0);
+      const initShares = Number(getVal('paid_up_shares') || Math.floor(initShareCapital / 100));
+
+      db.insert('share_capital_accounts', {
+        id: `sca_${newMember.id}`,
+        account_number: scaNo,
+        member_id: newMember.id,
+        member_name: `${newMember.first_name} ${newMember.last_name}`,
+        branch_id: newMember.branch_id || 'branch_tar',
+        par_value: 100,
+        subscribed_shares: 100,
+        subscribed_amount: 10000,
+        paid_up_shares: initShares,
+        paid_up_amount: initShareCapital,
+        status: 'Active',
+        created_at: new Date().toISOString()
+      });
+
+      if (initShareCapital > 0) {
+        const branchCode = matchedBranch ? matchedBranch.code : 'TAR';
+        const orReceipt = NumberingService.getNextNumber('OR', branchCode);
+        AccountingEngine.post({
+          transaction_type: 'SHARE_CAPITAL_PAYMENT',
+          posting_date: newMember.joined_date,
+          branch_id: newMember.branch_id,
+          reference_id: orReceipt,
+          description: `OR ${orReceipt}: Initial Share Capital deposit (${initShares} shares) upon CSV registration of ${newMember.first_name} ${newMember.last_name}`,
+          performed_by: performed_by || 'CSV Importer',
+          cash_account_id: 'cash_01',
+          amount_breakdown: { total: initShareCapital },
+          subsidiary: { type: 'Member', id: newMember.id },
+          member_id: newMember.id,
+          member_name: `${newMember.first_name} ${newMember.last_name}`
+        });
+
+        db.insert('share_capital_transactions', {
+          id: `sct_${Date.now()}_${i}`,
+          share_capital_account_id: `sca_${newMember.id}`,
+          share_account_id: `sca_${newMember.id}`,
+          member_id: newMember.id,
+          type: 'PAYMENT',
+          transaction_type: 'Contribution',
+          shares: initShares,
+          amount: initShareCapital,
+          balance_after: initShareCapital,
+          reference_no: orReceipt,
+          receipt_no: orReceipt,
+          notes: `Initial share capital contribution (${initShares} shares @ ₱100) upon member CSV import`,
+          transaction_date: newMember.joined_date,
+          created_at: new Date().toISOString(),
+          performed_by: performed_by || 'CSV Importer'
+        });
+      }
+
+      importedMembers.push(newMember);
+    }
+
+    db.save();
+
+    db.recordAudit(
+      `Batch Member Import Completed: ${importedMembers.length} members imported`,
+      null,
+      { count: importedMembers.length, new_custom_fields_count: newlyCreatedCustomFields.length },
+      performed_by || 'CSV Importer',
+      `Imported ${importedMembers.length} members with ${newlyCreatedCustomFields.length} new custom fields registered.`
+    );
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${importedMembers.length} member(s). ${newlyCreatedCustomFields.length} new custom field(s) registered.`,
+      data: {
+        imported_count: importedMembers.length,
+        members: importedMembers,
+        new_custom_fields: newlyCreatedCustomFields,
+        warnings
+      }
+    });
+  } catch (err: any) {
+    console.error('Error during CSV member import:', err);
+    res.status(500).json({ success: false, error: err.message || 'Internal server error during CSV import' });
+  }
+});
+
+// ==========================================
 // 15. OPERATIONAL MODULES: LOANS & REPAYMENTS
 // ==========================================
 

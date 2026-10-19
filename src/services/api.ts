@@ -618,6 +618,27 @@ getMemberReport: async (memberId: string) => {
       method: 'POST',
       body: JSON.stringify(member)
     }),
+  importMembersCsv: (payload: {
+    csv_text?: string;
+    members?: any[];
+    custom_field_definitions?: Array<{ field_name: string; field_label: string; field_type?: string }>;
+    default_branch_id?: string;
+    default_member_type_id?: string;
+    performed_by?: string;
+  }) =>
+    fetchApi<{
+      success: boolean;
+      message: string;
+      data: {
+        imported_count: number;
+        members: any[];
+        new_custom_fields: any[];
+        warnings: string[];
+      };
+    }>('/members/import-csv', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
   updateMember: (id: string, member: any) =>
     fetchApi<{ success: boolean; data: any }>(`/members/${id}`, {
       method: 'PUT',
@@ -1018,7 +1039,7 @@ deleteMemberType : async (id) =>{
       method: 'POST',
       body: JSON.stringify(credentials)
     }),
-  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string; coop_id:string}) =>
+  register: (userData: { username: string; email: string; full_name: string; password: string; role_id?: string; branch_id?: string; coop_id?: string }) =>
     fetchApi<{ success: boolean; message?: string; data: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData)
