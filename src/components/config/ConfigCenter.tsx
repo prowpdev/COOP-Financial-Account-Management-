@@ -213,7 +213,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
       items: [
         { id: 'custom_fields' as ConfigSection, label: 'Member Fields & Types', icon: Sliders, count: configData.custom_fields.length },
         { id: 'share_capital_settings' as ConfigSection, label: 'Share Capital (CBU) Settings', icon: Coins, count: configData.share_capital_settings?.length || 1 },
-        { id: 'savings_cbu' as ConfigSection, label: 'Savings & Share Capital', icon: PiggyBank, count: configData.savings_products.length }
+        // { id: 'savings_cbu' as ConfigSection, label: 'Savings & Share Capital', icon: PiggyBank, count: configData.savings_products.length }
       ]
     },
     {
@@ -4806,16 +4806,24 @@ function CooperativeProfileConfig({
             <div className="font-bold text-white text-sm mt-0.5">{coop.name}</div>
           </div>
           <div>
+            <span className="text-slate-400">Email:</span>
+            <div className="font-mono text-white font-semibold mt-0.5">{coop.contact_email}</div>
+          </div>
+          <div>
+            <span className="text-slate-400">Contact:</span>
+            <div className="font-mono text-white font-semibold mt-0.5">{coop.contact_phone}</div>
+          </div>
+          <div>
             <span className="text-slate-400">CDA Registration No:</span>
-            <div className="font-mono text-emerald-400 font-semibold mt-0.5">{coop.registration_no}</div>
+            <div className="font-mono text-emerald-400 font-semibold mt-0.5">{coop.cda_registration_no}</div>
           </div>
           <div>
             <span className="text-slate-400">Tax Identification No (TIN):</span>
-            <div className="font-mono text-slate-200 mt-0.5">{coop.tax_identification_number}</div>
+            <div className="font-mono text-slate-200 mt-0.5">{coop.tax_identification_no}</div>
           </div>
           <div>
             <span className="text-slate-400">Base Currency & Symbol:</span>
-            <div className="font-semibold text-slate-200 mt-0.5">{coop.currency} ({coop.currency_symbol}) - 2 Decimals</div>
+            <div className="font-semibold text-slate-200 mt-0.5">{coop.currency} ({coop.base_currency}) - 2 Decimals</div>
           </div>
           <div className="sm:col-span-2">
             <span className="text-slate-400">Headquarters Address:</span>

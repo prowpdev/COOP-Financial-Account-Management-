@@ -157,13 +157,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: CreditCard,
       featureKey: 'feature_loans'
     },
-    {
-      id: 'savings' as TabKey,
-      label: 'Savings & Deposits',
-      shortLabel: 'Savings',
-      icon: PiggyBank,
-      featureKey: 'feature_savings'
-    },
+    // {
+    //   id: 'savings' as TabKey,
+    //   label: 'Savings & Deposits',
+    //   shortLabel: 'Savings',
+    //   icon: PiggyBank,
+    //   featureKey: 'feature_savings'
+    // },
     {
       id: 'share_capital' as TabKey,
       label: 'Share Capital (CBU)',

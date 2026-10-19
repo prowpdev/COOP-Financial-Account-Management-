@@ -42,11 +42,6 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const safeAccounts = Array.isArray(accounts) ? accounts : [];
   const [hasScs,setHasScs] = useState(false);
-  const checkIfhasScs = async () => {
-    if(settingsList.length > 0){
-      setHasScs(true)
-    }
-  }
 
   const accountSelectOptions: SearchableOption[] = React.useMemo(() => {
     return safeAccounts.map(acc => ({
@@ -72,11 +67,12 @@ export const ShareCapitalSettingsView: React.FC<ShareCapitalSettingsViewProps> =
   const [activeSettingData,setActiveSettingData] = useState([]);
   const scs =  async() => {
     const res = await api.getShareCapitalSettings();
-    console.log(res)
+    if(res.data.length > 0){
+      setHasScs(true);
+    }
   }
   useEffect(()=>{
     scs();
-    checkIfhasScs();
   },[])
   const fetchSettings = async () => {
     setIsLoading(true);

@@ -529,6 +529,15 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                     <option value="Other">Other</option>
                   </select>
                 </div>
+                 <div>
+                      <label className="text-xs font-medium text-slate-300">Birthdate</label>
+                      <input
+                        type="date"
+                        value={form.birthdate}
+                        onChange={e => setForm({ ...form, birthdate: e.target.value })}
+                        className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                      />
+                    </div>
                 <div>
                   <label className="text-xs text-slate-300 font-medium">Mobile Phone</label>
                   <input
@@ -539,7 +548,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
                     className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
                   />
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-xs text-slate-300 font-medium">Email Address</label>
                   <input
                     type="email"
