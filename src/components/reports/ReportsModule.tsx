@@ -893,7 +893,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <CreditCard className="w-3.5 h-3.5" />
             <span>Sheet 1: Subsidiary Ledger (Loans, Savings, CBU)</span>
             <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold uppercase">
-              Official Statements
+              Statements & Excel Grid
             </span>
           </button>
 

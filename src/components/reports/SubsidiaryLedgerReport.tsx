@@ -23,12 +23,14 @@ import {
   SlidersHorizontal,
   ChevronRight,
   ExternalLink,
-  Clock
+  Clock,
+  FileSpreadsheet
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { CoopProfile, User as UserType, Branch, Member } from '../../types';
 import { PrintableSubsidiaryLedgerModal, SubsidiaryLedgerAccount, SubsidiaryLedgerEntry } from './PrintableSubsidiaryLedgerModal';
 import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
+import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 
 interface SubsidiaryLedgerReportProps {
   branchId?: string;
@@ -59,7 +61,8 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateScope, setDateScope] = useState<'all' | 'period'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'grid' | 'excel'>('excel');
+  const [excelSubTab, setExcelSubTab] = useState<'entries' | 'accounts'>('entries');
 
   // Searchable member options
   const memberOptions: SearchableOption[] = useMemo(() => {
@@ -218,6 +221,322 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
     document.body.removeChild(link);
   };
 
+  // Excel Grid Columns for Subsidiary Ledger Entries
+  const entryColumns: ExcelColumn<SubsidiaryLedgerEntry>[] = useMemo(() => [
+    {
+      key: 'date',
+      header: 'Posting Date',
+      width: '110px',
+      sortable: true,
+      filterable: true,
+      type: 'date',
+      render: (v) => <span className="font-mono text-xs text-slate-300">{v}</span>
+    },
+    {
+      key: 'account_number',
+      header: 'Account #',
+      width: '130px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs font-bold text-emerald-400">#{v}</span>
+    },
+    {
+      key: 'ledger_type',
+      header: 'Ledger Type',
+      width: '120px',
+      sortable: true,
+      filterable: true,
+      type: 'badge',
+      render: (v) => {
+        const isLoan = v === 'loan' || v === 'loans';
+        const isSavings = v === 'savings' || v === 'saving';
+        return (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+            isLoan
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : isSavings
+              ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+          }`}>
+            {isLoan ? 'Loan' : isSavings ? 'Savings' : 'Share Capital'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'member_no',
+      header: 'Member #',
+      width: '110px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs text-slate-300">{v}</span>
+    },
+    {
+      key: 'member_name',
+      header: 'Member Full Name',
+      width: '180px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-medium text-xs text-white">{v}</span>
+    },
+    {
+      key: 'ref_no',
+      header: 'Ref / OR #',
+      width: '130px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs text-amber-400 font-semibold">{v || '-'}</span>
+    },
+    {
+      key: 'type',
+      header: 'Classification',
+      width: '140px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="text-xs text-slate-300 font-medium">{v || 'Movement'}</span>
+    },
+    {
+      key: 'description',
+      header: 'Particulars / Description',
+      width: '240px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="text-xs text-slate-300 truncate block" title={v}>{v}</span>
+    },
+    {
+      key: 'debit',
+      header: 'Debit (₱)',
+      width: '120px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-slate-200">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'credit',
+      header: 'Credit (₱)',
+      width: '120px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-slate-200">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'principal_paid',
+      header: 'Principal (₱)',
+      width: '120px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-emerald-400 font-bold">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'interest_paid',
+      header: 'Interest (₱)',
+      width: '120px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-amber-400 font-bold">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'penalty_paid',
+      header: 'Penalty/Fees (₱)',
+      width: '130px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      accessor: (r) => (Number(r.penalty_paid) || 0) + (Number(r.fee_paid) || 0),
+      render: (_, r) => {
+        const total = (Number(r.penalty_paid) || 0) + (Number(r.fee_paid) || 0);
+        return (
+          <span className="font-mono text-xs tabular-nums text-slate-400">
+            {total > 0 ? total.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'running_balance',
+      header: 'Running Bal (₱)',
+      width: '140px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums font-black text-white">
+          ₱{Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        </span>
+      )
+    }
+  ], []);
+
+  // Excel Grid Columns for Subsidiary Accounts Master
+  const accountColumns: ExcelColumn<SubsidiaryLedgerAccount>[] = useMemo(() => [
+    {
+      key: 'account_number',
+      header: 'Account #',
+      width: '130px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs font-bold text-emerald-400">#{v}</span>
+    },
+    {
+      key: 'ledger_type',
+      header: 'Ledger Type',
+      width: '120px',
+      sortable: true,
+      filterable: true,
+      type: 'badge',
+      render: (v) => {
+        const isLoan = v === 'loan' || v === 'loans';
+        const isSavings = v === 'savings' || v === 'saving';
+        return (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+            isLoan
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : isSavings
+              ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+          }`}>
+            {isLoan ? 'Loan' : isSavings ? 'Savings' : 'Share Capital'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'member_no',
+      header: 'Member #',
+      width: '110px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs text-slate-300">{v}</span>
+    },
+    {
+      key: 'member_name',
+      header: 'Member Name',
+      width: '190px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-semibold text-xs text-white">{v}</span>
+    },
+    {
+      key: 'product_name',
+      header: 'Product / Plan',
+      width: '180px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="text-xs text-slate-300 font-medium">{v}</span>
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '110px',
+      sortable: true,
+      filterable: true,
+      type: 'badge',
+      render: (v) => (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+          v === 'Active' || v === 'Released'
+            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+            : v === 'Fully Paid'
+            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+        }`}>
+          {v}
+        </span>
+      )
+    },
+    {
+      key: 'interest_rate',
+      header: 'Rate (%)',
+      width: '90px',
+      align: 'right',
+      sortable: true,
+      render: (v) => <span className="font-mono text-xs text-slate-300">{v !== undefined && v !== null ? `${v}%` : '-'}</span>
+    },
+    {
+      key: 'original_principal',
+      header: 'Principal / Plan (₱)',
+      width: '140px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-slate-200">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'total_principal_paid',
+      header: 'Principal Paid (₱)',
+      width: '140px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-emerald-400 font-bold">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'total_interest_paid',
+      header: 'Total Interest (₱)',
+      width: '130px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums text-amber-400 font-bold">
+          {Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'current_balance',
+      header: 'Current Bal (₱)',
+      width: '140px',
+      align: 'right',
+      type: 'currency',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs tabular-nums font-black text-white">
+          ₱{Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        </span>
+      )
+    },
+    {
+      key: 'entries_count',
+      header: 'Movements',
+      width: '100px',
+      align: 'center',
+      sortable: true,
+      render: (v) => (
+        <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+          {v || 0}
+        </span>
+      )
+    }
+  ], []);
+
   const openPrintModal = (account?: SubsidiaryLedgerAccount) => {
     setPrintTargetAccount(account || null);
     setIsPrintModalOpen(true);
@@ -246,6 +565,20 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Excel View Mode Button */}
+          <button
+            onClick={() => setViewMode(viewMode === 'excel' ? 'cards' : 'excel')}
+            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+              viewMode === 'excel'
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'
+            }`}
+            title="Toggle Excel Spreadsheet Grid View"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>{viewMode === 'excel' ? 'Statements View' : 'Excel View'}</span>
+          </button>
+
           <button
             onClick={() => openPrintModal()}
             className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-950/40 transition cursor-pointer"
@@ -395,25 +728,66 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center p-1 bg-slate-950/70 border border-slate-800 rounded-xl text-xs">
               <button
+                onClick={() => setViewMode('excel')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                  viewMode === 'excel'
+                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-950/40'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel View</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-900/60 font-mono">
+                  {excelSubTab === 'entries' ? filteredEntries.length : filteredAccounts.length}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setViewMode('cards')}
-                className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   viewMode === 'cards' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Account Statements
               </button>
+
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   viewMode === 'grid' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Audit Movement Grid
               </button>
             </div>
+
+            {viewMode === 'excel' && (
+              <div className="flex items-center p-1 bg-slate-950/70 border border-slate-800 rounded-xl text-xs">
+                <button
+                  onClick={() => setExcelSubTab('entries')}
+                  className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                    excelSubTab === 'entries'
+                      ? 'bg-slate-800 text-emerald-400 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Transactions ({filteredEntries.length})
+                </button>
+                <button
+                  onClick={() => setExcelSubTab('accounts')}
+                  className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                    excelSubTab === 'accounts'
+                      ? 'bg-slate-800 text-emerald-400 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Accounts ({filteredAccounts.length})
+                </button>
+              </div>
+            )}
 
             {viewMode === 'cards' && (
               <div className="flex items-center space-x-1">
@@ -545,6 +919,89 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
           <p className="text-xs text-slate-400 max-w-md mx-auto">
             Try resetting the ledger filter, clearing the member search query, or choosing a wider date range.
           </p>
+        </div>
+      ) : viewMode === 'excel' ? (
+        /* View 1: Excel Grid View for Subsidiary Ledger */
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+          {excelSubTab === 'entries' ? (
+            <ExcelGridTable
+              data={filteredEntries}
+              columns={entryColumns}
+              title={`Subsidiary Ledger Postings · ${periodName}`}
+              subtitle={`Displaying ${filteredEntries.length} chronological sub-ledger transactions for ${ledgerType.toUpperCase()} accounts.`}
+              exportFileName={`subsidiary_ledger_entries_${ledgerType}_${Date.now()}`}
+              defaultSortKey="date"
+              defaultSortDir="asc"
+              isLoading={isLoading}
+              emptyMessage="No subsidiary transactions found matching the selected filters."
+              toolbarExtra={
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className="text-slate-400">Dataset:</span>
+                  <div className="flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                    <button
+                      onClick={() => setExcelSubTab('entries')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition ${
+                        excelSubTab === 'entries'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Entries ({filteredEntries.length})
+                    </button>
+                    <button
+                      onClick={() => setExcelSubTab('accounts')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition ${
+                        excelSubTab === 'accounts'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Accounts ({filteredAccounts.length})
+                    </button>
+                  </div>
+                </div>
+              }
+            />
+          ) : (
+            <ExcelGridTable
+              data={filteredAccounts}
+              columns={accountColumns}
+              title={`Subsidiary Account Master · ${periodName}`}
+              subtitle={`Summary balances and details for ${filteredAccounts.length} subsidiary accounts.`}
+              exportFileName={`subsidiary_account_master_${ledgerType}_${Date.now()}`}
+              defaultSortKey="account_number"
+              defaultSortDir="asc"
+              isLoading={isLoading}
+              emptyMessage="No subsidiary accounts found matching the selected filters."
+              toolbarExtra={
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className="text-slate-400">Dataset:</span>
+                  <div className="flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                    <button
+                      onClick={() => setExcelSubTab('entries')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition ${
+                        excelSubTab === 'entries'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Entries ({filteredEntries.length})
+                    </button>
+                    <button
+                      onClick={() => setExcelSubTab('accounts')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition ${
+                        excelSubTab === 'accounts'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Accounts ({filteredAccounts.length})
+                    </button>
+                  </div>
+                </div>
+              }
+            />
+          )}
         </div>
       ) : viewMode === 'cards' ? (
         /* View 1: Account Statement Cards */
