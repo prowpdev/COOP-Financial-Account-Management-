@@ -9,13 +9,17 @@ use PDO;
 
 class ConfigService
 {
+    public string $coopId = '';
     public function __construct(private PDO $db) {}
 
     /**
      * Fetch complete configuration bundle matching frontend initialization
      */
-    public function getAllConfig(): array
+    public function getAllConfig(?string $coop_id = null): array
     {
+        if($coop_id != null){
+            $this->coopId = $coop_id;
+        }
         return [
             'cooperatives'                  => $this->fetchAll('cooperatives'),
             'branches'                      => $this->fetchAll('branches'),
@@ -45,6 +49,8 @@ class ConfigService
             'configuration_audit_trails'    => $this->fetchAll('configuration_audit_trails')
         ];
     }
+
+    
 
     private function fetchAll(string $table): array
     {
@@ -267,7 +273,8 @@ class ConfigService
             applies_to,
             percentage,
             gl_account_id,
-            active
+            active,
+            branch_id
         )
         VALUES (
             :id,
@@ -278,7 +285,8 @@ class ConfigService
             :applies_to,
             :percentage,
             :gl_account_id,
-            :active
+            :active,
+            :branch_id
         )
         ON DUPLICATE KEY UPDATE
             code = VALUES(code),
@@ -309,6 +317,7 @@ class ConfigService
             'active' => isset($data['active'])
                 ? (int) $data['active']
                 : 1,
+            'branch_id' => $data['branch_id']
         ]);
 
         return array_merge([
@@ -639,7 +648,8 @@ class ConfigService
             'penalty_rate_percentage' => (float)($data['penalty_rate_percentage'] ?? 2),
             'gl_receivable_account_id' => $data['gl_receivable_account_id'] ?? $data['debit_account_id'] ?? '',
             'gl_interest_income_account_id' => $data['gl_interest_income_account_id'] ?? '',
-            'active' => isset($data['active']) ? (int)(bool)$data['active'] : 1
+            'active' => isset($data['active']) ? (int)(bool)$data['active'] : 1,
+            'branch_id' => $data['branch_id']
         ];
         $columns = array_keys($params);
         $columns = array_values(array_filter($columns, static fn(string $column): bool => $column !== 'id'));

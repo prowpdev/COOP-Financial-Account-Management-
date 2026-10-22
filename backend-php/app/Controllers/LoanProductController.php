@@ -18,6 +18,7 @@ class LoanProductController extends BaseController
     public function store(): never {
         $input = $this->getRequestBody();
         if (empty($input['name'])) $this->error('Loan product name is required.', 422);
+        $input['branch_id'] = $this->getCurrentUserBranchId();
         $this->success($this->config->saveLoanProduct($input), 'Loan product created successfully.', 201);
     }
     public function update(string $id): never {

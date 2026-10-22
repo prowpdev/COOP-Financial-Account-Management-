@@ -16,6 +16,296 @@ class MemberService
     {
         $this->audit = new AuditLogger($db);
     }
+        /**
+     * Insert multiple members with custom field values stored as JSON.
+     */
+    public function insertMembers(array $data): array
+    {
+        $members = $data['members'] ?? [];
+
+        if (!is_array($members) || empty($members)) {
+            throw new \InvalidArgumentException('No members provided.');
+        }
+
+        $defaultBranchId = $data['default_branch_id'] ?? null;
+        $defaultMemberTypeId = $data['default_member_type_id'] ?? null;
+
+        $sql = "
+            INSERT INTO members (
+                id,
+                member_no,
+                branch_id,
+                member_type_id,
+                first_name,
+                last_name,
+                middle_name,
+                gender,
+                birthdate,
+                email,
+                phone,
+                address,
+                status,
+                joined_date,
+                custom_field_values
+            ) VALUES (
+                :id,
+                :member_no,
+                :branch_id,
+                :member_type_id,
+                :first_name,
+                :last_name,
+                :middle_name,
+                :gender,
+                :birthdate,
+                :email,
+                :phone,
+                :address,
+                :status,
+                :joined_date,
+                :custom_field_values
+            )
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $inserted = 0;
+
+        $this->db->beginTransaction();
+
+        try {
+            foreach ($members as $index => $member) {
+                if (!is_array($member)) {
+                    throw new \InvalidArgumentException(
+                        "Invalid member data at index {$index}."
+                    );
+                }
+
+                $firstName = trim((string) (
+                    $member['first_name']
+                    ?? $member['first_name']
+                    ?? ''
+                ));
+
+                $lastName = trim((string) (
+                    $member['last_name']
+                    ?? $member['last_name']
+                    ?? ''
+                ));
+
+                $middleName = trim((string) (
+                    $member['middle_name']
+                    ?? $member['middle_name']
+                    ?? ''
+                ));
+
+                $memberNo = trim((string) (
+                    $member['member_id_number']
+                    ?? $member['member_no']
+                    ?? ''
+                ));
+
+                if ($firstName === '' || $lastName === '' || $memberNo === '') {
+                    throw new \InvalidArgumentException(
+                        "First name, last name, and member number are required at index {$index}."
+                    );
+                }
+
+                $branchId = $member['branch_id']
+                    ?? $defaultBranchId;
+
+                $memberTypeId = $member['member_type_id']
+                    ?? $defaultMemberTypeId;
+
+                if (empty($branchId) || empty($memberTypeId)) {
+                    throw new \InvalidArgumentException(
+                        "Branch ID and member type ID are required at index {$index}."
+                    );
+                }
+
+                $gender = $member['gender'] ?? 'Other';
+
+                if (!in_array($gender, ['Male', 'Female', 'Other'], true)) {
+                    $gender = 'Other';
+                }
+
+                $birthdate = $member['birthdate'] ?? null;
+                if (!empty($birthdate)) {
+                    $date = date_create($birthdate);
+
+                    $birthdate = $date
+                        ? $date->format('Y-m-d')
+                        : null;
+                }
+
+                if (!$this->isValidDate($birthdate)) {
+                    throw new \InvalidArgumentException(
+                        "Invalid birthdate at index {$index}."
+                    );
+                }
+
+                $joinedDate = $member['joined_date']
+                    ?? $member['joined_date']
+                    ?? null;
+
+                if (!$this->isValidDate($joinedDate)) {
+                    $joinedDate = date('Y-m-d');
+                }
+
+                $status = $member['status']
+                    ?? $member['status']
+                    ?? 'Pending Approval';
+
+                $allowedStatuses = [
+                    'Active',
+                    'Pending Approval',
+                    'Inactive',
+                    'Terminated',
+                    'Deceased',
+                ];
+
+                if (!in_array($status, $allowedStatuses, true)) {
+                    $status = 'Pending Approval';
+                }
+
+                /*
+                 * Start with the supplied custom fields.
+                 * Preserve nested values such as uploaded file metadata.
+                 */
+                $customFields = $member['custom_field_values'] ?? [];
+
+                if (is_string($customFields)) {
+                    $decoded = json_decode($customFields, true);
+
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        throw new \InvalidArgumentException(
+                            "Invalid custom field JSON at index {$index}."
+                        );
+                    }
+
+                    $customFields = $decoded;
+                }
+
+                if (!is_array($customFields)) {
+                    throw new \InvalidArgumentException(
+                        "Custom field values must be an array or JSON object at index {$index}."
+                    );
+                }
+
+                /*
+                 * When custom_field_values is not nested, extract
+                 * additional imported fields without duplicating
+                 * the standard members table columns.
+                 */
+                $standardFields = [
+                    'id',
+                    'member_no',
+                    'branch_id',
+                    'member_type_id',
+                    'first_name',
+                    'last_name',
+                    'middle_name',
+                    'gender',
+                    'birthdate',
+                    'email',
+                    'phone',
+                    'address',
+                    'status',
+                    'joined_date',
+                    'created_at',
+                    'updated_at',
+                    'custom_field_values',
+                ];
+
+                $importAliases = [
+                    'member_id_number',
+                    'first_name_separate',
+                    'last_name_separate',
+                    'middle_name_separate',
+                    'first_name_mi',
+                    'full_name_last_name',
+                ];
+
+                foreach ($member as $key => $value) {
+                    if (
+                        !in_array($key, $standardFields, true)
+                        && !in_array($key, $importAliases, true)
+                    ) {
+                        $customFields[$key] = $value;
+                    }
+                }
+
+                $customJson = json_encode(
+                    (object) $customFields,
+                    JSON_UNESCAPED_UNICODE
+                    | JSON_UNESCAPED_SLASHES
+                    | JSON_INVALID_UTF8_SUBSTITUTE
+                    | JSON_THROW_ON_ERROR
+                );
+
+                $stmt->execute([
+                    ':id' => $member['id']
+                        ?? 'mem_' . bin2hex(random_bytes(8)),
+                    ':member_no' => $memberNo,
+                    ':branch_id' => $branchId,
+                    ':member_type_id' => $memberTypeId,
+                    ':first_name' => $firstName,
+                    ':last_name' => $lastName,
+                    ':middle_name' => $middleName !== ''
+                        ? $middleName
+                        : null,
+                    ':gender' => $gender,
+                    ':birthdate' => $birthdate,
+                    ':email' => !empty($member['email'])
+                        ? trim((string) $member['email'])
+                        : null,
+                    ':phone' => trim((string) (
+                        $member['contact_telephone_mobile']
+                        ?? $member['phone']
+                        ?? ''
+                    )),
+                    ':address' => trim((string) (
+                        $member['residential_address']
+                        ?? $member['address']
+                        ?? ''
+                    )),
+                    ':status' => $status,
+                    ':joined_date' => $joinedDate,
+                    ':custom_field_values' => $customJson,
+                ]);
+
+                $inserted++;
+            }
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'inserted' => $inserted,
+                'message' => "{$inserted} member(s) inserted successfully.",
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            throw new \RuntimeException(
+                'Failed to insert members: ' . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+    }
+
+    private function isValidDate(mixed $value): bool
+    {
+        if (!is_string($value) || $value === '') {
+            return false;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false
+            && $date->format('Y-m-d') === $value;
+    }
 
     /**
      * Get all members with optional filters

@@ -246,6 +246,7 @@ class AccountingController extends BaseController
     {
         try {
             $input = $this->getRequestBody();
+            $input['branch_id'] = $this->getCurrentUserBranchId();
             $period = $this->accounting->createAccountingPeriod($input);
             $this->success(['period' => $period], 'Accounting period created successfully.');
         } catch (\Throwable $e) {

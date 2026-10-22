@@ -411,13 +411,7 @@ export const MemberImportModal: React.FC<MemberImportModalProps> = ({
       'address',
       'tin_number',
       'branch_name',
-      'member_type',
-      'occupation',
-      'barangay',
-      'farm_hectares',
-      'blood_type',
-      'emergency_contact',
-      'monthly_income',
+      'member_type_id',
       'notes'
     ];
 
@@ -431,15 +425,10 @@ export const MemberImportModal: React.FC<MemberImportModalProps> = ({
       'elena.santos@coopmail.ph',
       'Poblacion, Gerona, Tarlac',
       '123-456-789-000',
-      'Tarlac Main Branch',
-      'Regular Agricultural Member',
-      'Farmer / Rice Grower',
-      'Brgy. Singat',
-      '2.5',
-      'O+',
-      'Manuel Delos Santos (+63 918 333 4444)',
-      '35000',
-      'Cluster leader for Rice production cluster A'
+      'br_6f3806b8',
+      'mt_regular',
+      'some notes'
+      
     ];
 
     const sampleRow2 = [
@@ -452,15 +441,9 @@ export const MemberImportModal: React.FC<MemberImportModalProps> = ({
       'mateo.v@agrifarm.ph',
       'Brgy. Tibag, Tarlac City',
       '987-654-321-000',
-      'Tarlac Main Branch',
-      'Associate Micro-Entrepreneur',
-      'Poultry / Agri-Supplies',
-      'Brgy. Tibag',
-      '1.0',
-      'A+',
-      'Carmela Villanueva (+63 921 555 6666)',
-      '42000',
-      'Operates feeds and poultry farm supply'
+      'br_6f3806b8',
+      'mt_assoc',
+      'Sample Notes'
     ];
 
     const csvContent = [

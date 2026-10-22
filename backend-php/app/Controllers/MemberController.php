@@ -16,7 +16,12 @@ class MemberController extends BaseController
         parent::__construct($db);
         $this->members = new MemberService($db);
     }
-
+    public function import_members():array 
+    {
+        $data = $this->getRequestBody();
+        $response = $this->members->insertMembers($data);
+        $this->success($response,'success',200);
+    }
     /**
      * GET /api/members
      */

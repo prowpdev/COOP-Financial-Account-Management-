@@ -16,38 +16,16 @@ class BranchSeeder
     {
         $branches = [
             [
-                'branch_sfe',
-                'SFE',
-                'San Fernando La Union Branch',
-                'Quezon Ave, Catbangen, City of San Fernando, La Union',
-                '+63 (072) 888-4321',
-                'Eduardo M. Bautista',
-                0,
-                1,
-                '2026-09-12 08:07:46',
-            ],
-            [
                 'branch_tar',
                 'TAR',
-                'Main Tarlac Central Branch',
-                'Plaza Mabini Commercial Arcade, Tarlac City, Tarlac',
+                'Main Tarlac Branch',
+                'Barangay Care, Tarlac City, Tarlac',
                 '+63 (045) 982-1144',
-                'Ricardo P. Manalili',
+                'Jhomel Ignacio',
                 1,
                 1,
                 '2026-09-12 08:07:46',
-            ],
-            [
-                'branch_urd',
-                'URD',
-                'Urdaneta Pangasinan Branch',
-                'MacArthur Highway, Nancayasan, Urdaneta City, Pangasinan',
-                '+63 (075) 568-2200',
-                'Grace L. Tan',
-                0,
-                1,
-                '2026-09-12 08:07:46',
-            ],
+            ]
         ];
 
         $sql = "

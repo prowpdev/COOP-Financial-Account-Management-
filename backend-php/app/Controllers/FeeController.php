@@ -15,7 +15,12 @@ class FeeController extends BaseController
         if (!$fee) $this->error('Fee not found.', 404);
         $this->success($fee);
     }
-    public function store(): never { $this->success($this->config->saveFee($this->getRequestBody()), 'Fee created successfully.', 201); }
+    public function store(): never 
+    {
+        $input = $this->getRequestBody();
+        $input['branch_id'] = $this->getCurrentUserBranchId();
+         $this->success($this->config->saveFee($input), 'Fee created successfully.', 201);
+    }
     public function update(string $id): never {
         $input = $this->getRequestBody(); $input['id'] = $id;
         $this->success($this->config->saveFee($input), 'Fee updated successfully.');

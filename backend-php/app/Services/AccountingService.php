@@ -700,6 +700,7 @@ public function createAccountingPeriod(array $data): array
     $name = trim($data['name'] ?? '');
     $startDate = $data['start_date'] ?? '';
     $endDate = $data['end_date'] ?? '';
+    $branchId = $data['branch_id'];
 
     if ($name === '' || $startDate === '' || $endDate === '') {
         throw new \InvalidArgumentException(
@@ -787,6 +788,7 @@ public function createAccountingPeriod(array $data): array
                 period_number,
                 start_date,
                 end_date,
+                branch_id,
                 status
             ) VALUES (
                 :id,
@@ -795,6 +797,7 @@ public function createAccountingPeriod(array $data): array
                 :period_number,
                 :start_date,
                 :end_date,
+                :branch_id,
                 'Open'
             )
         ");
@@ -805,7 +808,8 @@ public function createAccountingPeriod(array $data): array
             ':fiscal_year' => $fiscalYear,
             ':period_number' => $periodNumber,
             ':start_date' => $startDate,
-            ':end_date' => $endDate
+            ':end_date' => $endDate,
+            ':branch_id' => $branchId
         ]);
 
         $stmt = $this->db->prepare("

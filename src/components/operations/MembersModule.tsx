@@ -1234,7 +1234,7 @@ export const MembersModule: React.FC<MembersModuleProps> = ({
         onImportSuccess={({ importedCount, newCustomFields }) => {
           loadMembers();
           if (onRefreshCustomFields) onRefreshCustomFields();
-          setNotice(`Successfully imported ${importedCount} members. ${newCustomFields.length} new custom fields registered.`);
+          setNotice(`Successfully imported ${importedCount} members.`);
           setTimeout(() => setNotice(null), 5000);
         }}
       />
