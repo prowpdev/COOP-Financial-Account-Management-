@@ -8,9 +8,12 @@ import {
   Info,
   CheckCircle2,
   TableProperties,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  Download
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
+import { ChartOfAccountsImportModal } from './ChartOfAccountsImportModal';
 import { api } from '../../services/api';
 import {
   LoanProduct,
@@ -213,9 +216,59 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
     setIsCreating(true);
   };
 
+  const [isCoaImportOpen, setIsCoaImportOpen] = useState(false);
+
   const refreshAfterWrite = async () => {
     if (onRefresh) await onRefresh();
     else await loadData();
+  };
+
+  const handleExportCoaCsv = () => {
+    const list = configData.chart_of_accounts;
+    const parentMap = new Map(list.map(a => [a.id, a.account_code || a.code]));
+    const headers = [
+      'account_code',
+      'name',
+      'category',
+      'report_group',
+      'normal_balance',
+      'parent_account_code',
+      'description',
+      'is_active'
+    ];
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const rows = list.map(a => {
+      const parentId = a.parent_account_id || (a as any).parent_id;
+      const parentCode = parentId ? parentMap.get(parentId) || '' : '';
+      return [
+        escapeCsv(a.account_code || a.code),
+        escapeCsv(a.name),
+        escapeCsv(a.category || a.type),
+        escapeCsv(a.report_group || a.category),
+        escapeCsv(a.normal_balance),
+        escapeCsv(parentCode),
+        escapeCsv(a.description || ''),
+        escapeCsv(a.is_active !== undefined ? a.is_active : a.active !== false)
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `chart_of_accounts_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    notify('success', `Exported ${list.length} accounts to CSV.`);
   };
 
   const handleCreate = async (event: React.FormEvent) => {
@@ -1013,7 +1066,29 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
           defaultSortKey="account_code"
           onCellEdit={handleEditAccount}
           onRowDelete={handleDelete}
-          toolbarExtra={addRecordButton}
+          toolbarExtra={
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleExportCoaCsv}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-slate-700 cursor-pointer"
+                title="Export Chart of Accounts as CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCoaImportOpen(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-emerald-900/60 cursor-pointer"
+                title="Import Chart of Accounts from CSV"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Import CSV</span>
+              </button>
+              {addRecordButton}
+            </div>
+          }
         />
       )}
 
@@ -1100,6 +1175,18 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
           toolbarExtra={addRecordButton}
         />
       )}
+
+      {/* Chart of Accounts CSV Import Modal */}
+      <ChartOfAccountsImportModal
+        isOpen={isCoaImportOpen}
+        onClose={() => setIsCoaImportOpen(false)}
+        accounts={configData.chart_of_accounts}
+        currentUser={currentUser}
+        onImportSuccess={({ count, inserted, updated }) => {
+          notify('success', `Chart of accounts updated: ${inserted} created, ${updated} updated (${count} total).`);
+          refreshAfterWrite();
+        }}
+      />
     </div>
   );
 };

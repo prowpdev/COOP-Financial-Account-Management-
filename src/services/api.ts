@@ -214,6 +214,24 @@ export const api = {
     fetchApi<{ success: boolean; message: string }>(`/config/chart-of-accounts/${id}`, {
       method: 'DELETE'
     }),
+  importChartOfAccountsCsv: (payload: {
+    accounts?: any[];
+    csv_text?: string;
+    mode?: 'upsert' | 'insert';
+    performed_by?: string;
+  }) =>
+    fetchApi<{
+      success: boolean;
+      count: number;
+      inserted: number;
+      updated: number;
+      skipped?: number;
+      message: string;
+      errors?: string[];
+    }>('/config/chart-of-accounts/import-csv', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
 
   // Accounting Mapping
   getAccountingMappings: () =>

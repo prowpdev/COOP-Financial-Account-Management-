@@ -28,7 +28,9 @@ import {
   RefreshCw,
   FileSpreadsheet,
   Search,
-  Coins
+  Coins,
+  Upload,
+  Download
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExcelWorkbench } from './ExcelWorkbench';
@@ -36,6 +38,7 @@ import { AccountingMappingsView } from './AccountingMappingsView';
 import { CashAccountsConfigView } from './CashAccountsConfigView';
 import { ShareCapitalSettingsView } from './ShareCapitalSettingsView';
 import { LoanProductModal } from './LoanProductModal';
+import { ChartOfAccountsImportModal } from './ChartOfAccountsImportModal';
 import {
   Account,
   AccountingMapping,
@@ -947,6 +950,7 @@ function ChartOfAccountsConfig({
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [filterType, setFilterType] = useState('All');
   const [newAcc, setNewAcc] = useState({
     account_code: '',
@@ -958,6 +962,65 @@ function ChartOfAccountsConfig({
     description: '',
     is_active: true
   });
+
+  const handleExportCsv = () => {
+    try {
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const accountMap = new Map(accounts.map(a => [a.id, a]));
+      const headers = [
+        'account_code',
+        'name',
+        'category',
+        'report_group',
+        'normal_balance',
+        'parent_account_code',
+        'description',
+        'is_active'
+      ];
+
+      const rows = accounts.map(a => {
+        const parentAcc = a.parent_account_id ? accountMap.get(a.parent_account_id) : (a.parent_id ? accountMap.get(a.parent_id) : null);
+        const parentCode = parentAcc ? (parentAcc.account_code || parentAcc.code || '') : '';
+        const cat = a.category || a.type || 'Asset';
+        const bal = a.normal_balance || ((cat === 'Asset' || cat === 'Expense') ? 'Debit' : 'Credit');
+        const active = a.is_active !== undefined ? Boolean(a.is_active) : (a.active !== false);
+
+        return [
+          escapeCsv(a.account_code || a.code || ''),
+          escapeCsv(a.name || ''),
+          escapeCsv(cat),
+          escapeCsv(a.report_group || ''),
+          escapeCsv(bal),
+          escapeCsv(parentCode),
+          escapeCsv(a.description || ''),
+          escapeCsv(active ? '1' : '0')
+        ].join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `chart_of_accounts_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showNotice('success', `Exported ${accounts.length} chart of accounts records to CSV.`);
+    } catch (err: any) {
+      showNotice('error', 'Failed to export CSV: ' + err.message);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1014,7 +1077,7 @@ function ChartOfAccountsConfig({
             Database schema: account_code, name, category, report_group, normal_balance, parent_account_id, description, is_active.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
@@ -1027,10 +1090,29 @@ function ChartOfAccountsConfig({
             <option value="Revenue">Revenue</option>
             <option value="Expense">Expense</option>
           </select>
+
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
+            title="Export Chart of Accounts as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
+            title="Import Chart of Accounts from CSV"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import CSV</span>
+          </button>
+
           <button
             id="btn-add-coa-account"
             onClick={() => setIsAdding(true)}
-            className="flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+            className="flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>+ Add GL Account</span>
@@ -1245,6 +1327,18 @@ function ChartOfAccountsConfig({
           </tbody>
         </table>
       </div>
+
+      {/* Chart of Accounts CSV Import Modal */}
+      <ChartOfAccountsImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        accounts={accounts}
+        currentUser={currentUser}
+        onImportSuccess={({ count, inserted, updated }) => {
+          showNotice('success', `Chart of accounts updated: ${inserted} created, ${updated} updated (${count} total).`);
+          onRefresh();
+        }}
+      />
     </div>
   );
 }

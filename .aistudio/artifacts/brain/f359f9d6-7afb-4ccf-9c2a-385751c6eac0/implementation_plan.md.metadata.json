@@ -1,6 +1,6 @@
 {
-  "summary": "Implementation plan for Cooperative Subsidiary Ledger module and printable PDF reports covering Loans, Savings, and Share Capital accounts inside the Reports Workbench.",
-  "updatedAt": "2026-10-14T10:30:23.323102728Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Completed implementation plan documenting both the Subsidiary Ledger Excel view & printable statements, and the Chart of Accounts CSV Import & Export functionality.",
+  "updatedAt":  "2026-10-22T05:11:38.981882289Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

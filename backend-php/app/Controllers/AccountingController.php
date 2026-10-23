@@ -52,6 +52,40 @@ class AccountingController extends BaseController
     }
 
     /**
+     * POST /api/accounting/chart/import-csv
+     * POST /api/config/chart-of-accounts/import-csv
+     */
+    public function importChart(): never
+    {
+        try {
+            $input = $this->getRequestBody();
+            $branchId = $this->getCurrentUserBranchId();
+            $input['branch_id'] = $branchId;
+            $result = $this->accounting->importChartOfAccounts($input);
+            $this->success($result, 'Chart of accounts imported successfully.');
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/accounting/chart/export-csv
+     * GET /api/config/chart-of-accounts/export-csv
+     */
+    public function exportChart(): never
+    {
+        try {
+            $csv = $this->accounting->exportChartOfAccounts();
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="chart_of_accounts_' . time() . '.csv"');
+            echo $csv;
+            exit;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
      * GET /api/accounting/journals
      */
     public function journals(): never

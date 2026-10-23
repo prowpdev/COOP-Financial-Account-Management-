@@ -120,7 +120,7 @@ router.post('/config/feature-toggles/toggle', (req: Request, res: Response) => {
 // 2. DYNAMIC CHART OF ACCOUNTS (Test 5)
 // ==========================================
 
-router.get('/config/chart-of-accounts', (req: Request, res: Response) => {
+router.get(['/config/chart-of-accounts', '/accounting/chart', '/api/config/chart-of-accounts', '/api/accounting/chart'], (req: Request, res: Response) => {
   const accounts = db.getTable('chart_of_accounts').map(a => ({
     ...a,
     account_code: a.account_code || a.code || '',
@@ -138,7 +138,342 @@ router.get('/config/chart-of-accounts', (req: Request, res: Response) => {
   res.json({ success: true, data: accounts });
 });
 
-router.post('/config/chart-of-accounts', (req: Request, res: Response) => {
+// CSV Export for Chart of Accounts
+router.get(['/config/chart-of-accounts/export-csv', '/accounting/chart/export-csv', '/api/config/chart-of-accounts/export-csv', '/api/accounting/chart/export-csv'], (req: Request, res: Response) => {
+  try {
+    const accounts = db.getTable('chart_of_accounts') || [];
+    const accountMap = new Map(accounts.map((a: any) => [a.id, a]));
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      'account_code',
+      'name',
+      'category',
+      'report_group',
+      'normal_balance',
+      'parent_account_code',
+      'description',
+      'is_active'
+    ];
+
+    const rows = accounts.map((a: any) => {
+      const parentAcc = a.parent_account_id ? accountMap.get(a.parent_account_id) : (a.parent_id ? accountMap.get(a.parent_id) : null);
+      const parentCode = parentAcc ? (parentAcc.account_code || parentAcc.code || '') : '';
+      const cat = a.category || a.type || 'Asset';
+      const bal = a.normal_balance || ((cat === 'Asset' || cat === 'Expense') ? 'Debit' : 'Credit');
+      const active = a.is_active !== undefined ? Boolean(a.is_active) : (a.active !== false);
+
+      return [
+        escapeCsv(a.account_code || a.code || ''),
+        escapeCsv(a.name || ''),
+        escapeCsv(cat),
+        escapeCsv(a.report_group || ''),
+        escapeCsv(bal),
+        escapeCsv(parentCode),
+        escapeCsv(a.description || ''),
+        escapeCsv(active ? '1' : '0')
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="chart_of_accounts_${Date.now()}.csv"`);
+    res.status(200).send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to export chart of accounts' });
+  }
+});
+
+// CSV Import for Chart of Accounts
+router.post(['/config/chart-of-accounts/import-csv', '/accounting/chart/import-csv', '/api/config/chart-of-accounts/import-csv', '/api/accounting/chart/import-csv'], (req: Request, res: Response) => {
+  try {
+    const { csv_text, accounts: incomingAccounts, mode = 'upsert', performed_by = 'Accountant' } = req.body;
+
+    let itemsToProcess: any[] = [];
+
+    if (Array.isArray(incomingAccounts) && incomingAccounts.length > 0) {
+      itemsToProcess = incomingAccounts;
+    } else if (typeof csv_text === 'string' && csv_text.trim()) {
+      // Parse CSV text directly
+      const parseCsvLines = (text: string): string[] => {
+        const lines: string[] = [];
+        let cur = '';
+        let inside = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (ch === '"') {
+            if (inside && text[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              inside = !inside;
+            }
+          } else if ((ch === '\n' || ch === '\r') && !inside) {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            if (cur.trim()) lines.push(cur);
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        if (cur.trim()) lines.push(cur);
+        return lines;
+      };
+
+      const parseFields = (line: string): string[] => {
+        const fields: string[] = [];
+        let f = '';
+        let inside = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            if (inside && line[i + 1] === '"') {
+              f += '"';
+              i++;
+            } else {
+              inside = !inside;
+            }
+          } else if (c === ',' && !inside) {
+            fields.push(f.trim());
+            f = '';
+          } else {
+            f += c;
+          }
+        }
+        fields.push(f.trim());
+        return fields;
+      };
+
+      const rawLines = parseCsvLines(csv_text.trim());
+      if (rawLines.length >= 2) {
+        const headers = parseFields(rawLines[0]).map(h => h.toLowerCase().replace(/[\s_-]+/g, '_'));
+        for (let i = 1; i < rawLines.length; i++) {
+          const vals = parseFields(rawLines[i]);
+          if (vals.every(v => !v)) continue;
+          const obj: Record<string, string> = {};
+          headers.forEach((h, idx) => {
+            obj[h] = vals[idx] !== undefined ? vals[idx] : '';
+          });
+          itemsToProcess.push(obj);
+        }
+      }
+    }
+
+    if (itemsToProcess.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid chart of accounts records found in the import payload.' });
+    }
+
+    const currentAccounts = db.getTable('chart_of_accounts') || [];
+    const accountMapByCode = new Map<string, any>();
+    const accountMapById = new Map<string, any>();
+    currentAccounts.forEach(a => {
+      const c = String(a.account_code || a.code || '').trim();
+      if (c) accountMapByCode.set(c, a);
+      accountMapById.set(a.id, a);
+    });
+
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    const savedRecords: any[] = [];
+    const parentCodeUpdates: Array<{ accountId: string; parentCode: string }> = [];
+
+    // Helper to normalize category
+    const normalizeCategory = (catRaw: any): 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense' => {
+      const str = String(catRaw || '').trim().toLowerCase();
+      if (str.startsWith('asset')) return 'Asset';
+      if (str.startsWith('liab')) return 'Liability';
+      if (str.startsWith('equit')) return 'Equity';
+      if (str.startsWith('rev') || str.startsWith('incom')) return 'Revenue';
+      if (str.startsWith('exp')) return 'Expense';
+      return 'Asset';
+    };
+
+    // Helper to normalize normal balance
+    const normalizeBalance = (balRaw: any, cat: string): 'Debit' | 'Credit' => {
+      const str = String(balRaw || '').trim().toLowerCase();
+      if (str.startsWith('d') || str === 'dr') return 'Debit';
+      if (str.startsWith('c') || str === 'cr') return 'Credit';
+      return (cat === 'Asset' || cat === 'Expense') ? 'Debit' : 'Credit';
+    };
+
+    // Helper to normalize default report group
+    const getDefaultReportGroup = (cat: string): string => {
+      switch (cat) {
+        case 'Asset': return 'Current Assets';
+        case 'Liability': return 'Deposit Liabilities';
+        case 'Equity': return 'Share Capital';
+        case 'Revenue': return 'Operating Revenue';
+        case 'Expense': return 'Administrative Expenses';
+        default: return 'Operating';
+      }
+    };
+
+    // First Pass: Insert / Update accounts
+    for (let index = 0; index < itemsToProcess.length; index++) {
+      const item = itemsToProcess[index];
+      const rowNum = index + 2;
+
+      // Extract account code
+      const code = String(
+        item.account_code || item.code || item.account_no || item.gl_code || item.account_number || ''
+      ).trim();
+
+      // Extract account name
+      const name = String(
+        item.name || item.account_name || item.title || item.account_title || ''
+      ).trim();
+
+      if (!code || !name) {
+        errors.push(`Row ${rowNum}: Account code and name are required. (Found code: "${code}", name: "${name}")`);
+        continue;
+      }
+
+      const category = normalizeCategory(
+        item.category || item.type || item.account_category || item.account_type || item.class
+      );
+      const normalBalance = normalizeBalance(
+        item.normal_balance || item.balance_type || item.balance || item.dr_cr,
+        category
+      );
+      const reportGroup = String(
+        item.report_group || item.group || item.statement_group || item.sub_category || getDefaultReportGroup(category)
+      ).trim() || getDefaultReportGroup(category);
+
+      const description = item.description !== undefined && item.description !== null
+        ? String(item.description).trim()
+        : (item.desc || item.notes || item.remarks || item.memo || null);
+
+      let isActive = true;
+      const rawActive = item.is_active !== undefined ? item.is_active : (item.active !== undefined ? item.active : item.status);
+      if (typeof rawActive === 'boolean') {
+        isActive = rawActive;
+      } else if (typeof rawActive === 'number') {
+        isActive = rawActive === 1;
+      } else if (typeof rawActive === 'string') {
+        const s = rawActive.trim().toLowerCase();
+        isActive = !['0', 'false', 'inactive', 'no', 'n', 'disabled'].includes(s);
+      }
+
+      const parentRef = String(
+        item.parent_account_code || item.parent_code || item.parent_account_id || item.parent_id || item.parent_account || item.parent || ''
+      ).trim();
+
+      // Check existing account
+      const existing = accountMapByCode.get(code);
+
+      if (existing) {
+        if (mode === 'insert') {
+          skipped++;
+          continue;
+        }
+
+        // Upsert: Update existing account
+        const updatedAcc = {
+          ...existing,
+          account_code: code,
+          code,
+          name,
+          category,
+          type: category === 'Revenue' ? 'Income' : category,
+          report_group: reportGroup,
+          normal_balance: normalBalance,
+          description: description !== null ? description : existing.description,
+          is_active: isActive,
+          active: isActive,
+          updated_at: new Date().toISOString()
+        };
+
+        db.update('chart_of_accounts', (a: any) => a.id === existing.id, () => updatedAcc);
+        accountMapByCode.set(code, updatedAcc);
+        accountMapById.set(existing.id, updatedAcc);
+        updated++;
+        savedRecords.push(updatedAcc);
+
+        if (parentRef) {
+          parentCodeUpdates.push({ accountId: existing.id, parentCode: parentRef });
+        }
+      } else {
+        // Insert new account
+        const newId = `acc_${code.replace(/[^a-zA-Z0-9]/g, '_') || Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const newAcc = {
+          id: newId,
+          account_code: code,
+          code,
+          name,
+          category,
+          type: category === 'Revenue' ? 'Income' : category,
+          report_group: reportGroup,
+          normal_balance: normalBalance,
+          parent_account_id: null,
+          parent_id: null,
+          description: description || null,
+          is_active: isActive,
+          active: isActive,
+          is_control: false,
+          has_subsidiary: false,
+          created_at: new Date().toISOString()
+        };
+
+        db.insert('chart_of_accounts', newAcc);
+        accountMapByCode.set(code, newAcc);
+        accountMapById.set(newId, newAcc);
+        inserted++;
+        savedRecords.push(newAcc);
+
+        if (parentRef) {
+          parentCodeUpdates.push({ accountId: newId, parentCode: parentRef });
+        }
+      }
+    }
+
+    // Second Pass: Link parent accounts (resolving by parent account code or ID)
+    for (const update of parentCodeUpdates) {
+      const parentAcc = accountMapByCode.get(update.parentCode) || accountMapById.get(update.parentCode);
+      if (parentAcc && parentAcc.id !== update.accountId) {
+        db.update('chart_of_accounts', (a: any) => a.id === update.accountId, (current: any) => ({
+          ...current,
+          parent_account_id: parentAcc.id,
+          parent_id: parentAcc.id
+        }));
+      }
+    }
+
+    // Record audit trail
+    db.recordAudit(
+      `Chart of Accounts CSV Import: ${inserted} created, ${updated} updated, ${skipped} skipped`,
+      'Bulk CSV Import',
+      { inserted, updated, skipped, errors_count: errors.length },
+      performed_by,
+      'Imported Chart of Accounts via CSV'
+    );
+
+    res.json({
+      success: true,
+      count: inserted + updated,
+      inserted,
+      updated,
+      skipped,
+      errors,
+      message: `Successfully processed ${inserted + updated} accounts (${inserted} created, ${updated} updated${skipped > 0 ? `, ${skipped} skipped` : ''}).`
+    });
+  } catch (err: any) {
+    console.error('Error importing chart of accounts CSV:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to import chart of accounts CSV' });
+  }
+});
+
+router.post(['/config/chart-of-accounts', '/accounting/chart', '/api/config/chart-of-accounts', '/api/accounting/chart'], (req: Request, res: Response) => {
   const code = req.body.account_code || req.body.code;
   const name = req.body.name;
   const category = req.body.category || req.body.type || 'Asset';
@@ -160,7 +495,7 @@ router.post('/config/chart-of-accounts', (req: Request, res: Response) => {
   }
 
   const newAccount = {
-    id: `acc_${Date.now()}`,
+    id: `acc_${code.replace(/[^a-zA-Z0-9]/g, '_') || Date.now()}`,
     account_code: code,
     code,
     name,
@@ -184,7 +519,7 @@ router.post('/config/chart-of-accounts', (req: Request, res: Response) => {
   res.json({ success: true, data: newAccount });
 });
 
-router.put('/config/chart-of-accounts/:id', (req: Request, res: Response) => {
+router.put(['/config/chart-of-accounts/:id', '/accounting/chart/:id', '/api/config/chart-of-accounts/:id', '/api/accounting/chart/:id'], (req: Request, res: Response) => {
   const { id } = req.params;
   const accounts = db.getTable('chart_of_accounts');
   const account = accounts.find(a => a.id === id);
@@ -217,6 +552,28 @@ router.put('/config/chart-of-accounts/:id', (req: Request, res: Response) => {
   db.recordAudit(`Chart of Accounts Updated: ${code}`, oldSnapshot, updated, req.body.changed_by || 'Accountant', req.body.reason || 'Account details edited');
 
   res.json({ success: true, data: updated });
+});
+
+router.delete(['/config/chart-of-accounts/:id', '/accounting/chart/:id', '/api/config/chart-of-accounts/:id', '/api/accounting/chart/:id'], (req: Request, res: Response) => {
+  const { id } = req.params;
+  const accounts = db.getTable('chart_of_accounts') || [];
+  const account = accounts.find((a: any) => a.id === id || a.account_code === id || a.code === id);
+
+  if (!account) {
+    return res.status(404).json({ success: false, error: 'Account not found' });
+  }
+
+  // Prevent deletion if account is referenced in journal lines
+  const journalLines = db.getTable('journal_lines') || [];
+  const isUsed = journalLines.some((jl: any) => jl.account_id === account.id || jl.account_code === account.account_code);
+  if (isUsed) {
+    return res.status(400).json({ success: false, error: 'Cannot delete account because it is referenced in existing journal entries. Consider deactivating it instead.' });
+  }
+
+  db.delete('chart_of_accounts', (a: any) => a.id === account.id);
+  db.recordAudit(`Chart of Accounts Deleted: ${account.account_code} ${account.name}`, account, 'None', (req as any).user?.name || 'Accountant', 'Deleted chart of accounts record');
+
+  res.json({ success: true, message: `Account ${account.account_code} - ${account.name} deleted successfully.` });
 });
 
 // ==========================================

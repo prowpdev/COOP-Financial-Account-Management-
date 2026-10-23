@@ -928,4 +928,258 @@ public function deleteAccountingPeriod(string $id): bool
             return false;
         }
     }
+
+    /**
+     * Import Chart of Accounts from CSV or structured array
+     */
+    public function importChartOfAccounts(array $data): array
+    {
+        $accounts = $data['accounts'] ?? [];
+        $mode = $data['mode'] ?? 'upsert';
+
+        if (empty($accounts) && !empty($data['csv_text'])) {
+            $lines = array_map('str_getcsv', explode("\n", trim($data['csv_text'])));
+            if (count($lines) >= 2) {
+                $rawHeaders = array_shift($lines);
+                $headers = array_map(function($h) {
+                    return strtolower(preg_replace('/[\s_-]+/', '_', trim((string)$h)));
+                }, $rawHeaders);
+
+                foreach ($lines as $row) {
+                    if (empty(array_filter($row))) continue;
+                    $item = [];
+                    foreach ($headers as $idx => $header) {
+                        $item[$header] = $row[$idx] ?? '';
+                    }
+                    $accounts[] = $item;
+                }
+            }
+        }
+
+        if (empty($accounts)) {
+            throw new \InvalidArgumentException('No valid chart of accounts records provided to import.');
+        }
+
+        $existingList = $this->getChartOfAccounts();
+        $codeMap = [];
+        $idMap = [];
+        foreach ($existingList as $ex) {
+            $codeMap[trim((string)$ex['account_code'])] = $ex;
+            $idMap[$ex['id']] = $ex;
+        }
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errors = [];
+        $parentFixups = [];
+
+        $this->db->beginTransaction();
+
+        try {
+            $normalizeCat = function($val) {
+                $s = strtolower(trim((string)$val));
+                if (str_starts_with($s, 'asset')) return 'Asset';
+                if (str_starts_with($s, 'liab')) return 'Liability';
+                if (str_starts_with($s, 'equit')) return 'Equity';
+                if (str_starts_with($s, 'rev') || str_starts_with($s, 'incom')) return 'Revenue';
+                if (str_starts_with($s, 'exp')) return 'Expense';
+                return 'Asset';
+            };
+
+            $normalizeBal = function($val, $cat) {
+                $s = strtolower(trim((string)$val));
+                if (str_starts_with($s, 'd') || $s === 'dr') return 'Debit';
+                if (str_starts_with($s, 'c') || $s === 'cr') return 'Credit';
+                return ($cat === 'Asset' || $cat === 'Expense') ? 'Debit' : 'Credit';
+            };
+
+            $defaultGroup = function($cat) {
+                return match($cat) {
+                    'Asset' => 'Current Assets',
+                    'Liability' => 'Deposit Liabilities',
+                    'Equity' => 'Share Capital',
+                    'Revenue' => 'Operating Revenue',
+                    'Expense' => 'Administrative Expenses',
+                    default => 'Operating'
+                };
+            };
+
+            foreach ($accounts as $idx => $row) {
+                $rowNum = $idx + 2;
+                $code = trim((string)($row['account_code'] ?? $row['code'] ?? $row['account_no'] ?? $row['gl_code'] ?? ''));
+                $name = trim((string)($row['name'] ?? $row['account_name'] ?? $row['title'] ?? ''));
+
+                if ($code === '' || $name === '') {
+                    $errors[] = "Row {$rowNum}: Account code and name are required.";
+                    continue;
+                }
+
+                $category = $normalizeCat($row['category'] ?? $row['type'] ?? $row['account_category'] ?? '');
+                $normalBalance = $normalizeBal($row['normal_balance'] ?? $row['balance_type'] ?? '', $category);
+                $reportGroup = trim((string)($row['report_group'] ?? $row['group'] ?? ''));
+                if ($reportGroup === '') {
+                    $reportGroup = $defaultGroup($category);
+                }
+
+                $description = isset($row['description']) ? trim((string)$row['description']) : null;
+                $isActive = 1;
+                if (isset($row['is_active'])) {
+                    $val = strtolower(trim((string)$row['is_active']));
+                    if (in_array($val, ['0', 'false', 'inactive', 'no', 'disabled'], true)) {
+                        $isActive = 0;
+                    }
+                }
+
+                $parentRef = trim((string)($row['parent_account_code'] ?? $row['parent_code'] ?? $row['parent_account_id'] ?? ''));
+
+                if (isset($codeMap[$code])) {
+                    if ($mode === 'insert') {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $existingAcc = $codeMap[$code];
+                    $upStmt = $this->db->prepare("
+                        UPDATE chart_of_accounts
+                        SET name = :name,
+                            category = :category,
+                            normal_balance = :normal_balance,
+                            report_group = :report_group,
+                            description = :description,
+                            is_active = :is_active
+                        WHERE id = :id
+                    ");
+                    $upStmt->execute([
+                        ':id'             => $existingAcc['id'],
+                        ':name'           => $name,
+                        ':category'       => $category,
+                        ':normal_balance' => $normalBalance,
+                        ':report_group'   => $reportGroup,
+                        ':description'    => $description,
+                        ':is_active'      => $isActive
+                    ]);
+                    $updated++;
+
+                    if ($parentRef !== '') {
+                        $parentFixups[] = ['id' => $existingAcc['id'], 'parentRef' => $parentRef];
+                    }
+                } else {
+                    $newId = 'acc_' . preg_replace('/[^a-zA-Z0-9]/', '_', $code) . '_' . bin2hex(random_bytes(3));
+                    $inStmt = $this->db->prepare("
+                        INSERT INTO chart_of_accounts (
+                            id, account_code, name, category, normal_balance,
+                            is_active, parent_account_id, report_group, description, created_at
+                        ) VALUES (
+                            :id, :account_code, :name, :category, :normal_balance,
+                            :is_active, NULL, :report_group, :description, NOW()
+                        )
+                    ");
+                    $inStmt->execute([
+                        ':id'             => $newId,
+                        ':account_code'   => $code,
+                        ':name'           => $name,
+                        ':category'       => $category,
+                        ':normal_balance' => $normalBalance,
+                        ':is_active'      => $isActive,
+                        ':report_group'   => $reportGroup,
+                        ':description'    => $description
+                    ]);
+                    $inserted++;
+
+                    $newRecord = [
+                        'id' => $newId,
+                        'account_code' => $code,
+                        'name' => $name
+                    ];
+                    $codeMap[$code] = $newRecord;
+                    $idMap[$newId] = $newRecord;
+
+                    if ($parentRef !== '') {
+                        $parentFixups[] = ['id' => $newId, 'parentRef' => $parentRef];
+                    }
+                }
+            }
+
+            // Second pass: resolve parent_account_id
+            foreach ($parentFixups as $fix) {
+                $pId = null;
+                if (isset($codeMap[$fix['parentRef']])) {
+                    $pId = $codeMap[$fix['parentRef']]['id'];
+                } elseif (isset($idMap[$fix['parentRef']])) {
+                    $pId = $idMap[$fix['parentRef']]['id'];
+                }
+
+                if ($pId !== null && $pId !== $fix['id']) {
+                    $pStmt = $this->db->prepare("UPDATE chart_of_accounts SET parent_account_id = ? WHERE id = ?");
+                    $pStmt->execute([$pId, $fix['id']]);
+                }
+            }
+
+            $this->db->commit();
+
+            return [
+                'success'  => true,
+                'count'    => $inserted + $updated,
+                'inserted' => $inserted,
+                'updated'  => $updated,
+                'skipped'  => $skipped,
+                'errors'   => $errors,
+                'message'  => "Successfully imported " . ($inserted + $updated) . " accounts ({$inserted} created, {$updated} updated)."
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw new \RuntimeException('Failed to import chart of accounts: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Export Chart of Accounts to CSV string
+     */
+    public function exportChartOfAccounts(): string
+    {
+        $accounts = $this->getChartOfAccounts();
+        $idMap = [];
+        foreach ($accounts as $a) {
+            $idMap[$a['id']] = $a;
+        }
+
+        $output = fopen('php://temp', 'r+');
+        fputcsv($output, [
+            'account_code',
+            'name',
+            'category',
+            'report_group',
+            'normal_balance',
+            'parent_account_code',
+            'description',
+            'is_active'
+        ]);
+
+        foreach ($accounts as $a) {
+            $parentCode = '';
+            if (!empty($a['parent_account_id']) && isset($idMap[$a['parent_account_id']])) {
+                $parentCode = $idMap[$a['parent_account_id']]['account_code'] ?? '';
+            }
+
+            fputcsv($output, [
+                $a['account_code'] ?? '',
+                $a['name'] ?? '',
+                $a['category'] ?? '',
+                $a['report_group'] ?? '',
+                $a['normal_balance'] ?? '',
+                $parentCode,
+                $a['description'] ?? '',
+                !empty($a['is_active']) ? '1' : '0'
+            ]);
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return $csv !== false ? $csv : '';
+    }
 }

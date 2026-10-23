@@ -220,6 +220,10 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->post('/api/config/chart-of-accounts', [AccountingController::class, 'saveAccount']);
     $router->put('/api/config/chart-of-accounts/:id', [AccountingController::class, 'updateAccount']);
     $router->delete('/api/config/chart-of-accounts/:id', [AccountingController::class, 'deleteAccount']);
+    $router->post('/api/accounting/chart/import-csv', [AccountingController::class, 'importChart']);
+    $router->post('/api/config/chart-of-accounts/import-csv', [AccountingController::class, 'importChart']);
+    $router->get('/api/accounting/chart/export-csv', [AccountingController::class, 'exportChart']);
+    $router->get('/api/config/chart-of-accounts/export-csv', [AccountingController::class, 'exportChart']);
 
     $router->get('/api/accounting/journals', [AccountingController::class, 'journals']);
     $router->post('/api/accounting/journals', [AccountingController::class, 'storeJournal']);
