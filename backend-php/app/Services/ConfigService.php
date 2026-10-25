@@ -200,6 +200,196 @@ class ConfigService
     {
         return $this->db->prepare("DELETE FROM loan_products WHERE id = ?")->execute([$id]);
     }
+
+    public function exportLoanProducts(): string
+    {
+        $products = $this->getLoanProducts();
+        $fp = fopen('php://temp', 'r+');
+
+        $headers = [
+            'code',
+            'name',
+            'description',
+            'min_amount',
+            'max_amount',
+            'min_term_months',
+            'max_term_months',
+            'default_term_months',
+            'annual_interest_rate',
+            'interest_calculation_method',
+            'payment_frequency',
+            'grace_period_days',
+            'processing_fee_percentage',
+            'service_fee_fixed',
+            'other_fee',
+            'penalty_rate_percentage',
+            'collateral_required',
+            'guarantor_required',
+            'required_documents',
+            'gl_receivable_account_id',
+            'gl_interest_income_account_id',
+            'effective_from',
+            'effective_until',
+            'active',
+            'branch_id'
+        ];
+        fputcsv($fp, $headers);
+
+        foreach ($products as $p) {
+            $docs = $p['required_documents'] ?? '';
+            if (is_string($docs) && ($decoded = json_decode($docs, true)) && is_array($decoded)) {
+                $docs = implode('; ', $decoded);
+            } elseif (is_array($docs)) {
+                $docs = implode('; ', $docs);
+            }
+
+            fputcsv($fp, [
+                $p['code'] ?? '',
+                $p['name'] ?? '',
+                $p['description'] ?? '',
+                $p['min_amount'] ?? 5000,
+                $p['max_amount'] ?? 500000,
+                $p['min_term_months'] ?? 1,
+                $p['max_term_months'] ?? 60,
+                $p['default_term_months'] ?? 12,
+                $p['annual_interest_rate'] ?? 6.0,
+                $p['interest_calculation_method'] ?? 'Diminishing Balance',
+                $p['payment_frequency'] ?? 'Monthly',
+                $p['grace_period_days'] ?? 0,
+                $p['processing_fee_percentage'] ?? 0,
+                $p['service_fee_fixed'] ?? 0,
+                $p['other_fee'] ?? 0,
+                $p['penalty_rate_percentage'] ?? 2.0,
+                !empty($p['collateral_required']) ? 1 : 0,
+                !empty($p['guarantor_required']) ? 1 : 0,
+                $docs,
+                $p['gl_receivable_account_id'] ?? $p['debit_account_id'] ?? 'acc_1210',
+                $p['gl_interest_income_account_id'] ?? 'acc_4110',
+                $p['effective_from'] ?? '',
+                $p['effective_until'] ?? '',
+                isset($p['active']) ? (int)(bool)$p['active'] : 1,
+                $p['branch_id'] ?? ''
+            ]);
+        }
+
+        rewind($fp);
+        $csv = stream_get_contents($fp);
+        fclose($fp);
+        return $csv ?: '';
+    }
+
+    public function importLoanProducts(array $data): array
+    {
+        $items = $data['loan_products'] ?? [];
+        $csvText = $data['csv_text'] ?? null;
+        $mode = $data['mode'] ?? 'upsert';
+
+        if (empty($items) && !empty($csvText)) {
+            $lines = preg_split('/\r\n|\r|\n/', trim($csvText));
+            if (count($lines) >= 2) {
+                $headers = str_getcsv(array_shift($lines));
+                $normHeaders = array_map(fn($h) => strtolower(trim(preg_replace('/[\s\-_]+/', '_', $h))), $headers);
+
+                foreach ($lines as $line) {
+                    if (!trim($line)) continue;
+                    $row = str_getcsv($line);
+                    $item = [];
+                    foreach ($normHeaders as $idx => $header) {
+                        $item[$header] = $row[$idx] ?? '';
+                    }
+                    if (!empty($item['code']) || !empty($item['name'])) {
+                        $items[] = $item;
+                    }
+                }
+            }
+        }
+
+        if (empty($items)) {
+            throw new \InvalidArgumentException('No valid loan products to import.');
+        }
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $this->db->beginTransaction();
+        try {
+            foreach ($items as $item) {
+                $code = trim((string)($item['code'] ?? ''));
+                $name = trim((string)($item['name'] ?? ''));
+                if (!$code || !$name) {
+                    $skipped++;
+                    continue;
+                }
+
+                $stmt = $this->db->prepare("SELECT * FROM loan_products WHERE LOWER(code) = LOWER(?) LIMIT 1");
+                $stmt->execute([$code]);
+                $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($existing && $mode === 'insert') {
+                    $skipped++;
+                    continue;
+                }
+
+                $docs = $item['required_documents'] ?? ['Valid Government ID'];
+                if (is_string($docs)) {
+                    $docs = array_filter(array_map('trim', preg_split('/[;,]/', $docs)));
+                }
+
+                $payload = [
+                    'code' => $code,
+                    'name' => $name,
+                    'description' => $item['description'] ?? '',
+                    'min_amount' => (float)($item['min_amount'] ?? 5000),
+                    'max_amount' => (float)($item['max_amount'] ?? 500000),
+                    'min_term_months' => (int)($item['min_term_months'] ?? 1),
+                    'max_term_months' => (int)($item['max_term_months'] ?? 60),
+                    'default_term_months' => (int)($item['default_term_months'] ?? 12),
+                    'annual_interest_rate' => (float)($item['annual_interest_rate'] ?? 6.0),
+                    'interest_calculation_method' => $item['interest_calculation_method'] ?? 'Diminishing Balance',
+                    'payment_frequency' => $item['payment_frequency'] ?? 'Monthly',
+                    'grace_period_days' => (int)($item['grace_period_days'] ?? 0),
+                    'processing_fee_percentage' => (float)($item['processing_fee_percentage'] ?? 0),
+                    'service_fee_fixed' => (float)($item['service_fee_fixed'] ?? 0),
+                    'other_fee' => (float)($item['other_fee'] ?? 0),
+                    'penalty_rate_percentage' => (float)($item['penalty_rate_percentage'] ?? 2.0),
+                    'collateral_required' => !empty($item['collateral_required']) ? 1 : 0,
+                    'guarantor_required' => !empty($item['guarantor_required']) ? 1 : 0,
+                    'required_documents' => $docs,
+                    'gl_receivable_account_id' => $item['gl_receivable_account_id'] ?? 'acc_1210',
+                    'debit_account_id' => $item['gl_receivable_account_id'] ?? 'acc_1210',
+                    'gl_interest_income_account_id' => $item['gl_interest_income_account_id'] ?? 'acc_4110',
+                    'effective_from' => $item['effective_from'] ?? date('Y-m-d'),
+                    'effective_until' => !empty($item['effective_until']) ? $item['effective_until'] : null,
+                    'active' => isset($item['active']) ? (int)(bool)$item['active'] : 1,
+                    'branch_id' => $item['branch_id'] ?? ($existing['branch_id'] ?? null)
+                ];
+
+                if ($existing) {
+                    $payload['id'] = $existing['id'];
+                    $payload['version'] = (int)($existing['version'] ?? 1) + 1;
+                    $this->saveLoanProduct($payload);
+                    $updated++;
+                } else {
+                    $payload['id'] = 'lp_' . bin2hex(random_bytes(4));
+                    $payload['version'] = 1;
+                    $this->saveLoanProduct($payload);
+                    $inserted++;
+                }
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return [
+            'count' => count($items),
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped
+        ];
+    }
     //
     public function saveSavingsProduct(array $data): array
     {

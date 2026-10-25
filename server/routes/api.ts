@@ -738,6 +738,402 @@ router.get(['/config/loan-products', '/loan-products'], (req: Request, res: Resp
   res.json({ success: true, count: normalized.length, data: normalized });
 });
 
+// CSV Export for Loan Products
+router.get(['/config/loan-products/export-csv', '/loan-products/export-csv'], (req: Request, res: Response) => {
+  const branchId = getEffectiveBranchId(req);
+  let products = db.getTable('loan_products') || [];
+  if (branchId) {
+    products = products.filter(p => !p.branch_id || p.branch_id === branchId || p.branch_id === 'all');
+  }
+  const normalized = products.map(normalizeLoanProduct);
+
+  const headers = [
+    'code',
+    'name',
+    'description',
+    'min_amount',
+    'max_amount',
+    'min_term_months',
+    'max_term_months',
+    'default_term_months',
+    'annual_interest_rate',
+    'interest_calculation_method',
+    'payment_frequency',
+    'grace_period_days',
+    'processing_fee_percentage',
+    'service_fee_fixed',
+    'other_fee',
+    'penalty_rate_percentage',
+    'collateral_required',
+    'guarantor_required',
+    'required_documents',
+    'gl_receivable_account_id',
+    'gl_interest_income_account_id',
+    'effective_from',
+    'effective_until',
+    'active',
+    'branch_id'
+  ];
+
+  const escapeCsv = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes(';')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const rows = normalized.map(p => {
+    const docsStr = Array.isArray(p.required_documents) ? p.required_documents.join('; ') : String(p.required_documents || '');
+    return [
+      escapeCsv(p.code),
+      escapeCsv(p.name),
+      escapeCsv(p.description || ''),
+      escapeCsv(p.min_amount),
+      escapeCsv(p.max_amount),
+      escapeCsv(p.min_term_months),
+      escapeCsv(p.max_term_months),
+      escapeCsv(p.default_term_months),
+      escapeCsv(p.annual_interest_rate),
+      escapeCsv(p.interest_calculation_method),
+      escapeCsv(p.payment_frequency),
+      escapeCsv(p.grace_period_days),
+      escapeCsv(p.processing_fee_percentage),
+      escapeCsv(p.service_fee_fixed),
+      escapeCsv(p.other_fee || 0),
+      escapeCsv(p.penalty_rate_percentage || 2.0),
+      escapeCsv(p.collateral_required ? 1 : 0),
+      escapeCsv(p.guarantor_required ? 1 : 0),
+      escapeCsv(docsStr),
+      escapeCsv(p.gl_receivable_account_id || ''),
+      escapeCsv(p.gl_interest_income_account_id || ''),
+      escapeCsv(p.effective_from || ''),
+      escapeCsv(p.effective_until || ''),
+      escapeCsv(p.active ? 1 : 0),
+      escapeCsv(p.branch_id || '')
+    ].join(',');
+  });
+
+  const csvContent = [headers.join(','), ...rows].join('\r\n');
+  const filename = `coopflex_loan_products_${new Date().toISOString().slice(0, 10)}.csv`;
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.status(200).send(csvContent);
+});
+
+// CSV Import for Loan Products
+router.post(['/config/loan-products/import-csv', '/loan-products/import-csv'], (req: Request, res: Response) => {
+  const { loan_products, csv_text, mode = 'upsert', performed_by = 'Administrator' } = req.body;
+  let itemsToProcess: any[] = [];
+
+  if (Array.isArray(loan_products) && loan_products.length > 0) {
+    itemsToProcess = loan_products;
+  } else if (typeof csv_text === 'string' && csv_text.trim()) {
+    // Parse CSV lines respecting quotes
+    const text = csv_text.trim();
+    const lines: string[] = [];
+    let curLine = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          curLine += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        if (curLine.trim()) lines.push(curLine);
+        curLine = '';
+      } else {
+        curLine += ch;
+      }
+    }
+    if (curLine.trim()) lines.push(curLine);
+
+    if (lines.length >= 2) {
+      const parseLine = (line: string): string[] => {
+        const result: string[] = [];
+        let cur = '';
+        let quotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            if (quotes && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              quotes = !quotes;
+            }
+          } else if (c === ',' && !quotes) {
+            result.push(cur.trim());
+            cur = '';
+          } else {
+            cur += c;
+          }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const rawHeaders = parseLine(lines[0]);
+      const normalizedHeaders = rawHeaders.map(h => h.toLowerCase().trim().replace(/[\s\-_]+/g, '_'));
+
+      const getCol = (cells: string[], aliases: string[]): string => {
+        for (const a of aliases) {
+          const idx = normalizedHeaders.indexOf(a);
+          if (idx !== -1 && cells[idx] !== undefined) return cells[idx].trim();
+        }
+        return '';
+      };
+
+      for (let idx = 1; idx < lines.length; idx++) {
+        const cells = parseLine(lines[idx]);
+        if (cells.length === 0 || !cells.some(c => c)) continue;
+
+        const code = getCol(cells, ['code', 'product_code', 'loan_product_code', 'id']);
+        const name = getCol(cells, ['name', 'product_name', 'loan_name', 'title']);
+        if (!code || !name) continue;
+
+        const description = getCol(cells, ['description', 'desc', 'remarks', 'purpose']);
+        const minAmount = parseFloat(getCol(cells, ['min_amount', 'minimum_amount', 'min_principal'])) || 5000;
+        const maxAmount = parseFloat(getCol(cells, ['max_amount', 'maximum_amount', 'max_principal'])) || 500000;
+        const minTerm = parseInt(getCol(cells, ['min_term_months', 'min_term']), 10) || 1;
+        const maxTerm = parseInt(getCol(cells, ['max_term_months', 'max_term']), 10) || 60;
+        const defTerm = parseInt(getCol(cells, ['default_term_months', 'default_term', 'term_months', 'term']), 10) || 12;
+        const rate = parseFloat(getCol(cells, ['annual_interest_rate', 'interest_rate', 'annual_rate', 'rate'])) >= 0
+          ? parseFloat(getCol(cells, ['annual_interest_rate', 'interest_rate', 'annual_rate', 'rate']))
+          : 6.0;
+
+        let method = 'Diminishing Balance';
+        const mLower = getCol(cells, ['interest_calculation_method', 'calculation_method', 'method']).toLowerCase();
+        if (mLower.includes('flat')) method = 'Flat Rate';
+        else if (mLower.includes('equal') || mLower.includes('amortization')) method = 'Equal Amortization';
+        else if (mLower.includes('simple')) method = 'Simple Interest';
+
+        let freq = 'Monthly';
+        const fLower = getCol(cells, ['payment_frequency', 'frequency', 'freq']).toLowerCase();
+        if (fLower.includes('semi')) freq = 'Semi-monthly';
+        else if (fLower.includes('week')) freq = 'Weekly';
+        else if (fLower.includes('lump')) freq = 'Lump Sum';
+        else if (fLower.includes('quarter')) freq = 'Quarterly';
+
+        const grace = Math.max(0, parseInt(getCol(cells, ['grace_period_days', 'grace_period', 'grace_days']), 10) || 0);
+        const procFee = Math.max(0, parseFloat(getCol(cells, ['processing_fee_percentage', 'processing_fee', 'proc_fee'])) || 0);
+        const servFee = Math.max(0, parseFloat(getCol(cells, ['service_fee_fixed', 'service_fee'])) || 0);
+        const otherFee = Math.max(0, parseFloat(getCol(cells, ['other_fee', 'other_fees'])) || 0);
+        const penaltyRate = Math.max(0, parseFloat(getCol(cells, ['penalty_rate_percentage', 'penalty_rate', 'penalty'])) || 2.0);
+
+        const colReq = ['1', 'true', 'yes'].includes(getCol(cells, ['collateral_required', 'collateral']).toLowerCase());
+        const guarReq = ['1', 'true', 'yes'].includes(getCol(cells, ['guarantor_required', 'guarantor']).toLowerCase());
+
+        const reqDocsStr = getCol(cells, ['required_documents', 'documents', 'docs']);
+        const docsList = reqDocsStr ? reqDocsStr.split(/[;,]/).map(d => d.trim()).filter(Boolean) : ['Valid Government ID'];
+
+        const debitGl = getCol(cells, ['gl_receivable_account_id', 'debit_account_id', 'receivable_gl']) || 'acc_1210';
+        const incomeGl = getCol(cells, ['gl_interest_income_account_id', 'interest_gl', 'income_gl']) || 'acc_4110';
+        const effFrom = getCol(cells, ['effective_from', 'from_date', 'start_date']) || new Date().toISOString().slice(0, 10);
+        const effUntil = getCol(cells, ['effective_until', 'until_date', 'end_date']) || null;
+        const activeStr = getCol(cells, ['active', 'is_active', 'status']);
+        const active = activeStr === '' || activeStr === '1' || activeStr.toLowerCase() === 'true' || activeStr.toLowerCase() === 'active';
+        const branchCode = getCol(cells, ['branch_id', 'branch_code', 'branch']);
+
+        itemsToProcess.push({
+          code,
+          name,
+          description,
+          min_amount: minAmount,
+          max_amount: maxAmount,
+          min_term_months: minTerm,
+          max_term_months: maxTerm,
+          default_term_months: defTerm,
+          annual_interest_rate: rate,
+          interest_calculation_method: method,
+          payment_frequency: freq,
+          grace_period_days: grace,
+          processing_fee_percentage: procFee,
+          service_fee_fixed: servFee,
+          other_fee: otherFee,
+          penalty_rate_percentage: penaltyRate,
+          collateral_required: colReq,
+          guarantor_required: guarReq,
+          required_documents: docsList,
+          gl_receivable_account_id: debitGl,
+          debit_account_id: debitGl,
+          gl_interest_income_account_id: incomeGl,
+          effective_from: effFrom,
+          effective_until: effUntil,
+          active,
+          branch_id: branchCode || null
+        });
+      }
+    }
+  }
+
+  if (itemsToProcess.length === 0) {
+    return res.status(400).json({ success: false, error: 'No valid loan products found in request payload or CSV text.' });
+  }
+
+  const existingProducts = db.getTable('loan_products') || [];
+  const productMapByCode = new Map<string, any>();
+  existingProducts.forEach(p => {
+    const c = String(p.code || '').trim().toLowerCase();
+    if (c) productMapByCode.set(c, p);
+  });
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const item of itemsToProcess) {
+    const cleanCode = String(item.code || '').trim();
+    const cleanName = String(item.name || '').trim();
+    if (!cleanCode || !cleanName) {
+      skippedCount++;
+      continue;
+    }
+
+    const existing = productMapByCode.get(cleanCode.toLowerCase());
+
+    const minAmt = Number(item.min_amount) || 5000;
+    const maxAmt = Math.max(minAmt, Number(item.max_amount) || 500000);
+    const minTerm = Math.max(1, Number(item.min_term_months) || 1);
+    const maxTerm = Math.max(minTerm, Number(item.max_term_months) || 60);
+    const defTerm = Math.min(maxTerm, Math.max(minTerm, Number(item.default_term_months) || 12));
+    const rate = Number(item.annual_interest_rate) >= 0 ? Number(item.annual_interest_rate) : 6.0;
+
+    const docs = Array.isArray(item.required_documents)
+      ? item.required_documents
+      : typeof item.required_documents === 'string'
+      ? item.required_documents.split(/[;,]/).map((d: string) => d.trim()).filter(Boolean)
+      : ['Valid Government ID'];
+
+    if (existing) {
+      if (mode === 'insert') {
+        skippedCount++;
+        continue;
+      }
+      const updated = {
+        ...existing,
+        name: cleanName,
+        description: item.description !== undefined ? String(item.description) : existing.description,
+        version: (existing.version || 1) + 1,
+        min_amount: minAmt,
+        max_amount: maxAmt,
+        min_term_months: minTerm,
+        max_term_months: maxTerm,
+        default_term_months: defTerm,
+        annual_interest_rate: rate,
+        interest_calculation_method: item.interest_calculation_method || existing.interest_calculation_method || 'Diminishing Balance',
+        payment_frequency: item.payment_frequency || existing.payment_frequency || 'Monthly',
+        grace_period_days: Math.max(0, parseInt(String(item.grace_period_days || 0), 10) || 0),
+        processing_fee_percentage: Math.max(0, Number(item.processing_fee_percentage) || 0),
+        service_fee_fixed: Math.max(0, Number(item.service_fee_fixed) || 0),
+        other_fee: Math.max(0, Number(item.other_fee) || 0),
+        penalty_rate_percentage: Math.max(0, Number(item.penalty_rate_percentage ?? 2.0)),
+        collateral_required: Boolean(item.collateral_required),
+        guarantor_required: Boolean(item.guarantor_required),
+        required_documents: docs,
+        approval_workflow_id: item.approval_workflow_id || existing.approval_workflow_id || 'wf_loan_standard',
+        gl_receivable_account_id: item.gl_receivable_account_id || existing.gl_receivable_account_id || 'acc_1210',
+        debit_account_id: item.gl_receivable_account_id || existing.gl_receivable_account_id || 'acc_1210',
+        gl_interest_income_account_id: item.gl_interest_income_account_id || existing.gl_interest_income_account_id || 'acc_4110',
+        effective_from: item.effective_from || existing.effective_from || new Date().toISOString().slice(0, 10),
+        effective_until: item.effective_until !== undefined ? item.effective_until : existing.effective_until,
+        active: item.active !== undefined ? Boolean(item.active) : (existing.active !== undefined ? existing.active : true),
+        branch_id: item.branch_id || existing.branch_id || null
+      };
+
+      db.update('loan_products', p => p.id === existing.id, () => updated);
+      productMapByCode.set(cleanCode.toLowerCase(), updated);
+
+      db.insert('loan_product_versions', {
+        id: `ver_${updated.id}_${updated.version}`,
+        loan_product_id: updated.id,
+        version: updated.version,
+        annual_interest_rate: updated.annual_interest_rate,
+        interest_calculation_method: updated.interest_calculation_method,
+        changed_at: new Date().toISOString(),
+        changed_by: performed_by,
+        reason: 'Updated via CSV import'
+      });
+
+      updatedCount++;
+    } else {
+      const newId = `lp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const created = {
+        id: newId,
+        code: cleanCode,
+        name: cleanName,
+        description: item.description ? String(item.description) : null,
+        version: 1,
+        min_amount: minAmt,
+        max_amount: maxAmt,
+        min_term_months: minTerm,
+        max_term_months: maxTerm,
+        default_term_months: defTerm,
+        annual_interest_rate: rate,
+        interest_calculation_method: item.interest_calculation_method || 'Diminishing Balance',
+        payment_frequency: item.payment_frequency || 'Monthly',
+        grace_period_days: Math.max(0, parseInt(String(item.grace_period_days || 0), 10) || 0),
+        processing_fee_percentage: Math.max(0, Number(item.processing_fee_percentage) || 0),
+        service_fee_fixed: Math.max(0, Number(item.service_fee_fixed) || 0),
+        other_fee: Math.max(0, Number(item.other_fee) || 0),
+        penalty_rule_id: item.penalty_rule_id || 'pen_standard',
+        penalty_rate_percentage: Math.max(0, Number(item.penalty_rate_percentage ?? 2.0)),
+        collateral_required: Boolean(item.collateral_required),
+        guarantor_required: Boolean(item.guarantor_required),
+        required_documents: docs,
+        approval_workflow_id: item.approval_workflow_id || 'wf_loan_standard',
+        gl_receivable_account_id: item.gl_receivable_account_id || 'acc_1210',
+        debit_account_id: item.gl_receivable_account_id || 'acc_1210',
+        gl_interest_income_account_id: item.gl_interest_income_account_id || 'acc_4110',
+        effective_from: item.effective_from || new Date().toISOString().slice(0, 10),
+        effective_until: item.effective_until || null,
+        active: item.active !== undefined ? Boolean(item.active) : true,
+        branch_id: item.branch_id || null
+      };
+
+      db.insert('loan_products', created);
+      productMapByCode.set(cleanCode.toLowerCase(), created);
+
+      db.insert('loan_product_versions', {
+        id: `ver_${created.id}_1`,
+        loan_product_id: created.id,
+        version: 1,
+        annual_interest_rate: created.annual_interest_rate,
+        interest_calculation_method: created.interest_calculation_method,
+        changed_at: new Date().toISOString(),
+        changed_by: performed_by,
+        reason: 'Initial creation via CSV import'
+      });
+
+      insertedCount++;
+    }
+  }
+
+  db.recordAudit(
+    `Loan Products CSV Import: ${insertedCount} created, ${updatedCount} updated`,
+    `Mode: ${mode}`,
+    { count: itemsToProcess.length, inserted: insertedCount, updated: updatedCount, skipped: skippedCount },
+    performed_by,
+    'Imported loan products dataset via CSV'
+  );
+
+  res.json({
+    success: true,
+    count: itemsToProcess.length,
+    inserted: insertedCount,
+    updated: updatedCount,
+    skipped: skippedCount,
+    message: `Loan products imported successfully: ${insertedCount} added, ${updatedCount} updated.`
+  });
+});
+
 router.get(['/config/loan-products/:id', '/loan-products/:id'], (req: Request, res: Response) => {
   const product = db.getTable('loan_products').find(p => p.id === req.params.id);
   if (!product) {
@@ -2490,6 +2886,25 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
 
   const baseShareCapital = shareAccounts.reduce((sum, item) => sum + (Number(item.paid_up_amount) || 0), 0);
 
+  // Operational transactions already represent loans, payments, savings, and share capital.
+  // We only include standalone / manual JVs or adjustments in general transactions to avoid double-counting.
+  const operationalReceiptRefs = new Set([
+    ...shareTransactions.map(st => st.id),
+    ...shareTransactions.map(st => st.receipt_no).filter(Boolean),
+    ...payments.map(p => p.id),
+    ...payments.map(p => p.receipt_no).filter(Boolean),
+    ...savingsTransactions.map(st => st.id),
+    ...savingsTransactions.map(st => st.transaction_no).filter(Boolean)
+  ]);
+
+  const standaloneJournalTxs = journalTransactions.filter(jt => {
+    const isLinkedToOperational = 
+      operationalReceiptRefs.has(jt.journal_entry_id) ||
+      operationalReceiptRefs.has(jt.reference) ||
+      operationalReceiptRefs.has(jt.voucher_number);
+    return !isLinkedToOperational;
+  });
+
   res.json({
     success: true,
     data: {
@@ -2499,13 +2914,14 @@ router.get('/members/:memberId/report', (req: Request, res: Response) => {
         savings_balance: savingsAccounts.reduce((sum, item) => sum + (Number(item.balance) || 0), 0),
         share_capital: Math.max(baseShareCapital, manualShareCredits > 0 ? (baseShareCapital + manualShareCredits) : baseShareCapital),
         membership_fees: manualMembershipCredits,
-        total_transactions: transactions.length + journalTransactions.length,
+        total_transactions: transactions.length + standaloneJournalTxs.length,
         jv_count: journalTransactions.length
       },
       share_account: shareAccounts[0] || null,
       share_accounts: shareAccounts,
       share_transactions: shareTransactions,
-      transactions: [...transactions, ...journalTransactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      journal_vouchers: journalTransactions,
+      transactions: [...transactions, ...standaloneJournalTxs].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
     }
   });
 });

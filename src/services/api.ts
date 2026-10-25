@@ -273,6 +273,24 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ changed_by })
     }),
+  importLoanProductsCsv: (payload: {
+    loan_products?: any[];
+    csv_text?: string;
+    mode?: 'upsert' | 'insert';
+    performed_by?: string;
+  }) =>
+    fetchApi<{
+      success: boolean;
+      count: number;
+      inserted: number;
+      updated: number;
+      skipped?: number;
+      message: string;
+      errors?: string[];
+    }>('/config/loan-products/import-csv', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
   getPenaltyRules: () =>
     fetchApi<{ success: boolean; data: any[] }>('/config/penalty-rules'),
   getApprovalWorkflows: () =>
@@ -502,6 +520,16 @@ getMemberReport: async (memberId: string) => {
         );
 
   // ==========================================
+  // SHARE CAPITAL TRANSACTIONS
+  // ==========================================
+
+  const shareTransactions = Array.isArray(report.share_transactions)
+    ? report.share_transactions
+    : Array.isArray(report.shareTransactions)
+      ? report.shareTransactions
+      : [];
+
+  // ==========================================
   // TRANSACTIONS
   // ==========================================
 
@@ -518,7 +546,16 @@ getMemberReport: async (memberId: string) => {
           ''
         ).toLowerCase();
 
+        const isJv = Boolean(
+          transaction.is_jv ||
+          transaction.is_manual_jv ||
+          source === 'journal' ||
+          String(type).toLowerCase().includes('journal') ||
+          String(type).toLowerCase().includes('jv')
+        );
+
         const category = transaction.category || (
+          isJv ? 'Journal' :
           source.includes('loan') ? 'Loans' :
           source.includes('saving') ? 'Savings' :
           source.includes('share') ? 'Share Capital' :
@@ -633,7 +670,11 @@ getMemberReport: async (memberId: string) => {
 
       journalVouchers,
 
-      journalTransactions
+      journalTransactions,
+
+      shareTransactions,
+
+      share_transactions: shareTransactions
     }
   };
 },

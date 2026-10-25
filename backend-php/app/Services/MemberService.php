@@ -559,7 +559,7 @@ class MemberService
 
 
         // =========================================================
-        // Share Capital
+        // Share Capital Accounts & Dedicated Transactions
         // =========================================================
 
         $scStmt = $this->db->prepare("
@@ -570,6 +570,29 @@ class MemberService
         $scStmt->execute([$id]);
 
         $shareCapital = $scStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $scTxStmt = $this->db->prepare("
+        SELECT 
+            sct.id,
+            sct.share_account_id,
+            sct.member_id,
+            sct.transaction_date,
+            sct.type,
+            sct.amount,
+            sct.shares,
+            sct.receipt_no,
+            sct.created_at,
+            sca.account_number,
+            sca.status AS account_status
+        FROM share_capital_transactions sct
+        INNER JOIN share_capital_accounts sca
+            ON sca.id = sct.share_account_id
+        WHERE sct.member_id = ?
+        ORDER BY sct.transaction_date DESC, sct.created_at DESC");
+
+        $scTxStmt->execute([$id]);
+
+        $shareCapitalTransactions = $scTxStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
         // =========================================================
@@ -830,9 +853,15 @@ class MemberService
             LEFT JOIN journal_lines jl
                 ON jl.journal_entry_id = je.id
 
-            WHERE je.reference_id = :journal_reference_id
+            WHERE (je.reference_id = :journal_reference_id
                OR jl.subsidiary_id = :journal_subsidiary_id
-               OR je.description LIKE :journal_member_name
+               OR je.description LIKE :journal_member_name)
+               AND (je.reference_type IS NULL OR je.reference_type NOT IN ('SHARE_CAPITAL', 'LOAN_PAYMENT', 'LOAN_DISBURSEMENT', 'SAVINGS_TRANSACTION'))
+               AND NOT EXISTS (
+                   SELECT 1 FROM share_capital_transactions sct2 
+                   WHERE sct2.member_id = :share_member_id_sub 
+                   AND (sct2.id = je.reference_id OR sct2.receipt_no = je.voucher_number)
+               )
 
         ) AS member_transactions
 
@@ -843,6 +872,7 @@ class MemberService
             'payment_member_id'     => $id,
             'savings_member_id'     => $id,
             'share_member_id'       => $id,
+            'share_member_id_sub'   => $id,
             'journal_reference_id'  => $id,
             'journal_subsidiary_id' => $id,
             'journal_member_name'   => $memberName,
@@ -868,17 +898,15 @@ class MemberService
         // =========================================================
         // Return Report
         // =========================================================
-        // print_r($transactions);
-        // print_r($journalVouchers);
-        // die();
         return [
-            'member'           => $member,
-            'summary'          => $summary,
-            'loans'            => $loans,
-            'savings'          => $savings,
-            'share_capital'    => $shareCapital,
-            'journal_vouchers' => $journalVouchers,
-            'transactions'     => $transactions
+            'member'             => $member,
+            'summary'            => $summary,
+            'loans'              => $loans,
+            'savings'            => $savings,
+            'share_capital'      => $shareCapital,
+            'share_transactions' => $shareCapitalTransactions,
+            'journal_vouchers'   => $journalVouchers,
+            'transactions'       => $transactions
         ];
     }
 

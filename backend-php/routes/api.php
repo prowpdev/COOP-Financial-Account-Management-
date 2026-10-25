@@ -282,6 +282,11 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
 
     // Loan Products
     $router->get('/api/config/loan-products', [LoanProductController::class, 'index']);
+    $router->get('/api/loan-products', [LoanProductController::class, 'index']);
+    $router->get('/api/config/loan-products/export-csv', [LoanProductController::class, 'exportCsv']);
+    $router->get('/api/loan-products/export-csv', [LoanProductController::class, 'exportCsv']);
+    $router->post('/api/config/loan-products/import-csv', [LoanProductController::class, 'importCsv']);
+    $router->post('/api/loan-products/import-csv', [LoanProductController::class, 'importCsv']);
     $router->post('/api/config/loan-products', [LoanProductController::class, 'store']);
     $router->put('/api/config/loan-products/:id', [LoanProductController::class, 'update']);
     $router->delete('/api/config/loan-products/:id', [LoanProductController::class, 'destroy']);

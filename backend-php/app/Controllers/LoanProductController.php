@@ -29,4 +29,23 @@ class LoanProductController extends BaseController
         $this->config->deleteLoanProduct($id);
         $this->success(null, 'Loan product deleted successfully.');
     }
+
+    public function exportCsv(): never {
+        $csv = $this->config->exportLoanProducts();
+        $filename = 'coopflex_loan_products_' . date('Y-m-d') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        echo $csv;
+        exit;
+    }
+
+    public function importCsv(): never {
+        $input = $this->getRequestBody();
+        try {
+            $result = $this->config->importLoanProducts($input);
+            $this->success($result, 'Loan products imported successfully.');
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage(), 400);
+        }
+    }
 }

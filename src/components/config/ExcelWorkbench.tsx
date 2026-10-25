@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { ChartOfAccountsImportModal } from './ChartOfAccountsImportModal';
+import { LoanProductImportModal } from './LoanProductImportModal';
 import { api } from '../../services/api';
 import {
   LoanProduct,
@@ -217,10 +218,91 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
   };
 
   const [isCoaImportOpen, setIsCoaImportOpen] = useState(false);
+  const [isLoanProductImportOpen, setIsLoanProductImportOpen] = useState(false);
 
   const refreshAfterWrite = async () => {
     if (onRefresh) await onRefresh();
     else await loadData();
+  };
+
+  const handleExportLoanProductCsv = () => {
+    const list = configData.loan_products;
+    const headers = [
+      'code',
+      'name',
+      'description',
+      'min_amount',
+      'max_amount',
+      'min_term_months',
+      'max_term_months',
+      'default_term_months',
+      'annual_interest_rate',
+      'interest_calculation_method',
+      'payment_frequency',
+      'grace_period_days',
+      'processing_fee_percentage',
+      'service_fee_fixed',
+      'other_fee',
+      'penalty_rate_percentage',
+      'collateral_required',
+      'guarantor_required',
+      'required_documents',
+      'gl_receivable_account_id',
+      'gl_interest_income_account_id',
+      'effective_from',
+      'effective_until',
+      'active',
+      'branch_id'
+    ];
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes(';')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const rows = list.map(p => {
+      const docs = Array.isArray(p.required_documents) ? p.required_documents.join('; ') : String(p.required_documents || '');
+      return [
+        escapeCsv(p.code),
+        escapeCsv(p.name),
+        escapeCsv(p.description || ''),
+        escapeCsv(p.min_amount ?? 5000),
+        escapeCsv(p.max_amount ?? 500000),
+        escapeCsv(p.min_term_months ?? 1),
+        escapeCsv(p.max_term_months ?? 60),
+        escapeCsv(p.default_term_months ?? 12),
+        escapeCsv(p.annual_interest_rate ?? 6.0),
+        escapeCsv(p.interest_calculation_method ?? 'Diminishing Balance'),
+        escapeCsv(p.payment_frequency ?? 'Monthly'),
+        escapeCsv(p.grace_period_days ?? 0),
+        escapeCsv(p.processing_fee_percentage ?? 0),
+        escapeCsv(p.service_fee_fixed ?? 0),
+        escapeCsv(p.other_fee ?? 0),
+        escapeCsv(p.penalty_rate_percentage ?? 2.0),
+        escapeCsv(p.collateral_required ? '1' : '0'),
+        escapeCsv(p.guarantor_required ? '1' : '0'),
+        escapeCsv(docs),
+        escapeCsv(p.gl_receivable_account_id || ''),
+        escapeCsv(p.gl_interest_income_account_id || ''),
+        escapeCsv(p.effective_from || ''),
+        escapeCsv(p.effective_until || ''),
+        escapeCsv(p.active !== false ? '1' : '0'),
+        escapeCsv(p.branch_id || '')
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `coopflex_loan_products_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    notify('success', `Exported ${list.length} loan products to CSV.`);
   };
 
   const handleExportCoaCsv = () => {
@@ -1052,7 +1134,29 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
           defaultSortKey="code"
           onCellEdit={handleEditLoanProduct}
           onRowDelete={handleDelete}
-          toolbarExtra={addRecordButton}
+          toolbarExtra={
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleExportLoanProductCsv}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-slate-700 cursor-pointer"
+                title="Export Loan Products as CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLoanProductImportOpen(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-emerald-900/60 cursor-pointer"
+                title="Import Loan Products from CSV"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Import CSV</span>
+              </button>
+              {addRecordButton}
+            </div>
+          }
         />
       )}
 
@@ -1184,6 +1288,19 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
         currentUser={currentUser}
         onImportSuccess={({ count, inserted, updated }) => {
           notify('success', `Chart of accounts updated: ${inserted} created, ${updated} updated (${count} total).`);
+          refreshAfterWrite();
+        }}
+      />
+
+      {/* Loan Products CSV Import Modal */}
+      <LoanProductImportModal
+        isOpen={isLoanProductImportOpen}
+        onClose={() => setIsLoanProductImportOpen(false)}
+        products={configData.loan_products}
+        accounts={configData.chart_of_accounts}
+        currentUser={currentUser}
+        onImportSuccess={({ count, inserted, updated }) => {
+          notify('success', `Loan products updated: ${inserted} created, ${updated} updated (${count} total).`);
           refreshAfterWrite();
         }}
       />

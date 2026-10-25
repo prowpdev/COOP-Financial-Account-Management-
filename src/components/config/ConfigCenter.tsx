@@ -38,6 +38,7 @@ import { AccountingMappingsView } from './AccountingMappingsView';
 import { CashAccountsConfigView } from './CashAccountsConfigView';
 import { ShareCapitalSettingsView } from './ShareCapitalSettingsView';
 import { LoanProductModal } from './LoanProductModal';
+import { LoanProductImportModal } from './LoanProductImportModal';
 import { ChartOfAccountsImportModal } from './ChartOfAccountsImportModal';
 import {
   Account,
@@ -701,7 +702,95 @@ function LoanProductsConfig({
   showNotice: (type: 'success' | 'error', msg: string) => void;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<LoanProduct | null>(null);
+
+  const handleExportCsv = () => {
+    try {
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes(';')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const headers = [
+        'code',
+        'name',
+        'description',
+        'min_amount',
+        'max_amount',
+        'min_term_months',
+        'max_term_months',
+        'default_term_months',
+        'annual_interest_rate',
+        'interest_calculation_method',
+        'payment_frequency',
+        'grace_period_days',
+        'processing_fee_percentage',
+        'service_fee_fixed',
+        'other_fee',
+        'penalty_rate_percentage',
+        'collateral_required',
+        'guarantor_required',
+        'required_documents',
+        'gl_receivable_account_id',
+        'gl_interest_income_account_id',
+        'effective_from',
+        'effective_until',
+        'active',
+        'branch_id'
+      ];
+
+      const rows = products.map(p => {
+        const docs = Array.isArray(p.required_documents) ? p.required_documents.join('; ') : String(p.required_documents || '');
+        return [
+          escapeCsv(p.code),
+          escapeCsv(p.name),
+          escapeCsv(p.description || ''),
+          escapeCsv(p.min_amount ?? 5000),
+          escapeCsv(p.max_amount ?? 500000),
+          escapeCsv(p.min_term_months ?? 1),
+          escapeCsv(p.max_term_months ?? 60),
+          escapeCsv(p.default_term_months ?? 12),
+          escapeCsv(p.annual_interest_rate ?? 6.0),
+          escapeCsv(p.interest_calculation_method ?? 'Diminishing Balance'),
+          escapeCsv(p.payment_frequency ?? 'Monthly'),
+          escapeCsv(p.grace_period_days ?? 0),
+          escapeCsv(p.processing_fee_percentage ?? 0),
+          escapeCsv(p.service_fee_fixed ?? 0),
+          escapeCsv(p.other_fee ?? 0),
+          escapeCsv(p.penalty_rate_percentage ?? 2.0),
+          escapeCsv(p.collateral_required ? '1' : '0'),
+          escapeCsv(p.guarantor_required ? '1' : '0'),
+          escapeCsv(docs),
+          escapeCsv(p.gl_receivable_account_id || ''),
+          escapeCsv(p.gl_interest_income_account_id || ''),
+          escapeCsv(p.effective_from || ''),
+          escapeCsv(p.effective_until || ''),
+          escapeCsv(p.active !== false ? '1' : '0'),
+          escapeCsv(p.branch_id || '')
+        ].join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `coopflex_loan_products_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showNotice('success', `Exported ${products.length} loan products to CSV.`);
+    } catch (err: any) {
+      showNotice('error', 'Failed to export CSV: ' + err.message);
+    }
+  };
 
   const handleDelete = async (product: LoanProduct) => {
     if (!window.confirm(`Are you sure you want to delete loan product "${product.name}"?`)) return;
@@ -728,17 +817,37 @@ function LoanProductsConfig({
             Configure credit facilities with full interest engines, multi-tiered terms, GL mappings, and automatic version snapshots.
           </p>
         </div>
-        <button
-          id="btn-new-loan-product"
-          onClick={() => {
-            setProductToEdit(null);
-            setIsModalOpen(true);
-          }}
-          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-lg shadow-emerald-900/20 transition self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Create Loan Product</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
+            title="Export Loan Products as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
+            title="Import Loan Products from CSV"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import CSV</span>
+          </button>
+
+          <button
+            id="btn-new-loan-product"
+            onClick={() => {
+              setProductToEdit(null);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-lg shadow-emerald-900/20 transition self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Create Loan Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Product List */}
@@ -927,6 +1036,22 @@ function LoanProductsConfig({
             productToEdit
               ? `Updated loan product "${savedProd.name}" to version ${savedProd.version}. Historical loans protected.`
               : `Created loan product "${savedProd.name}" with full 30-column specification.`
+          );
+          onRefresh();
+        }}
+      />
+
+      {/* Complete 30-Column CSV Import Modal */}
+      <LoanProductImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        products={products}
+        accounts={accounts}
+        currentUser={currentUser}
+        onImportSuccess={({ count, inserted, updated }) => {
+          showNotice(
+            'success',
+            `Loan products imported: ${inserted} created, ${updated} updated (${count} total).`
           );
           onRefresh();
         }}

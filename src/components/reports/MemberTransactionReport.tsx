@@ -122,13 +122,43 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
 
   const allTransactions: any[] = report?.transactions || [];
 
+  // Check if a row is a double-entry general ledger journal entry / voucher
+  const isJvRecord = (row: any): boolean => {
+    return Boolean(
+      row.is_manual_jv ||
+      row.is_jv ||
+      row.source === 'journal' ||
+      row.category === 'Journal' ||
+      row.category === 'Journal Voucher' ||
+      row.category === 'Manual JV' ||
+      (row.lines && row.lines.length > 0)
+    );
+  };
+
   // Categorize any transaction record into granular functional type
   const classifyTransaction = (row: any): string => {
+    // 1. Separate Journal Vouchers first to avoid duplication
+    if (isJvRecord(row)) {
+      return 'manual_jv';
+    }
+
     const typeStr = String(row.type || '').toLowerCase();
     const catStr = String(row.category || '').toLowerCase();
     const descStr = String(row.description || '').toLowerCase();
+    const sourceStr = String(row.source || '').toLowerCase();
 
-    // 1. Loans
+    // 2. Share Capital (CBU) - Exclusive operational receipts
+    if (
+      sourceStr === 'share_capital' ||
+      catStr === 'share capital' ||
+      typeStr.includes('share') ||
+      descStr.includes('share capital') ||
+      descStr.includes('cbu')
+    ) {
+      return 'share_capital';
+    }
+
+    // 3. Loans
     if (
       typeStr.includes('released') ||
       typeStr.includes('disburse') ||
@@ -141,8 +171,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
       typeStr.includes('loan payment') ||
       descStr.includes('principal') ||
       typeStr.includes('repayment') ||
-      descStr.includes('amortization') ||
-      typeStr.includes('amortization')
+      descStr.includes('amortization')
     ) {
       if (descStr.includes('interest only') || typeStr.includes('interest payment')) {
         return 'loan_interest';
@@ -153,8 +182,8 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
       return 'loan_interest';
     }
 
-    // 2. Savings
-    if (catStr === 'savings' || typeStr.includes('saving')) {
+    // 4. Savings
+    if (sourceStr === 'savings' || catStr === 'savings' || typeStr.includes('saving')) {
       if (typeStr.includes('withdraw') || descStr.includes('withdraw')) {
         return 'savings_withdrawal';
       }
@@ -164,19 +193,9 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
       return 'savings_deposit';
     }
 
-    // 3. Share Capital (CBU)
-    if (catStr === 'share capital' || typeStr.includes('share') || descStr.includes('share capital') || descStr.includes('cbu')) {
-      return 'share_capital';
-    }
-
-    // 4. Membership Fee
+    // 5. Membership Fee
     if (typeStr.includes('membership fee') || descStr.includes('membership fee')) {
       return 'membership_fee';
-    }
-
-    // 5. Manual JV / General Ledger
-    if (row.is_manual_jv || row.is_jv || typeStr.includes('manual jv') || typeStr.includes('journal voucher')) {
-      return 'manual_jv';
     }
 
     return 'other';
@@ -224,10 +243,10 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
         counts.manual_jv++;
       }
 
-      if (row.category === 'Loans' && !['loan_released', 'loan_payment', 'loan_interest'].includes(cls)) {
+      if (row.category === 'Loans' && !['loan_released', 'loan_payment', 'loan_interest'].includes(cls) && !isJvRecord(row)) {
         counts.loan_all++;
       }
-      if (row.category === 'Savings' && !['savings_deposit', 'savings_withdrawal', 'savings_interest'].includes(cls)) {
+      if (row.category === 'Savings' && !['savings_deposit', 'savings_withdrawal', 'savings_interest'].includes(cls) && !isJvRecord(row)) {
         counts.savings_all++;
       }
     });
@@ -236,23 +255,51 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
   }, [allTransactions]);
 
   const filteredRows = useMemo(() => {
+    // Map operational receipt and transaction references to avoid duplicates in unified ledger view
+    const operationalRefs = new Set<string>();
+    allTransactions.forEach((row: any) => {
+      if (!isJvRecord(row)) {
+        if (row.id) operationalRefs.add(String(row.id).toLowerCase());
+        if (row.reference) operationalRefs.add(String(row.reference).toLowerCase());
+        if (row.reference_id) operationalRefs.add(String(row.reference_id).toLowerCase());
+        if (row.receipt_no) operationalRefs.add(String(row.receipt_no).toLowerCase());
+        if (row.voucher_number) operationalRefs.add(String(row.voucher_number).toLowerCase());
+      }
+    });
+
     return allTransactions.filter((row: any) => {
       // Date filter
       if (from && row.date < from) return false;
       if (to && row.date > to) return false;
 
-      // Category / Tab filter
+      const isJv = isJvRecord(row);
+
+      // Category / Tab filter (Separate Share Capital and Journal Entries completely)
       if (activeTab === 'manual_jv') {
-        if (!row.is_manual_jv && !row.is_jv) return false;
+        // Exclusively Journal Vouchers / General Ledger
+        if (!isJv) return false;
       } else if (activeTab === 'share_capital') {
-        const isShare = row.category === 'Share Capital' || String(row.type).toLowerCase().includes('share') || String(row.description).toLowerCase().includes('share');
+        // Exclusively Share Capital operational receipts (exclude JVs to prevent duplication)
+        if (isJv) return false;
+        const isShare = row.source === 'share_capital' || row.category === 'Share Capital' || String(row.type).toLowerCase().includes('share');
         if (!isShare) return false;
       } else if (activeTab === 'savings') {
-        const isSav = row.category === 'Savings' || String(row.type).toLowerCase().includes('saving');
+        if (isJv) return false;
+        const isSav = row.source === 'savings' || row.category === 'Savings' || String(row.type).toLowerCase().includes('saving');
         if (!isSav) return false;
       } else if (activeTab === 'loans') {
-        const isLoan = row.category === 'Loans' || String(row.type).toLowerCase().includes('loan');
+        if (isJv) return false;
+        const isLoan = row.source === 'loan' || row.category === 'Loans' || String(row.type).toLowerCase().includes('loan');
         if (!isLoan) return false;
+      } else if (activeTab === 'all') {
+        // In "All" unified ledger, filter out any JV that directly duplicates an operational receipt already shown
+        if (isJv) {
+          const jRef = String(row.reference || row.voucher_number || row.journal_entry_id || '').toLowerCase();
+          const origRef = String(row.reference_id || '').toLowerCase();
+          if (operationalRefs.has(jRef) || (origRef && operationalRefs.has(origRef))) {
+            return false;
+          }
+        }
       }
 
       // Granular Transaction Type filter
@@ -275,7 +322,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
         } else if (selectedTxType === 'share_capital') {
           if (rowClass !== 'share_capital') return false;
         } else if (selectedTxType === 'manual_jv') {
-          if (rowClass !== 'manual_jv' && !row.is_manual_jv && !row.is_jv) return false;
+          if (rowClass !== 'manual_jv') return false;
         } else if (selectedTxType === 'membership_fee') {
           if (rowClass !== 'membership_fee') return false;
         }
@@ -285,7 +332,7 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const inDesc = String(row.description || '').toLowerCase().includes(q);
-        const inRef = String(row.reference || '').toLowerCase().includes(q);
+        const inRef = String(row.reference || row.voucher_number || '').toLowerCase().includes(q);
         const inType = String(row.type || '').toLowerCase().includes(q);
         const inAcc = String(row.accounts || '').toLowerCase().includes(q);
         if (!inDesc && !inRef && !inType && !inAcc) return false;
@@ -462,10 +509,10 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
     URL.revokeObjectURL(url);
   };
 
-  const jvCount = allTransactions.filter(r => r.is_manual_jv || r.is_jv).length;
-  const shareCount = allTransactions.filter(r => r.category === 'Share Capital' || String(r.type).includes('Share')).length;
-  const savingsCount = allTransactions.filter(r => r.category === 'Savings' || String(r.type).includes('Savings')).length;
-  const loansCount = allTransactions.filter(r => r.category === 'Loans' || String(r.type).includes('Loan')).length;
+  const jvCount = allTransactions.filter(isJvRecord).length;
+  const shareCount = allTransactions.filter(r => !isJvRecord(r) && (r.source === 'share_capital' || r.category === 'Share Capital' || String(r.type).toLowerCase().includes('share'))).length;
+  const savingsCount = allTransactions.filter(r => !isJvRecord(r) && (r.source === 'savings' || r.category === 'Savings' || String(r.type).toLowerCase().includes('saving'))).length;
+  const loansCount = allTransactions.filter(r => !isJvRecord(r) && (r.source === 'loan' || r.category === 'Loans' || String(r.type).toLowerCase().includes('loan'))).length;
 
   if (!safeMembers || safeMembers.length === 0) {
     return (
@@ -902,6 +949,60 @@ export const MemberTransactionReport: React.FC<Props> = ({ members = [], initial
             <span className="text-[10px] text-emerald-400 print:text-emerald-700">Audit-Linked Entries</span>
           </div>
         </div>
+
+        {/* Dedicated Page Information Banner */}
+        {activeTab === 'share_capital' && (
+          <div className="bg-blue-950/30 border border-blue-500/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Coins className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Share Capital (CBU) Sub-Ledger Statement</h4>
+                <p className="text-slate-400 text-[11px] mt-0.5">
+                  Exclusive operational share subscriptions, cash contributions, and official receipts. General ledger double-entry journal vouchers are separated in the Journal Vouchers page.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-800">
+              <div>
+                <span className="text-slate-500 block text-[9px] uppercase">Account No</span>
+                <span className="text-white font-semibold">{report?.share_account?.account_number || report?.share_capital?.[0]?.account_number || 'CBU-MAIN'}</span>
+              </div>
+              <div className="border-l border-slate-800 pl-3">
+                <span className="text-slate-500 block text-[9px] uppercase">Paid Shares</span>
+                <span className="text-blue-400 font-bold">{report?.share_account?.paid_up_shares || report?.share_capital?.[0]?.paid_up_shares || 0} shares</span>
+              </div>
+              <div className="border-l border-slate-800 pl-3">
+                <span className="text-slate-500 block text-[9px] uppercase">Paid Amount</span>
+                <span className="text-emerald-400 font-bold">{money(report?.summary?.share_capital || 0)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'manual_jv' && (
+          <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">General Ledger Journal Entries & Vouchers (JV)</h4>
+                <p className="text-slate-400 text-[11px] mt-0.5">
+                  Auditable double-entry accounting records, manual adjustment vouchers, and GL balancing debit/credit breakdowns for this member.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowJvModal(true)}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition cursor-pointer flex items-center space-x-1.5 shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Post New Journal Voucher</span>
+            </button>
+          </div>
+        )}
 
         {/* Transactions Table */}
         <div className="overflow-x-auto border border-slate-800 rounded-xl">
