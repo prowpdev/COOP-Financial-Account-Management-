@@ -868,7 +868,7 @@ class MemberService
         // =========================================================
         // Return Report
         // =========================================================
-        // print_r($shareCapital);
+        // print_r($transactions);
         // print_r($journalVouchers);
         // die();
         return [

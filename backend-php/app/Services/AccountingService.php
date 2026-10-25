@@ -1068,16 +1068,17 @@ public function deleteAccountingPeriod(string $id): bool
                     $newId = 'acc_' . preg_replace('/[^a-zA-Z0-9]/', '_', $code) . '_' . bin2hex(random_bytes(3));
                     $inStmt = $this->db->prepare("
                         INSERT INTO chart_of_accounts (
-                            id, account_code, name, category, normal_balance,
+                            id, account_code, branch_id, name, category, normal_balance,
                             is_active, parent_account_id, report_group, description, created_at
                         ) VALUES (
-                            :id, :account_code, :name, :category, :normal_balance,
+                            :id, :account_code, :branch_id, :name, :category, :normal_balance,
                             :is_active, NULL, :report_group, :description, NOW()
                         )
                     ");
                     $inStmt->execute([
                         ':id'             => $newId,
                         ':account_code'   => $code,
+                        ':branch_id'      => $data['branch_id'],
                         ':name'           => $name,
                         ':category'       => $category,
                         ':normal_balance' => $normalBalance,

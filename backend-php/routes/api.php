@@ -15,6 +15,7 @@ use App\Controllers\ShareCapitalController;
 use App\Controllers\AccountingController;
 use App\Controllers\ApprovalRuleController;
 use App\Controllers\ApprovalWorkflowController;
+use App\Controllers\BoardResolutionController;
 use App\Controllers\BranchController;
 use App\Controllers\ConfigController;
 use App\Controllers\CashController;
@@ -29,6 +30,7 @@ use App\Controllers\SeederController;
 use App\Controllers\LoanProductController;
 use App\Controllers\MemberDocumentController;
 use App\Controllers\MigrationController;
+use App\Controllers\NotificationController;
 use App\Controllers\NumberingFormatController;
 use App\Controllers\PaymentAllocationRuleController;
 use App\Middleware\JwtAuthMiddleware;
@@ -72,9 +74,11 @@ $router->get('/api/reports/member-transactions', [ReportController::class, 'memb
 $router->get('/api/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
 $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
 $router->get('/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
-
+  $router->get('/api/database/seeder', [SeederController::class, 'run']);
 // All routes in this group require a valid JWT bearer token.
 $router->group([JwtAuthMiddleware::class], function (Router $router): void {
+
+  $router->post('/api/members/import-csv',[MemberController::class,'import_members']);
 
     // Common Auth Utilities
     $router->get('/api/auth/me', [AuthController::class, 'me']);
@@ -93,6 +97,16 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/api/users/:id/documents', [DocumentController::class, 'index']);
     $router->delete('/api/users/:id/documents/:docKey', [DocumentController::class, 'destroy']);
     $router->delete('/api/user-documents/:id', [DocumentController::class, 'destroyLegacy']);
+
+    // Board Resolutions
+    $router->get('/api/board-resolutions', [BoardResolutionController::class, 'index']);
+    $router->post('/api/board-resolutions', [BoardResolutionController::class, 'store']);
+    $router->delete('/api/board-resolutions/:id', [BoardResolutionController::class, 'destroy']);
+
+    $router->delete('/api/coop/:id/board-resolutions/:docKey', [BoardResolutionController::class, 'destroy']);
+    $router->delete('/api/coop-board-resolution/:id', [BoardResolutionController::class, 'destroyLegacy']);
+
+
 
     // =========================================================================
     // 3. Member Self-Service Portal Endpoints
@@ -115,8 +129,8 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->post('/api/system/seed-sample-data', [SystemController::class, 'seedSampleMembers']);
     $router->post('/api/system/run-verification-tests', [SystemController::class, 'runVerificationTests']);
 
-    $router->get('/api/database/seeder', [SeederController::class, 'run']);
-    $router->post('/api/database/seeder', [SeederController::class, 'run']);
+    // $router->get('/api/database/seeder', [SeederController::class, 'run']);
+    // $router->post('/api/database/seeder', [SeederController::class, 'run']);
     $router->get('/api/database/seeder/reset', [SeederController::class, 'reset']);
     $router->post('/api/database/seeder/reset', [SeederController::class, 'reset']);
 
@@ -220,10 +234,12 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->post('/api/config/chart-of-accounts', [AccountingController::class, 'saveAccount']);
     $router->put('/api/config/chart-of-accounts/:id', [AccountingController::class, 'updateAccount']);
     $router->delete('/api/config/chart-of-accounts/:id', [AccountingController::class, 'deleteAccount']);
+    // import and export
     $router->post('/api/accounting/chart/import-csv', [AccountingController::class, 'importChart']);
     $router->post('/api/config/chart-of-accounts/import-csv', [AccountingController::class, 'importChart']);
     $router->get('/api/accounting/chart/export-csv', [AccountingController::class, 'exportChart']);
     $router->get('/api/config/chart-of-accounts/export-csv', [AccountingController::class, 'exportChart']);
+
 
     $router->get('/api/accounting/journals', [AccountingController::class, 'journals']);
     $router->post('/api/accounting/journals', [AccountingController::class, 'storeJournal']);
@@ -271,11 +287,11 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->delete('/api/config/loan-products/:id', [LoanProductController::class, 'destroy']);
 
     // Savings Products
-    $router->get('/api/savings-products', [ConfigController::class, 'savingsProducts']);
-    $router->get('/api/config/savings-products', [ConfigController::class, 'savingsProducts']);
-    $router->post('/api/config/savings-products', [ConfigController::class, 'storeSavingsProduct']);
-    $router->put('/api/config/savings-products/:id', [ConfigController::class, 'updateSavingsProduct']);
-    $router->delete('/api/config/savings-products/:id', [ConfigController::class, 'destroySavingsProduct']);
+    $router->get('/api/savings-products', [SavingsController::class, 'index']);
+    $router->get('/api/config/savings-products', [SavingsController::class, 'index']);
+    $router->post('/api/config/savings-products', [SavingsController::class, 'store']);
+    $router->put('/api/config/savings-products/:id', [SavingsController::class, 'update']);
+    $router->delete('/api/config/savings-products/:id', [SavingsController::class, 'destroy']);
 
     // Feature Toggles
     $router->get('/api/feature-toggles', [ConfigController::class, 'featureToggles']);
@@ -338,7 +354,7 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/reports/subsidiary-ledger', [ReportController::class, 'subsidiaryLedger']);
     $router->get('/reports/subsidiary-ledger/:period_id', [ReportController::class, 'subsidiaryLedger']);
     // Notifications
-    $router->get('/notifications', [ConfigController::class, 'notifications']);
+    $router->get('/notifications', [NotificationController::class, 'index']);
 
     // =========================================================================
     // 13. Database Schema Migrations & Auto-Inspection
@@ -347,7 +363,10 @@ $router->group([JwtAuthMiddleware::class], function (Router $router): void {
     $router->get('/api/db/migration/run', [MigrationController::class, 'run']);
     $router->post('/db/migration/run', [MigrationController::class, 'run']);
     $router->get('/db/migration/run', [MigrationController::class, 'run']);
+
 });
+
+$router->get('/db/migrate', [MigrationController::class, 'migrate']);
 
 // Also allow direct trigger with header/query token for system administration
 $router->post('/api/db/migration/run', [MigrationController::class, 'run']);
