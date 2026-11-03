@@ -446,21 +446,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         </div>
       )
     },
-    {
-      key: 'destination_gl_account',
-      header: 'Money Destination / Contra GL',
-      width: '230px',
-      sortable: true,
-      filterable: true,
-      render: (v, row) => {
-        const val = v || row.contra_gl_account || (row.destination_gl_code ? `${row.destination_gl_code} - ${row.destination_gl_name}` : '-');
-        return (
-          <div className="truncate font-mono text-xs text-emerald-300 font-medium" title={val}>
-            {val}
-          </div>
-        );
-      }
-    },
+  
     {
       key: 'debit',
       header: 'Debit (₱)',

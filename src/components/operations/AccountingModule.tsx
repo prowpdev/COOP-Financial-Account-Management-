@@ -38,6 +38,9 @@ interface AccountingModuleProps {
   selectedBranchId?: string;
   onSelectBranch?: (id: string) => void;
   members?: Member[];
+  initialViewMode?: AccountingTabKey;
+  initialAccountId?: string;
+  onNavigateToView?: (view: AccountingTabKey, accountId?: string) => void;
 }
 
 export type AccountingTabKey =
@@ -58,7 +61,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   currentUser,
   selectedBranchId,
   onSelectBranch,
-  members: propMembers
+  members: propMembers,
+  initialViewMode,
+  initialAccountId,
+  onNavigateToView
 }) => {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [mappings, setMappings] = useState<AccountingMapping[]>([]);
@@ -68,7 +74,16 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [voucherTypeToCreate, setVoucherTypeToCreate] = useState<'JV' | 'OR' | 'CD'>('JV');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<AccountingTabKey>('overview');
+  const [viewMode, setViewMode] = useState<AccountingTabKey>(initialViewMode || 'overview');
+
+  useEffect(() => {
+    setViewMode(initialViewMode || 'overview');
+  }, [initialViewMode]);
+
+  const navigateToView = (view: AccountingTabKey, accountId?: string) => {
+    setViewMode(view);
+    onNavigateToView?.(view, accountId);
+  };
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -636,7 +651,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       <div className="flex items-center overflow-x-auto pb-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 shadow-inner gap-1.5">
         <button
           id="tab-accounting-overview"
-          onClick={() => setViewMode('overview')}
+          onClick={() => navigateToView('overview')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'overview'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -649,7 +664,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-gl-reconciliation"
-          onClick={() => setViewMode('reconciliation')}
+          onClick={() => navigateToView('reconciliation')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'reconciliation'
               ? 'bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/40'
@@ -663,7 +678,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-general-ledger"
-          onClick={() => setViewMode('general_ledger')}
+          onClick={() => navigateToView('general_ledger')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'general_ledger'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -677,7 +692,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-general-journal"
-          onClick={() => setViewMode('general_journal')}
+          onClick={() => navigateToView('general_journal')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'general_journal'
               ? 'bg-blue-600 text-white shadow-md'
@@ -691,7 +706,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-cash-receipt-journal"
-          onClick={() => setViewMode('cash_receipt_journal')}
+          onClick={() => navigateToView('cash_receipt_journal')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'cash_receipt_journal'
               ? 'bg-emerald-700 text-white shadow-md ring-1 ring-emerald-400/40'
@@ -705,7 +720,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-cash-disbursement-journal"
-          onClick={() => setViewMode('cash_disbursement_journal')}
+          onClick={() => navigateToView('cash_disbursement_journal')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'cash_disbursement_journal'
               ? 'bg-amber-700 text-white shadow-md ring-1 ring-amber-400/40'
@@ -719,7 +734,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-voucher-cards"
-          onClick={() => setViewMode('voucher_cards')}
+          onClick={() => navigateToView('voucher_cards')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'voucher_cards'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -732,7 +747,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-account-report"
-          onClick={() => setViewMode('account_report')}
+          onClick={() => navigateToView('account_report')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'account_report'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -745,7 +760,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-gl-mappings"
-          onClick={() => setViewMode('mappings')}
+          onClick={() => navigateToView('mappings')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'mappings'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -758,7 +773,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
 
         <button
           id="tab-cash-banks"
-          onClick={() => setViewMode('cash_banks')}
+          onClick={() => navigateToView('cash_banks')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
             viewMode === 'cash_banks'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -1028,7 +1043,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           journals={journals}
           branches={branches}
           selectedBranch={selectedBranch}
-          onNavigateToTab={(tab) => setViewMode(tab)}
+          onNavigateToTab={(tab) => navigateToView(tab)}
           onNewVoucher={(type) => openCreateModal(type)}
         />
       )}
@@ -1041,7 +1056,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             setSelectedBranch(id);
             if (onSelectBranch) onSelectBranch(id);
           }}
-          onNavigateToTab={(tab) => setViewMode(tab)}
+          onNavigateToTab={(tab) => navigateToView(tab)}
         />
       )}
 
@@ -1184,6 +1199,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           branches={branches}
           selectedBranch={selectedBranch}
           members={propMembers && propMembers.length > 0 ? propMembers : membersList}
+          selectedAccountId={initialAccountId || ''}
+          onSelectAccount={(id) => navigateToView('account_report', id)}
         />
       )}
 

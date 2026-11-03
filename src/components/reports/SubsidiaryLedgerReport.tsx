@@ -330,20 +330,13 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
       filterable: true,
       render: (v) => <span className="text-xs text-slate-300 truncate block" title={v}>{v}</span>
     },
-    {
-      key: 'destination_gl_account',
-      header: 'Money Destination / Contra GL',
-      width: '230px',
+       {
+      key: 'account_code',
+      header: 'GL Code',
+      width: '100px',
       sortable: true,
       filterable: true,
-      render: (v, r) => {
-        const val = v || (r as any).contra_gl_account || ((r as any).destination_gl_code ? `${(r as any).destination_gl_code} - ${(r as any).destination_gl_name}` : '-');
-        return (
-          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={val}>
-            {val}
-          </span>
-        );
-      }
+      render: (v) => <span className="font-mono text-xs text-slate-400">{v}</span>
     },
     {
       key: 'debit',

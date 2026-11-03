@@ -92,8 +92,8 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
   }, [parentMemberId]);
 
   useEffect(() => {
-    if (parentAccountId !== undefined && parentAccountId !== '' && parentAccountId !== 'all') {
-      setAccountId(parentAccountId);
+    if (parentAccountId !== undefined) {
+      setAccountId(parentAccountId === 'all' ? '' : parentAccountId);
     }
   }, [parentAccountId]);
 
@@ -137,7 +137,9 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
     const accountWithEntries = accounts.find(item =>
       journals.some(journal => (journal.lines || []).some(line => line.account_id === item.id))
     );
-    setAccountId(accountWithEntries?.id || accounts[0].id);
+    const defaultAccountId = accountWithEntries?.id || accounts[0].id;
+    setAccountId(defaultAccountId);
+    onSelectAccount?.(defaultAccountId);
   }, [accountId, accounts, journals]);
 
   // Map each journal line to an enriched ledger row with subsidiary member & source categorization

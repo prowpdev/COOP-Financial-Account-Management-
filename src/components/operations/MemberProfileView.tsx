@@ -47,6 +47,7 @@ interface MemberProfileViewProps {
   memberTypes: MemberType[];
   customFields: CustomField[];
   currentUser: AppUser;
+  onSelectMember?: (memberId: string) => void;
   onNavigateToMembers?: () => void;
   onNavigateToShareCapital?: () => void;
   onNavigateToSavings?: () => void;
@@ -68,6 +69,7 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
   memberTypes = [],
   customFields = [],
   currentUser,
+  onSelectMember,
   onNavigateToMembers,
   onNavigateToShareCapital,
   onNavigateToSavings,
@@ -131,6 +133,7 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
       setMembers(list);
       if (!selectedMemberId && list.length > 0) {
         setSelectedMemberId(list[0].id);
+        onSelectMember?.(list[0].id);
       }
     } catch (err: any) {
       console.error('Failed to load members:', err);
@@ -414,7 +417,10 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({
           <SearchableSelect
             options={memberSelectOptions}
             value={selectedMemberId}
-            onChange={id => setSelectedMemberId(id)}
+            onChange={id => {
+              setSelectedMemberId(id);
+              onSelectMember?.(id);
+            }}
             placeholder="Type member name, ID, or TIN..."
             searchPlaceholder="Search by ID, name, branch, phone..."
             alwaysShowSearch={true}

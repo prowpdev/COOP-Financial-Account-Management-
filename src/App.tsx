@@ -25,6 +25,7 @@ import { MemberPortal } from './components/member/MemberPortal';
 import { SetupWizardModal } from './components/setup/SetupWizardModal';
 import { api } from './services/api';
 import { clearAuthSession, loadAuthSession, saveAuthSession } from './services/authSession';
+import { appRoutePath, AppRoute, resolveAppRoute } from './routes';
 import {
   Account,
   Branch,
@@ -179,8 +180,14 @@ const getInitialTab = (): TabKey => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
-  const [selectedProfileMemberId, setSelectedProfileMemberId] = useState<string>('');
+  const [route, setRoute] = useState<AppRoute>(() => {
+    const resolved = resolveAppRoute(window.location);
+    return window.location.pathname === '/'
+      ? { ...resolved, tab: getInitialTab() }
+      : resolved;
+  });
+  const activeTab = route.tab;
+  const selectedProfileMemberId = route.memberId || '';
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -235,14 +242,43 @@ export default function App() {
     localStorage.setItem('coop_large_text', String(isLargeText));
   }, [isLargeText]);
 
-  // Synchronize activeTab to URL Search Parameters (?tab=...) & document title
+  const navigateToRoute = (nextRoute: AppRoute, replace = false) => {
+    const path = appRoutePath(nextRoute);
+    if (window.location.pathname !== path) {
+      window.history[replace ? 'replaceState' : 'pushState']({}, '', path);
+    }
+    setRoute(nextRoute);
+  };
+
+  const navigateToTab = (tab: TabKey) => {
+    navigateToRoute({
+      tab,
+      ...(tab === 'accounting' ? { accountingView: 'overview' as const } : {})
+    });
+  };
+
+  const navigateToMember = (memberId: string) => {
+    navigateToRoute({ tab: 'member_profile', memberId });
+  };
+
+  const navigateToAccountingView = (
+    accountingView: NonNullable<AppRoute['accountingView']>,
+    accountId?: string
+  ) => {
+    navigateToRoute({ tab: 'accounting', accountingView, accountId });
+  };
+
+  // Keep the address bar canonical for legacy query/hash links and unknown paths.
+  useEffect(() => {
+    const path = appRoutePath(route);
+    if (window.location.pathname !== path) {
+      window.history.replaceState({}, '', path);
+    }
+  }, [route]);
+
+  // Synchronize document title and the legacy last-opened-tab preference.
   useEffect(() => {
     try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('tab') !== activeTab) {
-        url.searchParams.set('tab', activeTab);
-        window.history.replaceState({ tab: activeTab }, '', url.toString());
-      }
       localStorage.setItem('coop_active_tab', activeTab);
 
       const titleMap: Record<string, string> = {
@@ -272,8 +308,7 @@ export default function App() {
   // Listen to popstate (back/forward browser navigation)
   useEffect(() => {
     const handlePopState = () => {
-      const resolved = getInitialTab();
-      setActiveTab(resolved);
+      setRoute(resolveAppRoute(window.location));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -324,10 +359,10 @@ export default function App() {
     if (isSuperAdmin) {
       const allowedGovernanceTabs: TabKey[] = ['superadmin_console', 'audit_logs', 'user_profile'];
       if (!allowedGovernanceTabs.includes(activeTab)) {
-        setActiveTab('superadmin_console');
+        navigateToTab('superadmin_console');
       }
     } else if (activeTab === 'superadmin_console') {
-      setActiveTab('dashboard');
+      navigateToTab('dashboard');
     }
   }, [currentUser?.role_id, currentUser?.is_super_admin, activeTab]);
 
@@ -514,7 +549,7 @@ export default function App() {
       <Header
         cooperativeName={profile.name}
         currentUser={currentUser}
-        onOpenVerification={() => setActiveTab('verification')}
+        onOpenVerification={() => navigateToTab('verification')}
         onResetSeed={handleReloadApp}
         isResetting={isResetting}
         isSidebarCollapsed={isSidebarCollapsed}
@@ -528,7 +563,7 @@ export default function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onNavigateTab={(tab) => {
-          setActiveTab(tab);
+          navigateToTab(tab);
           setIsMobileSidebarOpen(false);
         }}
       />
@@ -538,7 +573,7 @@ export default function App() {
         <Sidebar
           activeTab={activeTab}
           onSelectTab={(tab) => {
-            setActiveTab(tab);
+            navigateToTab(tab);
             setIsMobileSidebarOpen(false);
           }}
           featureToggles={featureToggles}
@@ -556,7 +591,7 @@ export default function App() {
               branches={branches}
               cooperativeProfile={profile}
               onRefresh={refreshGlobalState}
-              onNavigateToAudit={() => setActiveTab('audit_logs')}
+              onNavigateToAudit={() => navigateToTab('audit_logs')}
             />
           )}
 
@@ -564,7 +599,7 @@ export default function App() {
             <DashboardView
               selectedBranchId={selectedBranchId}
               branches={branches}
-              onNavigate={setActiveTab}
+              onNavigate={navigateToTab}
             />
           )}
 
@@ -591,11 +626,8 @@ export default function App() {
               currentUser={currentUser}
               selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
-              onNavigateToFields={() => setActiveTab('member_fields')}
-              onNavigateToProfile={(id) => {
-                setSelectedProfileMemberId(id);
-                setActiveTab('member_profile');
-              }}
+              onNavigateToFields={() => navigateToTab('member_fields')}
+              onNavigateToProfile={navigateToMember}
               onRefreshCustomFields={refreshGlobalState}
             />
           )}
@@ -607,10 +639,11 @@ export default function App() {
               memberTypes={memberTypes}
               customFields={customFields}
               currentUser={currentUser}
-              onNavigateToMembers={() => setActiveTab('members')}
-              onNavigateToShareCapital={() => setActiveTab('share_capital')}
-              onNavigateToSavings={() => setActiveTab('savings')}
-              onNavigateToLoans={() => setActiveTab('loans')}
+              onSelectMember={navigateToMember}
+              onNavigateToMembers={() => navigateToTab('members')}
+              onNavigateToShareCapital={() => navigateToTab('share_capital')}
+              onNavigateToSavings={() => navigateToTab('savings')}
+              onNavigateToLoans={() => navigateToTab('loans')}
             />
           )}
 
@@ -620,7 +653,7 @@ export default function App() {
               currentUser={currentUser}
               branches={branches}
               onRefresh={refreshGlobalState}
-              onNavigateToMembers={() => setActiveTab('members')}
+              onNavigateToMembers={() => navigateToTab('members')}
             />
           )}
 
@@ -646,7 +679,7 @@ export default function App() {
               cooperative={profile}
               onUpdateUser={handleUpdateCurrentUser}
               onNavigateTab={(tab) => {
-                setActiveTab(tab);
+                navigateToTab(tab);
                 setIsMobileSidebarOpen(false);
               }}
             />
@@ -660,6 +693,9 @@ export default function App() {
               currentUser={currentUser}
               selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
+              initialViewMode={route.accountingView}
+              initialAccountId={route.accountId}
+              onNavigateToView={navigateToAccountingView}
             />
           )}
 
@@ -746,7 +782,7 @@ export default function App() {
       <SetupWizardModal
         isOpen={isSetupWizardOpen}
         onClose={() => setIsSetupWizardOpen(false)}
-        onNavigateTab={(tabKey) => setActiveTab(tabKey as TabKey)}
+        onNavigateTab={(tabKey) => navigateToTab(tabKey as TabKey)}
         onRefreshData={refreshGlobalState}
       />
     </div>
