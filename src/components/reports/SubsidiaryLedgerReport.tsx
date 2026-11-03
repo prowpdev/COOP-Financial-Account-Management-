@@ -42,6 +42,9 @@ interface SubsidiaryLedgerReportProps {
   startDate?: string;
   endDate?: string;
   periodName?: string;
+  selectedMemberId?: string;
+  onSelectMember?: (id: string) => void;
+  hideHeader?: boolean;
 }
 
 export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
@@ -53,16 +56,33 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
   periodId,
   startDate,
   endDate,
-  periodName = 'Current Period'
+  periodName = 'Current Period',
+  selectedMemberId: propMemberId,
+  onSelectMember,
+  hideHeader = false
 }) => {
   // Ledger Type filter: 'all' | 'loans' | 'savings' | 'share_capital'
   const [ledgerType, setLedgerType] = useState<string>('all');
-  const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(propMemberId || 'all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateScope, setDateScope] = useState<'all' | 'period'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'grid' | 'excel'>('excel');
   const [excelSubTab, setExcelSubTab] = useState<'entries' | 'accounts'>('entries');
+
+  // Synchronize when parent passes member filter
+  useEffect(() => {
+    if (propMemberId !== undefined) {
+      setSelectedMemberId(propMemberId);
+    }
+  }, [propMemberId]);
+
+  const handleMemberChange = (id: string) => {
+    setSelectedMemberId(id);
+    if (onSelectMember) {
+      onSelectMember(id);
+    }
+  };
 
   // Searchable member options
   const memberOptions: SearchableOption[] = useMemo(() => {
@@ -546,66 +566,68 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header and Action Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Layers className="w-5 h-5" />
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                Cooperative Subsidiary Ledgers (SL)
-              </h2>
-              <p className="text-xs text-slate-400">
-                Audit-compliant sub-ledger accounts tracking individual movements, interest, repayments, and balances
-              </p>
+      {/* Header and Action Controls (Shown only if not embedded in ReportsModule) */}
+      {!hideHeader && (
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Layers className="w-5 h-5" />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  Cooperative Subsidiary Ledgers (SL)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Audit-compliant sub-ledger accounts tracking individual movements, interest, repayments, and balances
+                </p>
+              </div>
             </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Excel View Mode Button */}
+            <button
+              onClick={() => setViewMode(viewMode === 'excel' ? 'cards' : 'excel')}
+              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                viewMode === 'excel'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40'
+                  : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'
+              }`}
+              title="Toggle Excel Spreadsheet Grid View"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>{viewMode === 'excel' ? 'Statements View' : 'Excel View'}</span>
+            </button>
+
+            <button
+              onClick={() => openPrintModal()}
+              className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-950/40 transition cursor-pointer"
+              title="Open printable official statement or export as PDF"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Official Ledger / PDF</span>
+            </button>
+
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+
+            <button
+              onClick={fetchData}
+              disabled={isLoading}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition cursor-pointer"
+              title="Refresh Ledger Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
+          </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Excel View Mode Button */}
-          <button
-            onClick={() => setViewMode(viewMode === 'excel' ? 'cards' : 'excel')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-              viewMode === 'excel'
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40'
-                : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'
-            }`}
-            title="Toggle Excel Spreadsheet Grid View"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>{viewMode === 'excel' ? 'Statements View' : 'Excel View'}</span>
-          </button>
-
-          <button
-            onClick={() => openPrintModal()}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-950/40 transition cursor-pointer"
-            title="Open printable official statement or export as PDF"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print Official Ledger / PDF</span>
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </button>
-
-          <button
-            onClick={fetchData}
-            disabled={isLoading}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition cursor-pointer"
-            title="Refresh Ledger Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* KPI Financial Movement Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -818,15 +840,20 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                 <span>Filter by Member</span>
               </span>
               {selectedMemberId !== 'all' && (
-                <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded font-normal">
-                  Active Filter
-                </span>
+                <button
+                  type="button"
+                  onClick={() => handleMemberChange('all')}
+                  className="text-[9px] text-rose-400 hover:text-rose-300 font-normal cursor-pointer"
+                  title="Clear Member Filter"
+                >
+                  Clear Filter
+                </button>
               )}
             </label>
             <SearchableSelect
               options={memberOptions}
               value={selectedMemberId}
-              onChange={setSelectedMemberId}
+              onChange={handleMemberChange}
               placeholder="Search member name or ID..."
               searchPlaceholder="Type member name, ID, or phone..."
               alwaysShowSearch={true}

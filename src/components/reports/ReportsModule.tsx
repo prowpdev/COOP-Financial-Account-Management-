@@ -6,26 +6,29 @@ import {
   RefreshCw,
   Search,
   Filter,
-  CheckSquare,
-  Square,
   Layers,
   Calendar,
   Building2,
   Users,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
-  ChevronUp,
+  CreditCard,
+  BookOpen,
+  RotateCcw,
   Sparkles,
-  Info,
-  CreditCard
+  ArrowUpDown,
+  Clock,
+  ShieldCheck,
+  Check,
+  X
 } from 'lucide-react';
 import { ExcelGridTable, ExcelColumn } from '../common/ExcelGridTable';
 import { PrintableReportModal } from './PrintableReportModal';
 import { SubsidiaryLedgerReport } from './SubsidiaryLedgerReport';
+import { AccountLedgerReport } from './AccountLedgerReport';
 import { SearchableSelect, SearchableOption } from '../common/SearchableSelect';
 import { api } from '../../services/api';
-import { Account, Branch, Member, User, CoopProfile } from '../../types';
+import { Account, Branch, Member, User, CoopProfile, JournalEntry } from '../../types';
 
 interface ReportsModuleProps {
   accounts: Account[];
@@ -46,6 +49,8 @@ interface AccountingPeriod {
   fiscal_year?: string;
 }
 
+type SubmoduleTab = 'subsidiary_ledger' | 'journal_ledger' | 'account_ledger' | 'member_ledger';
+
 export const ReportsModule: React.FC<ReportsModuleProps> = ({
   accounts = [],
   branches = [],
@@ -55,32 +60,33 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   selectedBranchId,
   onSelectBranch
 }) => {
-  // Periods state
+  // Accounting Periods state
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
   const [isCustomDateRange, setIsCustomDateRange] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // Branch & Member filters
+  // Primary Universal Filters
   const [selectedBranch, setSelectedBranch] = useState<string>(
     selectedBranchId || currentUser?.branch_id || 'all'
   );
   const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
   const [membersList, setMembersList] = useState<Member[]>(propMembers);
 
-  // GL Accounts checkboxes state
+  // GL Category & Account Filters (for Journal & GL views)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedGlCodes, setSelectedGlCodes] = useState<Set<string>>(new Set());
   const [selectedQuickGl, setSelectedQuickGl] = useState<string>('all');
-  const [glSearchQuery, setGlSearchQuery] = useState('');
-  const [isGlPanelExpanded, setIsGlPanelExpanded] = useState(true);
+  const [journalSearchQuery, setJournalSearchQuery] = useState('');
 
-  // Sheet tab state: 'gl' | 'member' | 'subsidiary_ledger'
-  const [activeSheet, setActiveSheet] = useState<'gl' | 'member' | 'subsidiary_ledger'>('subsidiary_ledger');
+  // Submodule Tab
+  const [activeTab, setActiveTab] = useState<SubmoduleTab>('subsidiary_ledger');
 
-  // Data state
+  // Loaded Datasets
   const [glLines, setGlLines] = useState<any[]>([]);
   const [memberTransactions, setMemberTransactions] = useState<any[]>([]);
+  const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -92,7 +98,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     }
   }, [selectedBranchId]);
 
-  // Sync initial GL accounts: default all selected
+  // Sync initial GL accounts
   useEffect(() => {
     if (accounts.length > 0 && selectedGlCodes.size === 0) {
       const allCodes = new Set(
@@ -113,7 +119,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
         let loadedPeriods: AccountingPeriod[] = periodsRes.data || [];
         if (loadedPeriods.length === 0) {
-          // Fallback standard 12 months for 2026
           loadedPeriods = [
             { id: 'period_2026_01', name: 'January 2026', start_date: '2026-01-01', end_date: '2026-01-31', status: 'Closed' },
             { id: 'period_2026_02', name: 'February 2026', start_date: '2026-02-01', end_date: '2026-02-28', status: 'Closed' },
@@ -131,7 +136,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         }
         setPeriods(loadedPeriods);
 
-        // Default to October 2026 if present (per user prompt example), else first open or latest period
         const octPeriod = loadedPeriods.find(p => p.id === 'period_2026_10' || p.name.toLowerCase().includes('october'));
         if (octPeriod) {
           setSelectedPeriodId(octPeriod.id);
@@ -163,7 +167,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       const startDate = isCustomDateRange ? customStartDate : activePeriod?.start_date;
       const endDate = isCustomDateRange ? customEndDate : activePeriod?.end_date;
 
-      const [glRes, memRes] = await Promise.all([
+      const [glRes, memRes, jnlRes] = await Promise.all([
         api.getReportJournalEntries({
           period_id: isCustomDateRange ? undefined : selectedPeriodId,
           branch_id: selectedBranch !== 'all' ? selectedBranch : undefined,
@@ -177,7 +181,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           member_id: selectedMemberId !== 'all' ? selectedMemberId : undefined,
           start_date: startDate,
           end_date: endDate
-        })
+        }),
+        api.getJournals(selectedBranch !== 'all' ? selectedBranch : undefined).catch(() => ({ success: false, data: [] }))
       ]);
 
       if (glRes.success && glRes.data) {
@@ -185,6 +190,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       }
       if (memRes.success && memRes.data) {
         setMemberTransactions(memRes.data.transactions || []);
+      }
+      if (jnlRes && jnlRes.data) {
+        setJournals(Array.isArray(jnlRes.data) ? jnlRes.data : []);
       }
     } catch (err: any) {
       console.error('Failed to load ledger transactions:', err);
@@ -194,7 +202,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     }
   }, [selectedPeriodId, selectedBranch, selectedMemberId, isCustomDateRange, customStartDate, customEndDate, activePeriod]);
 
-  // Re-fetch when period, branch, or member changes
+  // Trigger load on filter changes
   useEffect(() => {
     if (selectedPeriodId || isCustomDateRange) {
       loadReportData();
@@ -209,72 +217,97 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     }
   };
 
-  // GL Account toggles
-  const handleToggleGlCode = (code: string) => {
-    setSelectedGlCodes(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
+  // Category quick filter handler
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    if (category === 'all') {
+      const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
+      setSelectedGlCodes(allCodes);
+      setSelectedQuickGl('all');
+    } else {
+      const filteredAccounts = accounts.filter(a => {
+        const cat = (a.category || a.type || '').toLowerCase();
+        if (category === 'Revenue') return cat === 'revenue' || cat === 'income';
+        return cat === category.toLowerCase();
+      });
+      const codes = new Set(filteredAccounts.map(a => String(a.account_code || a.code || a.id)));
+      setSelectedGlCodes(codes);
+      setSelectedQuickGl('all');
+    }
+  };
+
+  // Specific GL account selector handler
+  const handleQuickGlChange = (val: string) => {
+    setSelectedQuickGl(val);
+    if (!val || val === 'all') {
+      if (selectedCategory !== 'all') {
+        handleCategorySelect(selectedCategory);
       } else {
-        next.add(code);
+        const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
+        setSelectedGlCodes(allCodes);
       }
-      return next;
-    });
+    } else {
+      setSelectedGlCodes(new Set([val]));
+    }
   };
 
-  const handleSelectAllGl = () => {
-    const all = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
-    setSelectedGlCodes(all);
+  // Reset all filters to default
+  const handleResetFilters = () => {
+    setSelectedBranch('all');
+    if (onSelectBranch) onSelectBranch('all');
+    setSelectedMemberId('all');
+    setSelectedCategory('all');
+    setSelectedQuickGl('all');
+    setJournalSearchQuery('');
+    setIsCustomDateRange(false);
+    const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
+    setSelectedGlCodes(allCodes);
+    if (periods.length > 0) {
+      const octPeriod = periods.find(p => p.id === 'period_2026_10' || p.name.toLowerCase().includes('october'));
+      setSelectedPeriodId(octPeriod ? octPeriod.id : periods[0].id);
+    }
   };
 
-  const handleClearAllGl = () => {
-    setSelectedGlCodes(new Set());
-  };
+  const isFilterActive =
+    selectedBranch !== 'all' ||
+    selectedMemberId !== 'all' ||
+    selectedCategory !== 'all' ||
+    selectedQuickGl !== 'all' ||
+    isCustomDateRange ||
+    journalSearchQuery.trim() !== '';
 
-  const handleSelectCategory = (cat: string) => {
-    const matched = accounts
-      .filter(a => {
-        const c = (a.category || a.type || '').toLowerCase();
-        return c.includes(cat.toLowerCase());
-      })
-      .map(a => String(a.account_code || a.code || a.id));
-
-    setSelectedGlCodes(prev => {
-      const next = new Set(prev);
-      matched.forEach(code => next.add(code));
-      return next;
-    });
-  };
-
-  // Filtered accounts for display in checkbox panel
-  const displayedGlAccounts = useMemo(() => {
-    if (!glSearchQuery.trim()) return accounts;
-    const q = glSearchQuery.toLowerCase();
-    return accounts.filter(a => {
-      const code = String(a.account_code || a.code || '').toLowerCase();
-      const name = (a.name || '').toLowerCase();
-      const cat = (a.category || a.type || '').toLowerCase();
-      return code.includes(q) || name.includes(q) || cat.includes(q);
-    });
-  }, [accounts, glSearchQuery]);
-
-  // Filtered GL Lines according to checked GL accounts
+  // Filtered GL Lines
   const filteredGlLines = useMemo(() => {
-    if (selectedGlCodes.size === 0) return [];
-    return glLines.filter(line => {
-      const code = String(line.account_code || line.account_id);
-      return selectedGlCodes.has(code) || selectedGlCodes.has(line.account_id);
-    });
-  }, [glLines, selectedGlCodes]);
+    let lines = glLines;
 
-  // Filtered Member Transactions according to checked GL accounts
+    // Filter by selected GL accounts
+    if (selectedGlCodes.size > 0 && selectedGlCodes.size < accounts.length) {
+      lines = lines.filter(line => {
+        const code = String(line.account_code || line.account_id);
+        return selectedGlCodes.has(code) || selectedGlCodes.has(line.account_id);
+      });
+    }
+
+    // Filter by text search query
+    if (journalSearchQuery.trim()) {
+      const q = journalSearchQuery.toLowerCase();
+      lines = lines.filter(l =>
+        (l.voucher_number || '').toLowerCase().includes(q) ||
+        (l.reference_id || '').toLowerCase().includes(q) ||
+        (l.description || '').toLowerCase().includes(q) ||
+        (l.account_name || '').toLowerCase().includes(q) ||
+        (l.account_code || '').toLowerCase().includes(q) ||
+        (l.member_name || '').toLowerCase().includes(q)
+      );
+    }
+
+    return lines;
+  }, [glLines, selectedGlCodes, accounts.length, journalSearchQuery]);
+
+  // Filtered Member Transactions
   const filteredMemberTransactions = useMemo(() => {
-    if (selectedGlCodes.size === 0) return [];
-    return memberTransactions.filter(tx => {
-      const code = String(tx.gl_code || '');
-      return selectedGlCodes.has(code) || selectedGlCodes.has(`acc_${code}`);
-    });
-  }, [memberTransactions, selectedGlCodes]);
+    return memberTransactions;
+  }, [memberTransactions]);
 
   // Calculated totals for GL Lines
   const glTotals = useMemo(() => {
@@ -300,9 +333,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     };
   }, [filteredMemberTransactions]);
 
-  const activeTotals = activeSheet === 'gl' ? glTotals : memberTotals;
+  const activeTotals = activeTab === 'journal_ledger' ? glTotals : memberTotals;
 
-  // Formatting helpers
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
 
@@ -348,16 +380,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     ];
   }, [accounts]);
 
-  const handleQuickGlChange = (val: string) => {
-    setSelectedQuickGl(val);
-    if (!val || val === 'all') {
-      const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
-      setSelectedGlCodes(allCodes);
-    } else {
-      setSelectedGlCodes(new Set([val]));
-    }
-  };
-
   // Excel Grid Columns for GL Lines
   const glColumns: ExcelColumn<any>[] = useMemo(() => [
     {
@@ -382,7 +404,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     },
     {
       key: 'reference_id',
-      header: 'Reference ID / Source Ref',
+      header: 'Reference ID / Ref',
       width: '150px',
       sortable: true,
       filterable: true,
@@ -457,22 +479,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       )
     },
     {
-      key: 'running_balance',
-      header: 'Balance (₱)',
-      width: '140px',
-      align: 'right',
-      type: 'currency',
-      sortable: true,
-      render: (v) => (
-        <span className="font-mono text-xs font-semibold tabular-nums text-emerald-400">
-          {Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-        </span>
-      )
-    },
-    {
       key: 'branch_name',
       header: 'Branch',
-      width: '150px',
+      width: '140px',
       sortable: true,
       filterable: true,
       render: (v) => <span className="text-xs text-slate-400">{v}</span>
@@ -492,61 +501,42 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     {
       key: 'member_no',
       header: 'Member #',
-      width: '120px',
+      width: '110px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-mono text-xs text-slate-300">{v}</span>
+    },
+    {
+      key: 'member_name',
+      header: 'Member Full Name',
+      width: '200px',
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-semibold text-xs text-white">{v}</span>
+    },
+    {
+      key: 'product_type',
+      header: 'Product Category',
+      width: '140px',
       sortable: true,
       filterable: true,
       render: (v) => (
-        <span className="font-mono text-xs font-semibold text-emerald-400">
+        <span className="text-xs text-emerald-400 font-medium">
           {v}
         </span>
       )
     },
     {
-      key: 'member_name',
-      header: 'Member Full Name',
-      width: '220px',
-      sortable: true,
-      filterable: true,
-      render: (v) => <span className="font-medium text-xs text-white">{v}</span>
-    },
-    {
-      key: 'category',
-      header: 'Category',
+      key: 'reference_no',
+      header: 'Ref / OR #',
       width: '130px',
       sortable: true,
       filterable: true,
-      render: (v, row) => {
-        const cat = v || (row.product_type?.includes('Loan') ? 'Loans' : row.product_type?.includes('Share') ? 'Share Capital' : row.product_type?.includes('Savings') ? 'Savings' : 'General');
-        const color = cat === 'Loans' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                      cat === 'Savings' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                      cat === 'Share Capital' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-        return (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${color}`}>
-            {cat}
-          </span>
-        );
-      }
-    },
-    {
-      key: 'product_type',
-      header: 'Classification',
-      width: '160px',
-      sortable: true,
-      filterable: true,
-      render: (v) => <span className="text-xs text-slate-300 font-medium">{v}</span>
-    },
-    {
-      key: 'reference_no',
-      header: 'Ref / OR #',
-      width: '140px',
-      sortable: true,
-      filterable: true,
-      render: (v) => <span className="font-mono text-xs text-slate-400">{v}</span>
+      render: (v) => <span className="font-mono text-xs font-semibold text-amber-400">{v}</span>
     },
     {
       key: 'description',
-      header: 'Description',
+      header: 'Transaction Details',
       width: '260px',
       sortable: true,
       filterable: true,
@@ -637,45 +627,44 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     let csvContent = 'data:text/csv;charset=utf-8,';
     const periodLabel = activePeriod ? `${activePeriod.name} (${activePeriod.start_date} to ${activePeriod.end_date})` : 'Custom Period';
 
-    if (activeSheet === 'gl') {
-      csvContent += `"General Ledger Transaction Audit Report - ${activeBranchName}"\r\n`;
+    if (activeTab === 'journal_ledger') {
+      csvContent += `"General Ledger Journal Postings Audit - ${activeBranchName}"\r\n`;
       csvContent += `"Accounting Period:","${periodLabel}"\r\n`;
       csvContent += `"GL Scope:","${selectedGlCodes.size} of ${accounts.length} GL Accounts Selected"\r\n`;
       if (selectedMemberName) csvContent += `"Member Filter:","${selectedMemberName}"\r\n`;
       csvContent += `"Generated:","${new Date().toLocaleString()}"\r\n\r\n`;
 
-      csvContent += `"Posting Date","Voucher Number","Voucher Type","GL Code","Account Name","Category","Memo / Description","Member Name","Debit (PHP)","Credit (PHP)","Running Balance (PHP)","Branch"\r\n`;
+      csvContent += `"Posting Date","Voucher Number","GL Code","Account Name","Category","Memo / Description","Member Name","Debit (PHP)","Credit (PHP)","Branch"\r\n`;
 
       filteredGlLines.forEach(l => {
         const desc = (l.description || '').replace(/"/g, '""');
         const mem = (l.member_name || '').replace(/"/g, '""');
         const acc = (l.account_name || '').replace(/"/g, '""');
-        csvContent += `"${l.posting_date}","${l.voucher_number}","${l.voucher_type}","${l.account_code}","${acc}","${l.account_category}","${desc}","${mem}",${l.debit || 0},${l.credit || 0},${l.running_balance || 0},"${l.branch_name}"\r\n`;
+        csvContent += `"${l.posting_date}","${l.voucher_number}","${l.account_code}","${acc}","${l.account_category}","${desc}","${mem}",${l.debit || 0},${l.credit || 0},"${l.branch_name}"\r\n`;
       });
 
-      csvContent += `"TOTALS","","","","","","",${glTotals.totalDebit},${glTotals.totalCredit},${glTotals.netBalance},""\r\n`;
+      csvContent += `"TOTALS","","","","","",${glTotals.totalDebit},${glTotals.totalCredit},""\r\n`;
     } else {
       csvContent += `"Member Subsidiary Ledger Transaction Report - ${activeBranchName}"\r\n`;
       csvContent += `"Accounting Period:","${periodLabel}"\r\n`;
-      csvContent += `"GL Scope:","${selectedGlCodes.size} of ${accounts.length} GL Accounts Selected"\r\n`;
       if (selectedMemberName) csvContent += `"Member Filter:","${selectedMemberName}"\r\n`;
       csvContent += `"Generated:","${new Date().toLocaleString()}"\r\n\r\n`;
 
-      csvContent += `"Date","Member Number","Member Name","Product Type","Account Number","Reference #","Description","GL Code","Debit / Out (PHP)","Credit / In (PHP)","Branch"\r\n`;
+      csvContent += `"Date","Member Number","Member Name","Product Type","Reference #","Description","GL Code","Debit / Out (PHP)","Credit / In (PHP)","Branch"\r\n`;
 
       filteredMemberTransactions.forEach(t => {
         const mem = (t.member_name || '').replace(/"/g, '""');
         const desc = (t.description || '').replace(/"/g, '""');
-        csvContent += `"${t.date}","${t.member_no}","${mem}","${t.product_type}","${t.account_number}","${t.reference_no}","${desc}","${t.gl_code}",${t.debit || 0},${t.credit || 0},"${t.branch_name}"\r\n`;
+        csvContent += `"${t.date}","${t.member_no}","${mem}","${t.product_type}","${t.reference_no}","${desc}","${t.gl_code}",${t.debit || 0},${t.credit || 0},"${t.branch_name}"\r\n`;
       });
 
-      csvContent += `"TOTALS","","","","","","","",${memberTotals.totalDebit},${memberTotals.totalCredit},""\r\n`;
+      csvContent += `"TOTALS","","","","","","",${memberTotals.totalDebit},${memberTotals.totalCredit},""\r\n`;
     }
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    const fileName = `coopflex_${activeSheet}_report_${activePeriod?.id || 'export'}_${Date.now()}.csv`;
+    const fileName = `coopflex_${activeTab}_${activePeriod?.id || 'export'}_${Date.now()}.csv`;
     link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
@@ -683,32 +672,37 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Module Title & Hero Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-950/40 border border-emerald-400/20">
-                <FileSpreadsheet className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-black text-white tracking-tight flex items-center space-x-2">
-                  <span>Reports & General Ledger Workbench</span>
+    <div className="space-y-5">
+      {/* ========================================================
+          1. CLEAN MODULE HEADER (Title, Subtitle & Action Buttons)
+          ======================================================== */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start space-x-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h1 className="text-lg font-bold text-white tracking-tight">
+                  Reports & General Ledgers
                 </h1>
-                <p className="text-xs text-slate-400">
-                  Audit General Ledger accounts & member transactions filtered by CDA accounting periods with dynamic GL toggling.
-                </p>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono font-medium border border-slate-700">
+                  CDA Philippine Standards
+                </span>
               </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Official cooperative subsidiary ledgers, double-entry journal vouchers, and audit workbench with synchronized filtering.
+              </p>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Header Action Buttons (Single Row, Unwrapped) */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               onClick={handleExportCSV}
-              disabled={isLoading || (activeSheet === 'gl' ? filteredGlLines.length === 0 : filteredMemberTransactions.length === 0)}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold shadow transition cursor-pointer disabled:opacity-50"
+              disabled={isLoading}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
               title="Download RFC-4180 CSV export"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
@@ -718,254 +712,317 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <button
               onClick={() => setIsPrintModalOpen(true)}
               disabled={isLoading}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-950/40 transition cursor-pointer disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
               title="Open audit-ready printable document preview"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Export PDF / Print</span>
+              <span>Print / PDF</span>
             </button>
 
             <button
               onClick={loadReportData}
               disabled={isLoading}
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition cursor-pointer disabled:opacity-50"
-              title="Refresh transaction data"
+              title="Refresh ledger data"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Global Filter Bar */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Accounting Period Dropdown */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1">
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Accounting Period</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsCustomDateRange(!isCustomDateRange)}
-                className="text-[10px] text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
-              >
-                {isCustomDateRange ? 'Use Periods' : 'Custom Dates'}
-              </button>
-            </label>
-
-            {!isCustomDateRange ? (
+        {/* ========================================================
+            2. UNIFIED UNIVERSAL FILTER BAR (Zero Duplicate Fields)
+            ======================================================== */}
+        <div className="mt-4 pt-4 border-t border-slate-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Branch Scope Selector */}
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center space-x-1">
+                <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Branch Scope</span>
+              </label>
               <select
-                value={selectedPeriodId}
-                onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                value={selectedBranch}
+                onChange={(e) => handleBranchChange(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
-                {periods.map((period) => (
-                  <option key={period.id} value={period.id}>
-                    {period.name} ({period.start_date} to {period.end_date}) · {period.status}
+                <option value="all">Consolidated (All Branches)</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.code})
                   </option>
                 ))}
               </select>
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
-                  title="Start Date"
-                />
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
-                  title="End Date"
-                />
+            </div>
+
+            {/* Accounting Period Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Accounting Period</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomDateRange(!isCustomDateRange)}
+                  className="text-[10px] text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+                >
+                  {isCustomDateRange ? 'Use Periods' : 'Custom Dates'}
+                </button>
               </div>
-            )}
-          </div>
 
-          {/* Branch Filter */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Branch Scope</span>
-            </label>
-            <select
-              value={selectedBranch}
-              onChange={(e) => handleBranchChange(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="all">Consolidated (All Branches)</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Searchable Member Filter */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1">
-                <Users className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Member Filter</span>
-              </span>
-              {selectedMemberId !== 'all' && (
-                <span className="text-[10px] text-emerald-400 font-normal">Filtered</span>
+              {!isCustomDateRange ? (
+                <select
+                  value={selectedPeriodId}
+                  onChange={(e) => setSelectedPeriodId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  {periods.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.name} ({period.start_date} → {period.end_date})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white"
+                    title="Start Date"
+                  />
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white"
+                    title="End Date"
+                  />
+                </div>
               )}
-            </label>
-            <SearchableSelect
-              options={memberOptions}
-              value={selectedMemberId}
-              onChange={setSelectedMemberId}
-              placeholder="Search member name or ID..."
-              searchPlaceholder="Type member name, ID, or phone..."
-              alwaysShowSearch={true}
-              icon={<Users className="w-3.5 h-3.5 text-emerald-400" />}
-              buttonClassName="py-2 text-xs bg-slate-950"
-            />
+            </div>
+
+            {/* Single Authoritative Member Filter */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Member Filter</span>
+                </label>
+                {selectedMemberId !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMemberId('all')}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 cursor-pointer flex items-center space-x-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+              <SearchableSelect
+                options={memberOptions}
+                value={selectedMemberId}
+                onChange={setSelectedMemberId}
+                placeholder="All Members (Consolidated)..."
+                searchPlaceholder="Search member name, ID, or contact..."
+                alwaysShowSearch={true}
+                icon={<Users className="w-3.5 h-3.5 text-emerald-400" />}
+                buttonClassName="py-2 text-xs bg-slate-950"
+              />
+            </div>
+
+            {/* GL Account Selector (Contextual for Journal & GL Drilldown) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>GL Account Filter</span>
+                </label>
+                {selectedGlCodes.size !== accounts.length && (
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySelect('all')}
+                    className="text-[10px] text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  >
+                    All Accounts
+                  </button>
+                )}
+              </div>
+              <SearchableSelect
+                options={glAccountOptions}
+                value={selectedQuickGl}
+                onChange={handleQuickGlChange}
+                placeholder="All GL Accounts..."
+                searchPlaceholder="Filter accounts by code or name..."
+                showGLTypeBadge={true}
+                alwaysShowSearch={true}
+                icon={<Layers className="w-3.5 h-3.5 text-emerald-400" />}
+                buttonClassName="py-2 text-xs bg-slate-950"
+              />
+            </div>
           </div>
 
-          {/* Searchable GL Account Filter */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1">
-                <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                <span>GL Account Filter</span>
+          {/* Active Filter Metadata Summary Strip */}
+          <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+              <span>
+                Scope: <strong className="text-white font-medium">{activeBranchName}</strong>
+              </span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span>
+                Period:{' '}
+                <strong className="text-white font-medium">
+                  {activePeriod ? `${activePeriod.name} (${activePeriod.start_date} → ${activePeriod.end_date})` : `${customStartDate} → ${customEndDate}`}
+                </strong>
+              </span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span>
+                Member:{' '}
+                <strong className="text-white font-medium">
+                  {selectedMemberName || 'All Members'}
+                </strong>
               </span>
               {selectedGlCodes.size !== accounts.length && (
-                <span className="text-[10px] text-emerald-400 font-normal">
-                  {selectedGlCodes.size} Selected
-                </span>
+                <>
+                  <span aria-hidden="true" className="text-slate-600">·</span>
+                  <span>
+                    GL Filter:{' '}
+                    <strong className="text-emerald-400 font-medium">
+                      {selectedGlCodes.size} of {accounts.length} Accounts
+                    </strong>
+                  </span>
+                </>
               )}
-            </label>
-            <SearchableSelect
-              options={glAccountOptions}
-              value={selectedQuickGl}
-              onChange={handleQuickGlChange}
-              placeholder="Search GL account code or title..."
-              searchPlaceholder="Type GL code, title (Asset, Expense, etc.)..."
-              showGLTypeBadge={true}
-              alwaysShowSearch={true}
-              icon={<Layers className="w-3.5 h-3.5 text-emerald-400" />}
-              buttonClassName="py-2 text-xs bg-slate-950"
-            />
-          </div>
-
-          {/* Active Period Stat Preview */}
-          <div className="bg-slate-950/60 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Period Cutoff</span>
-            <div className="text-xs font-bold text-white mt-0.5 flex items-center space-x-2 truncate">
-              <span className="truncate">{activePeriod ? activePeriod.name : 'Custom Selection'}</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold shrink-0 ${activePeriod?.status === 'Open' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}>
-                {activePeriod?.status || 'Active'}
-              </span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">
-              {activePeriod ? `${activePeriod.start_date} → ${activePeriod.end_date}` : `${customStartDate} → ${customEndDate}`}
-            </span>
+
+            {isFilterActive && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="flex items-center space-x-1 text-[11px] text-slate-400 hover:text-rose-400 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset All Filters</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-xs flex items-center space-x-2.5">
+        <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center space-x-2">
           <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* 3-Sheet Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+      {/* ========================================================
+          3. SUBMODULE TABS (Clean Segmented Buttons)
+          ======================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
           <button
-            onClick={() => setActiveSheet('subsidiary_ledger')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-              activeSheet === 'subsidiary_ledger'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+            onClick={() => setActiveTab('subsidiary_ledger')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'subsidiary_ledger'
+                ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>Sheet 1: Subsidiary Ledger (Loans, Savings, CBU)</span>
-            <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold uppercase">
-              Statements & Excel Grid
-            </span>
+            <span>Subsidiary Ledgers (SL)</span>
           </button>
 
           <button
-            onClick={() => setActiveSheet('gl')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-              activeSheet === 'gl'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+            onClick={() => setActiveTab('journal_ledger')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'journal_ledger'
+                ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Sheet 2: General Ledger Postings</span>
-            <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-slate-950/60 font-mono">
+            <span>Journal Ledgers (JV & Postings)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-950/70 font-mono text-slate-300">
               {filteredGlLines.length}
             </span>
           </button>
 
           <button
-            onClick={() => setActiveSheet('member')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-              activeSheet === 'member'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+            onClick={() => setActiveTab('account_ledger')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'account_ledger'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Account Ledger Drilldown</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('member_ledger')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'member_ledger'
+                ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Sheet 3: Member Transactions Audit</span>
-            <span className="ml-1 text-[10px] px-2 py-0.2 rounded-full bg-slate-950/60 font-mono">
+            <span>Member Transaction Audit</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-950/70 font-mono text-slate-300">
               {filteredMemberTransactions.length}
             </span>
           </button>
         </div>
 
-        {/* Status Equilibrium / Scope Badge */}
+        {/* Tab Status / Audit Indicator */}
         <div className="hidden lg:flex items-center space-x-2 text-xs">
-          {activeSheet === 'gl' ? (
+          {activeTab === 'journal_ledger' ? (
             <div className="flex items-center space-x-1.5 text-slate-300">
               <span className="text-slate-500">Equilibrium:</span>
-              <span className="font-mono font-semibold text-emerald-400">
-                Dr ₱{glTotals.totalDebit.toLocaleString()} = Cr ₱{glTotals.totalCredit.toLocaleString()}
+              <span className="font-mono font-medium text-emerald-400">
+                Dr {formatMoney(glTotals.totalDebit)} = Cr {formatMoney(glTotals.totalCredit)}
               </span>
               {Math.abs(glTotals.totalDebit - glTotals.totalCredit) < 0.01 ? (
-                <span className="text-[10px] text-emerald-400 flex items-center">
-                  <CheckCircle2 className="w-3.5 h-3.5 ml-1 inline" /> Balanced
+                <span className="text-[10px] text-emerald-400 flex items-center font-medium ml-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-0.5 inline" /> Balanced
                 </span>
               ) : (
-                <span className="text-[10px] text-rose-400 font-bold">
+                <span className="text-[10px] text-rose-400 font-bold ml-1">
                   Variance: ₱{(glTotals.totalDebit - glTotals.totalCredit).toFixed(2)}
                 </span>
               )}
             </div>
-          ) : activeSheet === 'member' ? (
+          ) : activeTab === 'member_ledger' ? (
             <div className="flex items-center space-x-2 text-slate-300">
-              <span className="text-slate-500">Active Member Count:</span>
-              <span className="font-mono font-semibold text-emerald-400">
+              <span className="text-slate-500">Active Members in Period:</span>
+              <span className="font-mono font-medium text-emerald-400">
                 {new Set(filteredMemberTransactions.map(t => t.member_id)).size} Members
               </span>
             </div>
           ) : (
             <div className="flex items-center space-x-2 text-slate-300">
-              <span className="text-slate-500">Regulatory Framework:</span>
-              <span className="font-mono font-semibold text-emerald-400">
-                CDA Philippine Standards · SL to GL Reconciled
+              <span className="text-slate-500">Ledger Standard:</span>
+              <span className="font-mono font-medium text-emerald-400">
+                CDA Philippine Cooperative Accounting Framework
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {activeSheet === 'subsidiary_ledger' ? (
+      {/* ========================================================
+          4. SUBMODULE VIEW RENDERERS
+          ======================================================== */}
+
+      {/* SUBMODULE 1: SUBSIDIARY LEDGER */}
+      {activeTab === 'subsidiary_ledger' && (
         <SubsidiaryLedgerReport
+          hideHeader={true}
           branchId={selectedBranch}
           branches={branches}
           members={membersList}
@@ -975,202 +1032,192 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           startDate={isCustomDateRange ? customStartDate : activePeriod?.start_date}
           endDate={isCustomDateRange ? customEndDate : activePeriod?.end_date}
           periodName={activePeriod?.name || 'Selected Period'}
+          selectedMemberId={selectedMemberId}
+          onSelectMember={setSelectedMemberId}
         />
-      ) : (
-        <>
-          {/* GL Accounts Checkboxes Selection Drawer */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2.5">
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-bold text-white">General Ledger Accounts Filter</h2>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {selectedGlCodes.size} of {accounts.length} Accounts Included
-                </span>
-              </div>
+      )}
 
-              {/* Search & Quick Filter Controls */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                  <input
-                    type="text"
-                    placeholder="Search GL code or title..."
-                    value={glSearchQuery}
-                    onChange={(e) => setGlSearchQuery(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-48 sm:w-56"
-                  />
-                </div>
-
+      {/* SUBMODULE 2: JOURNAL LEDGERS (JV & GENERAL JOURNAL) */}
+      {activeTab === 'journal_ledger' && (
+        <div className="space-y-4">
+          {/* Quick Category Filter Bar & Journal Search (Replaces Duplicate Checkbox Drawer) */}
+          <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1 text-xs">
+              <span className="text-slate-400 text-[11px] font-medium mr-1.5 flex items-center space-x-1">
+                <Filter className="w-3 h-3 text-emerald-400" />
+                <span>Account Class:</span>
+              </span>
+              {[
+                { key: 'all', label: 'All Accounts' },
+                { key: 'Asset', label: 'Assets' },
+                { key: 'Liability', label: 'Liabilities' },
+                { key: 'Equity', label: 'Equity' },
+                { key: 'Revenue', label: 'Revenue' },
+                { key: 'Expense', label: 'Expenses' }
+              ].map(cat => (
                 <button
-                  onClick={handleSelectAllGl}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
+                  key={cat.key}
+                  type="button"
+                  onClick={() => handleCategorySelect(cat.key)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
+                    selectedCategory === cat.key
+                      ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
                 >
-                  Select All
+                  {cat.label}
                 </button>
-                <button
-                  onClick={handleClearAllGl}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
-                >
-                  Deselect All
-                </button>
-
-                {/* Quick Category Buttons */}
-                <button
-                  onClick={() => handleSelectCategory('Asset')}
-                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-                >
-                  + Assets
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('Liability')}
-                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-                >
-                  + Liab
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('Equity')}
-                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-                >
-                  + Equity
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('Revenue')}
-                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-                >
-                  + Revenue
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('Expense')}
-                  className="px-2 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[10px] font-semibold border border-slate-800 transition cursor-pointer"
-                >
-                  + Expense
-                </button>
-
-                <button
-                  onClick={() => setIsGlPanelExpanded(!isGlPanelExpanded)}
-                  className="p-1 text-slate-400 hover:text-white rounded transition cursor-pointer"
-                  title={isGlPanelExpanded ? 'Collapse GL Panel' : 'Expand GL Panel'}
-                >
-                  {isGlPanelExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-              </div>
+              ))}
             </div>
 
-            {/* Checkbox Grid */}
-            {isGlPanelExpanded && (
-              <div className="pt-3 max-h-52 overflow-y-auto pr-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {displayedGlAccounts.map((acc) => {
-                    const code = String(acc.account_code || acc.code || acc.id);
-                    const isChecked = selectedGlCodes.has(code) || selectedGlCodes.has(acc.id);
-
-                    return (
-                      <label
-                        key={acc.id}
-                        className={`flex items-center space-x-2 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${
-                          isChecked
-                            ? 'bg-slate-800/90 border-emerald-500/40 text-white'
-                            : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-900'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleGlCode(code)}
-                          className="rounded border-slate-700 text-emerald-600 focus:ring-0 shrink-0"
-                        />
-                        <div className="truncate">
-                          <span className="font-mono font-semibold text-emerald-400 mr-1.5">{code}</span>
-                          <span className="text-xs truncate">{acc.name}</span>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Quick Journal Memo/Voucher Search */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search memo, voucher #, or ref..."
+                value={journalSearchQuery}
+                onChange={(e) => setJournalSearchQuery(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-full sm:w-64"
+              />
+              {journalSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setJournalSearchQuery('')}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Main Excel Grid Container */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-            {activeSheet === 'gl' ? (
-              <ExcelGridTable
-                data={filteredGlLines}
-                columns={glColumns}
-                title={`General Ledger Entries · ${activePeriod?.name || 'Current Period'}`}
-                subtitle={`Showing ${filteredGlLines.length} journal postings filtered by ${selectedGlCodes.size} GL accounts.`}
-                exportFileName={`gl_entries_${activePeriod?.id || 'export'}`}
-                defaultSortKey="posting_date"
-                defaultSortDir="asc"
-                isLoading={isLoading}
-                emptyMessage={
-                  selectedGlCodes.size === 0
-                    ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
-                    : 'No journal lines found matching the selected accounting period, branch, and GL accounts.'
-                }
-              />
-            ) : (
-              <ExcelGridTable
-                data={filteredMemberTransactions}
-                columns={memberColumns}
-                title={`Member Subsidiary Transactions · ${activePeriod?.name || 'Current Period'}`}
-                subtitle={`Showing ${filteredMemberTransactions.length} member transactions across Savings, Share Capital, and Loans.`}
-                exportFileName={`member_tx_${activePeriod?.id || 'export'}`}
-                defaultSortKey="date"
-                defaultSortDir="asc"
-                isLoading={isLoading}
-                emptyMessage={
-                  selectedGlCodes.size === 0
-                    ? 'No GL accounts are selected. Please select at least one GL account from the filter above.'
-                    : 'No member transactions found matching the selected accounting period and filters.'
-                }
-              />
-            )}
+          {/* General Ledger Table View */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <ExcelGridTable
+              data={filteredGlLines}
+              columns={glColumns}
+              title={`Journal Ledgers & Postings · ${activePeriod?.name || 'Current Period'}`}
+              subtitle={`Showing ${filteredGlLines.length} double-entry voucher lines filtered by ${activeBranchName}.`}
+              exportFileName={`journal_ledgers_${activePeriod?.id || 'export'}`}
+              defaultSortKey="posting_date"
+              defaultSortDir="asc"
+              isLoading={isLoading}
+              emptyMessage="No journal voucher postings found matching the selected accounting period and filters."
+            />
           </div>
 
-          {/* Summary Footer Strip */}
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex items-center space-x-4">
+          {/* Financial Equilibrium Summary Strip */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-6">
               <div>
-                <span className="text-slate-500 text-[10px] uppercase block">Total Records</span>
-                <span className="font-mono font-bold text-white text-sm">{activeTotals.rowCount} Lines</span>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Total Lines</span>
+                <span className="font-mono font-bold text-white text-sm">{glTotals.rowCount}</span>
               </div>
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
               <div>
-                <span className="text-slate-500 text-[10px] uppercase block">Sum Debit (Dr)</span>
-                <span className="font-mono font-bold text-emerald-400 text-sm">{formatMoney(activeTotals.totalDebit)}</span>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Total Debits (Dr)</span>
+                <span className="font-mono font-bold text-emerald-400 text-sm">{formatMoney(glTotals.totalDebit)}</span>
               </div>
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
               <div>
-                <span className="text-slate-500 text-[10px] uppercase block">Sum Credit (Cr)</span>
-                <span className="font-mono font-bold text-blue-400 text-sm">{formatMoney(activeTotals.totalCredit)}</span>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Total Credits (Cr)</span>
+                <span className="font-mono font-bold text-blue-400 text-sm">{formatMoney(glTotals.totalCredit)}</span>
               </div>
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
               <div>
-                <span className="text-slate-500 text-[10px] uppercase block">Net Balance</span>
-                <span className="font-mono font-bold text-white text-sm">{formatMoney(activeTotals.netBalance || 0)}</span>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Equilibrium Variance</span>
+                <span className={`font-mono font-bold text-sm ${Math.abs(glTotals.netBalance) < 0.01 ? 'text-slate-300' : 'text-rose-400'}`}>
+                  {formatMoney(glTotals.netBalance)}
+                </span>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleExportCSV}
-                className="flex items-center space-x-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 cursor-pointer"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Download CSV</span>
+                <span>Export CSV</span>
               </button>
               <button
                 onClick={() => setIsPrintModalOpen(true)}
-                className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Print Report</span>
+                <span>Print Document</span>
               </button>
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* SUBMODULE 3: ACCOUNT LEDGER DRILLDOWN */}
+      {activeTab === 'account_ledger' && (
+        <AccountLedgerReport
+          accounts={accounts}
+          journals={journals}
+          branches={branches}
+          selectedBranch={selectedBranch}
+          members={membersList}
+        />
+      )}
+
+      {/* SUBMODULE 4: MEMBER TRANSACTIONS AUDIT */}
+      {activeTab === 'member_ledger' && (
+        <div className="space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <ExcelGridTable
+              data={filteredMemberTransactions}
+              columns={memberColumns}
+              title={`Member Subsidiary Ledger Audit · ${activePeriod?.name || 'Current Period'}`}
+              subtitle={`Historical transactions across Savings, Share Capital (CBU), and Loans for ${activeBranchName}.`}
+              exportFileName={`member_subsidiary_${activePeriod?.id || 'export'}`}
+              defaultSortKey="date"
+              defaultSortDir="asc"
+              isLoading={isLoading}
+              emptyMessage="No member transactions found matching the selected accounting period and branch."
+            />
+          </div>
+
+          {/* Member Transactions Total Strip */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-6">
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Transactions</span>
+                <span className="font-mono font-bold text-white text-sm">{memberTotals.rowCount}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Total Outflow / Debits</span>
+                <span className="font-mono font-bold text-emerald-400 text-sm">{formatMoney(memberTotals.totalDebit)}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block font-medium">Total Inflow / Credits</span>
+                <span className="font-mono font-bold text-blue-400 text-sm">{formatMoney(memberTotals.totalCredit)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Document</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Printable Report Modal */}
@@ -1183,7 +1230,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         startDate={activePeriod?.start_date || customStartDate}
         endDate={activePeriod?.end_date || customEndDate}
         branchName={activeBranchName}
-        activeSheet={activeSheet === 'subsidiary_ledger' ? 'member' : activeSheet}
+        activeSheet={activeTab === 'subsidiary_ledger' ? 'member' : activeTab === 'member_ledger' ? 'member' : 'gl'}
         selectedGlAccountsCount={selectedGlCodes.size}
         totalGlAccountsCount={accounts.length}
         selectedMemberName={selectedMemberName}
