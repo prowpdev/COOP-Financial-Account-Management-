@@ -126,20 +126,26 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [printTargetAccount, setPrintTargetAccount] = useState<SubsidiaryLedgerAccount | null>(null);
 
+  // When embedded in ReportsModule, automatically inherit parent's period filter
+  const activeDateScope: 'all' | 'period' = hideHeader
+    ? (((periodId && periodId !== 'all') || (startDate && endDate)) ? 'period' : 'all')
+    : dateScope;
+
   // Fetch report data
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage('');
     try {
+      const isPeriodFiltered = activeDateScope === 'period';
       const res = await api.getSubsidiaryLedgerReport({
-        period_id: dateScope === 'period' ? periodId : undefined,
+        period_id: (isPeriodFiltered && periodId !== 'all') ? periodId : undefined,
         branch_id: branchId !== 'all' ? branchId : undefined,
         member_id: selectedMemberId !== 'all' ? selectedMemberId : undefined,
         ledger_type: ledgerType,
-        start_date: dateScope === 'period' ? startDate : undefined,
-        end_date: dateScope === 'period' ? endDate : undefined,
+        start_date: isPeriodFiltered ? startDate : undefined,
+        end_date: isPeriodFiltered ? endDate : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        date_scope: dateScope
+        date_scope: activeDateScope
       });
 
       if (res && res.data) {
@@ -155,7 +161,7 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [branchId, selectedMemberId, ledgerType, startDate, endDate, periodId, statusFilter, dateScope]);
+  }, [branchId, selectedMemberId, ledgerType, startDate, endDate, periodId, statusFilter, activeDateScope]);
 
   useEffect(() => {
     fetchData();
@@ -831,96 +837,156 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
         </div>
 
         {/* Secondary Filters Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-slate-800/80">
-          {/* Member Search / Selector */}
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1">
-                <User className="w-3 h-3 text-emerald-400" />
-                <span>Filter by Member</span>
-              </span>
-              {selectedMemberId !== 'all' && (
-                <button
-                  type="button"
-                  onClick={() => handleMemberChange('all')}
-                  className="text-[9px] text-rose-400 hover:text-rose-300 font-normal cursor-pointer"
-                  title="Clear Member Filter"
+        <div className="pt-2 border-t border-slate-800/80">
+          {!hideHeader ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+              {/* Member Search / Selector */}
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center justify-between">
+                  <span className="flex items-center space-x-1">
+                    <User className="w-3 h-3 text-emerald-400" />
+                    <span>Filter by Member</span>
+                  </span>
+                  {selectedMemberId !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => handleMemberChange('all')}
+                      className="text-[9px] text-rose-400 hover:text-rose-300 font-normal cursor-pointer"
+                      title="Clear Member Filter"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                </label>
+                <SearchableSelect
+                  options={memberOptions}
+                  value={selectedMemberId}
+                  onChange={handleMemberChange}
+                  placeholder="Search member name or ID..."
+                  searchPlaceholder="Type member name, ID, or phone..."
+                  alwaysShowSearch={true}
+                  icon={<User className="w-3.5 h-3.5 text-emerald-400" />}
+                  buttonClassName="py-1.5 text-xs bg-slate-950"
+                />
+              </div>
+
+              {/* Date Scope Filter */}
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center space-x-1">
+                  <Clock className="w-3 h-3 text-emerald-400" />
+                  <span>Ledger Movement Scope</span>
+                </label>
+                <select
+                  value={dateScope}
+                  onChange={(e) => setDateScope(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  Clear Filter
-                </button>
-              )}
-            </label>
-            <SearchableSelect
-              options={memberOptions}
-              value={selectedMemberId}
-              onChange={handleMemberChange}
-              placeholder="Search member name or ID..."
-              searchPlaceholder="Type member name, ID, or phone..."
-              alwaysShowSearch={true}
-              icon={<User className="w-3.5 h-3.5 text-emerald-400" />}
-              buttonClassName="py-1.5 text-xs bg-slate-950"
-            />
-          </div>
+                  <option value="all">Complete History (All Movements)</option>
+                  <option value="period">Current Cutoff ({periodName})</option>
+                </select>
+              </div>
 
-          {/* Date Scope Filter */}
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center space-x-1">
-              <Clock className="w-3 h-3 text-emerald-400" />
-              <span>Ledger Movement Scope</span>
-            </label>
-            <select
-              value={dateScope}
-              onChange={(e) => setDateScope(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-            >
-              <option value="all">Complete History (All Movements)</option>
-              <option value="period">Current Cutoff ({periodName})</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
-              Account Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Approved">Approved</option>
-              <option value="Released">Released</option>
-              <option value="Fully Paid">Fully Paid / Closed</option>
-              <option value="Past Due">Past Due / Delinquent</option>
-            </select>
-          </div>
-
-          {/* Search Input */}
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
-              Search Accounts or Vouchers
-            </label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search account #, OR #, notes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+              {/* Status Filter */}
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
+                  Account Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  ✕
-                </button>
-              )}
+                  <option value="all">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Released">Released</option>
+                  <option value="Fully Paid">Fully Paid / Closed</option>
+                  <option value="Past Due">Past Due / Delinquent</option>
+                </select>
+              </div>
+
+              {/* Search Input */}
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
+                  Search Accounts or Vouchers
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search account #, OR #, notes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Status Filter */}
+                <div className="w-44">
+                  <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
+                    Account Status
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Released">Released</option>
+                    <option value="Fully Paid">Fully Paid / Closed</option>
+                    <option value="Past Due">Past Due / Delinquent</option>
+                  </select>
+                </div>
+
+                {/* Search Input */}
+                <div className="w-60">
+                  <label className="text-[10px] text-slate-400 uppercase font-semibold mb-1 block">
+                    Particulars / Ref Search
+                  </label>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search ref #, particulars..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Inherited context note */}
+              <div className="text-[11px] text-slate-400 flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>
+                  Synchronized with universal header filters (Branch: <strong className="text-white">{activeBranchName}</strong> · Period: <strong className="text-white">{periodName}</strong>)
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
