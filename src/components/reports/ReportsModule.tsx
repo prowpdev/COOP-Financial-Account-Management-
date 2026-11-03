@@ -447,6 +447,21 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       )
     },
     {
+      key: 'destination_gl_account',
+      header: 'Money Destination / Contra GL',
+      width: '230px',
+      sortable: true,
+      filterable: true,
+      render: (v, row) => {
+        const val = v || row.contra_gl_account || (row.destination_gl_code ? `${row.destination_gl_code} - ${row.destination_gl_name}` : '-');
+        return (
+          <div className="truncate font-mono text-xs text-emerald-300 font-medium" title={val}>
+            {val}
+          </div>
+        );
+      }
+    },
+    {
       key: 'debit',
       header: 'Debit (₱)',
       width: '130px',
@@ -549,6 +564,21 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       )
     },
     {
+      key: 'destination_gl_account',
+      header: 'Money Destination / Contra GL',
+      width: '230px',
+      sortable: true,
+      filterable: true,
+      render: (v, row) => {
+        const val = v || row.contra_gl_account || (row.destination_gl_code ? `${row.destination_gl_code} - ${row.destination_gl_name}` : '-');
+        return (
+          <div className="truncate font-mono text-xs text-emerald-300 font-medium" title={val}>
+            {val}
+          </div>
+        );
+      }
+    },
+    {
       key: 'debit',
       header: 'Debit / Out (₱)',
       width: '130px',
@@ -634,31 +664,33 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       if (selectedMemberName) csvContent += `"Member Filter:","${selectedMemberName}"\r\n`;
       csvContent += `"Generated:","${new Date().toLocaleString()}"\r\n\r\n`;
 
-      csvContent += `"Posting Date","Voucher Number","GL Code","Account Name","Category","Memo / Description","Member Name","Debit (PHP)","Credit (PHP)","Branch"\r\n`;
+      csvContent += `"Posting Date","Voucher Number","GL Code","Account Name","Category","Memo / Description","Member Name","Money Destination / Contra GL","Debit (PHP)","Credit (PHP)","Branch"\r\n`;
 
       filteredGlLines.forEach(l => {
         const desc = (l.description || '').replace(/"/g, '""');
         const mem = (l.member_name || '').replace(/"/g, '""');
         const acc = (l.account_name || '').replace(/"/g, '""');
-        csvContent += `"${l.posting_date}","${l.voucher_number}","${l.account_code}","${acc}","${l.account_category}","${desc}","${mem}",${l.debit || 0},${l.credit || 0},"${l.branch_name}"\r\n`;
+        const dest = (l.destination_gl_account || l.contra_gl_account || (l.destination_gl_code ? `${l.destination_gl_code} - ${l.destination_gl_name}` : '') || '').replace(/"/g, '""');
+        csvContent += `"${l.posting_date}","${l.voucher_number}","${l.account_code}","${acc}","${l.account_category}","${desc}","${mem}","${dest}",${l.debit || 0},${l.credit || 0},"${l.branch_name}"\r\n`;
       });
 
-      csvContent += `"TOTALS","","","","","",${glTotals.totalDebit},${glTotals.totalCredit},""\r\n`;
+      csvContent += `"TOTALS","","","","","","","",${glTotals.totalDebit},${glTotals.totalCredit},""\r\n`;
     } else {
       csvContent += `"Member Subsidiary Ledger Transaction Report - ${activeBranchName}"\r\n`;
       csvContent += `"Accounting Period:","${periodLabel}"\r\n`;
       if (selectedMemberName) csvContent += `"Member Filter:","${selectedMemberName}"\r\n`;
       csvContent += `"Generated:","${new Date().toLocaleString()}"\r\n\r\n`;
 
-      csvContent += `"Date","Member Number","Member Name","Product Type","Reference #","Description","GL Code","Debit / Out (PHP)","Credit / In (PHP)","Branch"\r\n`;
+      csvContent += `"Date","Member Number","Member Name","Product Type","Reference #","Description","GL Code","Money Destination / Contra GL","Debit / Out (PHP)","Credit / In (PHP)","Branch"\r\n`;
 
       filteredMemberTransactions.forEach(t => {
         const mem = (t.member_name || '').replace(/"/g, '""');
         const desc = (t.description || '').replace(/"/g, '""');
-        csvContent += `"${t.date}","${t.member_no}","${mem}","${t.product_type}","${t.reference_no}","${desc}","${t.gl_code}",${t.debit || 0},${t.credit || 0},"${t.branch_name}"\r\n`;
+        const dest = (t.destination_gl_account || t.contra_gl_account || (t.destination_gl_code ? `${t.destination_gl_code} - ${t.destination_gl_name}` : '') || '').replace(/"/g, '""');
+        csvContent += `"${t.date}","${t.member_no}","${mem}","${t.product_type}","${t.reference_no}","${desc}","${t.gl_code}","${dest}",${t.debit || 0},${t.credit || 0},"${t.branch_name}"\r\n`;
       });
 
-      csvContent += `"TOTALS","","","","","","",${memberTotals.totalDebit},${memberTotals.totalCredit},""\r\n`;
+      csvContent += `"TOTALS","","","","","","","",${memberTotals.totalDebit},${memberTotals.totalCredit},""\r\n`;
     }
 
     const encodedUri = encodeURI(csvContent);

@@ -67,6 +67,16 @@ export const CashDisbursementJournal: React.FC<CashDisbursementJournalProps> = (
       }
 
       return true;
+    }).map(j => {
+      const debits = (j.lines || []).filter(l => Number(l.debit) > 0);
+      const credits = (j.lines || []).filter(l => Number(l.credit) > 0);
+      const destTitles = debits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      const contraTitles = credits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      return {
+        ...j,
+        destination_gl_account: destTitles.length > 0 ? Array.from(new Set(destTitles)).join('; ') : '-',
+        contra_gl_account: contraTitles.length > 0 ? Array.from(new Set(contraTitles)).join('; ') : '1111 - Cash on Hand'
+      };
     });
   }, [journals, selectedBranch, dateFilter, searchTerm]);
 
@@ -132,10 +142,10 @@ export const CashDisbursementJournal: React.FC<CashDisbursementJournalProps> = (
       align: 'center',
       sortable: true,
       badgeColor: (val) => {
-        if (String(val).includes('LOAN')) return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-        if (String(val).includes('SAVINGS') || String(val).includes('WITHDRAW')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-        if (String(val).includes('EXPENSE')) return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        if (String(val).includes('LOAN')) return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+        if (String(val).includes('SAVINGS') || String(val).includes('WITHDRAW')) return 'bg-orange-500/20 text-orange-300 border-orange-500/40';
+        if (String(val).includes('EXPENSE')) return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+        return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
       },
       render: (val) => {
         const str = String(val || 'CASH_DISBURSEMENT');
@@ -152,6 +162,36 @@ export const CashDisbursementJournal: React.FC<CashDisbursementJournalProps> = (
       width: '280px',
       type: 'text',
       sortable: true
+    },
+    {
+      key: 'destination_gl_account' as any,
+      header: 'Disbursement Target (Debit GL)',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (item as any).destination_gl_account || '-';
+        return (
+          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'contra_gl_account' as any,
+      header: 'Cash / Bank Funding Source (Credit GL)',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (item as any).contra_gl_account || '1111 - Cash on Hand';
+        return (
+          <span className="font-mono text-xs text-amber-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
     },
     {
       key: 'total_credit',

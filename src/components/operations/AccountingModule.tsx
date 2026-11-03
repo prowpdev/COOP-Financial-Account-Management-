@@ -229,6 +229,44 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     },
     { key: 'description', header: 'Particulars & Explanation', width: '280px', type: 'text', sortable: true },
     {
+      key: 'destination_accounts' as any,
+      header: 'Money Destination (Debits)',
+      width: '230px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (() => {
+          const debits = (item.lines || []).filter(l => Number(l.debit) > 0);
+          const titles = debits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+          return titles.length > 0 ? Array.from(new Set(titles)).join('; ') : '-';
+        })();
+        return (
+          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'source_accounts' as any,
+      header: 'Funding Source (Credits)',
+      width: '230px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (() => {
+          const credits = (item.lines || []).filter(l => Number(l.credit) > 0);
+          const titles = credits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+          return titles.length > 0 ? Array.from(new Set(titles)).join('; ') : '-';
+        })();
+        return (
+          <span className="font-mono text-xs text-blue-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
+    },
+    {
       key: 'total_debit',
       header: 'Total Debit (₱)',
       width: '150px',
@@ -281,11 +319,38 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     return safeJournals.filter(j => j && j.branch_id === selectedBranch);
   }, [safeJournals, selectedBranch]);
 
+  // Enriched journals with destination and source accounts for General Journal view and CSV export
+  const enrichedJournals = useMemo(() => {
+    return filteredJournals.map(j => {
+      const debitLines = (j.lines || []).filter(l => Number(l.debit) > 0);
+      const creditLines = (j.lines || []).filter(l => Number(l.credit) > 0);
+      const destTitles = debitLines.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      const srcTitles = creditLines.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      return {
+        ...j,
+        destination_accounts: destTitles.length > 0 ? Array.from(new Set(destTitles)).join('; ') : '-',
+        source_accounts: srcTitles.length > 0 ? Array.from(new Set(srcTitles)).join('; ') : '-'
+      };
+    });
+  }, [filteredJournals]);
+
   // Flattened General Ledger Line Items
   const flattenedLedgerLines = useMemo(() => {
     const lines: any[] = [];
     filteredJournals.forEach(j => {
+      const debitLines = (j.lines || []).filter(line => Number(line.debit) > 0);
+      const creditLines = (j.lines || []).filter(line => Number(line.credit) > 0);
+      const destAccounts = debitLines.map(line => line.account_code ? `${line.account_code} - ${line.account_name}` : line.account_name).filter(Boolean);
+      const contraAccounts = creditLines.map(line => line.account_code ? `${line.account_code} - ${line.account_name}` : line.account_name).filter(Boolean);
+      const destSummary = destAccounts.length > 0 ? Array.from(new Set(destAccounts)).join('; ') : '-';
+      const contraSummary = contraAccounts.length > 0 ? Array.from(new Set(contraAccounts)).join('; ') : '-';
+
       (j.lines || []).forEach((l, idx) => {
+        const isDebit = (Number(l.debit) || 0) > 0;
+        const lineAccount = l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name;
+        const destination_gl_account = isDebit ? lineAccount : destSummary;
+        const contra_gl_account = isDebit ? contraSummary : lineAccount;
+
         lines.push({
           id: `${j.id}_${l.id || idx}`,
           voucher_number: j.voucher_number,
@@ -295,6 +360,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           voucher_desc: j.description,
           account_code: l.account_code,
           account_name: l.account_name,
+          destination_gl_account,
+          contra_gl_account,
           debit: Number(l.debit) || 0,
           credit: Number(l.credit) || 0,
           created_by: j.created_by,
@@ -344,6 +411,21 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     },
     { key: 'account_name', header: 'Account Title', width: '230px', type: 'text', sortable: true },
     { key: 'voucher_desc', header: 'Transaction Particulars & Description', width: '270px', type: 'text', sortable: true },
+    {
+      key: 'destination_gl_account',
+      header: 'Money Destination / Contra GL',
+      width: '230px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || item.contra_gl_account || '-';
+        return (
+          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
+    },
     {
       key: 'debit',
       header: 'Debit (₱)',
@@ -980,7 +1062,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           title="General Journal (GJ)"
           subtitle="Chronological book of original entry recording all adjusting entries, opening balances, non-cash transactions, and double-entry journal vouchers."
           exportFileName="general_journal_cda"
-          data={filteredJournals}
+          data={enrichedJournals}
           columns={generalJournalCols}
           defaultSortKey="posting_date"
           defaultSortDir="desc"

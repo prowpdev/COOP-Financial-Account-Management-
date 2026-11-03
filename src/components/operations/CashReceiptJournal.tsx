@@ -67,6 +67,16 @@ export const CashReceiptJournal: React.FC<CashReceiptJournalProps> = ({
       }
 
       return true;
+    }).map(j => {
+      const debits = (j.lines || []).filter(l => Number(l.debit) > 0);
+      const credits = (j.lines || []).filter(l => Number(l.credit) > 0);
+      const destTitles = debits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      const contraTitles = credits.map(l => l.account_code ? `${l.account_code} - ${l.account_name}` : l.account_name).filter(Boolean);
+      return {
+        ...j,
+        destination_gl_account: destTitles.length > 0 ? Array.from(new Set(destTitles)).join('; ') : '1111 - Cash on Hand',
+        contra_gl_account: contraTitles.length > 0 ? Array.from(new Set(contraTitles)).join('; ') : '-'
+      };
     });
   }, [journals, selectedBranch, dateFilter, searchTerm]);
 
@@ -152,6 +162,36 @@ export const CashReceiptJournal: React.FC<CashReceiptJournalProps> = ({
       width: '280px',
       type: 'text',
       sortable: true
+    },
+    {
+      key: 'destination_gl_account' as any,
+      header: 'Cash / Money Destination (Debit GL)',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (item as any).destination_gl_account || '1111 - Cash on Hand';
+        return (
+          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'contra_gl_account' as any,
+      header: 'Funding / Revenue Source (Credit GL)',
+      width: '240px',
+      type: 'text',
+      sortable: true,
+      render: (val, item) => {
+        const text = val || (item as any).contra_gl_account || '-';
+        return (
+          <span className="font-mono text-xs text-blue-300 font-medium truncate block" title={text}>
+            {text}
+          </span>
+        );
+      }
     },
     {
       key: 'total_debit',

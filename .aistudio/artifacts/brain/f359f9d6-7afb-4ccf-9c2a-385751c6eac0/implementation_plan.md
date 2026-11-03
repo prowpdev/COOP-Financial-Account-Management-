@@ -1,55 +1,70 @@
-# Reports & General Ledgers Filter & Layout Overhaul
+# Audit Trail & Verification: Money Destination / Contra GL Accounts
 
-A comprehensive refinement of the **Reports & General Ledgers** module (`ReportsModule.tsx`) and its submodules (`SubsidiaryLedgerReport.tsx`, `AccountLedgerReport.tsx`, `Journal Ledgers`), resolving accounting period selection bugs, eliminating duplicate and conflicting filter controls, and streamlining the report workbench according to CDA Philippine cooperative accounting standards.
-
----
-
-## 1. Accounting Periods & Date Scope Fixes
-
-1. **All Accounting Periods (Complete History / All Dates)**:
-   - Added `all` as the top option: `All Accounting Periods (Complete History / All Dates)` in the universal Accounting Period selector.
-   - Organized individual periods under `<optgroup label="2026 Fiscal Periods">` with explicit status indicators (`[Open]`, `[Closed]`).
-   - Defaulted `selectedPeriodId` to `'all'` so users immediately see their cooperative's complete financial history instead of an empty closed cutoff.
-   - Expanded backend periods in `data/coop_database.json` and `server/db/seed.ts` to include all 12 calendar fiscal periods for 2026 (`period_2026_01` through `period_2026_12`).
-
-2. **Fixed `activePeriod` Fallback Glitch**:
-   - Previously, if `selectedPeriodId === 'all'` or was empty, `activePeriod` fell back to `periods[0]` (January 2026, closed period with no transactions).
-   - Now, `activePeriod` correctly resolves to `null` when `selectedPeriodId === 'all'`, and the query sets `startDate` and `endDate` to `undefined`, allowing full historical retrieval across the entire ledger.
-
-3. **Backend API Route Date Filtering Parity**:
-   - In `server/routes/api.ts`:
-     - `/reports/journal-entries`: Corrected `selectedPeriod` to `(period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null`, allowing all postings when `'all'` is chosen.
-     - `/reports/member-transactions`: Updated `selectedPeriod` to `(period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null`.
-     - `/reports/subsidiary-ledger`: Dynamically computes `date_scope` so that when `effectiveStart` and `effectiveEnd` are provided, it filters by date range, and defaults to `'all'` when no date restrictions are set.
+## Overview
+Added the **GL account where money goes into** (destination / target account) and offsetting **Contra GL account** to every row across all reports in **Reports & General Ledgers** and **General Ledger & Cooperative Journals**, enabling auditors to verify and balance double-entry transactions row-by-row both in the UI and in exported CSV files.
 
 ---
 
-## 2. Universal Header vs. Submodule Filter De-duplication
+## Changes Implemented
 
-1. **Subsidiary Ledgers (`SubsidiaryLedgerReport.tsx`)**:
-   - When embedded inside `ReportsModule` (`hideHeader={true}`):
-     - **Removed the duplicate "Filter by Member" dropdown** that repeated the universal header's Member Search.
-     - **Removed the conflicting "Ledger Movement Scope" dropdown** that defaulted to `all` and overrode the parent's chosen accounting cutoff.
-     - Replaced with a clean, streamlined secondary bar:
-       - Contextual `Account Status` filter (All, Active, Approved, Released, Fully Paid, Past Due).
-       - Contextual `Particulars / Ref Search` input.
-       - Inherited filter status indicator confirming active synchronization with the universal header: `Branch: [Branch] · Period: [Period] · Member: [Member]`.
-     - `activeDateScope` is automatically derived from the parent's period/dates: if a specific period or date range is active, it enforces `'period'`; if `all` is chosen, it provides `'all'`.
+### 1. Backend API Routing (`server/routes/api.ts`)
+- **`/reports/journal-entries`**: Enriched each journal line with its counterpart voucher lines:
+  - `destination_gl_code`, `destination_gl_name`, `destination_gl_account` (Debit account target where money flowed).
+  - `contra_account_code`, `contra_account_name`, `contra_gl_account` (Offsetting Credit account source).
+- **`/reports/member-transactions`**: Added `destination_gl_account` and `contra_gl_account` across:
+  - Savings Deposits (`1111 - Cash on Hand` / `2110 - Savings Deposits Payable`).
+  - Savings Withdrawals (`2110 - Savings Deposits Payable` / `1111 - Cash on Hand`).
+  - Share Capital / CBU contributions (`1111 - Cash on Hand` / `3110 - Paid-Up Share Capital`).
+  - Loan releases (`1210 - Loans Receivable` / `1111 - Cash on Hand / Cash in Bank`).
+  - Loan amortization payments (`1111 - Cash on Hand` / `1210 - Loans Receivable / 4110 - Interest Income`).
+  - Member Journal Vouchers.
+- **`/reports/subsidiary-ledger`**: Added `destination_gl_account` and `contra_gl_account` to:
+  - Loan Beginning Balance entries.
+  - Loan Disbursement entries.
+  - Loan Amortization Payment entries.
+  - Savings Deposits, Withdrawals, Interest Postings, and Service Fee deductions.
+  - Share Capital contributions, subscriptions, and share movement entries.
 
-2. **Account Ledger Drilldown (`AccountLedgerReport.tsx`)**:
-   - Added support for parent-injected filter props: `selectedMemberId`, `onSelectMember`, `startDate`, `endDate`, `selectedAccountId`, `onSelectAccount`, and `hideHeaderFilters`.
-   - When `hideHeaderFilters={true}`:
-     - **Suppressed the redundant 4-column filter card** (duplicate Member selector, duplicate From/To date picker, and duplicate Branch select).
-     - Rendered a focused drilldown sub-toolbar:
-       - Searchable GL Account switcher with full badges and categories.
-       - Transaction Type / Source filter (`LOAN_RELEASE`, `LOAN_PAYMENT`, `SAVINGS`, `SHARE_CAPITAL`, `CASH_RECEIPT`, `DISBURSEMENT`, `JOURNAL_ENTRY`).
-       - Memo/particulars search input.
-       - Inherited synchronization indicator confirming linkage to the universal header.
+### 2. Reports & General Ledgers (`ReportsModule.tsx`)
+- **Journal Ledgers Grid (`glColumns`)**: Added `Money Destination / Contra GL` column (`key: 'destination_gl_account'`).
+- **Member Transactions Grid (`memberColumns`)**: Added `Money Destination / Contra GL` column (`key: 'destination_gl_account'`).
+- **CSV Export Handler (`handleExportCSV`)**:
+  - `journal_ledger`: Added `"Money Destination / Contra GL"` in CSV header and per-row output.
+  - `member_ledger`: Added `"Money Destination / Contra GL"` in CSV header and per-row output.
+
+### 3. Subsidiary Ledger Report (`SubsidiaryLedgerReport.tsx`)
+- **Excel Grid Table (`entryColumns`)**: Added `Money Destination / Contra GL` column.
+- **Account Statement Card View**: Added destination / contra GL indicators under transaction particulars.
+- **CSV Export Handler (`handleExportCSV`)**: Added `"Money Destination / Contra GL"` in CSV header and per-row output.
+
+### 4. Account Ledger Drilldown (`AccountLedgerReport.tsx`)
+- **`sourceRows` Mapping**: Resolved `destination_gl_account` and `contra_gl_account` from sibling lines of each voucher.
+- **Printable Table & UI View**: Added `Money Destination / Contra GL` column.
+- **CSV Export Handler (`exportCsv`)**: Added `"Money Destination / Contra GL"` to exported CSV file headers and rows.
+
+### 5. General Ledger & Cooperative Journals (`AccountingModule.tsx`)
+- **Itemized General Ledger (`flattenedLedgerLines` & `generalLedgerCols`)**:
+  - Enriched each flattened line with `destination_gl_account` and `contra_gl_account`.
+  - Added `Money Destination / Contra GL` column in UI table and ExcelGridTable CSV export.
+- **General Journal Voucher Register (`generalJournalCols`)**:
+  - Added `Money Destination (Debits)` (`destination_accounts`) column.
+  - Added `Funding Source (Credits)` (`source_accounts`) column.
+  - Updated data mapping with `enrichedJournals` for complete CSV export visibility.
+
+### 6. Specialized Journals (`CashReceiptJournal.tsx` & `CashDisbursementJournal.tsx`)
+- **Cash Receipt Journal (CRJ)**:
+  - Added `Cash / Money Destination (Debit GL)` (`destination_gl_account`, e.g., `1111 - Cash on Hand`).
+  - Added `Funding / Revenue Source (Credit GL)` (`contra_gl_account`, e.g., `1210 - Loans Receivable / 4110 - Interest Income`).
+- **Cash Disbursement Journal (CDJ)**:
+  - Added `Disbursement Target (Debit GL)` (`destination_gl_account`, e.g., `1210 - Loans Receivable` / `2110 - Savings Deposits Payable`).
+  - Added `Cash / Bank Funding Source (Credit GL)` (`contra_gl_account`, e.g., `1111 - Cash on Hand` / `1112 - Cash in Bank`).
+
+### 7. Printable Modals (`PrintableReportModal.tsx` & `PrintableSubsidiaryLedgerModal.tsx`)
+- Added `Money Destination / Contra GL` column to official printable statements for audit compliance.
 
 ---
 
-## 3. Verification & Build Status
-
-- `lint_applet` (`tsc --noEmit`): Passed with 0 errors.
-- `compile_applet` (`npm run build`): Production build succeeded.
-- Development server restarted cleanly.
+## Verification
+- `tsc --noEmit`: 0 errors.
+- `npm run build`: Successful bundle compilation.
+- Dev server restarted and running on port 3000.

@@ -1,6 +1,6 @@
 {
-  "summary": "Comprehensive summary of the Reports & General Ledgers filter and layout overhaul, including Accounting Periods resolution, elimination of duplicate submodule filter panels, synchronized state flow between universal headers and submodules, and full backend support for complete history filtering.",
-  "updatedAt": "2026-11-03T22:15:27.131390352Z",
+  "summary": "Implementation plan and verification details for adding Money Destination / Contra GL account columns across all reports in Reports & General Ledgers and General Ledger & Cooperative Journals, with full CSV export support for manual audit and verification.",
+  "updatedAt": "2026-11-03T22:43:22.222483741Z",
   "requestFeedback": true,
   "userFacing": true
 }

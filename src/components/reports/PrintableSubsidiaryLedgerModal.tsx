@@ -430,6 +430,11 @@ export const PrintableSubsidiaryLedgerModal: React.FC<PrintableSubsidiaryLedgerM
                             </td>
                             <td className="py-1.5 px-3 text-slate-200 print:text-black">
                               <span className="font-medium">{entry.description}</span>
+                              {(entry.destination_gl_account || (entry as any).contra_gl_account) && (
+                                <span className="block font-mono text-[9px] text-emerald-400 print:text-slate-600 mt-0.5">
+                                  GL: {entry.destination_gl_account || (entry as any).contra_gl_account}
+                                </span>
+                              )}
                             </td>
                             <td className="py-1.5 px-3 font-mono text-right text-slate-300 print:text-black whitespace-nowrap">
                               {entry.debit > 0 ? entry.debit.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}

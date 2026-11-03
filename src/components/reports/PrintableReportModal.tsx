@@ -182,6 +182,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                     <th className="py-2 px-2.5">GL Code</th>
                     <th className="py-2 px-2.5">Account Title</th>
                     <th className="py-2 px-2.5">Description / Memo</th>
+                    <th className="py-2 px-2.5">Money Destination / Contra GL</th>
                     <th className="py-2 px-2.5 text-right">Debit (₱)</th>
                     <th className="py-2 px-2.5 text-right">Credit (₱)</th>
                     <th className="py-2 px-2.5 text-right">Balance (₱)</th>
@@ -190,7 +191,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                 <tbody className="divide-y divide-slate-800/80 print:divide-gray-200 text-slate-200 print:text-black">
                   {glLines.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-6 text-slate-400 print:text-gray-500">
+                      <td colSpan={9} className="text-center py-6 text-slate-400 print:text-gray-500">
                         No transactions found for the selected period and GL accounts.
                       </td>
                     </tr>
@@ -204,6 +205,9 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                         <td className="py-1.5 px-2.5 max-w-xs truncate text-slate-400 print:text-gray-700">
                           {row.description}
                           {row.member_name && <span className="text-emerald-400 print:text-black ml-1">({row.member_name})</span>}
+                        </td>
+                        <td className="py-1.5 px-2.5 font-mono text-[10px] text-emerald-400 print:text-black">
+                          {row.destination_gl_account || row.contra_gl_account || (row.destination_gl_code ? `${row.destination_gl_code} - ${row.destination_gl_name}` : '-')}
                         </td>
                         <td className="py-1.5 px-2.5 text-right font-mono tabular-nums">
                           {row.debit > 0 ? Number(row.debit).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
@@ -220,7 +224,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                 </tbody>
                 <tfoot className="bg-slate-950/80 font-bold border-t-2 border-slate-700 print:border-black print:bg-gray-100">
                   <tr>
-                    <td colSpan={5} className="py-2 px-2.5 uppercase tracking-wider text-right">
+                    <td colSpan={6} className="py-2 px-2.5 uppercase tracking-wider text-right">
                       Grand Totals ({glLines.length} Entries)
                     </td>
                     <td className="py-2 px-2.5 text-right font-mono tabular-nums text-emerald-400 print:text-black">
@@ -247,6 +251,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                     <th className="py-2 px-2.5">Type</th>
                     <th className="py-2 px-2.5">Reference / OR</th>
                     <th className="py-2 px-2.5">GL Code</th>
+                    <th className="py-2 px-2.5">Money Destination / Contra GL</th>
                     <th className="py-2 px-2.5 text-right">Debit / Out (₱)</th>
                     <th className="py-2 px-2.5 text-right">Credit / In (₱)</th>
                   </tr>
@@ -254,7 +259,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                 <tbody className="divide-y divide-slate-800/80 print:divide-gray-200 text-slate-200 print:text-black">
                   {memberTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-6 text-slate-400 print:text-gray-500">
+                      <td colSpan={9} className="text-center py-6 text-slate-400 print:text-gray-500">
                         No member transactions found for this period.
                       </td>
                     </tr>
@@ -267,6 +272,9 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
                         <td className="py-1.5 px-2.5 text-slate-300 print:text-black">{row.product_type}</td>
                         <td className="py-1.5 px-2.5 font-mono text-[11px] text-slate-400 print:text-black">{row.reference_no}</td>
                         <td className="py-1.5 px-2.5 font-mono text-[11px]">{row.gl_code}</td>
+                        <td className="py-1.5 px-2.5 font-mono text-[10px] text-emerald-400 print:text-black">
+                          {row.destination_gl_account || row.contra_gl_account || (row.destination_gl_code ? `${row.destination_gl_code} - ${row.destination_gl_name}` : '-')}
+                        </td>
                         <td className="py-1.5 px-2.5 text-right font-mono tabular-nums">
                           {row.debit > 0 ? Number(row.debit).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}
                         </td>

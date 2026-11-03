@@ -6441,6 +6441,15 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
     });
   }
 
+  // Build map of sibling lines by entry ID for contra/destination GL resolution
+  const linesByEntry = new Map<string, any[]>();
+  allLines.forEach(l => {
+    if (!linesByEntry.has(l.journal_entry_id)) {
+      linesByEntry.set(l.journal_entry_id, []);
+    }
+    linesByEntry.get(l.journal_entry_id)!.push(l);
+  });
+
   // Enrich lines
   let runningBalance = 0;
   const enrichedLines = matchingLines.map(line => {
@@ -6452,6 +6461,41 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
     const debit = Number(line.debit || 0);
     const credit = Number(line.credit || 0);
     runningBalance += (debit - credit);
+
+    const siblingLines = linesByEntry.get(line.journal_entry_id) || [];
+    const isDebit = debit > 0;
+    const counterpartLines = siblingLines.filter(s => s.id !== line.id && (isDebit ? Number(s.credit || 0) > 0 : Number(s.debit || 0) > 0));
+    const fallbacks = counterpartLines.length > 0 ? counterpartLines : siblingLines.filter(s => s.id !== line.id);
+
+    const counterpartGlList = fallbacks.map(s => {
+      const cAcc = accounts.find(a => a.id === s.account_id);
+      return {
+        code: cAcc?.account_code || cAcc?.code || s.account_id,
+        name: cAcc?.name || 'General Ledger Account'
+      };
+    });
+
+    const contraAccountCode = counterpartGlList.map(c => c.code).join(' / ');
+    const contraAccountName = counterpartGlList.map(c => c.name).join(' / ');
+    const contraGlAccount = counterpartGlList.length > 0 ? counterpartGlList.map(c => `${c.code} - ${c.name}`).join(' / ') : '-';
+
+    let destinationGlCode = '';
+    let destinationGlName = '';
+    let destinationGlAccount = '';
+
+    if (isDebit) {
+      destinationGlCode = acc?.account_code || acc?.code || line.account_id;
+      destinationGlName = acc?.name || 'General Ledger Account';
+      destinationGlAccount = `${destinationGlCode} - ${destinationGlName}`;
+    } else if (counterpartGlList.length > 0) {
+      destinationGlCode = contraAccountCode;
+      destinationGlName = contraAccountName;
+      destinationGlAccount = contraGlAccount;
+    } else {
+      destinationGlCode = acc?.account_code || acc?.code || line.account_id;
+      destinationGlName = acc?.name || 'General Ledger Account';
+      destinationGlAccount = `${destinationGlCode} - ${destinationGlName}`;
+    }
 
     return {
       id: line.id,
@@ -6469,6 +6513,12 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
       account_name: acc?.name || 'General Ledger Account',
       account_category: acc?.category || acc?.type || 'Other',
       normal_balance: acc?.normal_balance || 'Debit',
+      destination_gl_code: destinationGlCode,
+      destination_gl_name: destinationGlName,
+      destination_gl_account: destinationGlAccount,
+      contra_account_code: contraAccountCode,
+      contra_account_name: contraAccountName,
+      contra_gl_account: contraGlAccount,
       debit,
       credit,
       net_change: debit - credit,
@@ -6557,6 +6607,11 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
     const isDeposit = String(st.type).toLowerCase().includes('deposit');
     const amt = Number(st.amount || 0);
 
+    const destGlCode = isDeposit ? '1111' : (savingsGl.account_code || savingsGl.code || '2110');
+    const destGlName = isDeposit ? 'Cash on Hand' : (savingsGl.name || 'Savings Deposits Payable');
+    const destGlAccount = `${destGlCode} - ${destGlName}`;
+    const contraGlAccount = isDeposit ? `${savingsGl.account_code || savingsGl.code || '2110'} - ${savingsGl.name || 'Savings Deposits Payable'}` : '1111 - Cash on Hand';
+
     results.push({
       id: st.id,
       date: (st.transaction_date || st.created_at || '').slice(0, 10),
@@ -6574,6 +6629,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       balance_after: Number(st.balance_after || 0),
       gl_code: savingsGl.account_code || savingsGl.code || '2110',
       gl_name: savingsGl.name || 'Savings Deposits Payable',
+      destination_gl_code: destGlCode,
+      destination_gl_name: destGlName,
+      destination_gl_account: destGlAccount,
+      contra_gl_account: contraGlAccount,
       branch_id: st.branch_id,
       branch_name: branch?.name || 'Main Branch'
     });
@@ -6607,6 +6666,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       balance_after: 0,
       gl_code: cbuGl.account_code || cbuGl.code || '3110',
       gl_name: cbuGl.name || 'Paid-Up Share Capital',
+      destination_gl_code: '1111',
+      destination_gl_name: 'Cash on Hand',
+      destination_gl_account: '1111 - Cash on Hand',
+      contra_gl_account: `${cbuGl.account_code || cbuGl.code || '3110'} - ${cbuGl.name || 'Paid-Up Share Capital'}`,
       branch_id: ct.branch_id,
       branch_name: branch?.name || 'Main Branch'
     });
@@ -6641,6 +6704,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       balance_after: amt,
       gl_code: loanGl.account_code || loanGl.code || '1210',
       gl_name: loanGl.name || 'Loans Receivable',
+      destination_gl_code: loanGl.account_code || loanGl.code || '1210',
+      destination_gl_name: loanGl.name || 'Loans Receivable',
+      destination_gl_account: `${loanGl.account_code || loanGl.code || '1210'} - ${loanGl.name || 'Loans Receivable'}`,
+      contra_gl_account: '1111 - Cash on Hand / Bank',
       branch_id: loan.branch_id,
       branch_name: branch?.name || 'Main Branch'
     });
@@ -6675,6 +6742,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       balance_after: 0,
       gl_code: loanGl.account_code || loanGl.code || '1210',
       gl_name: loanGl.name || 'Loans Receivable',
+      destination_gl_code: '1111',
+      destination_gl_name: 'Cash on Hand',
+      destination_gl_account: '1111 - Cash on Hand',
+      contra_gl_account: `${loanGl.account_code || loanGl.code || '1210'} - Loans Receivable / 4110 - Interest Income`,
       branch_id: lp.branch_id,
       branch_name: branch?.name || 'Main Branch'
     });
@@ -6695,6 +6766,26 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
       const dr = Number(ml.debit || 0);
       const cr = Number(ml.credit || 0);
 
+      // Find counterpart lines in this journal entry
+      const siblingLines = journalLines.filter(jl => jl.journal_entry_id === je.id && jl.id !== ml.id);
+      const isDr = dr > 0;
+      const counterpartLines = siblingLines.filter(s => isDr ? Number(s.credit || 0) > 0 : Number(s.debit || 0) > 0);
+      const fallbacks = counterpartLines.length > 0 ? counterpartLines : siblingLines;
+      const counterpartGlList = fallbacks.map(s => {
+        const cAcc = accounts.find(a => a.id === s.account_id);
+        return {
+          code: cAcc?.account_code || cAcc?.code || s.account_id,
+          name: cAcc?.name || 'General Ledger Account'
+        };
+      });
+
+      const destAccount = isDr 
+        ? `${acc?.account_code || acc?.code || ml.account_id} - ${acc?.name || 'General Ledger Account'}`
+        : (counterpartGlList.length > 0 ? counterpartGlList.map(c => `${c.code} - ${c.name}`).join(' / ') : '1111 - Cash on Hand');
+      const contraAccount = counterpartGlList.length > 0 
+        ? counterpartGlList.map(c => `${c.code} - ${c.name}`).join(' / ')
+        : '-';
+
       results.push({
         id: ml.id,
         date: jDate,
@@ -6712,6 +6803,10 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
         balance_after: 0,
         gl_code: acc?.account_code || acc?.code || ml.account_id,
         gl_name: acc?.name || 'General Ledger Account',
+        destination_gl_code: acc?.account_code || acc?.code || ml.account_id,
+        destination_gl_name: acc?.name || 'General Ledger Account',
+        destination_gl_account: destAccount,
+        contra_gl_account: contraAccount,
         branch_id: je.branch_id,
         branch_name: branch?.name || 'Main Branch'
       });
@@ -6991,7 +7086,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
           interest_paid: 0,
           penalty_paid: 0,
           fee_paid: 0,
-          running_balance: begBalance
+          running_balance: begBalance,
+          destination_gl_code: '1210',
+          destination_gl_name: 'Loans Receivable',
+          destination_gl_account: '1210 - Loans Receivable',
+          contra_gl_account: '1210 - Loans Receivable (Opening Balance)'
         });
 
         // Add payments occurring on or after effectiveStart
@@ -7017,7 +7116,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
                 interest_paid: Number(p.pInterest.toFixed(2)),
                 penalty_paid: Number(p.pPenalty.toFixed(2)),
                 fee_paid: Number(p.pFee.toFixed(2)),
-                running_balance: runningBal
+                running_balance: runningBal,
+                destination_gl_code: '1111',
+                destination_gl_name: 'Cash on Hand',
+                destination_gl_account: '1111 - Cash on Hand',
+                contra_gl_account: '1210 - Loans Receivable / 4110 - Interest Income'
               });
             }
           }
@@ -7043,7 +7146,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
             interest_paid: 0,
             penalty_paid: 0,
             fee_paid: 0,
-            running_balance: runningBal
+            running_balance: runningBal,
+            destination_gl_code: '1210',
+            destination_gl_name: 'Loans Receivable',
+            destination_gl_account: '1210 - Loans Receivable',
+            contra_gl_account: '1111 - Cash on Hand / Cash in Bank'
           });
         }
 
@@ -7068,7 +7175,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
               interest_paid: Number(p.pInterest.toFixed(2)),
               penalty_paid: Number(p.pPenalty.toFixed(2)),
               fee_paid: Number(p.pFee.toFixed(2)),
-              running_balance: runningBal
+              running_balance: runningBal,
+              destination_gl_code: '1111',
+              destination_gl_name: 'Cash on Hand',
+              destination_gl_account: '1111 - Cash on Hand',
+              contra_gl_account: '1210 - Loans Receivable / 4110 - Interest Income'
             });
           }
         });
@@ -7149,6 +7260,24 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
 
         const tDate = (tx.transaction_date || tx.created_at || '').slice(0, 10);
         if (inDateRange(tDate)) {
+          let sDestCode = '1111';
+          let sDestName = 'Cash on Hand';
+          let sContra = '2110 - Savings Deposits Payable';
+
+          if (type === 'INTEREST_POSTING') {
+            sDestCode = '2110';
+            sDestName = 'Savings Deposits Payable';
+            sContra = '5110 - Interest Expense on Deposits';
+          } else if (type === 'FEE_DEDUCTION') {
+            sDestCode = '4310';
+            sDestName = 'Other Service Fees';
+            sContra = '2110 - Savings Deposits Payable';
+          } else if (!isDep) {
+            sDestCode = '2110';
+            sDestName = 'Savings Deposits Payable';
+            sContra = '1111 - Cash on Hand';
+          }
+
           entries.push({
             id: tx.id,
             account_id: sa.id,
@@ -7167,7 +7296,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
             interest_paid: type === 'INTEREST_POSTING' ? amt : 0,
             penalty_paid: 0,
             fee_paid: type === 'FEE_DEDUCTION' ? amt : 0,
-            running_balance: Number(runningBal.toFixed(2))
+            running_balance: Number(runningBal.toFixed(2)),
+            destination_gl_code: sDestCode,
+            destination_gl_name: sDestName,
+            destination_gl_account: `${sDestCode} - ${sDestName}`,
+            contra_gl_account: sContra
           });
         }
       });
@@ -7238,6 +7371,10 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
 
         const tDate = (tx.transaction_date || tx.created_at || '').slice(0, 10);
         if (inDateRange(tDate)) {
+          const cDestCode = isCredit ? '1111' : '3110';
+          const cDestName = isCredit ? 'Cash on Hand' : 'Paid-Up Share Capital';
+          const cContra = isCredit ? '3110 - Paid-Up Share Capital' : '1111 - Cash on Hand';
+
           entries.push({
             id: tx.id,
             account_id: sca.id,
@@ -7254,7 +7391,11 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
             debit: !isCredit ? amt : 0,
             credit: isCredit ? amt : 0,
             running_balance: Number(runningBal.toFixed(2)),
-            running_shares: runningShares
+            running_shares: runningShares,
+            destination_gl_code: cDestCode,
+            destination_gl_name: cDestName,
+            destination_gl_account: `${cDestCode} - ${cDestName}`,
+            contra_gl_account: cContra
           });
         }
       });

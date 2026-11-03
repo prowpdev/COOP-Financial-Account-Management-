@@ -228,13 +228,14 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
     csvContent += `"Ledger Scope:","${ledgerType.toUpperCase()}"\r\n`;
     csvContent += `"Generated:","${new Date().toLocaleString()}"\r\n\r\n`;
 
-    csvContent += `"Account #","Ledger Type","Member Number","Member Name","Date","Ref / OR #","Description","Debit (PHP)","Credit (PHP)","Principal Paid (PHP)","Interest Paid (PHP)","Penalty / Fees (PHP)","Running Balance (PHP)"\r\n`;
+    csvContent += `"Account #","Ledger Type","Member Number","Member Name","Date","Ref / OR #","Description","Money Destination / Contra GL","Debit (PHP)","Credit (PHP)","Principal Paid (PHP)","Interest Paid (PHP)","Penalty / Fees (PHP)","Running Balance (PHP)"\r\n`;
 
     filteredAccounts.forEach(acc => {
       acc.entries.forEach(e => {
         const mem = (acc.member_name || '').replace(/"/g, '""');
         const desc = (e.description || '').replace(/"/g, '""');
-        csvContent += `"${acc.account_number}","${acc.ledger_type}","${acc.member_no}","${mem}","${e.date}","${e.ref_no}","${desc}",${e.debit || 0},${e.credit || 0},${e.principal_paid || 0},${e.interest_paid || 0},${(e.penalty_paid || 0) + (e.fee_paid || 0)},${e.running_balance || 0}\r\n`;
+        const dest = (e.destination_gl_account || (e as any).contra_gl_account || ((e as any).destination_gl_code ? `${(e as any).destination_gl_code} - ${(e as any).destination_gl_name}` : '') || '').replace(/"/g, '""');
+        csvContent += `"${acc.account_number}","${acc.ledger_type}","${acc.member_no}","${mem}","${e.date}","${e.ref_no}","${desc}","${dest}",${e.debit || 0},${e.credit || 0},${e.principal_paid || 0},${e.interest_paid || 0},${(e.penalty_paid || 0) + (e.fee_paid || 0)},${e.running_balance || 0}\r\n`;
       });
     });
 
@@ -328,6 +329,21 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
       sortable: true,
       filterable: true,
       render: (v) => <span className="text-xs text-slate-300 truncate block" title={v}>{v}</span>
+    },
+    {
+      key: 'destination_gl_account',
+      header: 'Money Destination / Contra GL',
+      width: '230px',
+      sortable: true,
+      filterable: true,
+      render: (v, r) => {
+        const val = v || (r as any).contra_gl_account || ((r as any).destination_gl_code ? `${(r as any).destination_gl_code} - ${(r as any).destination_gl_name}` : '-');
+        return (
+          <span className="font-mono text-xs text-emerald-300 font-medium truncate block" title={val}>
+            {val}
+          </span>
+        );
+      }
     },
     {
       key: 'debit',
@@ -1294,6 +1310,11 @@ export const SubsidiaryLedgerReport: React.FC<SubsidiaryLedgerReportProps> = ({
                                 <td className="py-2 px-3 text-emerald-400 font-bold whitespace-nowrap">{entry.ref_no}</td>
                                 <td className="py-2 px-3 font-sans text-slate-200">
                                   <span>{entry.description}</span>
+                                  {(entry.destination_gl_account || (entry as any).contra_gl_account) && (
+                                    <span className="block text-[10px] font-mono text-emerald-300 font-medium mt-0.5" title="Accounting Money Destination / Contra Account">
+                                      Contra / Money Dest: {entry.destination_gl_account || (entry as any).contra_gl_account}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-2 px-3 text-right text-slate-300 whitespace-nowrap">
                                   {entry.debit > 0 ? entry.debit.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}

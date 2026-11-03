@@ -42,6 +42,8 @@ type LedgerRow = {
   source: string;
   sourceType: string;
   particulars: string;
+  destination_gl_account: string;
+  contra_gl_account: string;
   branch: string;
   branchId: string;
   memberId: string | null;
@@ -220,6 +222,32 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
             sourceType = 'JOURNAL_ENTRY';
           }
 
+          const otherLines = (journal.lines || []).filter(l => l !== line);
+          const contraAccounts = otherLines.map(l => {
+            const a = accounts.find(acc => acc.id === l.account_id);
+            const code = a?.code || a?.account_code || l.account_code || '';
+            const name = a?.name || l.account_name || '';
+            return code ? `${code} - ${name}` : name;
+          }).filter(Boolean);
+
+          const contra_gl_account = contraAccounts.length > 0 ? Array.from(new Set(contraAccounts)).join('; ') : '—';
+
+          const debitLines = (journal.lines || []).filter(l => Number(l.debit) > 0);
+          const debitAccounts = debitLines.map(l => {
+            const a = accounts.find(acc => acc.id === l.account_id);
+            const code = a?.code || a?.account_code || l.account_code || '';
+            const name = a?.name || l.account_name || '';
+            return code ? `${code} - ${name}` : name;
+          }).filter(Boolean);
+
+          const curCode = account?.code || account?.account_code || line.account_code || '';
+          const curName = account?.name || line.account_name || '';
+          const curAcctStr = curCode ? `${curCode} - ${curName}` : curName;
+
+          const destination_gl_account = (Number(line.debit) > 0)
+            ? curAcctStr
+            : (debitAccounts.length > 0 ? Array.from(new Set(debitAccounts)).join('; ') : contra_gl_account);
+
           return {
             id: `${journal.id}-${line.id || index}`,
             date: journal.posting_date,
@@ -228,6 +256,8 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
             source: journal.reference_type,
             sourceType,
             particulars: journal.description,
+            destination_gl_account,
+            contra_gl_account,
             branch: branches.find(branch => branch.id === journal.branch_id)?.name || 'Main Branch',
             branchId: journal.branch_id,
             memberId: matchedMember?.id || matchedMemberId || null,
@@ -395,8 +425,8 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
       ['Transaction Type Filter', sourceFilterLabel],
       ['Generated On', new Date().toISOString()],
       [],
-      ['Date', 'Voucher No.', 'Source / Type', 'Member Subsidiary', 'Member No.', 'Particulars', 'Branch', 'Debit (PHP)', 'Credit (PHP)', 'Running Balance (PHP)'],
-      ['Opening balance', '', '', '', '', 'Prior period balance for active filters', '', '', '', openingBalance],
+      ['Date', 'Voucher No.', 'Source / Type', 'Member Subsidiary', 'Member No.', 'Particulars', 'Money Destination / Contra GL', 'Branch', 'Debit (PHP)', 'Credit (PHP)', 'Running Balance (PHP)'],
+      ['Opening balance', '', '', '', '', 'Prior period balance for active filters', '', '', '', '', openingBalance],
       ...rows.map(row => [
         row.date,
         row.voucher,
@@ -404,12 +434,13 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
         row.memberName || 'General / Cooperative',
         row.memberNo || '—',
         row.particulars,
+        row.destination_gl_account || row.contra_gl_account || '—',
         row.branch,
         row.debit,
         row.credit,
         row.balance
       ]),
-      ['Period Totals', '', '', '', '', `Filtered entries count: ${rows.length}`, '', totals.debit, totals.credit, rows.at(-1)?.balance ?? openingBalance]
+      ['Period Totals', '', '', '', '', `Filtered entries count: ${rows.length}`, '', '', totals.debit, totals.credit, rows.at(-1)?.balance ?? openingBalance]
     ].map(row => row.map(csvCell).join(',')).join('\r\n');
 
     const filename = `account_ledger_${account.code || 'GL'}_${selectedMemberId !== 'all' ? `member_${selectedMemberObj?.member_no || 'filtered'}_` : ''}${new Date().toISOString().slice(0, 10)}.csv`;
@@ -855,6 +886,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
                 <th className="p-2.5">Source / Type</th>
                 <th className="p-2.5">Member / Subsidiary</th>
                 <th className="p-2.5">Particulars</th>
+                <th className="p-2.5">Money Destination / Contra GL</th>
                 <th className="p-2.5">Branch</th>
                 <th className="p-2.5 text-right">Debit</th>
                 <th className="p-2.5 text-right">Credit</th>
@@ -864,7 +896,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
             <tbody className="divide-y divide-slate-800 print:divide-slate-200">
               {/* Dynamic Opening Balance Row */}
               <tr className="bg-slate-950/60 font-semibold text-slate-200 print:bg-slate-50 print:text-black">
-                <td className="p-2.5" colSpan={8}>
+                <td className="p-2.5" colSpan={9}>
                   Opening balance {fromDate ? `(Prior to ${fromDate} for active filters)` : '(Beginning of records)'}
                 </td>
                 <td className="p-2.5 text-right font-mono font-bold text-white print:text-black">
@@ -909,7 +941,12 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
                         <span className="text-slate-500 print:text-slate-500 italic text-[11px]">General / Unassigned</span>
                       )}
                     </td>
-                    <td className="p-2.5 min-w-48 text-slate-200 print:text-black">{row.particulars}</td>
+                    <td className="p-2.5 min-w-44 text-slate-200 print:text-black">{row.particulars}</td>
+                    <td className="p-2.5 font-mono text-[11px] text-emerald-300 print:text-black">
+                      <div className="max-w-[200px] truncate" title={row.destination_gl_account || row.contra_gl_account}>
+                        {row.destination_gl_account || row.contra_gl_account || '—'}
+                      </div>
+                    </td>
                     <td className="p-2.5 text-slate-400 print:text-slate-600">{row.branch}</td>
                     <td className="p-2.5 text-right font-mono text-emerald-400 print:text-black font-medium">
                       {row.debit ? money(row.debit) : '—'}
@@ -926,7 +963,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
 
               {!rows.length && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400">
+                  <td colSpan={10} className="p-8 text-center text-slate-400">
                     No posted transactions match the selected account, member, transaction type, and date criteria.
                   </td>
                 </tr>
@@ -934,7 +971,7 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
             </tbody>
             <tfoot className="bg-slate-800 font-bold text-white print:bg-slate-100 print:text-black">
               <tr>
-                <td className="p-2.5" colSpan={6}>
+                <td className="p-2.5" colSpan={7}>
                   Period totals ({rows.length} records matching active filters)
                 </td>
                 <td className="p-2.5 text-right font-mono text-emerald-400 print:text-black">{money(totals.debit)}</td>
