@@ -1,60 +1,55 @@
-# Cooperative Subsidiary Ledger Report & Chart of Accounts CSV Features
+# Reports & General Ledgers Filter & Layout Overhaul
 
-A comprehensive suite of accounting features for the cooperative platform, including an audit-grade Subsidiary Ledger (SL) reporting module with Excel View and Printable Statements, plus bidirectional CSV Import & Export for the Chart of Accounts (CDA Standard COA).
-
----
-
-## 1. Feature 1: Subsidiary Ledger Report & Excel View
-
-### Key Features Delivered
-1. **Interactive Excel-Grade Subsidiary Ledger View**:
-   - Integrated as **Sheet 3: Subsidiary Ledger** in `ReportsModule.tsx` and as dedicated interactive view in `SubsidiaryLedgerReport.tsx`.
-   - Dual presentation modes: High-density interactive Excel Grid table and structured audit statement view.
-   - Live sorting, filtering by member, account type (Loans, Savings, Share Capital), period, and branch.
-   - KPI metrics: Opening balance, total principal additions/disbursements, repayments/credits, interest collections, penalties, and closing balance.
-2. **CDA-Compliant Printable Statement & PDF**:
-   - Dedicated `PrintableSubsidiaryLedgerModal.tsx` formatted for official cooperative regulatory audits, credit committee reviews, and member statements.
-   - Clean paper styling (`@media print`) stripping dark themes and navigation, with official cooperative letterhead, CDA registration details, and certification signature lines.
-3. **Direct Spreadsheet Export**:
-   - One-click CSV and Excel export capturing all chronological entries, references, payment allocations, and running balances.
+A comprehensive refinement of the **Reports & General Ledgers** module (`ReportsModule.tsx`) and its submodules (`SubsidiaryLedgerReport.tsx`, `AccountLedgerReport.tsx`, `Journal Ledgers`), resolving accounting period selection bugs, eliminating duplicate and conflicting filter controls, and streamlining the report workbench according to CDA Philippine cooperative accounting standards.
 
 ---
 
-## 2. Feature 2: Chart of Accounts CSV Import & Export
+## 1. Accounting Periods & Date Scope Fixes
 
-### Key Features Delivered
-1. **CDA Standard CSV Format**:
-   - Standard columns: `account_code`, `name`, `category`, `report_group`, `normal_balance`, `parent_account_code`, `description`, `is_active`.
-   - Intelligent auto-derivation:
-     - Normal balance derived automatically if omitted (`Asset`/`Expense` -> `Debit`, `Liability`/`Equity`/`Revenue` -> `Credit`).
-     - Category normalization (`Income` / `Revenue` alias handling).
-     - Two-pass parent account code resolution (`parent_account_code` automatically resolves to `parent_account_id`).
-2. **Interactive Import Modal (`ChartOfAccountsImportModal.tsx`)**:
-   - Drag-and-drop file upload with CSV format validation and live file info.
-   - Built-in "Download CDA CSV Template" generating a ready-to-fill sample template with sample assets, liabilities, equity, revenues, and expenses.
-   - Direct raw CSV text paste mode for fast copy-pasting from existing spreadsheets.
-   - Client-side pre-flight parsing and tabular validation preview with row-level error tags.
-   - Real-time status counters: Total records, New accounts, Updates/Overwrites, and Format errors.
-   - Safe Upsert Mode toggle (update existing account matching `account_code` or create new).
-3. **Dual Export Options**:
-   - Client-side fast export with parent code lookup and timestamped filename (`chart_of_accounts_YYYY-MM-DD.csv`).
-   - Server-side CSV export endpoints with RFC 4180 escaping and attachment headers.
-4. **Backend Parity**:
-   - **Node.js**:
-     - `GET /api/config/chart-of-accounts/export-csv` & `GET /api/accounting/chart/export-csv`
-     - `POST /api/config/chart-of-accounts/import-csv` & `POST /api/accounting/chart/import-csv`
-     - `DELETE /api/config/chart-of-accounts/:id` with journal validation.
-   - **PHP / PDO**:
-     - `backend-php/app/Services/AccountingService.php`: `importChartOfAccounts()` and `exportChartOfAccounts()`.
-     - `backend-php/app/Controllers/AccountingController.php`: `importChart()` and `exportChart()`.
-     - `backend-php/routes/api.php`: `/api/accounting/chart/import-csv`, `/api/config/chart-of-accounts/import-csv`, etc.
-5. **UI Touchpoints**:
-   - Available directly in the **Chart of Accounts** tab of the **Configuration Center** (`ConfigCenter.tsx`).
-   - Also integrated into the **Excel Spreadsheet Workbench** (`ExcelWorkbench.tsx`) toolbar when viewing the Chart of Accounts sheet.
+1. **All Accounting Periods (Complete History / All Dates)**:
+   - Added `all` as the top option: `All Accounting Periods (Complete History / All Dates)` in the universal Accounting Period selector.
+   - Organized individual periods under `<optgroup label="2026 Fiscal Periods">` with explicit status indicators (`[Open]`, `[Closed]`).
+   - Defaulted `selectedPeriodId` to `'all'` so users immediately see their cooperative's complete financial history instead of an empty closed cutoff.
+   - Expanded backend periods in `data/coop_database.json` and `server/db/seed.ts` to include all 12 calendar fiscal periods for 2026 (`period_2026_01` through `period_2026_12`).
+
+2. **Fixed `activePeriod` Fallback Glitch**:
+   - Previously, if `selectedPeriodId === 'all'` or was empty, `activePeriod` fell back to `periods[0]` (January 2026, closed period with no transactions).
+   - Now, `activePeriod` correctly resolves to `null` when `selectedPeriodId === 'all'`, and the query sets `startDate` and `endDate` to `undefined`, allowing full historical retrieval across the entire ledger.
+
+3. **Backend API Route Date Filtering Parity**:
+   - In `server/routes/api.ts`:
+     - `/reports/journal-entries`: Corrected `selectedPeriod` to `(period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null`, allowing all postings when `'all'` is chosen.
+     - `/reports/member-transactions`: Updated `selectedPeriod` to `(period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null`.
+     - `/reports/subsidiary-ledger`: Dynamically computes `date_scope` so that when `effectiveStart` and `effectiveEnd` are provided, it filters by date range, and defaults to `'all'` when no date restrictions are set.
+
+---
+
+## 2. Universal Header vs. Submodule Filter De-duplication
+
+1. **Subsidiary Ledgers (`SubsidiaryLedgerReport.tsx`)**:
+   - When embedded inside `ReportsModule` (`hideHeader={true}`):
+     - **Removed the duplicate "Filter by Member" dropdown** that repeated the universal header's Member Search.
+     - **Removed the conflicting "Ledger Movement Scope" dropdown** that defaulted to `all` and overrode the parent's chosen accounting cutoff.
+     - Replaced with a clean, streamlined secondary bar:
+       - Contextual `Account Status` filter (All, Active, Approved, Released, Fully Paid, Past Due).
+       - Contextual `Particulars / Ref Search` input.
+       - Inherited filter status indicator confirming active synchronization with the universal header: `Branch: [Branch] · Period: [Period] · Member: [Member]`.
+     - `activeDateScope` is automatically derived from the parent's period/dates: if a specific period or date range is active, it enforces `'period'`; if `all` is chosen, it provides `'all'`.
+
+2. **Account Ledger Drilldown (`AccountLedgerReport.tsx`)**:
+   - Added support for parent-injected filter props: `selectedMemberId`, `onSelectMember`, `startDate`, `endDate`, `selectedAccountId`, `onSelectAccount`, and `hideHeaderFilters`.
+   - When `hideHeaderFilters={true}`:
+     - **Suppressed the redundant 4-column filter card** (duplicate Member selector, duplicate From/To date picker, and duplicate Branch select).
+     - Rendered a focused drilldown sub-toolbar:
+       - Searchable GL Account switcher with full badges and categories.
+       - Transaction Type / Source filter (`LOAN_RELEASE`, `LOAN_PAYMENT`, `SAVINGS`, `SHARE_CAPITAL`, `CASH_RECEIPT`, `DISBURSEMENT`, `JOURNAL_ENTRY`).
+       - Memo/particulars search input.
+       - Inherited synchronization indicator confirming linkage to the universal header.
 
 ---
 
 ## 3. Verification & Build Status
 
 - `lint_applet` (`tsc --noEmit`): Passed with 0 errors.
-- `compile_applet` (`npm run build`): Passed successfully.
+- `compile_applet` (`npm run build`): Production build succeeded.
+- Development server restarted cleanly.

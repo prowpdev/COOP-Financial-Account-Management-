@@ -62,7 +62,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 }) => {
   // Accounting Periods state
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('all');
   const [isCustomDateRange, setIsCustomDateRange] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -136,13 +136,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         }
         setPeriods(loadedPeriods);
 
-        const octPeriod = loadedPeriods.find(p => p.id === 'period_2026_10' || p.name.toLowerCase().includes('october'));
-        if (octPeriod) {
-          setSelectedPeriodId(octPeriod.id);
-        } else if (loadedPeriods.length > 0) {
-          setSelectedPeriodId(loadedPeriods[0].id);
-        }
-
         if (membersRes.data && membersRes.data.length > 0) {
           setMembersList(membersRes.data);
         }
@@ -154,9 +147,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     fetchInitialData();
   }, []);
 
-  // Selected period object
+  // Selected period object (null if 'all' or custom dates)
   const activePeriod = useMemo(() => {
-    return periods.find(p => p.id === selectedPeriodId) || periods[0] || null;
+    if (!selectedPeriodId || selectedPeriodId === 'all') return null;
+    return periods.find(p => p.id === selectedPeriodId) || null;
   }, [periods, selectedPeriodId]);
 
   // Load Report Data
@@ -164,19 +158,19 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const startDate = isCustomDateRange ? customStartDate : activePeriod?.start_date;
-      const endDate = isCustomDateRange ? customEndDate : activePeriod?.end_date;
+      const startDate = isCustomDateRange ? (customStartDate || undefined) : (selectedPeriodId === 'all' ? undefined : activePeriod?.start_date);
+      const endDate = isCustomDateRange ? (customEndDate || undefined) : (selectedPeriodId === 'all' ? undefined : activePeriod?.end_date);
 
       const [glRes, memRes, jnlRes] = await Promise.all([
         api.getReportJournalEntries({
-          period_id: isCustomDateRange ? undefined : selectedPeriodId,
+          period_id: (isCustomDateRange || selectedPeriodId === 'all') ? undefined : selectedPeriodId,
           branch_id: selectedBranch !== 'all' ? selectedBranch : undefined,
           member_id: selectedMemberId !== 'all' ? selectedMemberId : undefined,
           start_date: startDate,
           end_date: endDate
         }),
         api.getReportMemberTransactions({
-          period_id: isCustomDateRange ? undefined : selectedPeriodId,
+          period_id: (isCustomDateRange || selectedPeriodId === 'all') ? undefined : selectedPeriodId,
           branch_id: selectedBranch !== 'all' ? selectedBranch : undefined,
           member_id: selectedMemberId !== 'all' ? selectedMemberId : undefined,
           start_date: startDate,
@@ -260,12 +254,11 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     setSelectedQuickGl('all');
     setJournalSearchQuery('');
     setIsCustomDateRange(false);
+    setCustomStartDate('');
+    setCustomEndDate('');
     const allCodes = new Set(accounts.map(a => String(a.account_code || a.code || a.id)));
     setSelectedGlCodes(allCodes);
-    if (periods.length > 0) {
-      const octPeriod = periods.find(p => p.id === 'period_2026_10' || p.name.toLowerCase().includes('october'));
-      setSelectedPeriodId(octPeriod ? octPeriod.id : periods[0].id);
-    }
+    setSelectedPeriodId('all');
   };
 
   const isFilterActive =
@@ -273,6 +266,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     selectedMemberId !== 'all' ||
     selectedCategory !== 'all' ||
     selectedQuickGl !== 'all' ||
+    selectedPeriodId !== 'all' ||
     isCustomDateRange ||
     journalSearchQuery.trim() !== '';
 
@@ -625,7 +619,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   // CSV Export handler
   const handleExportCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
-    const periodLabel = activePeriod ? `${activePeriod.name} (${activePeriod.start_date} to ${activePeriod.end_date})` : 'Custom Period';
+    const periodLabel = selectedPeriodId === 'all'
+      ? 'All Accounting Periods (Complete History)'
+      : isCustomDateRange
+      ? `Custom Date Range (${customStartDate || 'Beginning'} to ${customEndDate || 'Present'})`
+      : activePeriod
+      ? `${activePeriod.name} (${activePeriod.start_date} to ${activePeriod.end_date})`
+      : 'All Dates';
 
     if (activeTab === 'journal_ledger') {
       csvContent += `"General Ledger Journal Postings Audit - ${activeBranchName}"\r\n`;
@@ -777,11 +777,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                   onChange={(e) => setSelectedPeriodId(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  {periods.map((period) => (
-                    <option key={period.id} value={period.id}>
-                      {period.name} ({period.start_date} → {period.end_date})
-                    </option>
-                  ))}
+                  <option value="all">All Accounting Periods (Complete History / All Dates)</option>
+                  <optgroup label="2026 Fiscal Periods">
+                    {periods.map((period) => (
+                      <option key={period.id} value={period.id}>
+                        {period.name} ({period.start_date} → {period.end_date}) [{period.status}]
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
@@ -874,7 +877,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               <span>
                 Period:{' '}
                 <strong className="text-white font-medium">
-                  {activePeriod ? `${activePeriod.name} (${activePeriod.start_date} → ${activePeriod.end_date})` : `${customStartDate} → ${customEndDate}`}
+                  {selectedPeriodId === 'all'
+                    ? 'All Accounting Periods (Complete History)'
+                    : isCustomDateRange
+                    ? `${customStartDate || 'Beginning'} → ${customEndDate || 'Present'}`
+                    : activePeriod
+                    ? `${activePeriod.name} (${activePeriod.start_date} → ${activePeriod.end_date})`
+                    : 'All Periods'}
                 </strong>
               </span>
               <span aria-hidden="true" className="text-slate-600">·</span>
@@ -1029,9 +1038,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           currentUser={currentUser}
           coopProfile={coopProfile}
           periodId={!isCustomDateRange ? selectedPeriodId : undefined}
-          startDate={isCustomDateRange ? customStartDate : activePeriod?.start_date}
-          endDate={isCustomDateRange ? customEndDate : activePeriod?.end_date}
-          periodName={activePeriod?.name || 'Selected Period'}
+          startDate={isCustomDateRange ? customStartDate : (selectedPeriodId === 'all' ? undefined : activePeriod?.start_date)}
+          endDate={isCustomDateRange ? customEndDate : (selectedPeriodId === 'all' ? undefined : activePeriod?.end_date)}
+          periodName={selectedPeriodId === 'all' ? 'All Accounting Periods' : (activePeriod?.name || 'Selected Period')}
           selectedMemberId={selectedMemberId}
           onSelectMember={setSelectedMemberId}
         />
@@ -1097,9 +1106,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <ExcelGridTable
               data={filteredGlLines}
               columns={glColumns}
-              title={`Journal Ledgers & Postings · ${activePeriod?.name || 'Current Period'}`}
+              title={`Journal Ledgers & Postings · ${selectedPeriodId === 'all' ? 'All Accounting Periods' : activePeriod?.name || 'Current Period'}`}
               subtitle={`Showing ${filteredGlLines.length} double-entry voucher lines filtered by ${activeBranchName}.`}
-              exportFileName={`journal_ledgers_${activePeriod?.id || 'export'}`}
+              exportFileName={`journal_ledgers_${selectedPeriodId === 'all' ? 'all' : activePeriod?.id || 'export'}`}
               defaultSortKey="posting_date"
               defaultSortDir="asc"
               isLoading={isLoading}
@@ -1161,6 +1170,16 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           branches={branches}
           selectedBranch={selectedBranch}
           members={membersList}
+          selectedMemberId={selectedMemberId}
+          onSelectMember={setSelectedMemberId}
+          startDate={isCustomDateRange ? customStartDate : (selectedPeriodId === 'all' ? undefined : activePeriod?.start_date)}
+          endDate={isCustomDateRange ? customEndDate : (selectedPeriodId === 'all' ? undefined : activePeriod?.end_date)}
+          selectedAccountId={selectedQuickGl !== 'all' ? selectedQuickGl : undefined}
+          onSelectAccount={(accId) => {
+            setSelectedQuickGl(accId);
+            setSelectedGlCodes(new Set([accId]));
+          }}
+          hideHeaderFilters={true}
         />
       )}
 
@@ -1171,9 +1190,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <ExcelGridTable
               data={filteredMemberTransactions}
               columns={memberColumns}
-              title={`Member Subsidiary Ledger Audit · ${activePeriod?.name || 'Current Period'}`}
+              title={`Member Subsidiary Ledger Audit · ${selectedPeriodId === 'all' ? 'All Accounting Periods' : activePeriod?.name || 'Current Period'}`}
               subtitle={`Historical transactions across Savings, Share Capital (CBU), and Loans for ${activeBranchName}.`}
-              exportFileName={`member_subsidiary_${activePeriod?.id || 'export'}`}
+              exportFileName={`member_subsidiary_${selectedPeriodId === 'all' ? 'all' : activePeriod?.id || 'export'}`}
               defaultSortKey="date"
               defaultSortDir="asc"
               isLoading={isLoading}
@@ -1226,9 +1245,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         onClose={() => setIsPrintModalOpen(false)}
         coopProfile={coopProfile}
         currentUser={currentUser}
-        periodName={activePeriod?.name || 'Selected Period'}
-        startDate={activePeriod?.start_date || customStartDate}
-        endDate={activePeriod?.end_date || customEndDate}
+        periodName={selectedPeriodId === 'all' ? 'All Accounting Periods' : activePeriod?.name || 'Selected Period'}
+        startDate={selectedPeriodId === 'all' ? undefined : (activePeriod?.start_date || customStartDate)}
+        endDate={selectedPeriodId === 'all' ? undefined : (activePeriod?.end_date || customEndDate)}
         branchName={activeBranchName}
         activeSheet={activeTab === 'subsidiary_ledger' ? 'member' : activeTab === 'member_ledger' ? 'member' : 'gl'}
         selectedGlAccountsCount={selectedGlCodes.size}

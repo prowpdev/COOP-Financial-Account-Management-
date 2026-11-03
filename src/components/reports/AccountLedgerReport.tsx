@@ -25,6 +25,13 @@ interface AccountLedgerReportProps {
   branches: Branch[];
   selectedBranch: string;
   members?: Member[];
+  selectedMemberId?: string;
+  onSelectMember?: (id: string) => void;
+  startDate?: string;
+  endDate?: string;
+  selectedAccountId?: string;
+  onSelectAccount?: (id: string) => void;
+  hideHeaderFilters?: boolean;
 }
 
 type LedgerRow = {
@@ -58,15 +65,50 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
   journals,
   branches,
   selectedBranch,
-  members: propMembers = []
+  members: propMembers = [],
+  selectedMemberId: parentMemberId,
+  onSelectMember,
+  startDate: parentStartDate,
+  endDate: parentEndDate,
+  selectedAccountId: parentAccountId,
+  onSelectAccount,
+  hideHeaderFilters = false
 }) => {
   const [internalMembers, setInternalMembers] = useState<Member[]>([]);
-  const [accountId, setAccountId] = useState('');
-  const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
+  const [accountId, setAccountId] = useState(parentAccountId || '');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(parentMemberId || 'all');
   const [selectedSourceType, setSelectedSourceType] = useState<string>('all');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(parentStartDate || '');
+  const [toDate, setToDate] = useState(parentEndDate || '');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Synchronize when parent passes updated props
+  useEffect(() => {
+    if (parentMemberId !== undefined) {
+      setSelectedMemberId(parentMemberId);
+    }
+  }, [parentMemberId]);
+
+  useEffect(() => {
+    if (parentAccountId !== undefined && parentAccountId !== '' && parentAccountId !== 'all') {
+      setAccountId(parentAccountId);
+    }
+  }, [parentAccountId]);
+
+  useEffect(() => {
+    setFromDate(parentStartDate || '');
+  }, [parentStartDate]);
+
+  useEffect(() => {
+    setToDate(parentEndDate || '');
+  }, [parentEndDate]);
+
+  const handleAccountChange = (newAccId: string) => {
+    setAccountId(newAccId);
+    if (onSelectAccount) {
+      onSelectAccount(newAccId);
+    }
+  };
 
   // Fallback: If parent did not provide members or it's empty, fetch from api
   useEffect(() => {
@@ -326,19 +368,18 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
     return map[selectedSourceType] || selectedSourceType;
   }, [selectedSourceType]);
 
-  const isFilterActive =
-    selectedMemberId !== 'all' ||
-    selectedSourceType !== 'all' ||
-    fromDate !== '' ||
-    toDate !== '' ||
-    searchQuery.trim() !== '';
+  const isFilterActive = hideHeaderFilters
+    ? (selectedSourceType !== 'all' || searchQuery.trim() !== '')
+    : (selectedMemberId !== 'all' || selectedSourceType !== 'all' || fromDate !== '' || toDate !== '' || searchQuery.trim() !== '');
 
   const handleResetFilters = () => {
-    setSelectedMemberId('all');
     setSelectedSourceType('all');
-    setFromDate('');
-    setToDate('');
     setSearchQuery('');
+    if (!hideHeaderFilters) {
+      setSelectedMemberId('all');
+      setFromDate('');
+      setToDate('');
+    }
   };
 
   const exportCsv = () => {
@@ -432,100 +473,163 @@ export const AccountLedgerReport: React.FC<AccountLedgerReportProps> = ({
     <section className="space-y-4">
       {/* Filter and Control Panel */}
       <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 print:hidden space-y-4">
-        {/* Row 1: Primary Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* GL Account Selector */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              General Ledger Account <span className="text-emerald-400 font-normal">({accounts.length})</span>
-            </label>
-            <SearchableSelect
-              options={accountOptions}
-              value={accountId}
-              onChange={setAccountId}
-              placeholder="Search or select GL account..."
-              searchPlaceholder="Filter accounts by code, name, or GL type..."
-              showGLTypeBadge={true}
-              alwaysShowSearch={true}
-              minOptionsForSearch={6}
-            />
-          </div>
+        {/* If hideHeaderFilters is false: render full standalone 4-column panel */}
+        {!hideHeaderFilters ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* GL Account Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                General Ledger Account <span className="text-emerald-400 font-normal">({accounts.length})</span>
+              </label>
+              <SearchableSelect
+                options={accountOptions}
+                value={accountId}
+                onChange={handleAccountChange}
+                placeholder="Search or select GL account..."
+                searchPlaceholder="Filter accounts by code, name, or GL type..."
+                showGLTypeBadge={true}
+                alwaysShowSearch={true}
+                minOptionsForSearch={6}
+              />
+            </div>
 
-          {/* Member Selector (SearchableSelect) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1">
-                <User className="w-3.5 h-3.5 text-blue-400" />
-                <span>Filter by Member</span>
-              </span>
-              {selectedMemberId !== 'all' && (
-                <span className="text-[10px] text-blue-400 font-normal bg-blue-500/10 px-1.5 py-0.5 rounded">
-                  Filtered
+            {/* Member Selector (SearchableSelect) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                <span className="flex items-center space-x-1">
+                  <User className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Filter by Member</span>
                 </span>
-              )}
-            </label>
-            <SearchableSelect
-              options={memberOptions}
-              value={selectedMemberId}
-              onChange={setSelectedMemberId}
-              placeholder="All Members or Select Specific..."
-              searchPlaceholder="Search member name or member ID..."
-              alwaysShowSearch={true}
-              minOptionsForSearch={4}
-            />
-          </div>
-
-          {/* Transaction Type / Source Filter */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
-              <Filter className="w-3.5 h-3.5 text-amber-400" />
-              <span>Transaction Type / Source</span>
-            </label>
-            <select
-              value={selectedSourceType}
-              onChange={e => setSelectedSourceType(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="all">All Transaction Types</option>
-              <optgroup label="Loan Operations">
-                <option value="LOAN_ALL">All Loan Transactions (Releases & Repayments)</option>
-                <option value="LOAN_RELEASE">Loan Releases / Disbursements</option>
-                <option value="LOAN_PAYMENT">Loan Payments / Principal Amortizations</option>
-              </optgroup>
-              <optgroup label="Savings & Equity">
-                <option value="SAVINGS">Savings Deposits & Withdrawals</option>
-                <option value="SHARE_CAPITAL">Share Capital (CBU) Contributions</option>
-              </optgroup>
-              <optgroup label="Cash & Journal Vouchers">
-                <option value="CASH_RECEIPT">Cash Receipts (Official Receipts - OR)</option>
-                <option value="DISBURSEMENT">Cash Disbursements (Check / Voucher - CD)</option>
-                <option value="JOURNAL_ENTRY">General Journal Vouchers (JV)</option>
-              </optgroup>
-            </select>
-          </div>
-
-          {/* Date Range Inputs */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">From</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={event => setFromDate(event.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                {selectedMemberId !== 'all' && (
+                  <span className="text-[10px] text-blue-400 font-normal bg-blue-500/10 px-1.5 py-0.5 rounded">
+                    Filtered
+                  </span>
+                )}
+              </label>
+              <SearchableSelect
+                options={memberOptions}
+                value={selectedMemberId}
+                onChange={setSelectedMemberId}
+                placeholder="All Members or Select Specific..."
+                searchPlaceholder="Search member name or member ID..."
+                alwaysShowSearch={true}
+                minOptionsForSearch={4}
               />
             </div>
+
+            {/* Transaction Type / Source Filter */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">To</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={event => setToDate(event.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-              />
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
+                <Filter className="w-3.5 h-3.5 text-amber-400" />
+                <span>Transaction Type / Source</span>
+              </label>
+              <select
+                value={selectedSourceType}
+                onChange={e => setSelectedSourceType(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="all">All Transaction Types</option>
+                <optgroup label="Loan Operations">
+                  <option value="LOAN_ALL">All Loan Transactions (Releases & Repayments)</option>
+                  <option value="LOAN_RELEASE">Loan Releases / Disbursements</option>
+                  <option value="LOAN_PAYMENT">Loan Payments / Principal Amortizations</option>
+                </optgroup>
+                <optgroup label="Savings & Equity">
+                  <option value="SAVINGS">Savings Deposits & Withdrawals</option>
+                  <option value="SHARE_CAPITAL">Share Capital (CBU) Contributions</option>
+                </optgroup>
+                <optgroup label="Cash & Journal Vouchers">
+                  <option value="CASH_RECEIPT">Cash Receipts (Official Receipts - OR)</option>
+                  <option value="DISBURSEMENT">Cash Disbursements (Check / Voucher - CD)</option>
+                  <option value="JOURNAL_ENTRY">General Journal Vouchers (JV)</option>
+                </optgroup>
+              </select>
+            </div>
+
+            {/* Date Range Inputs */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">From</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={event => setFromDate(event.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">To</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={event => setToDate(event.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Streamlined Contextual Controls (Zero Redundant Inputs) */
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+              {/* Account Switcher */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Drilldown GL Account</span>
+                  <span className="text-slate-500 font-normal">({accounts.length})</span>
+                </label>
+                <SearchableSelect
+                  options={accountOptions}
+                  value={accountId}
+                  onChange={handleAccountChange}
+                  placeholder="Select account to drilldown..."
+                  searchPlaceholder="Filter accounts by code, name, or GL type..."
+                  showGLTypeBadge={true}
+                  alwaysShowSearch={true}
+                  minOptionsForSearch={6}
+                />
+              </div>
+
+              {/* Transaction Type / Source Filter */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center space-x-1">
+                  <Filter className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Transaction Type / Source</span>
+                </label>
+                <select
+                  value={selectedSourceType}
+                  onChange={e => setSelectedSourceType(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="all">All Transaction Types</option>
+                  <optgroup label="Loan Operations">
+                    <option value="LOAN_ALL">All Loan Transactions (Releases & Repayments)</option>
+                    <option value="LOAN_RELEASE">Loan Releases / Disbursements</option>
+                    <option value="LOAN_PAYMENT">Loan Payments / Principal Amortizations</option>
+                  </optgroup>
+                  <optgroup label="Savings & Equity">
+                    <option value="SAVINGS">Savings Deposits & Withdrawals</option>
+                    <option value="SHARE_CAPITAL">Share Capital (CBU) Contributions</option>
+                  </optgroup>
+                  <optgroup label="Cash & Journal Vouchers">
+                    <option value="CASH_RECEIPT">Cash Receipts (Official Receipts - OR)</option>
+                    <option value="DISBURSEMENT">Cash Disbursements (Check / Voucher - CD)</option>
+                    <option value="JOURNAL_ENTRY">General Journal Vouchers (JV)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
+            {/* Inherited context note */}
+            <div className="text-[11px] text-slate-400 flex items-center space-x-1.5 shrink-0 self-end md:self-center">
+              <span className="text-emerald-400">✓</span>
+              <span>
+                Synchronized with universal header filters (Member & Date/Period)
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Row 2: Search Query, Preset Chips & Action Buttons */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-slate-800">

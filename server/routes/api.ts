@@ -6388,7 +6388,7 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
   const gl_accounts = req.query.gl_account_ids ? String(req.query.gl_account_ids).split(',') : null;
 
   const periods = db.getTable('accounting_periods') || [];
-  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+  const selectedPeriod = (period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null;
 
   const effectiveStart = start_date || selectedPeriod?.start_date;
   const effectiveEnd = end_date || selectedPeriod?.end_date;
@@ -6433,9 +6433,12 @@ router.get(['/reports/journal-entries', '/api/reports/journal-entries', '/report
     });
   }
 
-  // If member_id provided, filter lines where subsidiary_id === member_id
+  // If member_id provided, filter lines where subsidiary_id === member_id or entry member_id matches
   if (member_id && member_id !== 'all') {
-    matchingLines = matchingLines.filter(line => line.subsidiary_id === member_id);
+    matchingLines = matchingLines.filter(line => {
+      const entry = entryMap.get(line.journal_entry_id);
+      return line.subsidiary_id === member_id || entry?.member_id === member_id || entry?.reference_id === member_id;
+    });
   }
 
   // Enrich lines
@@ -6516,7 +6519,7 @@ router.get(['/reports/member-transactions', '/api/reports/member-transactions'],
   const gl_accounts = req.query.gl_account_ids ? String(req.query.gl_account_ids).split(',') : null;
 
   const periods = db.getTable('accounting_periods') || [];
-  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+  const selectedPeriod = (period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null;
   const effectiveStart = start_date || selectedPeriod?.start_date;
   const effectiveEnd = end_date || selectedPeriod?.end_date;
 
@@ -6751,11 +6754,13 @@ router.get(['/reports/subsidiary-ledger', '/api/reports/subsidiary-ledger'], (re
   const loan_id = req.query.loan_id as string;
 
   const periods = db.getTable('accounting_periods') || [];
-  const selectedPeriod = period_id ? periods.find(p => p.id === period_id) : null;
+  const selectedPeriod = (period_id && period_id !== 'all') ? periods.find(p => p.id === period_id) : null;
   const effectiveStart = start_date || selectedPeriod?.start_date;
   const effectiveEnd = end_date || selectedPeriod?.end_date;
 
-  const date_scope = String(req.query.date_scope || req.query.scope || 'all').toLowerCase();
+  const date_scope = req.query.date_scope
+    ? String(req.query.date_scope).toLowerCase()
+    : ((effectiveStart && effectiveEnd) ? 'period' : 'all');
 
   const inDateRange = (dateStr?: string) => {
     if (date_scope === 'all') return true;
