@@ -23,6 +23,7 @@ export interface MigrationReport {
     indexes_created_count: number;
     constraints_created_count: number;
     warnings_count: number;
+    accounting_periods_populated_count?: number;
   };
 }
 
@@ -161,6 +162,18 @@ export class NodeMigrationService {
         this.db.save();
       }
 
+      // Automatically and accurately populate accounting periods for the fiscal year
+      try {
+        const periods = this.populateAccountingPeriods(2026);
+        report.summary.accounting_periods_populated_count = periods.length;
+      } catch (periodErr: any) {
+        report.errors.push({
+          phase: 'accounting_periods',
+          table: 'accounting_periods',
+          message: periodErr.message,
+        });
+      }
+
     } catch (e: any) {
       report.errors.push({
         phase: 'general',
@@ -176,6 +189,80 @@ export class NodeMigrationService {
     report.summary.warnings_count = report.errors.length;
 
     return report;
+  }
+
+  /**
+   * Automatically create or populate accounting periods for the full fiscal year (12 calendar months).
+   * Generates exact monthly calendar boundaries (leap-year safe).
+   * Idempotent: Never overwrites closed or locked statuses or audit trails of existing periods.
+   */
+  public populateAccountingPeriods(fiscalYear: number = 2026): Array<any> {
+    const data = this.db.load() as unknown as Record<string, any[]>;
+    if (!data.accounting_periods) {
+      data.accounting_periods = [];
+    }
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    let modified = false;
+    const populated: any[] = [];
+
+    for (let month = 1; month <= 12; month++) {
+      const monthStr = String(month).padStart(2, '0');
+      const startDate = `${fiscalYear}-${monthStr}-01`;
+      // Calculate exact days in month dynamically using UTC date (leap-year safe)
+      const lastDay = new Date(Date.UTC(fiscalYear, month, 0)).getUTCDate();
+      const endDate = `${fiscalYear}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+      const periodId = `period_${fiscalYear}_${monthStr}`;
+      const name = `${monthNames[month - 1]} ${fiscalYear}`;
+
+      const existingIndex = data.accounting_periods.findIndex(
+        (p: any) => p.id === periodId || (Number(p.fiscal_year) === fiscalYear && Number(p.period_number) === month)
+      );
+
+      if (existingIndex >= 0) {
+        const existing = data.accounting_periods[existingIndex];
+        // Safely update calendar boundaries and name while preserving closed status & audit history
+        existing.name = name;
+        existing.fiscal_year = fiscalYear;
+        existing.period_number = month;
+        existing.start_date = startDate;
+        existing.end_date = endDate;
+        if (!existing.branch_id) existing.branch_id = 'branch_01';
+        populated.push(existing);
+        modified = true;
+      } else {
+        const newPeriod = {
+          id: periodId,
+          name,
+          fiscal_year: fiscalYear,
+          period_number: month,
+          start_date: startDate,
+          end_date: endDate,
+          branch_id: 'branch_01',
+          status: 'Open',
+          closed_at: null,
+          closed_by: null,
+          created_at: new Date().toISOString()
+        };
+        data.accounting_periods.push(newPeriod);
+        populated.push(newPeriod);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      data.accounting_periods.sort((a: any, b: any) => {
+        if (Number(a.fiscal_year) !== Number(b.fiscal_year)) return Number(a.fiscal_year) - Number(b.fiscal_year);
+        return Number(a.period_number) - Number(b.period_number);
+      });
+      this.db.save();
+    }
+
+    return populated;
   }
 
   private getDefaultValueForColumn(col: { name: string; type: string; definition: string }): any {

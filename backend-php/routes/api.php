@@ -257,6 +257,10 @@ $router->get('/reports/member-transactions/:period_id', [ReportController::class
     $router->post('/api/config/accounting-periods/close', [AccountingController::class, 'closePeriod']);
     $router->post('/api/config/accounting-periods/reopen', [AccountingController::class, 'reopenPeriod']);
     $router->post('/api/config/accounting-periods/create', [AccountingController::class, 'createAccountingPeriod']);
+    $router->post('/api/config/accounting-periods/generate-year', [AccountingController::class, 'generateYearlyPeriods']);
+    $router->post('/api/accounting-periods/generate-year', [AccountingController::class, 'generateYearlyPeriods']);
+    $router->post('/api/config/accounting-periods/delete', [AccountingController::class, 'deleteAccountingPeriod']);
+    $router->delete('/api/config/accounting-periods/:id', [AccountingController::class, 'deleteAccountingPeriod']);
 
     // =========================================================================
     // 11. Cooperative 

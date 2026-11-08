@@ -834,6 +834,135 @@ public function createAccountingPeriod(array $data): array
 }
 
 /**
+ * Automatically generate accounting periods for the whole fiscal year (12 calendar months).
+ * Calculates month boundaries accurately (leap-year safe).
+ * Protects existing periods so closed/locked periods and audit history are never overwritten.
+ */
+public function generateYearlyAccountingPeriods(int $fiscalYear = 2026, ?string $branchId = null, string $defaultStatus = 'Open'): array
+{
+    if ($fiscalYear < 2000 || $fiscalYear > 2100) {
+        throw new \InvalidArgumentException('Fiscal year must be between 2000 and 2100.');
+    }
+
+    $monthNames = [
+        1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+        5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+        9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'
+    ];
+
+    $generated = [];
+    $this->db->beginTransaction();
+
+    try {
+        $hasBranchCol = false;
+        try {
+            $checkCol = $this->db->query("SHOW COLUMNS FROM `accounting_periods` LIKE 'branch_id'");
+            $hasBranchCol = (bool) $checkCol->fetch();
+        } catch (\Throwable) {
+            $hasBranchCol = false;
+        }
+
+        for ($month = 1; $month <= 12; $month++) {
+            $startDate = sprintf('%04d-%02d-01', $fiscalYear, $month);
+            $dateObj = new \DateTimeImmutable($startDate);
+            $daysInMonth = (int) $dateObj->format('t');
+            $endDate = sprintf('%04d-%02d-%02d', $fiscalYear, $month, $daysInMonth);
+            $periodId = sprintf('period_%04d_%02d', $fiscalYear, $month);
+            $name = $monthNames[$month] . ' ' . $fiscalYear;
+
+            $stmt = $this->db->prepare("
+                SELECT id, status, closed_at, closed_by
+                FROM accounting_periods
+                WHERE id = ? OR (fiscal_year = ? AND period_number = ?)
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $stmt->execute([$periodId, $fiscalYear, $month]);
+            $existing = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if ($existing) {
+                $existingId = $existing['id'];
+                $updateSql = "
+                    UPDATE accounting_periods
+                    SET name = :name,
+                        fiscal_year = :fiscal_year,
+                        period_number = :period_number,
+                        start_date = :start_date,
+                        end_date = :end_date" . ($hasBranchCol && $branchId ? ", branch_id = :branch_id" : "") . "
+                    WHERE id = :id
+                ";
+                $updateParams = [
+                    ':name' => $name,
+                    ':fiscal_year' => $fiscalYear,
+                    ':period_number' => $month,
+                    ':start_date' => $startDate,
+                    ':end_date' => $endDate,
+                    ':id' => $existingId,
+                ];
+                if ($hasBranchCol && $branchId) {
+                    $updateParams[':branch_id'] = $branchId;
+                }
+                $this->db->prepare($updateSql)->execute($updateParams);
+
+                $fetchStmt = $this->db->prepare("SELECT * FROM accounting_periods WHERE id = ?");
+                $fetchStmt->execute([$existingId]);
+                $generated[] = $fetchStmt->fetch(\PDO::FETCH_ASSOC);
+            } else {
+                if ($hasBranchCol) {
+                    $insertSql = "
+                        INSERT INTO accounting_periods (
+                            id, name, fiscal_year, period_number, start_date, end_date, branch_id, status, created_at
+                        ) VALUES (
+                            :id, :name, :fiscal_year, :period_number, :start_date, :end_date, :branch_id, :status, NOW()
+                        )
+                    ";
+                    $insertParams = [
+                        ':id' => $periodId,
+                        ':name' => $name,
+                        ':fiscal_year' => $fiscalYear,
+                        ':period_number' => $month,
+                        ':start_date' => $startDate,
+                        ':end_date' => $endDate,
+                        ':branch_id' => $branchId,
+                        ':status' => $defaultStatus,
+                    ];
+                } else {
+                    $insertSql = "
+                        INSERT INTO accounting_periods (
+                            id, name, fiscal_year, period_number, start_date, end_date, status, created_at
+                        ) VALUES (
+                            :id, :name, :fiscal_year, :period_number, :start_date, :end_date, :status, NOW()
+                        )
+                    ";
+                    $insertParams = [
+                        ':id' => $periodId,
+                        ':name' => $name,
+                        ':fiscal_year' => $fiscalYear,
+                        ':period_number' => $month,
+                        ':start_date' => $startDate,
+                        ':end_date' => $endDate,
+                        ':status' => $defaultStatus,
+                    ];
+                }
+                $this->db->prepare($insertSql)->execute($insertParams);
+
+                $fetchStmt = $this->db->prepare("SELECT * FROM accounting_periods WHERE id = ?");
+                $fetchStmt->execute([$periodId]);
+                $generated[] = $fetchStmt->fetch(\PDO::FETCH_ASSOC);
+            }
+        }
+
+        $this->db->commit();
+        return $generated;
+    } catch (\Throwable $e) {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+/**
  * Delete an accounting period.
  *
  * Closed/locked periods are protected.

@@ -471,6 +471,15 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data)
     }),
+  generateYearlyAccountingPeriods: (fiscal_year?: number) =>
+    fetchApi<{ success: boolean; message?: string; data: any[] }>('/config/accounting-periods/generate-year', {
+      method: 'POST',
+      body: JSON.stringify({ fiscal_year: fiscal_year || 2026 })
+    }),
+  deleteAccountingPeriod: (period_id: string) =>
+    fetchApi<{ success: boolean; message?: string }>(`/config/accounting-periods/${period_id}`, {
+      method: 'DELETE'
+    }),
 
   // Operations: Members
   getMembers: async (branch_id?: string) => {

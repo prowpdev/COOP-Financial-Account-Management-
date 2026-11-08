@@ -2628,6 +2628,100 @@ router.post('/config/accounting-periods/reopen', (req: Request, res: Response) =
   res.json({ success: true, data: period });
 });
 
+router.post(['/config/accounting-periods/generate-year', '/accounting-periods/generate-year'], (req: Request, res: Response) => {
+  try {
+    const fiscalYear = Number(req.body.fiscal_year || req.query.fiscal_year || 2026);
+    if (isNaN(fiscalYear) || fiscalYear < 2000 || fiscalYear > 2100) {
+      return res.status(400).json({ success: false, error: 'Invalid fiscal year' });
+    }
+
+    const migrationService = new NodeMigrationService(db);
+    const periods = migrationService.populateAccountingPeriods(fiscalYear);
+    db.recordAudit(`Generated full-year accounting periods for FY ${fiscalYear}`, 'None', `${periods.length} Periods`, 'Chief Accountant', 'Yearly Accounting Setup');
+
+    res.json({
+      success: true,
+      message: `Accounting periods for fiscal year ${fiscalYear} generated successfully.`,
+      data: periods
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to generate yearly accounting periods: ' + err.message });
+  }
+});
+
+router.post(['/config/accounting-periods/create', '/accounting-periods/create'], (req: Request, res: Response) => {
+  try {
+    const { name, start_date, end_date, fiscal_year, period_number, branch_id, status } = req.body;
+    if (!name || !start_date || !end_date) {
+      return res.status(400).json({ success: false, error: 'Name, start date, and end date are required' });
+    }
+
+    if (start_date > end_date) {
+      return res.status(400).json({ success: false, error: 'Start date cannot be after end date' });
+    }
+
+    const periods = db.getTable('accounting_periods') || [];
+    const overlaps = periods.some((p: any) => start_date <= p.end_date && end_date >= p.start_date);
+    if (overlaps) {
+      return res.status(400).json({ success: false, error: 'The selected dates overlap an existing accounting period' });
+    }
+
+    const fYear = Number(fiscal_year || new Date(start_date).getFullYear() || 2026);
+    const pNum = Number(period_number || (periods.filter((p: any) => Number(p.fiscal_year) === fYear).length + 1));
+    const id = `period_${fYear}_${String(pNum).padStart(2, '0')}_${Date.now().toString(36).slice(-4)}`;
+
+    const newPeriod = {
+      id,
+      name: name.trim(),
+      fiscal_year: fYear,
+      period_number: pNum,
+      start_date,
+      end_date,
+      branch_id: branch_id || 'branch_01',
+      status: status || 'Open',
+      closed_at: null,
+      closed_by: null,
+      created_at: new Date().toISOString()
+    };
+
+    db.insert('accounting_periods', newPeriod);
+    db.recordAudit(`Created Accounting Period: ${newPeriod.name}`, 'None', newPeriod.status, req.body.created_by || 'Chief Accountant', 'Manual Creation');
+
+    res.json({ success: true, data: newPeriod });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to create accounting period: ' + err.message });
+  }
+});
+
+router.delete(['/config/accounting-periods/:id', '/accounting-periods/:id'], (req: Request, res: Response) => {
+  try {
+    const id = req.params.id;
+    const periods = db.getTable('accounting_periods') || [];
+    const period = periods.find((p: any) => p.id === id);
+
+    if (!period) {
+      return res.status(404).json({ success: false, error: 'Accounting period not found' });
+    }
+
+    if (period.status !== 'Open') {
+      return res.status(400).json({ success: false, error: 'Only open accounting periods can be deleted' });
+    }
+
+    const entries = db.getTable('journal_entries') || [];
+    const hasEntries = entries.some((e: any) => (e.accounting_period_id === id || e.period_id === id) && e.status === 'Posted');
+    if (hasEntries) {
+      return res.status(400).json({ success: false, error: 'Cannot delete an accounting period that contains posted journal entries' });
+    }
+
+    db.delete('accounting_periods', (p: any) => p.id === id);
+    db.recordAudit(`Deleted Accounting Period: ${period.name}`, period.status, 'Deleted', 'Chief Accountant', 'Period Deletion');
+
+    res.json({ success: true, message: 'Accounting period deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to delete accounting period: ' + err.message });
+  }
+});
+
 // ==========================================
 // 14. OPERATIONAL MODULES: MEMBERS
 // ==========================================

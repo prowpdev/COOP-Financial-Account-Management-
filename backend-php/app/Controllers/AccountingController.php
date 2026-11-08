@@ -289,6 +289,23 @@ class AccountingController extends BaseController
     }
 
     /**
+     * Automatically generate accounting periods for an entire year.
+     * POST /api/config/accounting-periods/generate-year
+     */
+    public function generateYearlyPeriods(): void
+    {
+        try {
+            $input = $this->getRequestBody();
+            $fiscalYear = isset($input['fiscal_year']) ? (int)$input['fiscal_year'] : 2026;
+            $branchId = $this->getCurrentUserBranchId();
+            $periods = $this->accounting->generateYearlyAccountingPeriods($fiscalYear, $branchId);
+            $this->success(['periods' => $periods], "Accounting periods for fiscal year {$fiscalYear} successfully generated.");
+        } catch (\Throwable $e) {
+            $this->error('Failed to generate yearly accounting periods: ' . $e->getMessage(), 400);
+        }
+    }
+
+    /**
      * Delete an accounting period.
      */
     public function deleteAccountingPeriod(): void

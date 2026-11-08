@@ -17,7 +17,14 @@
       "fiscal_year_end": "12-31",
       "created_at": "2026-01-01T00:00:00Z",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "cda_registration_no": "",
+      "tax_identification_no": "",
+      "coop_type": "Agricultural",
+      "contact_phone": null,
+      "contact_email": null,
+      "base_currency": "PHP",
+      "updated_at": null
     }
   ],
   "branches": [
@@ -30,7 +37,11 @@
       "phone": "+63 (045) 982-1200",
       "manager_name": "Elena Rostro",
       "active": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "contact_number": null,
+      "is_main_branch": "0",
+      "created_at": null,
+      "coop_id": "coop_01"
     },
     {
       "id": "branch_urd",
@@ -41,7 +52,11 @@
       "phone": "+63 (075) 568-3341",
       "manager_name": "Roberto Valenzuela",
       "active": true,
-      "branch_id": "branch_urd"
+      "branch_id": "branch_urd",
+      "contact_number": null,
+      "is_main_branch": "0",
+      "created_at": null,
+      "coop_id": "coop_01"
     },
     {
       "id": "branch_sfe",
@@ -52,7 +67,11 @@
       "phone": "+63 (045) 455-8812",
       "manager_name": "Carmela Santos",
       "active": true,
-      "branch_id": "branch_sfe"
+      "branch_id": "branch_sfe",
+      "contact_number": null,
+      "is_main_branch": "0",
+      "created_at": null,
+      "coop_id": "coop_01"
     }
   ],
   "system_settings": [
@@ -60,73 +79,157 @@
       "key": "cooperative_name",
       "value": "Multipurpose Cooperative System.",
       "category": "Cooperative",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "currency",
       "value": "PHP",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "currency_symbol",
       "value": "₱",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "decimal_precision",
       "value": "2",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "thousands_separator",
       "value": ",",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "decimal_separator",
       "value": ".",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "fiscal_year_start",
       "value": "01-01",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "fiscal_year_end",
       "value": "12-31",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "default_grace_period_days",
       "value": "5",
       "category": "Loans",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "default_penalty_rate",
       "value": "2.0",
       "category": "Penalties",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "require_maker_checker_loans",
       "value": "true",
       "category": "Approvals",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     },
     {
       "key": "require_balanced_opening_balances",
       "value": "true",
       "category": "Accounting",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "id": "",
+      "setting_key": "",
+      "setting_value": "",
+      "setting_group": "",
+      "description": "",
+      "updated_by": null,
+      "updated_at": null
     }
   ],
   "feature_toggles": [
@@ -136,7 +239,10 @@
       "name": "Loans & Credit Facility",
       "description": "Enable loan origination, amortization schedules, and repayments",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_savings",
@@ -144,7 +250,10 @@
       "name": "Savings & Deposits",
       "description": "Member regular savings and time deposit facilities",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_share_capital",
@@ -152,7 +261,10 @@
       "name": "Share Capital (CBU)",
       "description": "Capital build-up, share subscription, and dividend accounts",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_cash_mgmt",
@@ -160,7 +272,10 @@
       "name": "Cash & Bank Management",
       "description": "Vault, cashier cash drawers, petty cash, and bank accounts",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_accounting",
@@ -168,7 +283,10 @@
       "name": "General Accounting & GL",
       "description": "Dynamic Chart of Accounts, Journal entries, and postings",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_reports",
@@ -176,7 +294,10 @@
       "name": "Financial & Regulatory Reports",
       "description": "CDA-compliant financial statements, portfolio aging, and ledgers",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     },
     {
       "id": "feat_custom_fields",
@@ -184,7 +305,10 @@
       "name": "Custom Fields & Extensibility",
       "description": "Dynamic member, loan, and document custom attributes",
       "enabled": true,
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "feature_key": "",
+      "category": null,
+      "updated_at": null
     }
   ],
   "chart_of_accounts": [
@@ -205,7 +329,8 @@
       "is_control": true,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1110",
@@ -224,7 +349,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1111",
@@ -243,7 +369,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1112",
@@ -262,7 +389,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1120",
@@ -281,7 +409,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1121",
@@ -300,7 +429,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1130",
@@ -319,7 +449,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1200",
@@ -338,7 +469,8 @@
       "is_control": true,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1210",
@@ -357,7 +489,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1220",
@@ -376,7 +509,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1230",
@@ -395,7 +529,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1240",
@@ -414,7 +549,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1290",
@@ -433,7 +569,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1310",
@@ -452,7 +589,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1510",
@@ -471,7 +609,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_1590",
@@ -490,7 +629,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_2100",
@@ -509,7 +649,8 @@
       "is_control": true,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_2110",
@@ -528,7 +669,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_2120",
@@ -547,7 +689,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_2210",
@@ -566,7 +709,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_2220",
@@ -585,7 +729,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3100",
@@ -604,7 +749,8 @@
       "is_control": true,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3110",
@@ -623,7 +769,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3120",
@@ -642,7 +789,8 @@
       "is_control": false,
       "has_subsidiary": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3210",
@@ -661,7 +809,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3220",
@@ -680,7 +829,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3230",
@@ -699,7 +849,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3240",
@@ -718,7 +869,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_3900",
@@ -737,7 +889,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_4110",
@@ -756,7 +909,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_4120",
@@ -775,7 +929,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_4130",
@@ -794,7 +949,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_4140",
@@ -813,7 +969,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_4210",
@@ -832,7 +989,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_5110",
@@ -851,7 +1009,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_5210",
@@ -870,7 +1029,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_5220",
@@ -889,7 +1049,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_5230",
@@ -908,7 +1069,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "acc_5290",
@@ -927,7 +1089,8 @@
       "is_control": false,
       "has_subsidiary": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     }
   ],
   "financial_statement_mappings": [
@@ -1005,7 +1168,10 @@
       "closed_at": "2026-02-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 1,
+      "created_at": null
     },
     {
       "id": "period_2026_02",
@@ -1016,7 +1182,10 @@
       "closed_at": "2026-03-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 2,
+      "created_at": null
     },
     {
       "id": "period_2026_03",
@@ -1027,7 +1196,10 @@
       "closed_at": "2026-04-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 3,
+      "created_at": null
     },
     {
       "id": "period_2026_04",
@@ -1038,7 +1210,10 @@
       "closed_at": "2026-05-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 4,
+      "created_at": null
     },
     {
       "id": "period_2026_05",
@@ -1049,7 +1224,10 @@
       "closed_at": "2026-06-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 5,
+      "created_at": null
     },
     {
       "id": "period_2026_06",
@@ -1060,7 +1238,10 @@
       "closed_at": "2026-07-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 6,
+      "created_at": null
     },
     {
       "id": "period_2026_07",
@@ -1071,7 +1252,10 @@
       "closed_at": "2026-08-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 7,
+      "created_at": null
     },
     {
       "id": "period_2026_08",
@@ -1082,7 +1266,10 @@
       "closed_at": "2026-09-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 8,
+      "created_at": null
     },
     {
       "id": "period_2026_09",
@@ -1093,7 +1280,10 @@
       "closed_at": "2026-10-05T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 9,
+      "created_at": null
     },
     {
       "id": "period_2026_10",
@@ -1104,7 +1294,10 @@
       "closed_at": "2026-11-02T17:00:00Z",
       "closed_by": "Chief Accountant",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 10,
+      "created_at": null
     },
     {
       "id": "period_2026_11",
@@ -1115,7 +1308,10 @@
       "closed_at": null,
       "closed_by": null,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 11,
+      "created_at": null
     },
     {
       "id": "period_2026_12",
@@ -1126,7 +1322,10 @@
       "closed_at": null,
       "closed_by": null,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "fiscal_year": 2026,
+      "period_number": 12,
+      "created_at": null
     }
   ],
   "accounting_mappings": [
@@ -1138,7 +1337,9 @@
       "credit_account_id": "acc_1110",
       "description": "Disbursement of approved loan principal to borrower",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_loan_payment",
@@ -1148,7 +1349,9 @@
       "credit_account_id": "acc_1210",
       "description": "Collection of loan installment principal",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_interest_income",
@@ -1158,7 +1361,9 @@
       "credit_account_id": "acc_4110",
       "description": "Interest portion of loan repayment",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_penalty_income",
@@ -1168,7 +1373,9 @@
       "credit_account_id": "acc_4130",
       "description": "Late payment fee collected",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_fee_income",
@@ -1178,7 +1385,9 @@
       "credit_account_id": "acc_4120",
       "description": "Deducted or collected processing fees",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_savings_dep",
@@ -1188,7 +1397,9 @@
       "credit_account_id": "acc_2110",
       "description": "Member deposits cash into savings account",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_savings_with",
@@ -1198,7 +1409,9 @@
       "credit_account_id": "acc_1110",
       "description": "Member withdraws cash from savings account",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_cbu_payment",
@@ -1208,7 +1421,9 @@
       "credit_account_id": "acc_3110",
       "description": "Member adds capital build-up",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     },
     {
       "id": "map_expense",
@@ -1218,7 +1433,9 @@
       "credit_account_id": "acc_1110",
       "description": "Disbursement for operational expenditure",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "event_type": "",
+      "is_system": "1"
     }
   ],
   "numbering_formats": [
@@ -1230,7 +1447,12 @@
       "length": 6,
       "current_seq": 42,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "branch_specific": "1",
+      "include_year": "1",
+      "padding": "5",
+      "next_number": "1",
+      "created_at": null
     },
     {
       "id": "num_cd",
@@ -1240,7 +1462,12 @@
       "length": 6,
       "current_seq": 38,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "branch_specific": "1",
+      "include_year": "1",
+      "padding": "5",
+      "next_number": "1",
+      "created_at": null
     },
     {
       "id": "num_or",
@@ -1250,7 +1477,12 @@
       "length": 6,
       "current_seq": 154,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "branch_specific": "1",
+      "include_year": "1",
+      "padding": "5",
+      "next_number": "1",
+      "created_at": null
     },
     {
       "id": "num_ln",
@@ -1260,7 +1492,12 @@
       "length": 5,
       "current_seq": 28,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "branch_specific": "1",
+      "include_year": "1",
+      "padding": "5",
+      "next_number": "1",
+      "created_at": null
     },
     {
       "id": "num_mem",
@@ -1270,7 +1507,12 @@
       "length": 5,
       "current_seq": 106,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "branch_specific": "1",
+      "include_year": "1",
+      "padding": "5",
+      "next_number": "1",
+      "created_at": null
     }
   ],
   "approval_workflows": [
@@ -1281,7 +1523,8 @@
       "description": "Tiered loan approvals based on configurable principal thresholds",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     },
     {
       "id": "wf_expense_standard",
@@ -1290,7 +1533,8 @@
       "description": "Approval hierarchy for cash and bank disbursements",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "created_at": null
     }
   ],
   "approval_rules": [
@@ -1354,7 +1598,12 @@
       "default_value": "Farmer / Fisherfolk",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_barangay",
@@ -1367,7 +1616,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_monthly_income",
@@ -1380,7 +1634,12 @@
       "default_value": "25000",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_tin_number",
@@ -1393,7 +1652,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_notes",
@@ -1406,7 +1670,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_id_photo",
@@ -1419,7 +1688,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_member_photo",
@@ -1432,7 +1706,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_birth_certificate",
@@ -1445,7 +1724,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_marriage_certificate",
@@ -1458,7 +1742,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_supporting_docs",
@@ -1471,7 +1760,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_collateral_desc",
@@ -1484,7 +1778,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_id_doc",
@@ -1503,7 +1802,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_contract",
@@ -1516,7 +1820,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_biodata",
@@ -1529,7 +1838,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_photo",
@@ -1542,7 +1856,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_spreadsheet",
@@ -1555,7 +1874,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_certifications",
@@ -1568,7 +1892,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_user_other_files",
@@ -1581,7 +1910,12 @@
       "default_value": "",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "field_key": "",
+      "label": "",
+      "is_required": "0",
+      "display_order": "1"
     },
     {
       "id": "cf_emergency_contact_person_1792301230373_4ehr",
@@ -1598,7 +1932,9 @@
       "active": true,
       "created_at": "2026-10-18T05:27:10.373Z",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "display_order": "1"
     },
     {
       "id": "cf_blood_type_1792301230376_xwkd",
@@ -1615,7 +1951,9 @@
       "active": true,
       "created_at": "2026-10-18T05:27:10.376Z",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "entity_type": "",
+      "display_order": "1"
     }
   ],
   "member_types": [
@@ -1636,7 +1974,9 @@
       ],
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "voting_rights": "1",
+      "coop_id": "coop_01"
     },
     {
       "id": "mt_associate",
@@ -1654,7 +1994,9 @@
       ],
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "voting_rights": "1",
+      "coop_id": "coop_01"
     },
     {
       "id": "mt_youth",
@@ -1671,7 +2013,9 @@
       ],
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "voting_rights": "1",
+      "coop_id": "coop_01"
     }
   ],
   "members": [
@@ -1699,7 +2043,9 @@
         "monthly_income": 25000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000002",
@@ -1725,7 +2071,9 @@
         "monthly_income": 32000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000003",
@@ -1751,7 +2099,9 @@
         "monthly_income": 45000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000004",
@@ -1777,7 +2127,9 @@
         "monthly_income": 38000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000005",
@@ -1803,7 +2155,9 @@
         "monthly_income": 28000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000006",
@@ -1829,7 +2183,9 @@
         "monthly_income": 40000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000007",
@@ -1855,7 +2211,9 @@
         "monthly_income": 55000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000008",
@@ -1881,7 +2239,9 @@
         "monthly_income": 0
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000009",
@@ -1907,7 +2267,9 @@
         "monthly_income": 26000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_000010",
@@ -1933,7 +2295,9 @@
         "monthly_income": 35000
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_01",
@@ -1954,7 +2318,13 @@
       "status": "Active",
       "membership_date": "2026-01-15",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_02",
@@ -1975,7 +2345,13 @@
       "status": "Active",
       "membership_date": "2026-01-20",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_03",
@@ -1996,7 +2372,13 @@
       "status": "Active",
       "membership_date": "2026-02-01",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_04",
@@ -2017,7 +2399,13 @@
       "status": "Active",
       "membership_date": "2026-02-10",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_05",
@@ -2038,7 +2426,13 @@
       "status": "Active",
       "membership_date": "2026-02-15",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_sample_06",
@@ -2059,7 +2453,13 @@
       "status": "Active",
       "membership_date": "2026-02-20",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "birthdate": null,
+      "phone": "",
+      "joined_date": null,
+      "custom_field_values": null,
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_csv_1792301230380_0_kq1w",
@@ -2090,7 +2490,9 @@
         "blood_type": "B+"
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     },
     {
       "id": "mem_csv_1792301230380_0_kq1w",
@@ -2121,7 +2523,9 @@
         "blood_type": "B+"
       },
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null,
+      "updated_at": null
     }
   ],
   "loan_products": [
@@ -2154,7 +2558,12 @@
       "effective_from": "2025-01-01",
       "effective_until": null,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "min_term_months": null,
+      "max_term_months": null,
+      "penalty_rate_percentage": "2.00",
+      "gl_receivable_account_id": "",
+      "gl_interest_income_account_id": ""
     },
     {
       "id": "lp_emergency",
@@ -2184,7 +2593,12 @@
       "effective_from": "2025-01-01",
       "effective_until": null,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "min_term_months": null,
+      "max_term_months": null,
+      "penalty_rate_percentage": "2.00",
+      "gl_receivable_account_id": "",
+      "gl_interest_income_account_id": ""
     },
     {
       "id": "lp_agri",
@@ -2215,7 +2629,12 @@
       "effective_from": "2025-01-01",
       "effective_until": null,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "min_term_months": null,
+      "max_term_months": null,
+      "penalty_rate_percentage": "2.00",
+      "gl_receivable_account_id": "",
+      "gl_interest_income_account_id": ""
     }
   ],
   "loan_product_versions": [
@@ -2229,7 +2648,9 @@
       "changed_by": "System Initializer",
       "reason": "Initial CDA compliance configuration",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "version_number": 0,
+      "effective_from": null
     }
   ],
   "loan_applications": [
@@ -2246,7 +2667,12 @@
       "submitted_date": "2026-10-15",
       "created_at": "2026-10-15 08:30:00",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "loan_id": null,
+      "reviewed_by": null,
+      "reviewed_date": null,
+      "approved_amount": null,
+      "remarks": ""
     },
     {
       "id": "app_seed_002",
@@ -2261,7 +2687,12 @@
       "submitted_date": "2026-10-15",
       "created_at": "2026-10-15 09:15:00",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "loan_id": null,
+      "reviewed_by": null,
+      "reviewed_date": null,
+      "approved_amount": null,
+      "remarks": ""
     },
     {
       "id": "app_seed_003",
@@ -2278,7 +2709,10 @@
       "submitted_date": "2026-10-15",
       "created_at": "2026-10-15 10:00:00",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "loan_id": null,
+      "reviewed_date": null,
+      "remarks": ""
     }
   ],
   "loans": [
@@ -2313,7 +2747,8 @@
       "approved_date": "2026-01-19",
       "created_at": "2026-01-20T08:30:00Z",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null
     },
     {
       "id": "ln_000002",
@@ -2346,7 +2781,8 @@
       "approved_date": "2026-02-14",
       "created_at": "2026-02-15T09:00:00Z",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null
     },
     {
       "id": "ln_000003",
@@ -2379,7 +2815,8 @@
       "approved_date": "2026-02-28",
       "created_at": "2026-03-01T10:00:00Z",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null
     },
     {
       "id": "loan_sample_01",
@@ -2406,7 +2843,12 @@
       "total_penalty_paid": 3000,
       "total_fees_paid": 10000,
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null,
+      "product_version": "1",
+      "approved_by": null,
+      "approved_date": null,
+      "created_at": null
     },
     {
       "id": "loan_sample_02",
@@ -2433,7 +2875,12 @@
       "total_penalty_paid": 2000,
       "total_fees_paid": 7000,
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null,
+      "product_version": "1",
+      "approved_by": null,
+      "approved_date": null,
+      "created_at": null
     },
     {
       "id": "loan_sample_03",
@@ -2460,7 +2907,12 @@
       "total_penalty_paid": 0,
       "total_fees_paid": 8000,
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null,
+      "product_version": "1",
+      "approved_by": null,
+      "approved_date": null,
+      "created_at": null
     },
     {
       "id": "loan_sample_04",
@@ -2487,7 +2939,12 @@
       "total_penalty_paid": 0,
       "total_fees_paid": 3000,
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "application_id": null,
+      "product_version": "1",
+      "approved_by": null,
+      "approved_date": null,
+      "created_at": null
     }
   ],
   "loan_amortization_schedules": [
@@ -3044,7 +3501,8 @@
       "received_by": "Elena Rostro",
       "created_at": "2026-02-18 11:00:00",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "journal_entry_id": null
     },
     {
       "id": "pay_ln1_2",
@@ -3057,7 +3515,8 @@
       "received_by": "Elena Rostro",
       "created_at": "2026-03-18 11:00:00",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "journal_entry_id": null
     },
     {
       "id": "pay_ln2_1",
@@ -3077,7 +3536,8 @@
       "notes": "Installment #1 Payment",
       "created_at": "2026-03-15 10:30:00",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "journal_entry_id": null
     },
     {
       "id": "pay_ln2_2",
@@ -3097,7 +3557,8 @@
       "notes": "Installment #2 Payment",
       "created_at": "2026-04-15 10:30:00",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "journal_entry_id": null
     },
     {
       "id": "pay_ln3_1",
@@ -3117,7 +3578,8 @@
       "notes": "Installment #1 Payment",
       "created_at": "2026-04-01 11:15:00",
       "cooperative_id": "coop_01",
-      "branch_id": "branch_urd"
+      "branch_id": "branch_urd",
+      "journal_entry_id": null
     }
   ],
   "loan_payment_allocations": [
@@ -3128,7 +3590,12 @@
       "fee_type": "Principal",
       "allocated_amount": 2083.33,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "interest_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln1_1_i",
@@ -3138,7 +3605,11 @@
       "interest_amount": 208.33,
       "allocated_amount": 208.33,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln1_2_p",
@@ -3147,7 +3618,12 @@
       "fee_type": "Principal",
       "allocated_amount": 2083.33,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "interest_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln1_2_i",
@@ -3157,7 +3633,11 @@
       "interest_amount": 208.33,
       "allocated_amount": 208.33,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln2_1_p",
@@ -3167,7 +3647,11 @@
       "principal_amount": 2500,
       "allocated_amount": 2500,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "interest_amount": "0.00",
+      "fee_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln2_1_i",
@@ -3177,7 +3661,11 @@
       "interest_amount": 125,
       "allocated_amount": 125,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln2_2_p",
@@ -3187,7 +3675,11 @@
       "principal_amount": 2500,
       "allocated_amount": 2500,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "interest_amount": "0.00",
+      "fee_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln2_2_i",
@@ -3197,7 +3689,11 @@
       "interest_amount": 125,
       "allocated_amount": 125,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln3_1_p",
@@ -3207,7 +3703,11 @@
       "principal_amount": 4166.67,
       "allocated_amount": 4166.67,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_urd"
+      "branch_id": "branch_urd",
+      "penalty_amount": "0.00",
+      "interest_amount": "0.00",
+      "fee_amount": "0.00",
+      "allocation_order_applied": null
     },
     {
       "id": "alloc_ln3_1_i",
@@ -3217,7 +3717,11 @@
       "interest_amount": 416.67,
       "allocated_amount": 416.67,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_urd"
+      "branch_id": "branch_urd",
+      "penalty_amount": "0.00",
+      "fee_amount": "0.00",
+      "principal_amount": "0.00",
+      "allocation_order_applied": null
     }
   ],
   "savings_products": [
@@ -3232,7 +3736,11 @@
       "debit_account_id": "acc_2110",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "min_opening_deposit": "500.00",
+      "maintaining_balance": "500.00",
+      "gl_liability_account_id": "",
+      "gl_interest_expense_account_id": ""
     },
     {
       "id": "sp_time_deposit",
@@ -3245,7 +3753,11 @@
       "debit_account_id": "acc_2120",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "min_opening_deposit": "500.00",
+      "maintaining_balance": "500.00",
+      "gl_liability_account_id": "",
+      "gl_interest_expense_account_id": ""
     }
   ],
   "savings_accounts": [
@@ -3402,7 +3914,8 @@
       "status": "Active",
       "opened_date": "2026-01-20",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sav_mem_02",
@@ -3417,7 +3930,8 @@
       "status": "Active",
       "opened_date": "2026-01-25",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sav_mem_03",
@@ -3432,7 +3946,8 @@
       "status": "Active",
       "opened_date": "2026-02-05",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sav_mem_04",
@@ -3447,7 +3962,8 @@
       "status": "Active",
       "opened_date": "2026-02-12",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sav_mem_05",
@@ -3462,7 +3978,8 @@
       "status": "Active",
       "opened_date": "2026-02-18",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sav_mem_06",
@@ -3477,7 +3994,8 @@
       "status": "Active",
       "opened_date": "2026-02-22",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sa_mem_csv_1792301230380_0_kq1w",
@@ -3489,7 +4007,8 @@
       "opened_date": "2026-10-18",
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     }
   ],
   "savings_transactions": [
@@ -3862,7 +4381,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "cbu_mem_sample_02",
@@ -3877,7 +4397,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "cbu_mem_sample_03",
@@ -3892,7 +4413,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "cbu_mem_sample_04",
@@ -3907,7 +4429,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "cbu_mem_sample_05",
@@ -3922,7 +4445,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "cbu_mem_sample_06",
@@ -3937,7 +4461,8 @@
       "par_value": 100,
       "status": "Active",
       "cooperative_id": "coop_01",
-      "created_by": "usr_superadmin"
+      "created_by": "usr_superadmin",
+      "created_at": null
     },
     {
       "id": "sca_mem_csv_1792301230380_0_kq1w",
@@ -4180,7 +4705,10 @@
       "accounting_account_id": "acc_4120",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "amount": 0,
+      "applies_to": "",
+      "gl_account_id": ""
     },
     {
       "id": "fee_serv",
@@ -4195,7 +4723,10 @@
       "accounting_account_id": "acc_4120",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "amount": 0,
+      "applies_to": "",
+      "gl_account_id": ""
     },
     {
       "id": "fee_mem",
@@ -4210,7 +4741,10 @@
       "accounting_account_id": "acc_4210",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "amount": 0,
+      "applies_to": "",
+      "gl_account_id": ""
     },
     {
       "id": "fee_late",
@@ -4225,7 +4759,10 @@
       "accounting_account_id": "acc_4130",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "amount": 0,
+      "applies_to": "",
+      "gl_account_id": ""
     }
   ],
   "penalty_rules": [
@@ -4241,7 +4778,11 @@
       "accounting_account_id": "acc_4130",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_rate_percentage": 0,
+      "calculation_base": "Overdue Principal",
+      "compounding_frequency": "None",
+      "gl_income_account_id": ""
     },
     {
       "id": "pen_daily_fixed",
@@ -4255,7 +4796,11 @@
       "accounting_account_id": "acc_4130",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "penalty_rate_percentage": 0,
+      "calculation_base": "Overdue Principal",
+      "compounding_frequency": "None",
+      "gl_income_account_id": ""
     }
   ],
   "payment_allocation_rules": [
@@ -4287,7 +4832,10 @@
       "is_default": true,
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "description": "",
+      "priority_order": null,
+      "updated_at": null
     },
     {
       "id": "par_borrower_favorable",
@@ -4317,7 +4865,10 @@
       "is_default": false,
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "description": "",
+      "priority_order": null,
+      "updated_at": null
     }
   ],
   "payment_frequencies": [
@@ -4328,7 +4879,9 @@
       "installments_per_year": 365,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_weekly",
@@ -4337,7 +4890,9 @@
       "installments_per_year": 52,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_biweekly",
@@ -4346,7 +4901,9 @@
       "installments_per_year": 26,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_semimonthly",
@@ -4355,7 +4912,9 @@
       "installments_per_year": 24,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_monthly",
@@ -4364,7 +4923,9 @@
       "installments_per_year": 12,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_quarterly",
@@ -4373,7 +4934,9 @@
       "installments_per_year": 4,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_semiannual",
@@ -4382,7 +4945,9 @@
       "installments_per_year": 2,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     },
     {
       "id": "pf_annual",
@@ -4391,7 +4956,9 @@
       "installments_per_year": 1,
       "is_custom": false,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "periods_per_year": 0,
+      "active": "1"
     }
   ],
   "document_requirements": [
@@ -4402,7 +4969,9 @@
       "required_for": "All Members",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "module": "",
+      "is_mandatory": "1"
     },
     {
       "id": "doc_income",
@@ -4411,7 +4980,9 @@
       "required_for": "Borrowers",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "module": "",
+      "is_mandatory": "1"
     },
     {
       "id": "doc_brgy",
@@ -4420,7 +4991,9 @@
       "required_for": "New Members",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "module": "",
+      "is_mandatory": "1"
     },
     {
       "id": "doc_collateral",
@@ -4429,7 +5002,9 @@
       "required_for": "Secured Loans",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "module": "",
+      "is_mandatory": "1"
     },
     {
       "id": "doc_pmes",
@@ -4438,7 +5013,9 @@
       "required_for": "Regular Members",
       "active": true,
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "module": "",
+      "is_mandatory": "1"
     }
   ],
   "notification_rules": [
@@ -5376,7 +5953,8 @@
       "user_id": null,
       "created_at": "2026-10-18T05:27:10.374Z",
       "reason": "Auto-created custom field from CSV header \"emergency_contact_person\"",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "action": "UPDATE"
     },
     {
       "id": "audit_1792301230377_yuocz9",
@@ -5388,7 +5966,8 @@
       "user_id": null,
       "created_at": "2026-10-18T05:27:10.377Z",
       "reason": "Auto-created custom field from CSV header \"blood_type\"",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "action": "UPDATE"
     },
     {
       "id": "audit_1792301230385_bhs3vk",
@@ -5400,7 +5979,20 @@
       "user_id": null,
       "created_at": "2026-10-18T05:27:10.385Z",
       "reason": "Imported 1 members with 2 new custom fields registered.",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "action": "UPDATE"
+    },
+    {
+      "id": "audit_1794102465236_2funu1",
+      "setting": "Generated full-year accounting periods for FY 2026",
+      "old_value": "None",
+      "new_value": "12 Periods",
+      "changed_by": "Chief Accountant",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-08T01:47:45.236Z",
+      "reason": "Yearly Accounting Setup",
+      "action": "UPDATE"
     }
   ],
   "user_roles": [
@@ -5425,7 +6017,8 @@
         "audit.export"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     },
     {
       "id": "role_admin",
@@ -5459,7 +6052,8 @@
         "reports.export"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     },
     {
       "id": "role_manager",
@@ -5478,7 +6072,8 @@
         "reports.export"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     },
     {
       "id": "role_accountant",
@@ -5497,7 +6092,8 @@
         "reports.export"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     },
     {
       "id": "role_loan_officer",
@@ -5511,7 +6107,8 @@
         "member.create"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     },
     {
       "id": "role_cashier",
@@ -5524,7 +6121,8 @@
         "member.view"
       ],
       "cooperative_id": "coop_01",
-      "branch_id": "branch_tar"
+      "branch_id": "branch_tar",
+      "active": "1"
     }
   ],
   "users": [
@@ -5541,7 +6139,8 @@
       "active": true,
       "last_login": "2026-10-15T13:03:43.458Z",
       "created_at": "2026-01-01T08:00:00.000Z",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "documents": null
     },
     {
       "id": "usr_admin",
@@ -5556,7 +6155,8 @@
       "active": true,
       "last_login": "2026-10-15T13:03:43.458Z",
       "created_at": "2026-01-01T08:00:00.000Z",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "documents": null
     },
     {
       "id": "usr_manager_tar",
@@ -5571,7 +6171,8 @@
       "active": true,
       "last_login": "2026-10-15T13:03:43.458Z",
       "created_at": "2026-01-01T08:00:00.000Z",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "documents": null
     },
     {
       "id": "usr_officer_tar",
@@ -5586,7 +6187,8 @@
       "active": true,
       "last_login": "2026-10-15T13:03:43.458Z",
       "created_at": "2026-01-01T08:00:00.000Z",
-      "cooperative_id": "coop_01"
+      "cooperative_id": "coop_01",
+      "documents": null
     },
     {
       "id": "usr_officer_urd",
@@ -5601,7 +6203,8 @@
       "is_super_admin": false,
       "active": true,
       "last_login": "2026-10-18T05:08:53.409Z",
-      "created_at": "2026-01-01T08:00:00.000Z"
+      "created_at": "2026-01-01T08:00:00.000Z",
+      "documents": null
     },
     {
       "id": "usr_manager_sfe",
@@ -5616,7 +6219,8 @@
       "is_super_admin": false,
       "active": true,
       "last_login": "2026-10-18T05:08:53.409Z",
-      "created_at": "2026-01-01T08:00:00.000Z"
+      "created_at": "2026-01-01T08:00:00.000Z",
+      "documents": null
     }
   ],
   "user_documents": []
