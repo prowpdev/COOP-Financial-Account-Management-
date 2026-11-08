@@ -62,7 +62,10 @@ $router->get('/api/public/branches', [BranchController::class, 'index']);
 // Add cooperative public with secret
 $router->get('/api/public/cooperatives', [CooperativeController::class, 'index']);
 $router->post('/api/public/cooperative/create', [CooperativeController::class, 'create']);
-
+$router->get('/api/database/seeder', [SeederController::class, 'run']);
+// All routes in this group require a valid JWT bearer token.
+$router->group([JwtAuthMiddleware::class], function (Router $router): void {
+  
 // Reports Module Endpoints (Accessible with JWT or Session)
 $router->get('/api/accounting-periods', [ReportController::class, 'accountingPeriods']);
 $router->get('/accounting-periods', [ReportController::class, 'accountingPeriods']);
@@ -74,9 +77,7 @@ $router->get('/api/reports/member-transactions', [ReportController::class, 'memb
 $router->get('/api/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
 $router->get('/reports/member-transactions', [ReportController::class, 'memberTransactions']);
 $router->get('/reports/member-transactions/:period_id', [ReportController::class, 'memberTransactions']);
-  $router->get('/api/database/seeder', [SeederController::class, 'run']);
-// All routes in this group require a valid JWT bearer token.
-$router->group([JwtAuthMiddleware::class], function (Router $router): void {
+
 
   $router->post('/api/members/import-csv',[MemberController::class,'import_members']);
 

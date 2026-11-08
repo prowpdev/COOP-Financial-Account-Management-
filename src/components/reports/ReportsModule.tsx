@@ -38,6 +38,8 @@ interface ReportsModuleProps {
   coopProfile?: CoopProfile;
   selectedBranchId?: string;
   onSelectBranch?: (id: string) => void;
+  initialView?: ReportsView;
+  onNavigateToView?: (view: ReportsView) => void;
 }
 
 interface AccountingPeriod {
@@ -49,7 +51,7 @@ interface AccountingPeriod {
   fiscal_year?: string;
 }
 
-type SubmoduleTab = 'subsidiary_ledger' | 'journal_ledger' | 'account_ledger' | 'member_ledger';
+export type ReportsView = 'subsidiary_ledger' | 'journal_ledger' | 'account_ledger' | 'member_ledger';
 
 export const ReportsModule: React.FC<ReportsModuleProps> = ({
   accounts = [],
@@ -58,7 +60,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   currentUser,
   coopProfile,
   selectedBranchId,
-  onSelectBranch
+  onSelectBranch,
+  initialView,
+  onNavigateToView
 }) => {
   // Accounting Periods state
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
@@ -81,7 +85,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const [journalSearchQuery, setJournalSearchQuery] = useState('');
 
   // Submodule Tab
-  const [activeTab, setActiveTab] = useState<SubmoduleTab>('subsidiary_ledger');
+  const [activeTab, setActiveTab] = useState<ReportsView>(initialView || 'subsidiary_ledger');
 
   // Loaded Datasets
   const [glLines, setGlLines] = useState<any[]>([]);
@@ -90,6 +94,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialView || 'subsidiary_ledger');
+  }, [initialView]);
+
+  const navigateToView = (view: ReportsView) => {
+    setActiveTab(view);
+    onNavigateToView?.(view);
+  };
 
   // Sync branches prop
   useEffect(() => {
@@ -952,7 +965,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-2">
         <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
           <button
-            onClick={() => setActiveTab('subsidiary_ledger')}
+            onClick={() => navigateToView('subsidiary_ledger')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'subsidiary_ledger'
                 ? 'bg-emerald-600 text-white shadow-sm'
@@ -964,7 +977,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('journal_ledger')}
+            onClick={() => navigateToView('journal_ledger')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'journal_ledger'
                 ? 'bg-emerald-600 text-white shadow-sm'
@@ -979,7 +992,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('account_ledger')}
+            onClick={() => navigateToView('account_ledger')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'account_ledger'
                 ? 'bg-emerald-600 text-white shadow-sm'
@@ -991,7 +1004,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('member_ledger')}
+            onClick={() => navigateToView('member_ledger')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'member_ledger'
                 ? 'bg-emerald-600 text-white shadow-sm'

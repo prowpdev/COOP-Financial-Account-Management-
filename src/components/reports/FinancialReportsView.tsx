@@ -28,18 +28,33 @@ interface FinancialReportsViewProps {
   branches?: Branch[];
   selectedBranchId?: string;
   onSelectBranch?: (id: string) => void;
+  initialReportType?: FinancialReportType;
+  onNavigateToReport?: (reportType: FinancialReportType) => void;
 }
+
+export type FinancialReportType = 'trial_balance' | 'balance_sheet' | 'income_statement' | 'cda_statutory';
 
 export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
   branches = [],
   selectedBranchId,
-  onSelectBranch
+  onSelectBranch,
+  initialReportType,
+  onNavigateToReport
 }) => {
-  const [reportType, setReportType] = useState<'trial_balance' | 'balance_sheet' | 'income_statement' | 'cda_statutory'>('trial_balance');
+  const [reportType, setReportType] = useState<FinancialReportType>(initialReportType || 'trial_balance');
   const [selectedBranch, setSelectedBranch] = useState(selectedBranchId || 'all');
   const [showZeroBalances, setShowZeroBalances] = useState(false);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setReportType(initialReportType || 'trial_balance');
+  }, [initialReportType]);
+
+  const navigateToReport = (type: FinancialReportType) => {
+    setReportType(type);
+    onNavigateToReport?.(type);
+  };
 
   useEffect(() => {
     if (selectedBranchId !== undefined) {
@@ -362,7 +377,7 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
       {/* Report Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
         <button
-          onClick={() => setReportType('trial_balance')}
+          onClick={() => navigateToReport('trial_balance')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             reportType === 'trial_balance'
               ? 'bg-emerald-600 text-white shadow'
@@ -372,7 +387,7 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
           Trial Balance Grid
         </button>
         <button
-          onClick={() => setReportType('balance_sheet')}
+          onClick={() => navigateToReport('balance_sheet')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             reportType === 'balance_sheet'
               ? 'bg-emerald-600 text-white shadow'
@@ -382,7 +397,7 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
           Statement of Financial Condition (Balance Sheet)
         </button>
         <button
-          onClick={() => setReportType('income_statement')}
+          onClick={() => navigateToReport('income_statement')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             reportType === 'income_statement'
               ? 'bg-emerald-600 text-white shadow'
@@ -392,7 +407,7 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
           Statement of Operations (Income Statement)
         </button>
         <button
-          onClick={() => setReportType('cda_statutory')}
+          onClick={() => navigateToReport('cda_statutory')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             reportType === 'cda_statutory'
               ? 'bg-amber-600 text-white shadow'

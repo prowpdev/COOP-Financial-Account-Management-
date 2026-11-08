@@ -268,6 +268,29 @@ export default function App() {
     navigateToRoute({ tab: 'accounting', accountingView, accountId });
   };
 
+  const navigateToConfigView = (
+    configSection: NonNullable<AppRoute['configSection']>,
+    configMode: NonNullable<AppRoute['configMode']>,
+    configSheet?: AppRoute['configSheet'],
+    configSubtab?: AppRoute['configSubtab']
+  ) => {
+    navigateToRoute({ tab: 'configuration', configSection, configMode, configSheet, configSubtab });
+  };
+
+  const navigateToWorkbenchSheet = (workbenchSheet: NonNullable<AppRoute['workbenchSheet']>) => {
+    navigateToRoute({ tab: 'excel_workbench', workbenchSheet });
+  };
+
+  const navigateToFinancialReport = (
+    financialReportType: NonNullable<AppRoute['financialReportType']>
+  ) => {
+    navigateToRoute({ tab: 'reports', financialReportType });
+  };
+
+  const navigateToReportsView = (reportsView: NonNullable<AppRoute['reportsView']>) => {
+    navigateToRoute({ tab: 'reports_module', reportsView });
+  };
+
   // Keep the address bar canonical for legacy query/hash links and unknown paths.
   useEffect(() => {
     const path = appRoutePath(route);
@@ -608,6 +631,11 @@ export default function App() {
               onRefresh={refreshGlobalState}
               onConfigUpdated={refreshGlobalState}
               currentUser={currentUser}
+              initialSection={route.configSection}
+              initialMode={route.configMode}
+              initialSheet={route.configSheet}
+              initialSubtab={route.configSubtab}
+              onNavigateToView={navigateToConfigView}
             />
           )}
 
@@ -615,6 +643,8 @@ export default function App() {
             <ExcelWorkbench
               currentUser={currentUser}
               onRefresh={refreshGlobalState}
+              initialSheet={route.workbenchSheet}
+              onNavigateToSheet={navigateToWorkbenchSheet}
             />
           )}
 
@@ -734,6 +764,8 @@ export default function App() {
               selectedBranchId={selectedBranchId}
               branches={branches}
               onSelectBranch={setSelectedBranchId}
+              initialReportType={route.financialReportType}
+              onNavigateToReport={navigateToFinancialReport}
             />
           )}
 
@@ -745,6 +777,8 @@ export default function App() {
               coopProfile={profile}
               selectedBranchId={selectedBranchId}
               onSelectBranch={setSelectedBranchId}
+              initialView={route.reportsView}
+              onNavigateToView={navigateToReportsView}
             />
           )}
 

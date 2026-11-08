@@ -1,11 +1,22 @@
 import type { TabKey } from './components/Sidebar';
 import type { AccountingTabKey } from './components/operations/AccountingModule';
+import type { ConfigSection } from './components/config/ConfigCenter';
+import type { SheetKey } from './components/config/ExcelWorkbench';
+import type { FinancialReportType } from './components/reports/FinancialReportsView';
+import type { ReportsView } from './components/reports/ReportsModule';
 
 export interface AppRoute {
   tab: TabKey;
   memberId?: string;
   accountingView?: AccountingTabKey;
   accountId?: string;
+  configSection?: ConfigSection;
+  configMode?: 'form' | 'excel';
+  configSheet?: SheetKey;
+  configSubtab?: 'share_capital' | 'savings';
+  workbenchSheet?: SheetKey;
+  financialReportType?: FinancialReportType;
+  reportsView?: ReportsView;
 }
 
 const TAB_PATHS: Record<TabKey, string> = {
@@ -42,6 +53,51 @@ const ACCOUNTING_PATHS: Record<AccountingTabKey, string> = {
   cash_banks: 'cash-banks'
 };
 
+const CONFIG_SECTION_PATHS: Record<ConfigSection, string> = {
+  cooperative: 'cooperative',
+  chart_of_accounts: 'chart-of-accounts',
+  accounting_mappings: 'accounting-mappings',
+  loan_products: 'loan-products',
+  interest_engine: 'interest-engine',
+  fees_penalties: 'fees-penalties',
+  payment_allocations: 'payment-allocations',
+  approvals: 'approvals',
+  custom_fields: 'custom-fields',
+  share_capital_settings: 'share-capital-settings',
+  savings_cbu: 'savings-cbu',
+  cash_accounts: 'cash-accounts',
+  numbering: 'numbering',
+  branches: 'branches',
+  accounting_periods: 'accounting-periods',
+  feature_toggles: 'feature-toggles',
+  audit_trail: 'audit-trail'
+};
+
+const SHEET_PATHS: Record<SheetKey, string> = {
+  loan_products: 'loan-products',
+  chart_of_accounts: 'chart-of-accounts',
+  fees: 'fees',
+  branches: 'branches',
+  cash_accounts: 'cash-accounts',
+  approval_rules: 'approval-rules',
+  custom_fields: 'custom-fields',
+  numbering_formats: 'numbering-formats'
+};
+
+const REPORTS_VIEW_PATHS: Record<ReportsView, string> = {
+  subsidiary_ledger: 'subsidiary-ledger',
+  journal_ledger: 'journal-ledger',
+  account_ledger: 'account-ledger',
+  member_ledger: 'member-ledger'
+};
+
+const FINANCIAL_REPORT_PATHS: Record<FinancialReportType, string> = {
+  trial_balance: 'trial-balance',
+  balance_sheet: 'balance-sheet',
+  income_statement: 'income-statement',
+  cda_statutory: 'cda-statutory'
+};
+
 const LEGACY_TAB_PATHS: Partial<Record<string, TabKey>> = {
   superadmin: 'superadmin_console',
   superadmin_console: 'superadmin_console',
@@ -74,6 +130,40 @@ export const resolveAppRoute = (
   location: Pick<Location, 'pathname' | 'search' | 'hash'>
 ): AppRoute => {
   const parts = location.pathname.split('/').filter(Boolean);
+
+  if (parts[0] === 'configuration') {
+    if (parts[1] === 'workbench') {
+      const sheet = parseMappedPath(SHEET_PATHS, parts[2]);
+      return { tab: 'configuration', configMode: 'excel', configSheet: sheet || 'loan_products' };
+    }
+    const configSection = parseMappedPath(CONFIG_SECTION_PATHS, parts[1]);
+    if (configSection) {
+      return {
+        tab: 'configuration',
+        configMode: 'form',
+        configSection,
+        ...(configSection === 'savings_cbu' && (parts[2] === 'savings' || parts[2] === 'share-capital')
+          ? { configSubtab: parts[2] === 'savings' ? 'savings' : 'share_capital' }
+          : {})
+      };
+    }
+    if (!parts[1]) return { tab: 'configuration' };
+  }
+
+  if (parts[0] === 'excel-workbench') {
+    const workbenchSheet = parseMappedPath(SHEET_PATHS, parts[1]);
+    return { tab: 'excel_workbench', workbenchSheet: workbenchSheet || 'loan_products' };
+  }
+
+  if (parts[0] === 'financial-reports') {
+    const financialReportType = parseMappedPath(FINANCIAL_REPORT_PATHS, parts[1]);
+    return { tab: 'reports', financialReportType: financialReportType || 'trial_balance' };
+  }
+
+  if (parts[0] === 'reports') {
+    const reportsView = parseMappedPath(REPORTS_VIEW_PATHS, parts[1]);
+    return { tab: 'reports_module', reportsView: reportsView || 'subsidiary_ledger' };
+  }
 
   if (parts[0] === 'members') {
     if (parts[1] === 'profile') return { tab: 'member_profile' };
@@ -122,8 +212,34 @@ export const appRoutePath = (route: AppRoute): string => {
     const section = ACCOUNTING_PATHS[route.accountingView || 'overview'];
     return section ? `/accounting/${section}` : '/accounting';
   }
+  if (route.tab === 'configuration') {
+    if (route.configMode === 'excel') {
+      return `/configuration/workbench/${SHEET_PATHS[route.configSheet || 'loan_products']}`;
+    }
+    if (route.configSection === 'savings_cbu' && route.configSubtab) {
+      const subtabPath = route.configSubtab === 'savings' ? 'savings' : 'share-capital';
+      return `/configuration/${CONFIG_SECTION_PATHS.savings_cbu}/${subtabPath}`;
+    }
+    return route.configSection
+      ? `/configuration/${CONFIG_SECTION_PATHS[route.configSection]}`
+      : TAB_PATHS[route.tab];
+  }
+  if (route.tab === 'excel_workbench') {
+    return `/excel-workbench/${SHEET_PATHS[route.workbenchSheet || 'loan_products']}`;
+  }
+  if (route.tab === 'reports') {
+    return `/financial-reports/${FINANCIAL_REPORT_PATHS[route.financialReportType || 'trial_balance']}`;
+  }
+  if (route.tab === 'reports_module') {
+    return `/reports/${REPORTS_VIEW_PATHS[route.reportsView || 'subsidiary_ledger']}`;
+  }
   return TAB_PATHS[route.tab];
 };
+
+const parseMappedPath = <T extends string>(
+  paths: Record<T, string>,
+  segment?: string
+): T | undefined => Object.entries(paths).find(([, path]) => path === segment)?.[0] as T | undefined;
 
 const decodeRoutePart = (part: string): string => {
   try {

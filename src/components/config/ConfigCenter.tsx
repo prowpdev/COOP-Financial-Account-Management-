@@ -88,9 +88,19 @@ interface ConfigCenterProps {
   currentUser: User;
   onRefresh?: () => void;
   onConfigUpdated?: () => void;
+  initialSection?: ConfigSection;
+  initialMode?: 'form' | 'excel';
+  initialSheet?: SheetKey;
+  initialSubtab?: 'share_capital' | 'savings';
+  onNavigateToView?: (
+    section: ConfigSection,
+    mode: 'form' | 'excel',
+    sheet?: SheetKey,
+    subtab?: 'share_capital' | 'savings'
+  ) => void;
 }
 
-type ConfigSection =
+export type ConfigSection =
   | 'cooperative'
   | 'chart_of_accounts'
   | 'accounting_mappings'
@@ -109,17 +119,48 @@ type ConfigSection =
   | 'feature_toggles'
   | 'audit_trail';
 
+export type SheetKey =
+  | 'loan_products'
+  | 'chart_of_accounts'
+  | 'fees'
+  | 'branches'
+  | 'cash_accounts'
+  | 'approval_rules'
+  | 'custom_fields'
+  | 'numbering_formats';
+
 export const ConfigCenter: React.FC<ConfigCenterProps> = ({
   configData: initialConfigData,
   currentUser,
   onRefresh,
-  onConfigUpdated
+  onConfigUpdated,
+  initialSection,
+  initialMode,
+  initialSheet,
+  initialSubtab,
+  onNavigateToView
 }) => {
   const [internalData, setInternalData] = useState<any>(initialConfigData || null);
   const [isLoading, setIsLoading] = useState(!initialConfigData);
-  const [centerMode, setCenterMode] = useState<'form' | 'excel'>('form');
-  const [activeSection, setActiveSection] = useState<ConfigSection>('loan_products');
+  const [centerMode, setCenterMode] = useState<'form' | 'excel'>(initialMode || 'form');
+  const [activeSection, setActiveSection] = useState<ConfigSection>(initialSection || 'loan_products');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    setCenterMode(initialMode || 'form');
+    setActiveSection(initialSection || 'loan_products');
+  }, [initialMode, initialSection]);
+
+  const navigateToView = (
+    section: ConfigSection,
+    mode: 'form' | 'excel',
+    sheet?: SheetKey,
+    subtab?: 'share_capital' | 'savings'
+  ) => {
+    setActiveSection(section);
+    setCenterMode(mode);
+    onNavigateToView?.(section, mode, sheet, subtab);
+  };
 
   const fetchFullConfig = async (retryCount = 2) => {
     try {
@@ -273,7 +314,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
           {/* View Mode Switcher: Form Studio vs Excel Spreadsheet Grid */}
           <div className="flex items-center bg-slate-950 p-1.5 rounded-xl border border-slate-800 shadow-inner self-start sm:self-auto">
             <button
-              onClick={() => setCenterMode('form')}
+              onClick={() => navigateToView(activeSection, 'form')}
               className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 centerMode === 'form'
                   ? 'bg-emerald-600 text-white shadow'
@@ -284,7 +325,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
               <span>Form Studio</span>
             </button>
             <button
-              onClick={() => setCenterMode('excel')}
+              onClick={() => navigateToView(activeSection, 'excel', initialSheet || 'loan_products')}
               className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 centerMode === 'excel'
                   ? 'bg-emerald-600 text-white shadow'
@@ -372,6 +413,8 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
           currentUser={currentUser}
           onRefresh={handleRefresh}
           showNotice={showNotice}
+          initialSheet={initialSheet}
+          onNavigateToSheet={(sheet) => navigateToView(activeSection, 'excel', sheet)}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -458,7 +501,7 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
                         <button
                           key={item.id}
                           id={`config-tab-${item.id}`}
-                          onClick={() => setActiveSection(item.id)}
+                          onClick={() => navigateToView(item.id, 'form')}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer text-left ${
                             isSelected
                               ? 'bg-emerald-600 text-white font-semibold shadow-sm'
@@ -603,6 +646,8 @@ export const ConfigCenter: React.FC<ConfigCenterProps> = ({
                   currentUser={currentUser}
                   onRefresh={handleRefresh}
                   showNotice={showNotice}
+                  initialSubtab={initialSubtab}
+                  onNavigateToSubtab={(subtab) => navigateToView('savings_cbu', 'form', undefined, subtab)}
                 />
               )}
 
@@ -829,7 +874,7 @@ function LoanProductsConfig({
 
           <button
             onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
+            className="hidden flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
             title="Import Loan Products from CSV"
           >
             <Upload className="w-3.5 h-3.5" />
@@ -3389,7 +3434,9 @@ function SavingsAndCbuConfig({
   accounts,
   currentUser,
   onRefresh,
-  showNotice
+  showNotice,
+  initialSubtab,
+  onNavigateToSubtab
 }: {
   savingsProducts: SavingsProduct[];
   shareCapitalSettings: any[];
@@ -3397,8 +3444,10 @@ function SavingsAndCbuConfig({
   currentUser: User;
   onRefresh: () => void;
   showNotice: (type: 'success' | 'error', msg: string) => void;
+  initialSubtab?: 'share_capital' | 'savings';
+  onNavigateToSubtab?: (subtab: 'share_capital' | 'savings') => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'share_capital' | 'savings'>('share_capital');
+  const [activeTab, setActiveTab] = useState<'share_capital' | 'savings'>(initialSubtab || 'share_capital');
   const [isAddingSavings, setIsAddingSavings] = useState(false);
   const [newSavings, setNewSavings] = useState({
     code: '',
@@ -3409,6 +3458,15 @@ function SavingsAndCbuConfig({
     withdrawal_limit_per_day: 50000,
     debit_account_id: 'acc_2110'
   });
+
+  useEffect(() => {
+    setActiveTab(initialSubtab || 'share_capital');
+  }, [initialSubtab]);
+
+  const navigateToSubtab = (subtab: 'share_capital' | 'savings') => {
+    setActiveTab(subtab);
+    onNavigateToSubtab?.(subtab);
+  };
 
   const handleCreateSavings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3431,7 +3489,7 @@ function SavingsAndCbuConfig({
       {/* Sub-navigation Tabs */}
       <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
         <button
-          onClick={() => setActiveTab('share_capital')}
+          onClick={() => navigateToSubtab('share_capital')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
             activeTab === 'share_capital'
               ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'
@@ -3442,7 +3500,7 @@ function SavingsAndCbuConfig({
           <span>Share Capital (CBU) Settings</span>
         </button>
         <button
-          onClick={() => setActiveTab('savings')}
+          onClick={() => navigateToSubtab('savings')}
           className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
             activeTab === 'savings'
               ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'

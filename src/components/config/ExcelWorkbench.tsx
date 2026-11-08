@@ -42,9 +42,11 @@ interface ExcelWorkbenchProps {
   currentUser: User;
   onRefresh?: () => void;
   showNotice?: (type: 'success' | 'error', msg: string) => void;
+  initialSheet?: SheetKey;
+  onNavigateToSheet?: (sheet: SheetKey) => void;
 }
 
-type SheetKey =
+export type SheetKey =
   | 'loan_products'
   | 'chart_of_accounts'
   | 'fees'
@@ -152,15 +154,26 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
   configData: initialConfigData,
   currentUser,
   onRefresh,
-  showNotice
+  showNotice,
+  initialSheet,
+  onNavigateToSheet
 }) => {
   const [internalConfig, setInternalConfig] = useState<any>(initialConfigData || null);
-  const [activeSheet, setActiveSheet] = useState<SheetKey>('loan_products');
+  const [activeSheet, setActiveSheet] = useState<SheetKey>(initialSheet || 'loan_products');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isSavingCreate, setIsSavingCreate] = useState(false);
   const [createValues, setCreateValues] = useState<Record<string, string | boolean>>({});
   const [workbenchNotice, setWorkbenchNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  React.useEffect(() => {
+    setActiveSheet(initialSheet || 'loan_products');
+  }, [initialSheet]);
+
+  const navigateToSheet = (sheet: SheetKey) => {
+    setActiveSheet(sheet);
+    onNavigateToSheet?.(sheet);
+  };
 
   const loadData = async () => {
     try {
@@ -1036,7 +1049,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
               <button
                 key={tab.id}
                 onClick={() => {
-                  setActiveSheet(tab.id);
+                  navigateToSheet(tab.id);
                   setIsCreating(false);
                 }}
                 className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
@@ -1148,7 +1161,7 @@ export const ExcelWorkbench: React.FC<ExcelWorkbenchProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLoanProductImportOpen(true)}
-                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-emerald-900/60 cursor-pointer"
+                className="hidden inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-emerald-900/60 cursor-pointer"
                 title="Import Loan Products from CSV"
               >
                 <Upload className="h-3.5 w-3.5" />
