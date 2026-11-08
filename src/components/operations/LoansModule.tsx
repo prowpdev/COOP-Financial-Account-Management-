@@ -128,72 +128,62 @@ export const LoansModule: React.FC<LoansModuleProps> = ({
   const [selectedLoanForLedger, setSelectedLoanForLedger] = useState<Loan | null>(null);
   const [loanScheduleData, setLoanScheduleData] = useState<any[]>([]); // total_installment
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
-  const [currentBillDue, setCurrentBillDue] = useState('');
-  const [maxRepayAmount, setMaxRepayAmount] = useState();
+  const [currentBillDue, setCurrentBillDue] = useState<number>(0);
+  const [maxRepayAmount, setMaxRepayAmount] = useState<number>(0);
 
+  const handleRepayBtn = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    row: Loan
+  ) => {
+    event.preventDefault();
 
-
-const handleRepayBtn = async (
-  event: React.MouseEvent<HTMLButtonElement>,
-  row: Loan
-) => {
-  event.preventDefault();
-
-  setSelectedLoanForRepay(row);
-  setRepayError(null);
-
-  try {
-    const res = await api.getLoanSchedule(row.id);
-
-    const schedules = Array.isArray(res.data) ? res.data : [];
-
-    // Find the first installment that is not fully paid
-    const nextSchedule = schedules.find(
-      (item) => String(item.status).toLowerCase() !== 'paid'
-    );
-
-    if (!nextSchedule) {
-      setCurrentBillDue(0);
-      setMaxRepayAmount(0);
-      setRepayError('This loan has no remaining unpaid installments.');
-      return;
+    setSelectedLoanForRepay(row);
+    setRepayError(null);
+    if (cashAccounts.length > 0 && !repayCashAccount) {
+      setRepayCashAccount(cashAccounts[0].id);
     }
 
-    const principal = Number(nextSchedule.principal || 0);
-    const interest = Number(nextSchedule.interest || 0);
-    const fee = Number(nextSchedule.fee || 0);
+    const currentBal = Number(Number(row.current_balance || 0).toFixed(2));
+    setMaxRepayAmount(currentBal > 0 ? currentBal : 99999999);
 
-    const paidPrincipal = Number(nextSchedule.paid_principal || 0);
-    const paidInterest = Number(nextSchedule.paid_interest || 0);
-    const paidFee = Number(nextSchedule.paid_fee || 0);
+    try {
+      const res = await api.getLoanSchedule(row.id);
+      const schedules = Array.isArray(res.data) ? res.data : [];
 
-    // Calculate what remains for THIS installment
-    const remainingPrincipal = Math.max(0, principal - paidPrincipal);
-    const remainingInterest = Math.max(0, interest - paidInterest);
-    const remainingFee = Math.max(0, fee - paidFee);
+      // Find the first installment that is not fully paid
+      const nextSchedule = schedules.find(
+        (item) => String(item.status).toLowerCase() !== 'paid'
+      );
 
-    const remainingDue =
-      remainingPrincipal +
-      remainingInterest +
-      remainingFee;
+      if (!nextSchedule) {
+        setCurrentBillDue(0);
+        setRepayAmount(currentBal > 0 ? currentBal.toFixed(2) : '0.00');
+        return;
+      }
 
-    setCurrentBillDue(Number(remainingDue.toFixed(2)));
+      const principal = Number(nextSchedule.principal || 0);
+      const interest = Number(nextSchedule.interest || 0);
+      const fee = Number(nextSchedule.fee || 0);
 
-    // Maximum payment can be the remaining loan balance/payment due,
-    // depending on your business rule.
-    setMaxRepayAmount(Number(remainingDue.toFixed(2)));
+      const paidPrincipal = Number(nextSchedule.paid_principal || 0);
+      const paidInterest = Number(nextSchedule.paid_interest || 0);
+      const paidFee = Number(nextSchedule.paid_fee || 0);
 
-    console.log('Next installment:', nextSchedule);
-    console.log('Remaining principal:', remainingPrincipal);
-    console.log('Remaining interest:', remainingInterest);
-    console.log('Remaining fee:', remainingFee);
-    console.log('Remaining due:', remainingDue);
+      // Calculate what remains for THIS installment
+      const remainingPrincipal = Math.max(0, principal - paidPrincipal);
+      const remainingInterest = Math.max(0, interest - paidInterest);
+      const remainingFee = Math.max(0, fee - paidFee);
 
-  } catch (error) {
-    console.error('Failed to load loan schedule:', error);
-    setRepayError('Unable to load the loan schedule.');
-  }
-};
+      const remainingDue = Number((remainingPrincipal + remainingInterest + remainingFee).toFixed(2));
+
+      setCurrentBillDue(remainingDue);
+      setRepayAmount(remainingDue > 0 ? remainingDue.toFixed(2) : (currentBal > 0 ? currentBal.toFixed(2) : '0.00'));
+    } catch (error) {
+      console.error('Failed to load loan schedule:', error);
+      setCurrentBillDue(0);
+      setRepayAmount(currentBal > 0 ? currentBal.toFixed(2) : '0.00');
+    }
+  };
   useEffect(() => {
     if (selectedBranchId !== undefined) {
       setSelectedBranch(selectedBranchId);
@@ -407,27 +397,28 @@ const handleRepayBtn = async (
 
   const handleRepay = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRepayAmount(currentBillDue);
     if (!selectedLoanForRepay) return;
     setRepayError(null);
 
-    if (!repayAmount || repayAmount <= 0) {
-      setRepayError('Repayment amount must be greater than zero.');
+    const numAmount = parseFloat(repayAmount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      setRepayError('Repayment amount must be a positive number greater than zero.');
       return;
     }
-   
-    
+
+    const roundedAmount = Number(numAmount.toFixed(2));
+
     setIsRepaying(true);
     try {
       const res = await api.repayLoan(selectedLoanForRepay.id, {
-        amount: repayAmount,
+        amount: roundedAmount,
         cash_account_id: repayCashAccount || cashAccounts[0]?.id || 'cash_01',
         performed_by: currentUser.name,
         notes: `Over-the-counter collection by ${currentUser.name}`
       });
       setSelectedLoanForRepay(null);
       setNotice(
-        `Repayment OR #${res.payment.receipt_no} processed! Allocated: Principal ₱${res.allocation.principal_amount.toLocaleString()}, Interest ₱${res.allocation.interest_amount.toLocaleString()}.`
+        `Repayment OR #${res.payment?.receipt_no || res.payment?.reference_id || 'Posted'} processed! Allocated: Principal ₱${Number(res.allocation?.principal_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, Interest ₱${Number(res.allocation?.interest_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
       );
       setTimeout(() => setNotice(null), 5000);
       await loadData();
@@ -1211,14 +1202,34 @@ const handleRepayBtn = async (
                 <label className="text-xs text-slate-300 font-medium">Repayment Amount (₱)</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.01"
                   step="0.01"
-                  max={maxRepayAmount}
                   required
-                  value={currentBillDue}
-                  onChange={e => setCurrentBillDue(parseFloat(e.target.value) || 0)}
+                  value={repayAmount}
+                  onChange={e => setRepayAmount(e.target.value)}
+                  placeholder="0.00"
                   className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-emerald-400 focus:border-emerald-500 focus:outline-none"
                 />
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {currentBillDue > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRepayAmount(currentBillDue.toFixed(2))}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-md transition cursor-pointer"
+                    >
+                      Pay Next Due: ₱{currentBillDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </button>
+                  )}
+                  {Number(selectedLoanForRepay.current_balance) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRepayAmount(Number(selectedLoanForRepay.current_balance).toFixed(2))}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-md transition cursor-pointer"
+                    >
+                      Pay Full Balance: ₱{Number(selectedLoanForRepay.current_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -1661,7 +1672,15 @@ const handleRepayBtn = async (
       {selectedLoanForLedger && (
         <IndividualLoanLedgerModal
           loan={selectedLoanForLedger}
+          cashAccounts={cashAccounts}
+          currentUser={currentUser}
           onClose={() => setSelectedLoanForLedger(null)}
+          onLoanUpdated={async (updatedLoan) => {
+            if (updatedLoan) {
+              setSelectedLoanForLedger(updatedLoan);
+            }
+            await loadData();
+          }}
           onRepay={() => {
             const l = selectedLoanForLedger;
             setSelectedLoanForLedger(null);

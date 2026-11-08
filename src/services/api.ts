@@ -853,6 +853,29 @@ getLoanApplications: async (params?: {
       method: 'POST',
       body: JSON.stringify(params)
     }),
+  adjustLoanPayment: (paymentId: string, params: {
+    payment_date?: string;
+    receipt_no?: string;
+    total_amount?: number;
+    amount?: number;
+    principal_amount?: number;
+    interest_amount?: number;
+    penalty_amount?: number;
+    fee_amount?: number;
+    cash_account_id?: string;
+    notes?: string;
+    adjustment_reason?: string;
+    performed_by?: string;
+  }) =>
+    fetchApi<{ success: boolean; message: string; payment: any; allocation: any; loan_updated: any }>(`/loans/payments/${paymentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(params)
+    }),
+  voidLoanPayment: (paymentId: string, params?: { reason?: string; performed_by?: string }) =>
+    fetchApi<{ success: boolean; message: string; loan_updated: any }>(`/loans/payments/${paymentId}/void`, {
+      method: 'POST',
+      body: JSON.stringify(params || {})
+    }),
   getAuditLogs: async (branch_id?: string) => {
     const query = branch_id && branch_id !== 'all' ? `?branch_id=${branch_id}` : '';
     const res = await fetchApi<{ success: boolean; data: any[] }>(`/audit-logs${query}`);

@@ -4703,12 +4703,15 @@ router.get('/loans/:id/ledger', (req: Request, res: Response) => {
 
   const enrichedPayments = payments.map(pmt => {
     const alloc = allocations.find(a => a.payment_id === pmt.id);
+    const orNo = pmt.receipt_no || pmt.receipt_number || pmt.reference_id || pmt.id;
     return {
       ...pmt,
-      principal_paid: alloc ? alloc.principal_amount : (pmt.amount || 0),
-      interest_paid: alloc ? alloc.interest_amount : 0,
-      penalty_paid: alloc ? alloc.penalty_amount : 0,
-      fee_paid: alloc ? alloc.fee_amount : 0
+      receipt_no: orNo,
+      receipt_number: orNo,
+      principal_paid: alloc ? Number(Number(alloc.principal_amount || 0).toFixed(2)) : Number(Number(pmt.principal_amount || pmt.amount || 0).toFixed(2)),
+      interest_paid: alloc ? Number(Number(alloc.interest_amount || 0).toFixed(2)) : Number(Number(pmt.interest_amount || 0).toFixed(2)),
+      penalty_paid: alloc ? Number(Number(alloc.penalty_amount || 0).toFixed(2)) : Number(Number(pmt.penalty_amount || 0).toFixed(2)),
+      fee_paid: alloc ? Number(Number(alloc.fee_amount || 0).toFixed(2)) : Number(Number(pmt.fee_amount || 0).toFixed(2))
     };
   }).sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
 
@@ -4722,24 +4725,25 @@ router.get('/loans/:id/ledger', (req: Request, res: Response) => {
     ref_no: loan.loan_account_no,
     type: 'DISBURSEMENT',
     description: `Loan Disbursement - ${product?.name || 'Loan'}`,
-    debit_principal: Number(loan.principal_amount) || 0,
+    debit_principal: Number(Number(loan.principal_amount).toFixed(2)) || 0,
     credit_principal: 0,
     interest_applied: 0,
     penalty_applied: 0,
-    principal_balance: Number(loan.principal_amount) || 0,
+    principal_balance: Number(Number(loan.principal_amount).toFixed(2)) || 0,
     received_by: loan.approved_by || 'Loan Officer'
   });
 
-  let runningPrincipal = Number(loan.principal_amount) || 0;
+  let runningPrincipal = Number(Number(loan.principal_amount).toFixed(2)) || 0;
 
   enrichedPayments.forEach(pmt => {
+    if (pmt.status === 'Voided') return;
     runningPrincipal = Math.max(0, Number((runningPrincipal - (pmt.principal_paid || 0)).toFixed(2)));
     ledgerLines.push({
       id: pmt.id,
       date: pmt.payment_date,
-      ref_no: pmt.receipt_number || pmt.id,
+      ref_no: pmt.receipt_no || pmt.receipt_number || pmt.id,
       type: 'REPAYMENT',
-      description: pmt.notes || `Repayment via ${pmt.cash_account_id || 'Cash'}`,
+      description: pmt.notes || `Repayment via ${pmt.cash_account_id || 'Cash'}${pmt.adjusted_at ? ' (Adjusted)' : ''}`,
       debit_principal: 0,
       credit_principal: pmt.principal_paid || 0,
       interest_applied: pmt.interest_paid || 0,
@@ -4767,6 +4771,126 @@ router.get('/loans/:id/ledger', (req: Request, res: Response) => {
 });
 
 // Loan Repayment with Dynamic Allocation Engine (Req 8, 27)
+// Helper to recalculate loan amortization schedule and running balance with exact 2-decimal accuracy
+function recalculateLoanAmortizationAndBalance(loanId: string) {
+  const loans = db.getTable('loans') || [];
+  const loan = loans.find((l: any) => l.id === loanId);
+  if (!loan) return null;
+
+  const schedules = (db.getTable('loan_amortization_schedules') || [])
+    .filter((s: any) => s.loan_id === loanId)
+    .sort((a: any, b: any) => a.installment_no - b.installment_no);
+
+  const payments = (db.getTable('loan_payments') || [])
+    .filter((p: any) => p.loan_id === loanId && p.status !== 'Voided')
+    .sort((a: any, b: any) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+
+  const allocations = (db.getTable('loan_payment_allocations') || [])
+    .filter((a: any) => a.loan_id === loanId);
+
+  // 1. Reset all schedules
+  for (const sched of schedules) {
+    sched.paid_principal = 0;
+    sched.paid_interest = 0;
+    sched.paid_penalty = 0;
+    sched.status = 'Unpaid';
+    sched.paid_date = null;
+  }
+
+  // 2. Sequentially allocate payments across schedules
+  for (const pmt of payments) {
+    const alloc = allocations.find((a: any) => a.payment_id === pmt.id);
+    let remPrincipal = alloc ? Number(alloc.principal_amount || 0) : Number(pmt.principal_amount || pmt.amount || 0);
+    let remInterest = alloc ? Number(alloc.interest_amount || 0) : Number(pmt.interest_amount || 0);
+    let remPenalty = alloc ? Number(alloc.penalty_amount || 0) : Number(pmt.penalty_amount || 0);
+
+    for (const sched of schedules) {
+      // Allocate Interest
+      if (remInterest > 0.009) {
+        const interestDue = Math.max(0, Number((Number(sched.interest) - Number(sched.paid_interest)).toFixed(2)));
+        if (interestDue > 0) {
+          const allocInt = Math.min(remInterest, interestDue);
+          sched.paid_interest = Number((Number(sched.paid_interest) + allocInt).toFixed(2));
+          remInterest = Number((remInterest - allocInt).toFixed(2));
+        }
+      }
+
+      // Allocate Principal
+      if (remPrincipal > 0.009) {
+        const principalDue = Math.max(0, Number((Number(sched.principal) - Number(sched.paid_principal)).toFixed(2)));
+        if (principalDue > 0) {
+          const allocPrin = Math.min(remPrincipal, principalDue);
+          sched.paid_principal = Number((Number(sched.paid_principal) + allocPrin).toFixed(2));
+          remPrincipal = Number((remPrincipal - allocPrin).toFixed(2));
+        }
+      }
+
+      // Allocate Penalty
+      if (remPenalty > 0.009) {
+        sched.paid_penalty = Number(((Number(sched.paid_penalty) || 0) + remPenalty).toFixed(2));
+        remPenalty = 0;
+      }
+
+      // Check Installment Status
+      const isPaid = Number(sched.paid_principal) >= Number(sched.principal) - 0.009 &&
+                     Number(sched.paid_interest) >= Number(sched.interest) - 0.009;
+      if (isPaid) {
+        sched.status = 'Paid';
+        sched.paid_date = sched.paid_date || pmt.payment_date;
+      } else if (Number(sched.paid_principal) > 0.009 || Number(sched.paid_interest) > 0.009) {
+        sched.status = 'Partially Paid';
+        sched.paid_date = sched.paid_date || pmt.payment_date;
+      }
+    }
+
+    // Excess principal beyond all installments applied to last installment
+    if (remPrincipal > 0.009 && schedules.length > 0) {
+      const last = schedules[schedules.length - 1];
+      last.paid_principal = Number((Number(last.paid_principal) + remPrincipal).toFixed(2));
+      last.status = 'Paid';
+      last.paid_date = pmt.payment_date;
+    }
+  }
+
+  // Update schedules in database
+  for (const sched of schedules) {
+    db.update('loan_amortization_schedules', (s: any) => s.id === sched.id, () => sched);
+  }
+
+  // 3. Recompute loan summary
+  let totalPrincipalPaid = 0;
+  let totalInterestPaid = 0;
+  let totalPenaltyPaid = 0;
+  let totalFeesPaidFromPmts = 0;
+
+  for (const pmt of payments) {
+    const alloc = allocations.find((a: any) => a.payment_id === pmt.id);
+    totalPrincipalPaid += alloc ? Number(alloc.principal_amount || 0) : Number(pmt.principal_amount || pmt.amount || 0);
+    totalInterestPaid += alloc ? Number(alloc.interest_amount || 0) : Number(pmt.interest_amount || 0);
+    totalPenaltyPaid += alloc ? Number(alloc.penalty_amount || 0) : Number(pmt.penalty_amount || 0);
+    totalFeesPaidFromPmts += alloc ? Number(alloc.fee_amount || 0) : Number(pmt.fee_amount || 0);
+  }
+
+  loan.total_principal_paid = Number(totalPrincipalPaid.toFixed(2));
+  loan.total_interest_paid = Number(totalInterestPaid.toFixed(2));
+  loan.total_penalty_paid = Number(totalPenaltyPaid.toFixed(2));
+
+  const initialFees = Number(loan.processing_fee || 0) + Number(loan.service_fee || 0) + Number(loan.other_fee || 0);
+  loan.total_fees_paid = Number((initialFees + totalFeesPaidFromPmts).toFixed(2));
+
+  loan.current_balance = Math.max(0, Number((Number(loan.principal_amount) - loan.total_principal_paid).toFixed(2)));
+
+  if (loan.current_balance <= 0.009) {
+    loan.status = 'Fully Paid';
+  } else if (loan.status === 'Fully Paid') {
+    loan.status = 'Active';
+  }
+
+  db.update('loans', (l: any) => l.id === loan.id, () => loan);
+  return loan;
+}
+
+// Loan Repayment with Dynamic Allocation Engine (Req 8, 27)
 router.post('/loans/:id/repay', (req: Request, res: Response) => {
   const { id } = req.params;
   const {
@@ -4784,18 +4908,22 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
     return res.status(404).json({ success: false, error: 'Loan account not found' });
   }
 
-  const paymentAmount = Number(amount);
+  const paymentAmount = Number(Number(amount).toFixed(2));
   if (paymentAmount <= 0) {
     return res.status(400).json({ success: false, error: 'Payment amount must be greater than zero' });
   }
 
   // Find next unpaid installment
-  const schedules = db.getTable('loan_amortization_schedules').filter(s => s.loan_id === loan.id && s.status !== 'Paid');
+  const schedules = (db.getTable('loan_amortization_schedules') || []).filter(s => s.loan_id === loan.id && s.status !== 'Paid');
   const nextInstallment = schedules[0];
 
-  const duePrincipal = nextInstallment ? Math.max(0, nextInstallment.principal - nextInstallment.paid_principal) : loan.current_balance;
-  const dueInterest = nextInstallment ? Math.max(0, nextInstallment.interest - nextInstallment.paid_interest) : 0;
-  const duePenalty = 0; // if overdue, penalty calculated
+  const duePrincipal = nextInstallment
+    ? Math.max(0, Number((Number(nextInstallment.principal) - Number(nextInstallment.paid_principal || 0)).toFixed(2)))
+    : Number(loan.current_balance);
+  const dueInterest = nextInstallment
+    ? Math.max(0, Number((Number(nextInstallment.interest) - Number(nextInstallment.paid_interest || 0)).toFixed(2)))
+    : 0;
+  const duePenalty = 0;
   const dueFee = 0;
 
   // Run dynamic payment allocation service (Req 8)
@@ -4878,39 +5006,230 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
   };
   db.insert('loan_payment_allocations', allocRecord);
 
-  // Update installment schedule
-  if (nextInstallment) {
-    nextInstallment.paid_principal += allocation.principal_allocated;
-    nextInstallment.paid_interest += allocation.interest_allocated;
-    nextInstallment.paid_penalty += allocation.penalty_allocated;
-    if (nextInstallment.paid_principal >= nextInstallment.principal) {
-      nextInstallment.status = 'Paid';
-      nextInstallment.paid_date = today;
-    } else {
-      nextInstallment.status = 'Partial';
-    }
-    db.update('loan_amortization_schedules', s => s.id === nextInstallment.id, () => nextInstallment);
-  }
-
-  // Update loan record
-  loan.current_balance = Math.max(0, Number((loan.current_balance - allocation.principal_allocated).toFixed(2)));
-  loan.total_principal_paid += allocation.principal_allocated;
-  loan.total_interest_paid += allocation.interest_allocated;
-  loan.total_penalty_paid += allocation.penalty_allocated;
-  loan.total_fees_paid += allocation.fee_allocated;
-
-  if (loan.current_balance <= 0) {
-    loan.status = 'Fully Paid';
-  }
-  db.update('loans', l => l.id === loan.id, () => loan);
+  // Recalculate full amortization schedules and running balances atomically
+  const updatedLoan = recalculateLoanAmortizationAndBalance(loan.id) || loan;
 
   res.json({
     success: true,
     payment: paymentRecord,
     allocation: allocRecord,
-    loan_updated: loan,
+    loan_updated: updatedLoan,
     journal_entry: postResult.journal_entry
   });
+});
+
+// Admin Feature: Edit / Adjust Loan Payments once done
+router.all(['/loans/payments/:id', '/api/loans/payments/:id', '/loans/payments/:id/adjust', '/api/loans/payments/:id/adjust'], (req: Request, res: Response) => {
+  if (req.method !== 'PUT' && req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  }
+
+  try {
+    const { id } = req.params;
+    const {
+      payment_date,
+      receipt_no,
+      amount,
+      total_amount,
+      principal_amount,
+      interest_amount,
+      penalty_amount,
+      fee_amount,
+      cash_account_id,
+      notes,
+      adjustment_reason,
+      performed_by
+    } = req.body;
+
+    const payments = db.getTable('loan_payments') || [];
+    const payment = payments.find((p: any) => p.id === id);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Loan payment record not found.' });
+    }
+
+    const loans = db.getTable('loans') || [];
+    const loan = loans.find((l: any) => l.id === payment.loan_id);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Associated loan account not found.' });
+    }
+
+    const allocations = db.getTable('loan_payment_allocations') || [];
+    let alloc = allocations.find((a: any) => a.payment_id === id);
+
+    const oldTotal = Number(payment.total_amount ?? payment.amount ?? 0);
+    const oldPrincipal = alloc ? Number(alloc.principal_amount || 0) : Number(payment.principal_amount || 0);
+    const oldInterest = alloc ? Number(alloc.interest_amount || 0) : Number(payment.interest_amount || 0);
+
+    // Compute new values with strict 2 decimal rounding
+    let newPrin = principal_amount !== undefined ? Number(Number(principal_amount).toFixed(2)) : oldPrincipal;
+    let newInt = interest_amount !== undefined ? Number(Number(interest_amount).toFixed(2)) : oldInterest;
+    let newPen = penalty_amount !== undefined ? Number(Number(penalty_amount).toFixed(2)) : Number(Number(payment.penalty_amount || 0).toFixed(2));
+    let newFee = fee_amount !== undefined ? Number(Number(fee_amount).toFixed(2)) : Number(Number(payment.fee_amount || 0).toFixed(2));
+
+    let newTotal = total_amount !== undefined
+      ? Number(Number(total_amount).toFixed(2))
+      : (amount !== undefined ? Number(Number(amount).toFixed(2)) : Number((newPrin + newInt + newPen + newFee).toFixed(2)));
+
+    // If total changed but breakdown wasn't explicitly given, prioritize interest then principal
+    if ((total_amount !== undefined || amount !== undefined) && principal_amount === undefined && interest_amount === undefined) {
+      newInt = Math.min(newTotal, oldInterest);
+      newPrin = Math.max(0, Number((newTotal - newInt - newPen - newFee).toFixed(2)));
+    } else {
+      newTotal = Number((newPrin + newInt + newPen + newFee).toFixed(2));
+    }
+
+    if (newTotal <= 0) {
+      return res.status(400).json({ success: false, error: 'Payment amount must be greater than zero.' });
+    }
+
+    // Update payment record
+    payment.payment_date = payment_date || payment.payment_date;
+    payment.receipt_no = receipt_no || payment.receipt_no || payment.reference_id;
+    payment.reference_id = payment.receipt_no;
+    payment.total_amount = newTotal;
+    payment.amount = newTotal;
+    payment.principal_amount = newPrin;
+    payment.principal_paid = newPrin;
+    payment.interest_amount = newInt;
+    payment.interest_paid = newInt;
+    payment.penalty_amount = newPen;
+    payment.fee_amount = newFee;
+    if (cash_account_id) payment.cash_account_id = cash_account_id;
+    payment.notes = notes || payment.notes;
+    payment.adjustment_reason = adjustment_reason || notes || 'Payment terms adjusted by administrator';
+    payment.adjusted_at = new Date().toISOString();
+    payment.adjusted_by = performed_by || 'Admin';
+
+    db.update('loan_payments', (p: any) => p.id === id, () => payment);
+
+    // Update allocation record
+    if (alloc) {
+      alloc.principal_amount = newPrin;
+      alloc.interest_amount = newInt;
+      alloc.penalty_amount = newPen;
+      alloc.fee_amount = newFee;
+      db.update('loan_payment_allocations', (a: any) => a.id === alloc.id, () => alloc);
+    } else {
+      alloc = {
+        id: `alloc_${payment.id}`,
+        payment_id: payment.id,
+        loan_id: loan.id,
+        principal_amount: newPrin,
+        interest_amount: newInt,
+        penalty_amount: newPen,
+        fee_amount: newFee,
+        allocation_order_applied: ['Penalty', 'Interest', 'Fees', 'Principal']
+      };
+      db.insert('loan_payment_allocations', alloc);
+    }
+
+    // Recalculate loan schedules and balances
+    const updatedLoan = recalculateLoanAmortizationAndBalance(loan.id) || loan;
+
+    // Update Journal Entry if linked
+    if (payment.journal_entry_id) {
+      const journalEntries = db.getTable('journal_entries') || [];
+      const je = journalEntries.find((j: any) => j.id === payment.journal_entry_id);
+      if (je) {
+        je.total_debit = newTotal;
+        je.total_credit = newTotal;
+        db.update('journal_entries', (j: any) => j.id === je.id, () => je);
+
+        const journalLines = db.getTable('journal_lines') || [];
+        const lines = journalLines.filter((l: any) => l.journal_entry_id === je.id);
+        for (const line of lines) {
+          if (line.debit > 0) {
+            line.debit = newTotal;
+          } else if (line.credit > 0) {
+            if (line.description?.toLowerCase().includes('principal') || line.account_name?.toLowerCase().includes('receivable')) {
+              line.credit = newPrin;
+            } else if (line.description?.toLowerCase().includes('interest') || line.account_name?.toLowerCase().includes('interest')) {
+              line.credit = newInt;
+            } else {
+              line.credit = newTotal;
+            }
+          }
+          db.update('journal_lines', (l: any) => l.id === line.id, () => line);
+        }
+      }
+    }
+
+    // Record Audit Trail
+    db.recordAudit(
+      `Loan Payment Adjusted: ${payment.receipt_no}`,
+      `Previous: ₱${oldTotal.toFixed(2)} (Principal: ₱${oldPrincipal.toFixed(2)}, Interest: ₱${oldInterest.toFixed(2)})`,
+      `Adjusted: ₱${newTotal.toFixed(2)} (Principal: ₱${newPrin.toFixed(2)}, Interest: ₱${newInt.toFixed(2)})`,
+      performed_by || 'Admin',
+      payment.adjustment_reason
+    );
+
+    return res.json({
+      success: true,
+      message: `Loan payment ${payment.receipt_no} has been adjusted successfully.`,
+      payment,
+      allocation: alloc,
+      loan_updated: updatedLoan
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: 'Failed to adjust loan payment: ' + err.message });
+  }
+});
+
+// Admin Feature: Void / Delete Loan Payment
+router.all(['/loans/payments/:id/void', '/api/loans/payments/:id/void'], (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason, performed_by } = req.body;
+
+    const payments = db.getTable('loan_payments') || [];
+    const payment = payments.find((p: any) => p.id === id);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment record not found.' });
+    }
+
+    const loanId = payment.loan_id;
+    const oldTotal = Number(payment.total_amount ?? payment.amount ?? 0);
+
+    // Mark payment as voided
+    payment.status = 'Voided';
+    payment.voided_at = new Date().toISOString();
+    payment.voided_by = performed_by || 'Admin';
+    payment.void_reason = reason || 'Payment voided by administrator';
+    db.update('loan_payments', (p: any) => p.id === id, () => payment);
+
+    // Delete or zero allocation
+    db.delete('loan_payment_allocations', (a: any) => a.payment_id === id);
+
+    // Recalculate loan schedules and balance
+    const updatedLoan = recalculateLoanAmortizationAndBalance(loanId);
+
+    // If journal entry exists, mark reversed
+    if (payment.journal_entry_id) {
+      const journalEntries = db.getTable('journal_entries') || [];
+      const je = journalEntries.find((j: any) => j.id === payment.journal_entry_id);
+      if (je) {
+        je.status = 'Reversed';
+        je.notes = `Reversed due to void of payment ${payment.receipt_no}: ${payment.void_reason}`;
+        db.update('journal_entries', (j: any) => j.id === je.id, () => je);
+      }
+    }
+
+    db.recordAudit(
+      `Loan Payment Voided: ${payment.receipt_no}`,
+      `Amount: ₱${oldTotal.toFixed(2)}`,
+      'Voided / Reversed',
+      performed_by || 'Admin',
+      payment.void_reason
+    );
+
+    return res.json({
+      success: true,
+      message: `Payment ${payment.receipt_no} voided successfully and loan balances restored.`,
+      loan_updated: updatedLoan
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: 'Failed to void payment: ' + err.message });
+  }
 });
 
 // ==========================================

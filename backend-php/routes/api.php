@@ -170,6 +170,7 @@ $router->get('/reports/member-transactions/:period_id', [ReportController::class
     // $router->post('/api/loans/apply', [LoanController::class, 'apply']);
     $router->post('/api/loans/calculate-schedule', [LoanController::class, 'calculateSchedule']);
     $router->post('/api/loans/payments', [LoanController::class, 'payment']);
+    $router->put('/api/loans/payments/:id', [LoanController::class, 'adjustPayment']);
     $router->post('/api/loans/repay', [LoanController::class, 'repay']);
     $router->post('/api/loans/:id/repay', [LoanController::class, 'repay']);
     $router->delete('/api/loans/:id', [LoanController::class, 'destroy']);

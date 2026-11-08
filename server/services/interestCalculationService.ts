@@ -99,33 +99,36 @@ export class InterestCalculationService {
     const totalPeriods = Math.max(1, Math.round((term_months / 12) * paymentsPerYear));
     const periodicRate = rateDec / paymentsPerYear;
 
-    const total_fees = Number((Number(processing_fee) + Number(service_fee) + Number(other_fee)).toFixed(2));
+    const total_fees = Number((Number(processing_fee || 0) + Number(service_fee || 0) + Number(other_fee || 0)).toFixed(2));
     const net_disbursed = Math.max(0, Number((principal - total_fees).toFixed(2)));
     const periodicFee = amortize_fees ? Number((total_fees / totalPeriods).toFixed(2)) : 0;
 
     const schedule: AmortizationScheduleItem[] = [];
-    let currentBalance = principal;
+    let currentBalance = Number(principal.toFixed(2));
     const baseDate = new Date(start_date || new Date().toISOString().split('T')[0]);
 
     if (method === 'Flat Rate') {
       // Total Interest = Principal * (Rate/Year) * (Term in Years)
-      const totalInterest = principal * rateDec * (term_months / 12);
-      const periodicInterest = totalInterest / totalPeriods;
-      const periodicPrincipal = principal / totalPeriods;
+      const totalInterest = Number((principal * rateDec * (term_months / 12)).toFixed(2));
+      const periodicInterest = Number((totalInterest / totalPeriods).toFixed(2));
+      const periodicPrincipal = Number((principal / totalPeriods).toFixed(2));
+      let accumulatedInterest = 0;
 
       for (let i = 1; i <= totalPeriods; i++) {
         const dueDate = new Date(baseDate);
         dueDate.setDate(dueDate.getDate() + i * daysPerPeriod);
         const p = i === totalPeriods ? currentBalance : periodicPrincipal;
-        currentBalance = Math.max(0, currentBalance - p);
+        const interest = i === totalPeriods ? Number((totalInterest - accumulatedInterest).toFixed(2)) : periodicInterest;
+        accumulatedInterest = Number((accumulatedInterest + interest).toFixed(2));
+        currentBalance = Math.max(0, Number((currentBalance - p).toFixed(2)));
 
         schedule.push({
           installment_no: i,
           due_date: dueDate.toISOString().split('T')[0],
           principal: Number(p.toFixed(2)),
-          interest: Number(periodicInterest.toFixed(2)),
+          interest: Number(interest.toFixed(2)),
           fee: Number(periodicFee.toFixed(2)),
-          total_installment: Number((p + periodicInterest + periodicFee).toFixed(2)),
+          total_installment: Number((p + interest + periodicFee).toFixed(2)),
           principal_balance: Number(currentBalance.toFixed(2))
         });
       }
@@ -137,19 +140,20 @@ export class InterestCalculationService {
       } else {
         pmt = principal / totalPeriods;
       }
+      pmt = Number(pmt.toFixed(2));
 
       for (let i = 1; i <= totalPeriods; i++) {
         const dueDate = new Date(baseDate);
         dueDate.setDate(dueDate.getDate() + i * daysPerPeriod);
 
-        const interest = currentBalance * periodicRate;
-        let p = pmt - interest;
+        const interest = Number((currentBalance * periodicRate).toFixed(2));
+        let p = Number((pmt - interest).toFixed(2));
 
         if (i === totalPeriods || p > currentBalance) {
           p = currentBalance;
         }
 
-        currentBalance = Math.max(0, currentBalance - p);
+        currentBalance = Math.max(0, Number((currentBalance - p).toFixed(2)));
 
         schedule.push({
           installment_no: i,
@@ -163,14 +167,14 @@ export class InterestCalculationService {
       }
     } else {
       // Simple Interest or Fixed Interest
-      const periodicPrincipal = principal / totalPeriods;
+      const periodicPrincipal = Number((principal / totalPeriods).toFixed(2));
       for (let i = 1; i <= totalPeriods; i++) {
         const dueDate = new Date(baseDate);
         dueDate.setDate(dueDate.getDate() + i * daysPerPeriod);
 
-        const interest = currentBalance * periodicRate;
+        const interest = Number((currentBalance * periodicRate).toFixed(2));
         const p = i === totalPeriods ? currentBalance : periodicPrincipal;
-        currentBalance = Math.max(0, currentBalance - p);
+        currentBalance = Math.max(0, Number((currentBalance - p).toFixed(2)));
 
         schedule.push({
           installment_no: i,

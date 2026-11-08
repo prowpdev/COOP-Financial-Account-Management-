@@ -222,6 +222,20 @@ class LoanController extends BaseController
     }
 
     /**
+     * PUT /api/loans/payments/:id
+     */
+    public function adjustPayment(string $id): never
+    {
+        $input = $this->getRequestBody();
+        try {
+            $result = $this->loans->adjustPayment($id, $input);
+            $this->success($result, 'Loan payment adjusted successfully.');
+        } catch (\Exception $e) {
+            $this->error('Failed to adjust loan payment: ' . $e->getMessage(), 400);
+        }
+    }
+
+    /**
      * DELETE /api/loans/:id
      */
     public function destroy(string $id): never

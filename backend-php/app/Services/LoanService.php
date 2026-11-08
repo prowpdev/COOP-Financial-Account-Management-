@@ -1141,6 +1141,265 @@ public function recordPayment(array $data): array
     }
 }
 
+/**
+ * Recalculate full loan amortization schedule and running balance
+ */
+public function recalculateLoanAmortizationAndBalance(string $loanId): array
+{
+    $loanStmt = $this->db->prepare("SELECT * FROM loans WHERE id = ?");
+    $loanStmt->execute([$loanId]);
+    $loan = $loanStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$loan) {
+        throw new \InvalidArgumentException('Loan not found.');
+    }
+
+    $schedStmt = $this->db->prepare("
+        SELECT * FROM loan_amortization_schedules
+        WHERE loan_id = ?
+        ORDER BY installment_no ASC
+    ");
+    $schedStmt->execute([$loanId]);
+    $schedules = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Reset schedules
+    $resetStmt = $this->db->prepare("
+        UPDATE loan_amortization_schedules
+        SET paid_principal = 0.00, paid_interest = 0.00, paid_penalty = 0.00, status = 'Unpaid', paid_date = NULL
+        WHERE loan_id = ?
+    ");
+    $resetStmt->execute([$loanId]);
+
+    $pmtStmt = $this->db->prepare("
+        SELECT lp.*, lpa.principal_amount AS alloc_principal, lpa.interest_amount AS alloc_interest, lpa.penalty_amount AS alloc_penalty
+        FROM loan_payments lp
+        LEFT JOIN loan_payment_allocations lpa ON lp.id = lpa.payment_id
+        WHERE lp.loan_id = ? AND (lp.status IS NULL OR lp.status <> 'Voided')
+        ORDER BY lp.payment_date ASC, lp.id ASC
+    ");
+    $pmtStmt->execute([$loanId]);
+    $payments = $pmtStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $updSchedStmt = $this->db->prepare("
+        UPDATE loan_amortization_schedules
+        SET paid_principal = ?, paid_interest = ?, paid_penalty = ?, status = ?, paid_date = ?
+        WHERE id = ?
+    ");
+
+    $schedMap = [];
+    foreach ($schedules as $s) {
+        $schedMap[$s['id']] = [
+            'id' => $s['id'],
+            'principal' => (float)$s['principal'],
+            'interest' => (float)$s['interest'],
+            'paid_principal' => 0.0,
+            'paid_interest' => 0.0,
+            'paid_penalty' => 0.0,
+            'status' => 'Unpaid',
+            'paid_date' => null
+        ];
+    }
+
+    $totalPrinPaid = 0.0;
+    $totalIntPaid = 0.0;
+    $totalPenPaid = 0.0;
+
+    foreach ($payments as $pmt) {
+        $remPrincipal = (float)($pmt['alloc_principal'] ?? $pmt['principal_amount'] ?? $pmt['total_amount'] ?? 0);
+        $remInterest = (float)($pmt['alloc_interest'] ?? $pmt['interest_amount'] ?? 0);
+        $remPenalty = (float)($pmt['alloc_penalty'] ?? $pmt['penalty_amount'] ?? 0);
+
+        $totalPrinPaid += $remPrincipal;
+        $totalIntPaid += $remInterest;
+        $totalPenPaid += $remPenalty;
+
+        foreach ($schedMap as &$sc) {
+            if ($remInterest > 0.009) {
+                $dueInt = max(0.0, round($sc['interest'] - $sc['paid_interest'], 2));
+                if ($dueInt > 0) {
+                    $payInt = min($remInterest, $dueInt);
+                    $sc['paid_interest'] = round($sc['paid_interest'] + $payInt, 2);
+                    $remInterest = round($remInterest - $payInt, 2);
+                }
+            }
+
+            if ($remPrincipal > 0.009) {
+                $duePrin = max(0.0, round($sc['principal'] - $sc['paid_principal'], 2));
+                if ($duePrin > 0) {
+                    $payPrin = min($remPrincipal, $duePrin);
+                    $sc['paid_principal'] = round($sc['paid_principal'] + $payPrin, 2);
+                    $remPrincipal = round($remPrincipal - $payPrin, 2);
+                }
+            }
+
+            if ($remPenalty > 0.009) {
+                $sc['paid_penalty'] = round($sc['paid_penalty'] + $remPenalty, 2);
+                $remPenalty = 0.0;
+            }
+
+            $isPaid = ($sc['paid_principal'] >= $sc['principal'] - 0.009) && ($sc['paid_interest'] >= $sc['interest'] - 0.009);
+            if ($isPaid) {
+                $sc['status'] = 'Paid';
+                $sc['paid_date'] = $sc['paid_date'] ?? $pmt['payment_date'];
+            } elseif ($sc['paid_principal'] > 0.009 || $sc['paid_interest'] > 0.009) {
+                $sc['status'] = 'Partially Paid';
+                $sc['paid_date'] = $sc['paid_date'] ?? $pmt['payment_date'];
+            }
+        }
+        unset($sc);
+
+        if ($remPrincipal > 0.009 && !empty($schedMap)) {
+            $lastId = array_key_last($schedMap);
+            $schedMap[$lastId]['paid_principal'] = round($schedMap[$lastId]['paid_principal'] + $remPrincipal, 2);
+            $schedMap[$lastId]['status'] = 'Paid';
+            $schedMap[$lastId]['paid_date'] = $pmt['payment_date'];
+        }
+    }
+
+    foreach ($schedMap as $sc) {
+        $updSchedStmt->execute([
+            $sc['paid_principal'],
+            $sc['paid_interest'],
+            $sc['paid_penalty'],
+            $sc['status'],
+            $sc['paid_date'],
+            $sc['id']
+        ]);
+    }
+
+    $newBal = max(0.0, round((float)$loan['principal_amount'] - $totalPrinPaid, 2));
+    $newStatus = $newBal <= 0.009 ? 'Fully Paid' : 'Active';
+
+    $updLoanStmt = $this->db->prepare("
+        UPDATE loans
+        SET current_balance = ?,
+            total_principal_paid = ?,
+            total_interest_paid = ?,
+            total_penalty_paid = ?,
+            status = ?
+        WHERE id = ?
+    ");
+    $updLoanStmt->execute([
+        $newBal,
+        round($totalPrinPaid, 2),
+        round($totalIntPaid, 2),
+        round($totalPenPaid, 2),
+        $newStatus,
+        $loanId
+    ]);
+
+    return $this->find($loanId) ?: [];
+}
+
+/**
+ * Admin: Adjust an existing loan payment once recorded
+ */
+public function adjustPayment(string $paymentId, array $data): array
+{
+    $this->db->beginTransaction();
+    try {
+        $stmt = $this->db->prepare("SELECT * FROM loan_payments WHERE id = ? FOR UPDATE");
+        $stmt->execute([$paymentId]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$payment) {
+            throw new \InvalidArgumentException('Loan payment not found.');
+        }
+
+        $loanId = $payment['loan_id'];
+        $newDate = $data['payment_date'] ?? $payment['payment_date'];
+        $newReceipt = $data['receipt_no'] ?? $payment['receipt_no'];
+        $newCash = $data['cash_account_id'] ?? $payment['cash_account_id'];
+        $newPrin = isset($data['principal_amount']) ? round((float)$data['principal_amount'], 2) : (float)($payment['principal_amount'] ?? 0);
+        $newInt = isset($data['interest_amount']) ? round((float)$data['interest_amount'], 2) : (float)($payment['interest_amount'] ?? 0);
+        $newPen = isset($data['penalty_amount']) ? round((float)$data['penalty_amount'], 2) : 0.0;
+        $newFee = isset($data['fee_amount']) ? round((float)$data['fee_amount'], 2) : 0.0;
+
+        if (isset($data['total_amount']) || isset($data['amount_paid'])) {
+            $newTotal = round((float)($data['total_amount'] ?? $data['amount_paid']), 2);
+            if (!isset($data['principal_amount']) && !isset($data['interest_amount'])) {
+                $newInt = min($newTotal, (float)($payment['interest_amount'] ?? 0));
+                $newPrin = max(0.0, round($newTotal - $newInt - $newPen - $newFee, 2));
+            }
+        } else {
+            $newTotal = round($newPrin + $newInt + $newPen + $newFee, 2);
+        }
+
+        if ($newTotal <= 0) {
+            throw new \InvalidArgumentException('Adjusted total amount must be greater than zero.');
+        }
+
+        $updStmt = $this->db->prepare("
+            UPDATE loan_payments
+            SET payment_date = ?,
+                receipt_no = ?,
+                total_amount = ?,
+                cash_account_id = ?,
+                received_by = ?
+            WHERE id = ?
+        ");
+        $updStmt->execute([
+            $newDate,
+            $newReceipt,
+            $newTotal,
+            $newCash,
+            $data['performed_by'] ?? $payment['received_by'],
+            $paymentId
+        ]);
+
+        $checkAlloc = $this->db->prepare("SELECT id FROM loan_payment_allocations WHERE payment_id = ?");
+        $checkAlloc->execute([$paymentId]);
+        $allocId = $checkAlloc->fetchColumn();
+
+        if ($allocId) {
+            $updAlloc = $this->db->prepare("
+                UPDATE loan_payment_allocations
+                SET principal_amount = ?, interest_amount = ?, penalty_amount = ?, fee_amount = ?
+                WHERE id = ?
+            ");
+            $updAlloc->execute([$newPrin, $newInt, $newPen, $newFee, $allocId]);
+        } else {
+            $insAlloc = $this->db->prepare("
+                INSERT INTO loan_payment_allocations (
+                    id, payment_id, loan_id, principal_amount, interest_amount, penalty_amount, fee_amount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $insAlloc->execute([
+                'alloc_' . bin2hex(random_bytes(6)),
+                $paymentId,
+                $loanId,
+                $newPrin,
+                $newInt,
+                $newPen,
+                $newFee
+            ]);
+        }
+
+        $updatedLoan = $this->recalculateLoanAmortizationAndBalance($loanId);
+
+        $this->audit->recordAuditTrail(
+            'loan_payments',
+            ['payment_id' => $paymentId, 'previous_amount' => $payment['total_amount']],
+            ['payment_id' => $paymentId, 'adjusted_amount' => $newTotal, 'principal' => $newPrin, 'interest' => $newInt],
+            (string)($data['performed_by'] ?? 'admin'),
+            $data['notes'] ?? 'Loan payment adjusted by admin',
+            'ADJUSTMENT'
+        );
+
+        $this->db->commit();
+        return [
+            'payment_id' => $paymentId,
+            'total_amount' => $newTotal,
+            'principal_amount' => $newPrin,
+            'interest_amount' => $newInt,
+            'updated_loan' => $updatedLoan
+        ];
+    } catch (\Throwable $e) {
+        if ($this->db->inTransaction()) {
+            $this->db->rollBack();
+        }
+        throw $e;
+    }
+}
+
 
 
     /**

@@ -1475,7 +1475,7 @@
       "prefix": "OR",
       "pattern": "{BRANCH}-OR-{YEAR}-{NUMBER}",
       "length": 6,
-      "current_seq": 154,
+      "current_seq": 156,
       "cooperative_id": "coop_01",
       "branch_id": "branch_tar",
       "branch_specific": "1",
@@ -2738,9 +2738,9 @@
       "net_disbursed": 24500,
       "disbursed_from_cash_account_id": "cash_01",
       "status": "Active",
-      "current_balance": 20833.34,
-      "total_principal_paid": 4166.66,
-      "total_interest_paid": 416.66,
+      "current_balance": 25000,
+      "total_principal_paid": 0,
+      "total_interest_paid": 0,
       "total_penalty_paid": 0,
       "total_fees_paid": 500,
       "approved_by": "Elena Rostro",
@@ -2958,11 +2958,11 @@
       "fee": 0,
       "total_installment": 2291.66,
       "principal_balance": 22916.67,
-      "paid_principal": 2083.33,
-      "paid_interest": 208.33,
+      "paid_principal": 0,
+      "paid_interest": 0,
       "paid_penalty": 0,
-      "paid_date": "2026-02-20",
-      "status": "Paid",
+      "paid_date": null,
+      "status": "Unpaid",
       "cooperative_id": "coop_01",
       "branch_id": "branch_tar"
     },
@@ -2976,11 +2976,11 @@
       "fee": 0,
       "total_installment": 2291.66,
       "principal_balance": 20833.34,
-      "paid_principal": 2083.33,
-      "paid_interest": 208.33,
+      "paid_principal": 0,
+      "paid_interest": 0,
       "paid_penalty": 0,
-      "paid_date": "2026-03-20",
-      "status": "Paid",
+      "paid_date": null,
+      "status": "Unpaid",
       "cooperative_id": "coop_01",
       "branch_id": "branch_tar"
     },
@@ -3580,6 +3580,35 @@
       "cooperative_id": "coop_01",
       "branch_id": "branch_urd",
       "journal_entry_id": null
+    },
+    {
+      "id": "pmt_1794109091666",
+      "receipt_no": "TAR-OR-2026-000155-ADJ",
+      "reference_id": "TAR-OR-2026-000155-ADJ",
+      "loan_id": "ln_000001",
+      "loan_account_no": "LN-2026-0001",
+      "member_id": "mem_000001",
+      "branch_id": "branch_tar",
+      "payment_date": "2026-11-08",
+      "total_amount": 2500,
+      "amount": 2500,
+      "principal_amount": 2291.67,
+      "interest_amount": 208.33,
+      "penalty_amount": 0,
+      "fee_amount": 0,
+      "cash_account_id": "cash_01",
+      "received_by": "System Admin",
+      "journal_entry_id": "jv_1794109091666_zjpeou",
+      "notes": "Test payment",
+      "principal_paid": 2291.67,
+      "interest_paid": 208.33,
+      "adjustment_reason": "Correction of counter receipt error",
+      "adjusted_at": "2026-11-08T03:38:22.213Z",
+      "adjusted_by": "Admin",
+      "status": "Voided",
+      "voided_at": "2026-11-08T03:38:29.690Z",
+      "voided_by": "Admin",
+      "void_reason": "Payment voided by administrator"
     }
   ],
   "loan_payment_allocations": [
@@ -4632,7 +4661,7 @@
       "branch_id": "branch_tar",
       "gl_account_id": "acc_1110",
       "opening_balance": 100000,
-      "current_balance": 154500,
+      "current_balance": 156791.66,
       "currency": "PHP",
       "active": true,
       "cooperative_id": "coop_01"
@@ -5376,6 +5405,23 @@
       "created_by": "Branch Manager",
       "posted_at": "2026-03-27T16:00:00Z",
       "cooperative_id": "coop_01"
+    },
+    {
+      "id": "jv_1794109091666_zjpeou",
+      "voucher_number": "TAR-OR-2026-000156",
+      "voucher_type": "CRJ",
+      "branch_id": "branch_tar",
+      "posting_date": "2026-11-08",
+      "reference_type": "LOAN_PAYMENT",
+      "reference_id": "TAR-OR-2026-000155",
+      "description": "Loan payment TAR-OR-2026-000155 for LN-2026-0001",
+      "total_debit": 2500,
+      "total_credit": 2500,
+      "period_id": "period_2026_11",
+      "status": "Reversed",
+      "created_by": "System Admin",
+      "posted_at": "2026-11-08T03:38:11.668Z",
+      "notes": "Reversed due to void of payment TAR-OR-2026-000155-ADJ: Payment voided by administrator"
     }
   ],
   "journal_lines": [
@@ -5939,6 +5985,33 @@
       "journal_entry_id": "cd_exp_sfe_03",
       "cooperative_id": "coop_01",
       "branch_id": "branch_sfe"
+    },
+    {
+      "id": "jl_1794109091666_1",
+      "journal_entry_id": "jv_1794109091666_zjpeou",
+      "account_id": "acc_1110",
+      "debit": 2500,
+      "credit": 0,
+      "subsidiary_type": "Cash",
+      "subsidiary_id": "cash_01"
+    },
+    {
+      "id": "jl_1794109091666_2",
+      "journal_entry_id": "jv_1794109091666_zjpeou",
+      "account_id": "acc_1210",
+      "debit": 0,
+      "credit": 2500,
+      "subsidiary_type": "Loan",
+      "subsidiary_id": "ln_000001"
+    },
+    {
+      "id": "jl_1794109091666_3",
+      "journal_entry_id": "jv_1794109091666_zjpeou",
+      "account_id": "acc_4110",
+      "debit": 0,
+      "credit": 2500,
+      "subsidiary_type": null,
+      "subsidiary_id": null
     }
   ],
   "general_ledger": [],
@@ -5992,7 +6065,30 @@
       "user_id": null,
       "created_at": "2026-11-08T01:47:45.236Z",
       "reason": "Yearly Accounting Setup",
-      "action": "UPDATE"
+      "action": "UPDATE",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "audit_1794109102244_5737b4",
+      "setting": "Loan Payment Adjusted: TAR-OR-2026-000155-ADJ",
+      "old_value": "Previous: ₱2291.66 (Principal: ₱2083.33, Interest: ₱208.33)",
+      "new_value": "Adjusted: ₱2500.00 (Principal: ₱2291.67, Interest: ₱208.33)",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-08T03:38:22.244Z",
+      "reason": "Correction of counter receipt error"
+    },
+    {
+      "id": "audit_1794109109729_rrsfn6",
+      "setting": "Loan Payment Voided: TAR-OR-2026-000155-ADJ",
+      "old_value": "Amount: ₱2500.00",
+      "new_value": "Voided / Reversed",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-08T03:38:29.729Z",
+      "reason": "Payment voided by administrator"
     }
   ],
   "user_roles": [
