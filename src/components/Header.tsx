@@ -384,17 +384,14 @@ export const Header: React.FC<HeaderProps> = ({
                                 >
                                   <button
                                     type="button"
-                                    disabled={!enabled}
                                     onClick={() => {
-                                      if (enabled && onNavigateTab) {
+                                      if (onNavigateTab) {
                                         onNavigateTab(mod.tabId);
                                         setShowModulesMenu(false);
                                       }
                                     }}
-                                    title={enabled ? `Open ${mod.label}` : `${mod.label} is turned OFF`}
-                                    className={`flex items-center space-x-2.5 min-w-0 flex-1 text-left ${
-                                      enabled ? 'cursor-pointer group' : 'cursor-default'
-                                    }`}
+                                    title={`Open ${mod.label}${enabled ? '' : ' (hidden in sidebar)'}`}
+                                    className="flex items-center space-x-2.5 min-w-0 flex-1 text-left cursor-pointer group"
                                   >
                                     <div
                                       className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
@@ -411,17 +408,17 @@ export const Header: React.FC<HeaderProps> = ({
                                           className={`text-xs font-semibold truncate ${
                                             enabled
                                               ? 'text-slate-100 group-hover:text-emerald-400'
-                                              : 'text-slate-400 line-through'
+                                              : 'text-slate-400 group-hover:text-slate-200'
                                           }`}
                                         >
                                           {mod.label}
                                         </span>
-                                        {enabled && onNavigateTab && (
+                                        {onNavigateTab && (
                                           <ArrowUpRight className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                                         )}
                                       </div>
                                       <p className="text-[10px] text-slate-400 truncate">
-                                        {mod.description}
+                                        {enabled ? mod.description : 'Hidden from sidebar nav'}
                                       </p>
                                     </div>
                                   </button>

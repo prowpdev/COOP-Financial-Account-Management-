@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
-import { Sidebar, SIDEBAR_MODULE_TOGGLES, TAB_FEATURE_KEY_MAP, TabKey } from './components/Sidebar';
+import { Sidebar, SIDEBAR_MODULE_TOGGLES, TabKey } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { ConfigCenter } from './components/config/ConfigCenter';
 import { ExcelWorkbench } from './components/config/ExcelWorkbench';
@@ -389,20 +389,6 @@ export default function App() {
     }
   }, [currentUser?.role_id, currentUser?.is_super_admin, activeTab]);
 
-  // Redirect away if active sidebar module is toggled OFF
-  useEffect(() => {
-    const isSuperAdmin = currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
-    if (isSuperAdmin || featureToggles.length === 0) return;
-
-    const featureKey = TAB_FEATURE_KEY_MAP[activeTab];
-    if (!featureKey) return;
-
-    const toggle = featureToggles.find(f => f.key === featureKey);
-    if (toggle && toggle.enabled === false) {
-      navigateToTab('dashboard');
-    }
-  }, [activeTab, featureToggles, currentUser?.role_id, currentUser?.is_super_admin]);
-
   const handleToggleModule = async (
     key: string,
     enabled: boolean,
@@ -425,11 +411,6 @@ export default function App() {
         }
       ];
     });
-
-    const activeFeatureKey = TAB_FEATURE_KEY_MAP[activeTab];
-    if (!enabled && activeFeatureKey === key) {
-      navigateToTab('dashboard');
-    }
 
     try {
       const res = await api.toggleFeature(

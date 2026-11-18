@@ -218,142 +218,172 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return feat ? feat.enabled : true;
   };
 
-  const navItems = [
+  const navItems: Array<{
+    id: TabKey;
+    label: string;
+    shortLabel: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+    section?: 'operations' | 'finance' | 'admin';
+    superAdminOnly?: boolean;
+    alwaysShow?: boolean;
+    featureKey?: string;
+  }> = [
     {
-      id: 'superadmin_console' as TabKey,
+      id: 'superadmin_console',
       label: 'Super Admin Console',
       shortLabel: 'Super Admin',
       icon: ShieldAlert,
       badge: 'Gov',
       superAdminOnly: true
     },
+    // 1. Overview & Operations
     {
-      id: 'dashboard' as TabKey,
+      id: 'dashboard',
       label: 'Executive Dashboard',
       shortLabel: 'Dashboard',
       icon: LayoutDashboard,
+      section: 'operations',
       alwaysShow: true
     },
     {
-      id: 'configuration' as TabKey,
-      label: 'System Configuration',
-      shortLabel: 'Config',
-      icon: Settings2,
-      badge: 'Core',
-      alwaysShow: true
-    },
-    {
-      id: 'excel_workbench' as TabKey,
-      label: 'Excel Grid Workbench',
-      shortLabel: 'Excel',
-      icon: FileSpreadsheet,
-      badge: 'Grid',
-      featureKey: 'feature_excel_workbench'
-    },
-    {
-      id: 'members' as TabKey,
+      id: 'members',
       label: 'Member Registry',
       shortLabel: 'Members',
       icon: Users,
+      section: 'operations',
       featureKey: 'feature_members'
     },
     {
-      id: 'member_profile' as TabKey,
+      id: 'member_profile',
       label: 'Member Profile & Dossier',
       shortLabel: 'Profile',
       icon: UserCheck,
       badge: 'KYC',
+      section: 'operations',
       featureKey: 'feature_member_profile'
     },
     {
-      id: 'member_fields' as TabKey,
-      label: 'Member Custom Fields',
-      shortLabel: 'Custom Fields',
-      icon: Sliders,
-      badge: 'Fields',
-      featureKey: 'feature_custom_fields'
-    },
-    {
-      id: 'user_documents' as TabKey,
-      label: 'User Document Management',
-      shortLabel: 'User Docs',
-      icon: FolderOpen,
-      badge: 'Docs',
-      featureKey: 'feature_user_documents'
-    },
-    {
-      id: 'board_resolutions' as TabKey,
-      label: 'Board Resolutions',
-      shortLabel: 'Resolutions',
-      icon: Scroll,
-      badge: 'BOD',
-      featureKey: 'feature_board_resolutions'
-    },
-    {
-      id: 'user_profile' as TabKey,
-      label: 'User Profile & Assignments',
-      shortLabel: 'My Profile',
-      icon: UserCircle,
-      badge: 'Account',
-      alwaysShow: true
-    },
-    {
-      id: 'loans' as TabKey,
+      id: 'loans',
       label: 'Loans & Credit Facility',
       shortLabel: 'Loans',
       icon: CreditCard,
+      section: 'operations',
       featureKey: 'feature_loans'
     },
     {
-      id: 'savings' as TabKey,
-      label: 'Savings & Deposits',
-      shortLabel: 'Savings',
-      icon: PiggyBank,
-      featureKey: 'feature_savings'
-    },
-    {
-      id: 'share_capital' as TabKey,
+      id: 'share_capital',
       label: 'Share Capital (CBU)',
       shortLabel: 'Capital',
       icon: Coins,
+      section: 'operations',
       featureKey: 'feature_share_capital'
     },
     {
-      id: 'accounting' as TabKey,
+      id: 'savings',
+      label: 'Savings & Deposits',
+      shortLabel: 'Savings',
+      icon: PiggyBank,
+      section: 'operations',
+      featureKey: 'feature_savings'
+    },
+    // 2. Accounting & Reporting
+    {
+      id: 'accounting',
       label: 'Books of Accounts & General Ledger',
       shortLabel: 'Journals & GL',
       icon: BookOpen,
+      section: 'finance',
       featureKey: 'feature_accounting'
     },
     {
-      id: 'reports' as TabKey,
+      id: 'reports',
       label: 'Financial Statements',
       shortLabel: 'Reports',
       icon: BarChart3,
+      section: 'finance',
       featureKey: 'feature_reports'
     },
     {
-      id: 'reports_module' as TabKey,
+      id: 'reports_module',
       label: 'Reports & Ledger Workbench',
       shortLabel: 'Reports Module',
       icon: FileSpreadsheet,
       badge: 'Excel',
+      section: 'finance',
       featureKey: 'feature_reports_workbench'
     },
+    // 3. Records & Administration
     {
-      id: 'audit_logs' as TabKey,
+      id: 'board_resolutions',
+      label: 'Board Resolutions',
+      shortLabel: 'Resolutions',
+      icon: Scroll,
+      badge: 'BOD',
+      section: 'admin',
+      featureKey: 'feature_board_resolutions'
+    },
+    {
+      id: 'user_documents',
+      label: 'User Document Management',
+      shortLabel: 'User Docs',
+      icon: FolderOpen,
+      badge: 'Docs',
+      section: 'admin',
+      featureKey: 'feature_user_documents'
+    },
+    {
+      id: 'member_fields',
+      label: 'Member Custom Fields',
+      shortLabel: 'Custom Fields',
+      icon: Sliders,
+      badge: 'Fields',
+      section: 'admin',
+      featureKey: 'feature_custom_fields'
+    },
+    {
+      id: 'excel_workbench',
+      label: 'Excel Grid Workbench',
+      shortLabel: 'Excel',
+      icon: FileSpreadsheet,
+      badge: 'Grid',
+      section: 'admin',
+      featureKey: 'feature_excel_workbench'
+    },
+    {
+      id: 'audit_logs',
       label: 'Audit Logs',
       shortLabel: 'Audit Logs',
       icon: ShieldCheck,
       badge: 'CDA',
+      section: 'admin',
       featureKey: 'feature_audit_logs'
     },
     {
-      id: 'verification' as TabKey,
+      id: 'configuration',
+      label: 'System Configuration',
+      shortLabel: 'Config',
+      icon: Settings2,
+      badge: 'Core',
+      section: 'admin',
+      alwaysShow: true
+    },
+    {
+      id: 'user_profile',
+      label: 'User Profile & Assignments',
+      shortLabel: 'My Profile',
+      icon: UserCircle,
+      badge: 'Account',
+      section: 'admin',
+      alwaysShow: true
+    },
+    {
+      id: 'verification',
       label: 'Flexibility Test Suite',
       shortLabel: '15 Tests',
       icon: CheckCircle,
       badge: '15/15',
+      section: 'admin',
       featureKey: 'feature_verification'
     }
   ];
@@ -478,40 +508,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {visibleItems.map(item => {
+          {visibleItems.map((item, idx) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const prevSection = idx > 0 ? visibleItems[idx - 1].section : undefined;
+            const showSectionHeader =
+              !isCollapsed &&
+              !isSuperAdmin &&
+              item.section &&
+              item.section !== prevSection;
+            const sectionLabel =
+              item.section === 'operations'
+                ? 'Overview & Operations'
+                : item.section === 'finance'
+                  ? 'Accounting & Reporting'
+                  : 'Records & Administration';
+
             return (
-              <button
-                key={item.id}
-                id={`nav-${item.id}`}
-                onClick={() => {
-                  onSelectTab(item.id);
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                title={isCollapsed ? item.label : undefined}
-                className={`sidebar-menu-btn w-full flex items-center rounded-xl text-sm font-medium transition cursor-pointer ${
-                  isCollapsed
-                    ? 'justify-center p-3'
-                    : 'justify-between px-3 py-2.5'
-                } ${
-                  isActive
-                    ? 'sidebar-nav-active bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                    : 'sidebar-nav-item text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`}
-              >
-                <div className={`flex items-center truncate ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'sidebar-icon-active text-emerald-400' : 'sidebar-icon text-slate-400'}`} />
-                  {!isCollapsed && <span className="truncate font-medium">{item.label}</span>}
-                </div>
-                {!isCollapsed && item.badge && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-tight shrink-0 ${
-                    isActive ? 'sidebar-badge-active bg-emerald-500/30 text-emerald-200' : 'sidebar-badge bg-slate-800 text-slate-400 border border-slate-700'
-                  }`}>
-                    {item.badge}
-                  </span>
+              <React.Fragment key={item.id}>
+                {showSectionHeader && (
+                  <div
+                    className={`px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 ${
+                      idx === 0 ? 'pt-0.5 pb-1' : 'pt-3 pb-1 border-t border-slate-800/70 mt-2'
+                    }`}
+                  >
+                    {sectionLabel}
+                  </div>
                 )}
-              </button>
+                <button
+                  id={`nav-${item.id}`}
+                  onClick={() => {
+                    onSelectTab(item.id);
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  title={isCollapsed ? item.label : undefined}
+                  className={`sidebar-menu-btn w-full flex items-center rounded-xl text-sm font-medium transition cursor-pointer ${
+                    isCollapsed
+                      ? 'justify-center p-3'
+                      : 'justify-between px-3 py-2.5'
+                  } ${
+                    isActive
+                      ? 'sidebar-nav-active bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                      : 'sidebar-nav-item text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className={`flex items-center truncate ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
+                    <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'sidebar-icon-active text-emerald-400' : 'sidebar-icon text-slate-400'}`} />
+                    {!isCollapsed && <span className="truncate font-medium">{item.label}</span>}
+                  </div>
+                  {!isCollapsed && item.badge && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-tight shrink-0 ${
+                      isActive ? 'sidebar-badge-active bg-emerald-500/30 text-emerald-200' : 'sidebar-badge bg-slate-800 text-slate-400 border border-slate-700'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              </React.Fragment>
             );
           })}
         </div>
