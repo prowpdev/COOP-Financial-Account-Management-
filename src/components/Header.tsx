@@ -20,13 +20,17 @@ import {
   MoreVertical,
   Layers,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  LayoutGrid,
+  ChevronDown,
+  Settings2,
+  ArrowUpRight
 } from 'lucide-react';
-import { Branch, User } from '../types';
+import { Branch, FeatureToggle, User } from '../types';
 import { getApiBase, setApiBase, DEFAULT_API_BASE, api } from '../services/api';
 import { SqlSchemaModal } from './common/SqlSchemaModal';
 import { NotificationBell } from './common/NotificationBell';
-import { TabKey } from './Sidebar';
+import { SIDEBAR_MODULE_TOGGLES, SidebarModuleToggleItem, TabKey } from './Sidebar';
 
 import Notice from './Notice';
 import { useNotice } from './useNotice';
@@ -48,6 +52,14 @@ interface HeaderProps {
   onOpenAuthModal?: () => void;
   onLogout?: () => void;
   onNavigateTab?: (tab: TabKey) => void;
+  activeTab?: TabKey;
+  featureToggles?: FeatureToggle[];
+  onToggleModule?: (
+    key: string,
+    enabled: boolean,
+    meta?: { name?: string; description?: string }
+  ) => Promise<void> | void;
+  onEnableAllModules?: () => Promise<void> | void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -66,15 +78,36 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSetupWizard,
   onOpenAuthModal,
   onLogout,
-  onNavigateTab
+  onNavigateTab,
+  activeTab,
+  featureToggles = [],
+  onToggleModule,
+  onEnableAllModules
 }) => {
   const [apiEndpoint, setApiEndpointState] = useState(getApiBase());
   const [showApiModal, setShowApiModal] = useState(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showModulesMenu, setShowModulesMenu] = useState(false);
+  const [togglingModuleKey, setTogglingModuleKey] = useState<string | null>(null);
+  const [isEnablingAll, setIsEnablingAll] = useState(false);
   const [customEndpointInput, setCustomEndpointInput] = useState(getApiBase());
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const modulesMenuRef = useRef<HTMLDivElement>(null);
+
+  const isSuperAdmin =
+    currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
+
+  const isModuleEnabled = (key: string) => {
+    const found = featureToggles.find(f => f.key === key);
+    return found ? Boolean(found.enabled) : true;
+  };
+
+  const enabledModulesCount = SIDEBAR_MODULE_TOGGLES.filter(m =>
+    isModuleEnabled(m.key)
+  ).length;
+  const hasDisabledModules = enabledModulesCount < SIDEBAR_MODULE_TOGGLES.length;
 
   const {
     notice,
@@ -93,18 +126,59 @@ export const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener('coop:api-endpoint-changed', handleEndpointChange);
   }, []);
 
-  // Close mobile dropdown when clicking outside
+  // Close dropdowns when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
         setShowMobileMenu(false);
       }
+      if (modulesMenuRef.current && !modulesMenuRef.current.contains(event.target as Node)) {
+        setShowModulesMenu(false);
+      }
     };
-    if (showMobileMenu) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMobileMenu(false);
+        setShowModulesMenu(false);
+      }
+    };
+    if (showMobileMenu || showModulesMenu) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMobileMenu]);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showMobileMenu, showModulesMenu]);
+
+  const handleToggleSidebarModule = async (mod: SidebarModuleToggleItem) => {
+    if (!onToggleModule || togglingModuleKey) return;
+    const nextEnabled = !isModuleEnabled(mod.key);
+    setTogglingModuleKey(mod.key);
+    try {
+      await onToggleModule(mod.key, nextEnabled, {
+        name: mod.label,
+        description: mod.description
+      });
+    } catch (error: any) {
+      showNotice(error?.message || `Failed to toggle ${mod.label}.`, 'error');
+    } finally {
+      setTogglingModuleKey(null);
+    }
+  };
+
+  const handleEnableAllSidebarModules = async () => {
+    if (!onEnableAllModules || isEnablingAll) return;
+    setIsEnablingAll(true);
+    try {
+      await onEnableAllModules();
+    } catch (error: any) {
+      showNotice(error?.message || 'Failed to enable all modules.', 'error');
+    } finally {
+      setIsEnablingAll(false);
+    }
+  };
 
   const handleSeedDatabase = async () => {
     if (isSeeding) return;
@@ -219,6 +293,200 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
             </button>
+
+            {/* Sidebar Modules Switcher Dropdown (Aligned with Admin Name) */}
+            {!isSuperAdmin && onToggleModule && (
+              <div className="relative" ref={modulesMenuRef}>
+                <button
+                  id="btn-header-modules-dropdown"
+                  type="button"
+                  onClick={() => setShowModulesMenu(prev => !prev)}
+                  aria-expanded={showModulesMenu}
+                  aria-haspopup="true"
+                  title="Toggle sidebar modules ON or OFF (Loan, CBU, Savings, etc.)"
+                  className={`flex items-center space-x-2 rounded-xl px-2.5 py-1.5 border transition cursor-pointer text-left ${
+                    showModulesMenu
+                      ? 'bg-emerald-600/20 border-emerald-500/60 text-white shadow-sm'
+                      : 'bg-slate-800/90 hover:bg-slate-800 border-slate-700 hover:border-emerald-500/50 text-slate-200'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="hidden sm:flex flex-col leading-tight">
+                    <span className="text-xs font-semibold text-slate-100">
+                      Modules
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {enabledModulesCount}/{SIDEBAR_MODULE_TOGGLES.length} Active
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      showModulesMenu ? 'rotate-180 text-emerald-400' : ''
+                    }`}
+                  />
+                </button>
+
+                {showModulesMenu && (
+                  <div
+                    id="header-modules-dropdown-menu"
+                    className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-96 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                  >
+                    {/* Dropdown Header */}
+                    <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/95 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <LayoutGrid className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                            Sidebar Modules
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Turn modules ON or OFF in the sidebar ({enabledModulesCount} of {SIDEBAR_MODULE_TOGGLES.length} active)
+                        </p>
+                      </div>
+                      {hasDisabledModules && onEnableAllModules && (
+                        <button
+                          type="button"
+                          onClick={handleEnableAllSidebarModules}
+                          disabled={isEnablingAll}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider transition cursor-pointer shrink-0 disabled:opacity-50"
+                        >
+                          {isEnablingAll ? 'Enabling...' : 'All ON'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Modules List */}
+                    <div className="max-h-[65vh] overflow-y-auto p-2 space-y-3">
+                      {(['core', 'workspace'] as const).map(groupKey => {
+                        const groupItems = SIDEBAR_MODULE_TOGGLES.filter(m => m.group === groupKey);
+                        return (
+                          <div key={groupKey} className="space-y-1">
+                            <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              {groupKey === 'core' ? 'Core Cooperative Modules' : 'Members & Workspace'}
+                            </div>
+                            {groupItems.map(mod => {
+                              const Icon = mod.icon;
+                              const enabled = isModuleEnabled(mod.key);
+                              const isBusy = togglingModuleKey === mod.key;
+                              const isCurrentTab = activeTab === mod.tabId;
+
+                              return (
+                                <div
+                                  key={mod.key}
+                                  className={`flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border transition ${
+                                    isCurrentTab
+                                      ? 'bg-emerald-950/30 border-emerald-500/40'
+                                      : enabled
+                                        ? 'bg-slate-800/40 border-slate-800 hover:border-slate-700'
+                                        : 'bg-slate-950/40 border-slate-800/60 opacity-75'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    disabled={!enabled}
+                                    onClick={() => {
+                                      if (enabled && onNavigateTab) {
+                                        onNavigateTab(mod.tabId);
+                                        setShowModulesMenu(false);
+                                      }
+                                    }}
+                                    title={enabled ? `Open ${mod.label}` : `${mod.label} is turned OFF`}
+                                    className={`flex items-center space-x-2.5 min-w-0 flex-1 text-left ${
+                                      enabled ? 'cursor-pointer group' : 'cursor-default'
+                                    }`}
+                                  >
+                                    <div
+                                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                        enabled
+                                          ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                                          : 'bg-slate-800 border-slate-700 text-slate-500'
+                                      }`}
+                                    >
+                                      <Icon className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center space-x-1.5">
+                                        <span
+                                          className={`text-xs font-semibold truncate ${
+                                            enabled
+                                              ? 'text-slate-100 group-hover:text-emerald-400'
+                                              : 'text-slate-400 line-through'
+                                          }`}
+                                        >
+                                          {mod.label}
+                                        </span>
+                                        {enabled && onNavigateTab && (
+                                          <ArrowUpRight className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-slate-400 truncate">
+                                        {mod.description}
+                                      </p>
+                                    </div>
+                                  </button>
+
+                                  {/* ON / OFF Toggle Switch */}
+                                  <button
+                                    id={`header-module-toggle-${mod.key}`}
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={enabled}
+                                    aria-label={`Toggle ${mod.label}`}
+                                    disabled={isBusy}
+                                    onClick={() => handleToggleSidebarModule(mod)}
+                                    className={`inline-flex items-center space-x-1.5 px-2 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider transition cursor-pointer shrink-0 disabled:opacity-60 ${
+                                      enabled
+                                        ? 'bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-500'
+                                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-6 h-3.5 rounded-full relative inline-flex items-center transition-colors ${
+                                        enabled ? 'bg-emerald-900/50' : 'bg-slate-900/70'
+                                      }`}
+                                    >
+                                      <span
+                                        className={`w-2.5 h-2.5 rounded-full bg-white shadow transition-transform ${
+                                          enabled ? 'translate-x-3' : 'translate-x-0.5'
+                                        }`}
+                                      />
+                                    </span>
+                                    <span className="w-5 text-center">
+                                      {isBusy ? '...' : enabled ? 'ON' : 'OFF'}
+                                    </span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Dropdown Footer */}
+                    {onNavigateTab && (
+                      <div className="px-3 py-2.5 border-t border-slate-800 bg-slate-900/95 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">
+                          Click a module name to open it
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigateTab('configuration');
+                            setShowModulesMenu(false);
+                          }}
+                          className="flex items-center space-x-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                          <span>Full Settings</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Notification Bell Icon for Loan Applications & Interest Alerts */}
             <NotificationBell onNavigateTab={onNavigateTab} />

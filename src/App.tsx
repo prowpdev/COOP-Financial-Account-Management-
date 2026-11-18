@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
-import { Sidebar, TabKey } from './components/Sidebar';
+import { Sidebar, SIDEBAR_MODULE_TOGGLES, TAB_FEATURE_KEY_MAP, TabKey } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { ConfigCenter } from './components/config/ConfigCenter';
 import { ExcelWorkbench } from './components/config/ExcelWorkbench';
@@ -389,6 +389,84 @@ export default function App() {
     }
   }, [currentUser?.role_id, currentUser?.is_super_admin, activeTab]);
 
+  // Redirect away if active sidebar module is toggled OFF
+  useEffect(() => {
+    const isSuperAdmin = currentUser?.role_id === 'role_superadmin' || Boolean(currentUser?.is_super_admin);
+    if (isSuperAdmin || featureToggles.length === 0) return;
+
+    const featureKey = TAB_FEATURE_KEY_MAP[activeTab];
+    if (!featureKey) return;
+
+    const toggle = featureToggles.find(f => f.key === featureKey);
+    if (toggle && toggle.enabled === false) {
+      navigateToTab('dashboard');
+    }
+  }, [activeTab, featureToggles, currentUser?.role_id, currentUser?.is_super_admin]);
+
+  const handleToggleModule = async (
+    key: string,
+    enabled: boolean,
+    meta?: { name?: string; description?: string }
+  ) => {
+    const previous = featureToggles;
+    setFeatureToggles(prev => {
+      const exists = prev.some(t => t.key === key);
+      if (exists) {
+        return prev.map(t => (t.key === key ? { ...t, enabled } : t));
+      }
+      return [
+        ...prev,
+        {
+          id: `feat_${key.replace(/^feature_/, '')}`,
+          key,
+          name: meta?.name || key,
+          description: meta?.description || '',
+          enabled
+        }
+      ];
+    });
+
+    const activeFeatureKey = TAB_FEATURE_KEY_MAP[activeTab];
+    if (!enabled && activeFeatureKey === key) {
+      navigateToTab('dashboard');
+    }
+
+    try {
+      const res = await api.toggleFeature(
+        key,
+        enabled,
+        currentUser?.name || 'Administrator',
+        'Toggled module visibility from top menu dropdown',
+        meta?.name,
+        meta?.description
+      );
+      if (res?.toggle) {
+        setFeatureToggles(prev => {
+          const exists = prev.some(t => t.key === key);
+          return exists
+            ? prev.map(t => (t.key === key ? { ...t, ...res.toggle } : t))
+            : [...prev, res.toggle];
+        });
+      }
+    } catch (error) {
+      setFeatureToggles(previous);
+      throw error;
+    }
+  };
+
+  const handleEnableAllModules = async () => {
+    const disabledItems = SIDEBAR_MODULE_TOGGLES.filter(item => {
+      const found = featureToggles.find(f => f.key === item.key);
+      return found ? !found.enabled : false;
+    });
+    for (const item of disabledItems) {
+      await handleToggleModule(item.key, true, {
+        name: item.label,
+        description: item.description
+      });
+    }
+  };
+
   // Load foundational data
   const refreshGlobalState = async () => {
     try {
@@ -589,6 +667,10 @@ export default function App() {
           navigateToTab(tab);
           setIsMobileSidebarOpen(false);
         }}
+        activeTab={activeTab}
+        featureToggles={featureToggles}
+        onToggleModule={handleToggleModule}
+        onEnableAllModules={handleEnableAllModules}
       />
 
       {/* Main View Area with Persistent Collapsible Sidebar */}

@@ -36,6 +36,25 @@ export function getEffectiveBranchId(req: Request): string | null {
   return String(branchId).trim();
 }
 
+// In-flight & recent transaction deduplication guard to prevent duplicate submissions from accidental double-clicks
+const recentTransactions = new Map<string, number>();
+
+export function checkDuplicateTransaction(key: string, windowMs = 3500): boolean {
+  const now = Date.now();
+  const lastTime = recentTransactions.get(key);
+  if (lastTime && (now - lastTime) < windowMs) {
+    return true; // Duplicate detected within window
+  }
+  recentTransactions.set(key, now);
+  // Periodic cleanup if map grows
+  if (recentTransactions.size > 2000) {
+    for (const [k, t] of recentTransactions.entries()) {
+      if (now - t > 15000) recentTransactions.delete(k);
+    }
+  }
+  return false;
+}
+
 // ==========================================
 // 1. CONFIGURATION CENTER & SYSTEM SETTINGS
 // ==========================================
@@ -98,20 +117,37 @@ router.put('/config/system-settings', (req: Request, res: Response) => {
   }
 });
 
-// Feature toggle switch (Test 12)
+// Feature toggle switch (Test 12 & Sidebar Module Switcher)
 router.post('/config/feature-toggles/toggle', (req: Request, res: Response) => {
-  const { key, enabled, changed_by, reason } = req.body;
+  const { key, enabled, changed_by, reason, name, description } = req.body;
   const toggles = db.getTable('feature_toggles');
-  const toggle = toggles.find(t => t.key === key || t.id === key);
+  let toggle = toggles.find(t => t.key === key || t.id === key);
 
   if (!toggle) {
+    if (typeof key === 'string' && key.startsWith('feature_')) {
+      toggle = {
+        id: `feat_${key.replace(/^feature_/, '')}`,
+        key,
+        name: name || key.replace(/^feature_/, '').replace(/_/g, ' '),
+        description: description || `Toggle visibility for ${name || key} module in sidebar`,
+        enabled: Boolean(enabled),
+        branch_id: 'branch_tar',
+        feature_key: key,
+        category: 'Modules',
+        updated_at: new Date().toISOString()
+      };
+      db.insert('feature_toggles', toggle);
+      db.recordAudit(`Feature Toggle: ${toggle.name}`, true, toggle.enabled, changed_by || 'Admin', reason || 'Toggled module visibility');
+      return res.json({ success: true, toggle });
+    }
     return res.status(404).json({ success: false, error: 'Feature toggle not found' });
   }
 
   const oldVal = toggle.enabled;
   toggle.enabled = Boolean(enabled);
+  toggle.updated_at = new Date().toISOString();
   db.update('feature_toggles', t => t.id === toggle.id, () => toggle);
-  db.recordAudit(`Feature Toggle: ${toggle.name}`, oldVal, toggle.enabled, changed_by, reason || 'Toggled module visibility');
+  db.recordAudit(`Feature Toggle: ${toggle.name}`, oldVal, toggle.enabled, changed_by || 'Admin', reason || 'Toggled module visibility');
 
   res.json({ success: true, toggle });
 });
@@ -4129,6 +4165,14 @@ const handleCreateLoanApplication = (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'Valid principal/applied amount is required.' });
   }
 
+  const dedupKey = `loan_app_${member_id}_${loan_product_id}_${principal}`;
+  if (checkDuplicateTransaction(dedupKey, 3500)) {
+    return res.status(409).json({
+      success: false,
+      error: 'Duplicate loan application prevented. An identical application is already being processed.'
+    });
+  }
+
   const members = db.getTable('members') || [];
   const member = members.find(m => m.id === member_id);
   if (!member) {
@@ -4415,6 +4459,16 @@ const handleLoanOriginate = (req: Request, res: Response) => {
     principal_amount = loanApp.approved_amount || loanApp.applied_amount;
     term_months = loanApp.term_months;
     branch_id = loanApp.branch_id;
+  }
+
+  const origDedupKey = application_id
+    ? `orig_app_${application_id}`
+    : `orig_direct_${member_id}_${loan_product_id}_${principal_amount}`;
+  if (checkDuplicateTransaction(origDedupKey, 3500)) {
+    return res.status(409).json({
+      success: false,
+      error: 'Duplicate loan origination/disbursement prevented. This operation is already being processed.'
+    });
   }
 
   // 1. Validate Member
@@ -4911,6 +4965,14 @@ router.post('/loans/:id/repay', (req: Request, res: Response) => {
   const paymentAmount = Number(Number(amount).toFixed(2));
   if (paymentAmount <= 0) {
     return res.status(400).json({ success: false, error: 'Payment amount must be greater than zero' });
+  }
+
+  const repayDedupKey = `repay_${loan.id}_${paymentAmount}`;
+  if (checkDuplicateTransaction(repayDedupKey, 3500)) {
+    return res.status(409).json({
+      success: false,
+      error: 'Duplicate loan repayment prevented. A payment of this amount is already being processed.'
+    });
   }
 
   // Find next unpaid installment

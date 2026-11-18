@@ -189,10 +189,17 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body)
     }),
-  toggleFeature: (key: string, enabled: boolean, changed_by?: string, reason?: string) =>
+  toggleFeature: (
+    key: string,
+    enabled: boolean,
+    changed_by?: string,
+    reason?: string,
+    name?: string,
+    description?: string
+  ) =>
     fetchApi<{ success: boolean; toggle: any }>('/config/feature-toggles/toggle', {
       method: 'POST',
-      body: JSON.stringify({ key, enabled, changed_by, reason })
+      body: JSON.stringify({ key, enabled, changed_by, reason, name, description })
     }),
 
   // Chart of Accounts

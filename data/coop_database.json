@@ -253,7 +253,7 @@
       "branch_id": "branch_tar",
       "feature_key": "",
       "category": null,
-      "updated_at": null
+      "updated_at": "2026-11-18T01:01:25.600Z"
     },
     {
       "id": "feat_share_capital",
@@ -309,6 +309,17 @@
       "feature_key": "",
       "category": null,
       "updated_at": null
+    },
+    {
+      "id": "feat_reports_workbench",
+      "key": "feature_reports_workbench",
+      "name": "Reports & Ledger Workbench",
+      "description": "Toggle visibility for Reports & Ledger Workbench module in sidebar",
+      "enabled": true,
+      "branch_id": "branch_tar",
+      "feature_key": "feature_reports_workbench",
+      "category": "Modules",
+      "updated_at": "2026-11-18T01:01:25.641Z"
     }
   ],
   "chart_of_accounts": [
@@ -3608,7 +3619,8 @@
       "status": "Voided",
       "voided_at": "2026-11-08T03:38:29.690Z",
       "voided_by": "Admin",
-      "void_reason": "Payment voided by administrator"
+      "void_reason": "Payment voided by administrator",
+      "cooperative_id": "coop_01"
     }
   ],
   "loan_payment_allocations": [
@@ -5421,7 +5433,8 @@
       "status": "Reversed",
       "created_by": "System Admin",
       "posted_at": "2026-11-08T03:38:11.668Z",
-      "notes": "Reversed due to void of payment TAR-OR-2026-000155-ADJ: Payment voided by administrator"
+      "notes": "Reversed due to void of payment TAR-OR-2026-000155-ADJ: Payment voided by administrator",
+      "cooperative_id": "coop_01"
     }
   ],
   "journal_lines": [
@@ -5993,7 +6006,9 @@
       "debit": 2500,
       "credit": 0,
       "subsidiary_type": "Cash",
-      "subsidiary_id": "cash_01"
+      "subsidiary_id": "cash_01",
+      "cooperative_id": "coop_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_1794109091666_2",
@@ -6002,7 +6017,9 @@
       "debit": 0,
       "credit": 2500,
       "subsidiary_type": "Loan",
-      "subsidiary_id": "ln_000001"
+      "subsidiary_id": "ln_000001",
+      "cooperative_id": "coop_01",
+      "branch_id": "branch_tar"
     },
     {
       "id": "jl_1794109091666_3",
@@ -6011,7 +6028,9 @@
       "debit": 0,
       "credit": 2500,
       "subsidiary_type": null,
-      "subsidiary_id": null
+      "subsidiary_id": null,
+      "cooperative_id": "coop_01",
+      "branch_id": "branch_tar"
     }
   ],
   "general_ledger": [],
@@ -6077,7 +6096,8 @@
       "branch_id": "branch_tar",
       "user_id": null,
       "created_at": "2026-11-08T03:38:22.244Z",
-      "reason": "Correction of counter receipt error"
+      "reason": "Correction of counter receipt error",
+      "cooperative_id": "coop_01"
     },
     {
       "id": "audit_1794109109729_rrsfn6",
@@ -6088,7 +6108,52 @@
       "branch_id": "branch_tar",
       "user_id": null,
       "created_at": "2026-11-08T03:38:29.729Z",
-      "reason": "Payment voided by administrator"
+      "reason": "Payment voided by administrator",
+      "cooperative_id": "coop_01"
+    },
+    {
+      "id": "audit_1794963685581_782jqe",
+      "setting": "Feature Toggle: Savings & Deposits",
+      "old_value": "true",
+      "new_value": "false",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-18T01:01:25.581Z",
+      "reason": "Verify toggle OFF"
+    },
+    {
+      "id": "audit_1794963685602_buvaz9",
+      "setting": "Feature Toggle: Savings & Deposits",
+      "old_value": "false",
+      "new_value": "true",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-18T01:01:25.602Z",
+      "reason": "Restore toggle ON"
+    },
+    {
+      "id": "audit_1794963685623_hjhnw0",
+      "setting": "Feature Toggle: Reports & Ledger Workbench",
+      "old_value": "true",
+      "new_value": "false",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-18T01:01:25.623Z",
+      "reason": "Toggled module visibility"
+    },
+    {
+      "id": "audit_1794963685642_ygioob",
+      "setting": "Feature Toggle: Reports & Ledger Workbench",
+      "old_value": "false",
+      "new_value": "true",
+      "changed_by": "Admin",
+      "branch_id": "branch_tar",
+      "user_id": null,
+      "created_at": "2026-11-18T01:01:25.642Z",
+      "reason": "Toggled module visibility"
     }
   ],
   "user_roles": [

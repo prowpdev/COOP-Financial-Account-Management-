@@ -55,6 +55,153 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
+export interface SidebarModuleToggleItem {
+  key: string;
+  tabId: TabKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  group: 'core' | 'workspace';
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+export const SIDEBAR_MODULE_TOGGLES: SidebarModuleToggleItem[] = [
+  {
+    key: 'feature_loans',
+    tabId: 'loans',
+    label: 'Loans & Credit Facility',
+    shortLabel: 'Loan',
+    description: 'Loan origination, schedules, and repayments',
+    group: 'core',
+    icon: CreditCard
+  },
+  {
+    key: 'feature_share_capital',
+    tabId: 'share_capital',
+    label: 'Share Capital (CBU)',
+    shortLabel: 'CBU',
+    description: 'Capital build-up, shares, and dividends',
+    group: 'core',
+    icon: Coins
+  },
+  {
+    key: 'feature_savings',
+    tabId: 'savings',
+    label: 'Savings & Deposits',
+    shortLabel: 'Savings',
+    description: 'Member savings and time deposits',
+    group: 'core',
+    icon: PiggyBank
+  },
+  {
+    key: 'feature_accounting',
+    tabId: 'accounting',
+    label: 'Books of Accounts & GL',
+    shortLabel: 'Accounting',
+    description: 'General Ledger, vouchers, and cash books',
+    group: 'core',
+    icon: BookOpen
+  },
+  {
+    key: 'feature_reports',
+    tabId: 'reports',
+    label: 'Financial Statements',
+    shortLabel: 'Statements',
+    description: 'Trial Balance, Balance Sheet, Income Statement',
+    group: 'core',
+    icon: BarChart3
+  },
+  {
+    key: 'feature_reports_workbench',
+    tabId: 'reports_module',
+    label: 'Reports & Ledger Workbench',
+    shortLabel: 'Reports',
+    description: 'Subsidiary, journal, and member ledgers',
+    group: 'core',
+    icon: FileSpreadsheet
+  },
+  {
+    key: 'feature_members',
+    tabId: 'members',
+    label: 'Member Registry',
+    shortLabel: 'Members',
+    description: 'Member directory and onboarding',
+    group: 'workspace',
+    icon: Users
+  },
+  {
+    key: 'feature_member_profile',
+    tabId: 'member_profile',
+    label: 'Member Profile & Dossier',
+    shortLabel: 'Profile',
+    description: 'Member KYC dossier and history',
+    group: 'workspace',
+    icon: UserCheck
+  },
+  {
+    key: 'feature_custom_fields',
+    tabId: 'member_fields',
+    label: 'Member Custom Fields',
+    shortLabel: 'Custom Fields',
+    description: 'Custom member attributes and TIN',
+    group: 'workspace',
+    icon: Sliders
+  },
+  {
+    key: 'feature_excel_workbench',
+    tabId: 'excel_workbench',
+    label: 'Excel Grid Workbench',
+    shortLabel: 'Excel Grid',
+    description: 'Spreadsheet batch editor for settings',
+    group: 'workspace',
+    icon: FileSpreadsheet
+  },
+  {
+    key: 'feature_user_documents',
+    tabId: 'user_documents',
+    label: 'User Document Management',
+    shortLabel: 'User Docs',
+    description: 'Member & staff uploaded documents',
+    group: 'workspace',
+    icon: FolderOpen
+  },
+  {
+    key: 'feature_board_resolutions',
+    tabId: 'board_resolutions',
+    label: 'Board Resolutions',
+    shortLabel: 'Resolutions',
+    description: 'Board of Directors resolutions registry',
+    group: 'workspace',
+    icon: Scroll
+  },
+  {
+    key: 'feature_audit_logs',
+    tabId: 'audit_logs',
+    label: 'Audit Logs',
+    shortLabel: 'Audit Logs',
+    description: 'CDA compliance audit trail',
+    group: 'workspace',
+    icon: ShieldCheck
+  },
+  {
+    key: 'feature_verification',
+    tabId: 'verification',
+    label: 'Flexibility Test Suite',
+    shortLabel: '15 Tests',
+    description: 'System verification diagnostics',
+    group: 'workspace',
+    icon: CheckCircle
+  }
+];
+
+export const TAB_FEATURE_KEY_MAP: Partial<Record<TabKey, string>> = SIDEBAR_MODULE_TOGGLES.reduce(
+  (acc, item) => {
+    acc[item.tabId] = item.key;
+    return acc;
+  },
+  {} as Partial<Record<TabKey, string>>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
@@ -101,14 +248,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Excel',
       icon: FileSpreadsheet,
       badge: 'Grid',
-      alwaysShow: true
+      featureKey: 'feature_excel_workbench'
     },
     {
       id: 'members' as TabKey,
       label: 'Member Registry',
       shortLabel: 'Members',
       icon: Users,
-      alwaysShow: true
+      featureKey: 'feature_members'
     },
     {
       id: 'member_profile' as TabKey,
@@ -116,7 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Profile',
       icon: UserCheck,
       badge: 'KYC',
-      alwaysShow: true
+      featureKey: 'feature_member_profile'
     },
     {
       id: 'member_fields' as TabKey,
@@ -124,7 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Custom Fields',
       icon: Sliders,
       badge: 'Fields',
-      alwaysShow: true
+      featureKey: 'feature_custom_fields'
     },
     {
       id: 'user_documents' as TabKey,
@@ -132,7 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'User Docs',
       icon: FolderOpen,
       badge: 'Docs',
-      alwaysShow: true
+      featureKey: 'feature_user_documents'
     },
     {
       id: 'board_resolutions' as TabKey,
@@ -140,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Resolutions',
       icon: Scroll,
       badge: 'BOD',
-      alwaysShow: true
+      featureKey: 'feature_board_resolutions'
     },
     {
       id: 'user_profile' as TabKey,
@@ -157,13 +304,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: CreditCard,
       featureKey: 'feature_loans'
     },
-    // {
-    //   id: 'savings' as TabKey,
-    //   label: 'Savings & Deposits',
-    //   shortLabel: 'Savings',
-    //   icon: PiggyBank,
-    //   featureKey: 'feature_savings'
-    // },
+    {
+      id: 'savings' as TabKey,
+      label: 'Savings & Deposits',
+      shortLabel: 'Savings',
+      icon: PiggyBank,
+      featureKey: 'feature_savings'
+    },
     {
       id: 'share_capital' as TabKey,
       label: 'Share Capital (CBU)',
@@ -191,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Reports Module',
       icon: FileSpreadsheet,
       badge: 'Excel',
-      alwaysShow: true
+      featureKey: 'feature_reports_workbench'
     },
     {
       id: 'audit_logs' as TabKey,
@@ -199,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: 'Audit Logs',
       icon: ShieldCheck,
       badge: 'CDA',
-      alwaysShow: true
+      featureKey: 'feature_audit_logs'
     },
     {
       id: 'verification' as TabKey,
@@ -207,7 +354,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       shortLabel: '15 Tests',
       icon: CheckCircle,
       badge: '15/15',
-      alwaysShow: true
+      featureKey: 'feature_verification'
     }
   ];
 
